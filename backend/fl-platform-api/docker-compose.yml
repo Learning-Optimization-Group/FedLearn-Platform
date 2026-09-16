@@ -1,0 +1,32 @@
+# Local development PostgreSQL for fl-platform-api.
+#
+#   docker compose up -d        # start Postgres on localhost:5432
+#   docker compose down         # stop (keeps the named volume / data)
+#   docker compose down -v      # stop AND wipe the data volume
+#
+# The base Spring profile defaults the datasource to this instance
+# (jdbc:postgresql://localhost:5432/federance, user/pass federance/federance).
+# Override in any environment via SPRING_DATASOURCE_URL / _USERNAME / _PASSWORD.
+#
+# Tests do NOT use this — they spin their own throwaway Postgres via
+# Testcontainers (see application-test.properties).
+services:
+  postgres:
+    image: postgres:16.6-alpine
+    container_name: federance-postgres
+    environment:
+      POSTGRES_DB: federance
+      POSTGRES_USER: federance
+      POSTGRES_PASSWORD: federance
+    ports:
+      - "5432:5432"
+    volumes:
+      - federance_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U federance -d federance"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  federance_pgdata:

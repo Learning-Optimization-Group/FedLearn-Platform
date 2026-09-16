@@ -1,0 +1,71 @@
+// App module build. Compiles the JNI native lib (the C++ FL core + bridge) via the bridge's
+// CMakeLists, restricted to arm64-v8a (15-LLD §11.4 / §13 task 12). VERIFY-BEFORE-USE: the
+// GENERATED_PROTO_DIR / ET_SRC / ET_BUILD / TORCH_INCLUDE / GRPC_DIR cmake args must point at the
+// buf-generated stubs and the CI-cached cross-compiled ARM64 artifacts (scripts/build_executorch_arm64.sh,
+// scripts/build_grpc_arm64.sh). The native FL core links the cross-compiled ExecuTorch arm64
+// static libs into libfedlearn_jni.so (no libtorch/ATen) — fully self-contained. The app loads
+// libfedlearn_jni.so directly; no executorch-android AAR (the ET runtime is statically embedded).
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+react {
+  autolinkLibrariesWithApp()
+  // Autolinking + codegen for the New Architecture; the NativeFedLearnCore spec is in bridge/specs.
+  jsRootDir = file("../../")
+  codegenDir = file("../../node_modules/@react-native/codegen")
+}
+
+android {
+  namespace "com.fedlearn.mobile"
+  compileSdk rootProject.ext.compileSdkVersion
+  ndkVersion rootProject.ext.ndkVersion
+
+  defaultConfig {
+    applicationId "com.fedlearn.mobile"
+    minSdk rootProject.ext.minSdkVersion
+    targetSdk rootProject.ext.targetSdkVersion
+    versionCode 1
+    versionName "2.0.0"
+    ndk { abiFilters "arm64-v8a" }   // the only shipped ABI
+    externalNativeBuild {
+      cmake {
+        arguments "-DANDROID_STL=c++_shared",
+                  "-DET_SRC=${project.properties['ET_SRC'] ?: ''}",
+                  "-DET_BUILD=${project.properties['ET_BUILD'] ?: ''}",
+                  "-DTORCH_INCLUDE=${project.properties['TORCH_INCLUDE'] ?: ''}",
+                  "-DGENERATED_PROTO_DIR=${project.properties['GENERATED_PROTO_DIR'] ?: ''}",
+                  "-DGRPC_DIR=${project.properties['GRPC_DIR'] ?: ''}"
+      }
+    }
+  }
+
+  externalNativeBuild {
+    cmake {
+      path "src/main/jni/CMakeLists.txt"   // RN 0.80 app native build (libappmodules.so) + our FL core
+    }
+  }
+
+  buildTypes {
+    release {
+      signingConfig signingConfigs.debug   // VERIFY-BEFORE-USE: replace with a real release signing config
+      // Minification is OFF (RN's own template default: `enableProguardInReleaseBuilds = false`). With it
+      // ON, R8 obfuscated React Native's own ViewManager/component classes (logcat showed renamed classes
+      // like `com.facebook.react.uimanager.U`) because RN 0.80's consumer keep-rules don't fully cover the
+      // New-Architecture interop reflection — so the view system couldn't resolve components and every
+      // screen mounted blank. Re-enabling requires vetted `-keep` rules for RN + all native view modules.
+      minifyEnabled false
+      proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+    }
+  }
+}
+
+dependencies {
+  implementation("com.facebook.react:react-android")
+  implementation("com.facebook.react:hermes-android")
+  implementation("com.facebook.fbjni:fbjni:0.7.0")
+  // No executorch-android AAR: the ExecuTorch runtime is cross-compiled to arm64 and linked
+  // STATICALLY into libfedlearn_jni.so (scripts/build_executorch_arm64.sh). The app calls the C++
+  // FL core via the JNI/TurboModule and never ExecuTorch's Java API, so adding the AAR would only
+  // ship a second, unused ET runtime — risking an in-process symbol / kernel-registration collision.
+}

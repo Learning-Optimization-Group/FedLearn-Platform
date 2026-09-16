@@ -1,16 +1,30 @@
 package com.federated.fl_platform_api.service;
 
+import com.federated.fl_platform_api.audit.Auditable;
 import com.federated.fl_platform_api.dto.*;
 import com.federated.fl_platform_api.exception.ProjectStateException;
+import com.federated.fl_platform_api.model.TrainingArm;
+import com.federated.fl_platform_api.model.RobustAggregationSettings;
+import com.federated.fl_platform_api.model.RobustMethod;
 import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
+import com.federated.fl_platform_api.model.AuditAction;
+import com.federated.fl_platform_api.model.MembershipRole;
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.ProjectStatus;
+import com.federated.fl_platform_api.model.ProjectAccessRequest;
+import com.federated.fl_platform_api.model.ProjectInitStatus;
+import com.federated.fl_platform_api.model.ProjectMembership;
+import com.federated.fl_platform_api.model.ProjectVisibility;
+import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.model.RoundResult;
 import com.federated.fl_platform_api.model.User;
+import com.federated.fl_platform_api.repository.OrganizationMembershipRepository;
+import com.federated.fl_platform_api.repository.ProjectAccessRequestRepository;
+import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectRepository;
-import com.federated.fl_platform_api.flower.FlowerServerManager;
+import com.federated.fl_platform_api.orchestration.FlServerManager;
 import com.federated.fl_platform_api.repository.RoundResultRepository;
-import com.federated.fl_platform_api.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,18 +32,23 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.lang.NonNull;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,70 +59,226 @@ public class ProjectService {
     @Autowired
     private ProjectRepository projectRepository;
     @Autowired
-    private FlowerServerManager flowerServerManager;
+    private FlServerManager flServerManager;
     @Autowired
-    private ModelInitializer modelInitializer;
+    private ModelInitializationWorker modelInitWorker;
     @Autowired
-    private UserRepository userRepository;
+    private ProjectMembershipRepository membershipRepository;
     @Autowired
     private RoundResultRepository roundResultRepository;
     @Autowired
     private WebSocketService webSocketService;
     @Autowired
     private com.federated.fl_platform_api.repository.ServerLogRepository serverLogRepository;
+    @Autowired
+    private AuthorizationService authz;
+    @Autowired
+    private ProjectAccessRequestRepository accessRequestRepository;
+    @Autowired
+    private NotificationService notificationService;
+    @Autowired
+    private ProjectStatusService projectStatusService;   // BA-4: derive status from the active run
+    @Autowired
+    private OrganizationMembershipRepository orgMembershipRepository;
+    @Autowired
+    private com.federated.fl_platform_api.security.OrgScope orgScope;
+    @Autowired
+    private ModelRecipeService modelRecipeService;
+    @Autowired
+    private RunService runService;
+    @Autowired
+    private ModelBundleStager modelBundleStager;   // MO-15: best-effort on-device bundle auto-stage at start
+    @Autowired
+    private RegistryModelResolver registryModelResolver;   // BA-11: inference reads the registry, not the .npz
 
-
-    // ─── Authorization helpers ──────────────────────────────────────────────
-
-    /**
-     * Resolve the currently authenticated User entity. Spring Security's
-     * filter chain guarantees that any Authentication present in the
-     * SecurityContext at this point came from a successful JWT validation,
-     * so a non-null check here is sufficient — we don't re-check
-     * isAuthenticated().
-     */
-    private User currentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null) {
-            throw new AccessDeniedException("No authenticated principal");
-        }
-        String username = authentication.getName();
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException(
-                        "Authenticated principal has no matching user row: " + username));
-    }
-
-    private static boolean isAdmin(Authentication authentication) {
-        if (authentication == null) return false;
-        for (GrantedAuthority a : authentication.getAuthorities()) {
-            if ("ROLE_ADMIN".equals(a.getAuthority())) return true;
-        }
-        return false;
-    }
+    // BA-2: serialize per-project /start so two concurrent calls can't both pass the isServerRunning
+    // check and double-spawn a server. One lock per project id; the project set is bounded, so is the map.
+    private final ConcurrentHashMap<UUID, ReentrantLock> startLocks = new ConcurrentHashMap<>();
 
     /**
-     * Asserts that the caller either owns the project or is an admin. Returns
-     * 403 (mapped via GlobalExceptionHandler) on mismatch — never 404, since
-     * leaking project-existence to non-owners is itself an information leak.
-     *
-     * Internal callbacks (FL-server → /api/internal/**) bypass this check
-     * entirely because they pass through {@code InternalApiKeyFilter} which
-     * doesn't populate a Spring Security principal.
+     * Default org UUID seeded by the V5 migration — the single transitional
+     * bootstrap org. Used as the fallback both for project creation and for the
+     * OrgScope of users that have no explicit org membership yet. Exposed so
+     * {@link com.federated.fl_platform_api.security.OrgScopeFilter} shares the
+     * exact same default (no duplicate UUID literal across the codebase).
      */
-    private void requireOwnerOrAdmin(Project project) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null) {
-            throw new AccessDeniedException("No authenticated principal");
-        }
-        if (isAdmin(authentication)) {
+    public static final UUID DEFAULT_ORG_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
+    /** Effective task_type: CAUSAL_LM or the default SEQ_CLASSIFICATION (null/blank).
+     *  Package-private + static to mirror resolveStrategy (#3 precedent — no wider surface). */
+    static String resolveTaskType(String requested) {
+        return "CAUSAL_LM".equalsIgnoreCase(requested) ? "CAUSAL_LM" : "SEQ_CLASSIFICATION";
+    }
+
+    /**
+     * SE-11: a regulated (HIPAA-class) or DP-enabled project must carry a complete, sane DP config
+     * at creation: dpTargetEpsilon &gt; 0, dpDelta in (0,1) exclusive, dpClipNorm &gt; 0. Only
+     * positivity/sanity is enforced — the epsilon guidance range (~4-8 for medical/regulated data)
+     * is documented in the error, never hard-enforced. Package-private + static to mirror
+     * resolveStrategy/resolveTaskType.
+     */
+    static void validateDpConfig(CreateProjectRequest request) {
+        boolean regulated = Boolean.TRUE.equals(request.getRegulated());
+        boolean dpEnabled = Boolean.TRUE.equals(request.getDpEnabled());
+        if (!regulated && !dpEnabled) {
             return;
         }
-        User caller = currentUser();
-        User owner = project.getUser();
-        if (owner == null || !owner.getId().equals(caller.getId())) {
-            // Use a generic message; do not echo back the project id or owner.
-            throw new AccessDeniedException("You do not have access to this project");
+        if (!Project.isCompleteDpConfig(
+                request.getDpTargetEpsilon(), request.getDpDelta(), request.getDpClipNorm())) {
+            throw new IllegalArgumentException(
+                    "A regulated or DP-enabled project requires a complete differential-privacy "
+                            + "config: dpTargetEpsilon > 0 (guidance: 4-8 for medical/regulated "
+                            + "data), dpDelta in (0,1) exclusive, and dpClipNorm > 0 (the per-user "
+                            + "contribution bound).");
         }
+    }
+
+    /**
+     * The effective FL strategy for a run. LLM_LORA projects ONLY work under FedLoRA
+     * (FedAvg drops lora_A from the global → server-eval uses a random A); the model
+     * type therefore dictates the strategy. Everything else honors the requested
+     * strategy (or FedAvg by default).
+     */
+    /**
+     * The Robust aggregation settings for a start, or null when the request carries none.
+     *
+     * <p>Refuses, with a 400, anything the server would ignore or could not run: robust fields on another
+     * strategy (including an LLM_LORA project, whose strategy is forced to FedLoRA), parameters without a
+     * method, a parameter the chosen rule does not read, and a rule that cannot run at every round size from
+     * {@code minClients} to {@code clientsPerRound}.
+     * The last one matters most - on the Python side such a rule does not fail, it refuses every round and
+     * the run "completes" without ever training.
+     */
+    static RobustAggregationSettings resolveRobustSettings(String strategy, int minClients, int clientsPerRound,
+                                                           StartProject request) {
+        if (request == null) {
+            return null;
+        }
+        String method = request.getRobustMethod();
+        Double fraction = request.getByzantineFraction();
+        Double trim = request.getTrimRatio();
+        Double tau = request.getCenteredClipTau();
+        if (method == null && fraction == null && trim == null && tau == null) {
+            return null;
+        }
+        if (!"Robust".equals(strategy)) {
+            throw new IllegalArgumentException(String.format(
+                    "robustMethod, byzantineFraction, trimRatio and centeredClipTau apply only to the Robust "
+                            + "strategy, but this run's strategy is %s. They would be ignored, so they are refused.",
+                    strategy));
+        }
+        if (method == null) {
+            throw new IllegalArgumentException(
+                    "robustMethod is required when setting byzantineFraction, trimRatio or centeredClipTau.");
+        }
+        RobustMethod rule = RobustMethod.valueOf(method);
+        if (trim != null && rule != RobustMethod.TRIMMED_MEAN) {
+            throw new IllegalArgumentException(
+                    "trimRatio applies only to TRIMMED_MEAN, not " + rule + "; it would be ignored.");
+        }
+        if (tau != null && rule != RobustMethod.CENTERED_CLIP) {
+            throw new IllegalArgumentException(
+                    "centeredClipTau applies only to CENTERED_CLIP, not " + rule + "; it would be ignored.");
+        }
+        RobustAggregationSettings settings = new RobustAggregationSettings(rule, fraction, trim, tau);
+        settings.refusalReason(minClients, clientsPerRound).ifPresent(reason -> {
+            throw new IllegalArgumentException(reason);
+        });
+        return settings;
+    }
+
+    /**
+     * fl_server.py's lowest secure-aggregation threshold, and its default. A one-client "sum" is that client's own
+     * update.
+     */
+    static final int MIN_SECURE_AGG_THRESHOLD = 2;
+
+    /**
+     * The secure-aggregation reconstruction threshold for a start, or null when secure aggregation is off.
+     *
+     * <p>Refuses, with a 400, a start that would claim secure aggregation without delivering it: a threshold without
+     * {@code secureAggregation=true}; secure aggregation on a strategy other than DeComFL, where fl_server.py takes
+     * the flag and masks nothing; secure aggregation while the FL server does not require client auth, where the
+     * server has no verified identity for any client and refuses every secure-aggregation call; and a threshold
+     * above clientsPerRound, which no round can reach because a round aggregates at most that many clients.
+     * {@code clientAuthRequired} is consulted only when secure aggregation is on.
+     */
+    static Integer resolveSecureAggThreshold(String strategy, int minClients, int clientsPerRound,
+                                             StartProject request, BooleanSupplier clientAuthRequired) {
+        if (request == null) {
+            return null;
+        }
+        Integer threshold = request.getSecureAggThreshold();
+        if (!Boolean.TRUE.equals(request.getSecureAggregation())) {
+            if (threshold != null) {
+                throw new IllegalArgumentException(
+                        "secureAggThreshold applies only when secureAggregation is true; it would be ignored.");
+            }
+            return null;
+        }
+        if (!"DeComFL".equals(strategy)) {
+            throw new IllegalArgumentException(String.format(
+                    "Secure aggregation is available only for the DeComFL strategy, but this run's strategy is %s. "
+                            + "Masking exists only on DeComFL's gradient-scalar channel, so the run would be "
+                            + "labelled secure without being so.",
+                    strategy));
+        }
+        if (!clientAuthRequired.getAsBoolean()) {
+            throw new IllegalArgumentException(
+                    "Secure aggregation needs client auth. Without it the FL server has no verified identity for any "
+                            + "client and refuses every secure-aggregation call, so no round could complete. Enable "
+                            + "client auth on the backend (app.fl.require-client-auth) first.");
+        }
+        int resolved = threshold != null ? threshold : MIN_SECURE_AGG_THRESHOLD;
+        if (resolved > clientsPerRound) {
+            throw new IllegalArgumentException(String.format(
+                    "secureAggThreshold %d is above clientsPerRound = %d (minClients = %d). A round aggregates at "
+                            + "most clientsPerRound clients, so no round could gather %d shares. Lower the threshold "
+                            + "or raise clientsPerRound.",
+                    resolved, clientsPerRound, minClients, resolved));
+        }
+        return resolved;
+    }
+
+    /**
+     * The round size for a start: {@code clientsPerRound} when given, otherwise {@code minClients}, as before.
+     *
+     * <p>A round completes as soon as this many updates arrive and the deadline resolves it with as few as
+     * minClients, so a round size above the minimum is what lets a run survive a client dropping out. Refused, with
+     * a 400: below minClients, where a round would finish short of the minimum; above it on FoT, whose server has no
+     * round of devices to size; and above it on a differentially private project, whose accounting is computed for
+     * a fixed cohort of minClients and which fl_server.py refuses to start with any other round size.
+     */
+    static int resolveClientsPerRound(Project project, String strategy, int minClients, StartProject request) {
+        Integer requested = request != null ? request.getClientsPerRound() : null;
+        if (requested == null) {
+            return minClients;
+        }
+        if (requested < minClients) {
+            throw new IllegalArgumentException(String.format(
+                    "clientsPerRound = %d is below minClients = %d. A round completes as soon as clientsPerRound "
+                            + "updates arrive, so it would finish short of the minimum.", requested, minClients));
+        }
+        if (requested > minClients && "FoT".equals(strategy)) {
+            throw new IllegalArgumentException(
+                    "clientsPerRound applies to gradient strategies. The FoT server has no round of devices to size, "
+                            + "so a clientsPerRound above minClients would be ignored.");
+        }
+        if (requested > minClients && project.isDpEnabled()) {
+            throw new IllegalArgumentException(String.format(
+                    "clientsPerRound = %d is above minClients = %d on a differentially private project. The privacy "
+                            + "accounting is computed for a fixed cohort of minClients, and fl_server.py refuses to "
+                            + "start with any other round size. Keep clientsPerRound equal to minClients.",
+                    requested, minClients));
+        }
+        return requested;
+    }
+
+    static String resolveStrategy(String modelType, String requestedStrategy) {
+        if ("LLM_LORA".equalsIgnoreCase(modelType)) {
+            return "FedLoRA";
+        }
+        return (requestedStrategy != null && !requestedStrategy.isEmpty()) ? requestedStrategy : "FedAvg";
     }
 
     private RoundResultDto convertToDto(RoundResult result) {
@@ -121,27 +296,71 @@ public class ProjectService {
         dto.setId(project.getId());
         dto.setName(project.getName());
         dto.setModelType(project.getModelType());
+        dto.setTrainingArm(project.getTrainingArm() != null
+                ? project.getTrainingArm().name() : TrainingArm.FULL.name());
         dto.setModelName(project.getModelName());
         dto.setServerPort(project.getServerPort());
         dto.setOptimizer(project.getOptimizer());
-        dto.setStatus(project.getStatus());
+        dto.setStatus(projectStatusService.currentStatus(project).name());   // BA-4: derived from active run
+        dto.setVisibility(project.getVisibility() != null ? project.getVisibility().name() : null);
 
         return dto;
     }
 
     @Transactional
+    @SuppressWarnings("null")
+    @Auditable(action = AuditAction.PROJECT_CREATED, targetType = "PROJECT")
     public ProjectResponseDto createProject(CreateProjectRequest request) throws IOException, InterruptedException {
         log.info("Creating project '{}' (modelType={})", request.getName(), request.getModelType());
 
-        User owner = currentUser();
+        // Only PROJECT_OWNER (admin-granted) or PLATFORM_ADMIN may create projects.
+        // Plain USERs must first be promoted via the owner-promotion workflow.
+        authz.requireCanCreateProject();
+
+        // SE-11: a regulated or DP-enabled project must carry a complete DP config — reject before
+        // anything is persisted.
+        validateDpConfig(request);
+
+        User owner = authz.currentUser();
 
         Project project = new Project();
         project.setName(request.getName());
         project.setModelType(request.getModelType());
         project.setModelName(request.getModelName());
         project.setOptimizer(request.getOptimizer());
+        project.setTaskType(resolveTaskType(request.getTaskType()));
+        // P1-4: the picker's arm choice. Omitted means FULL — left to the entity default rather
+        // than set here, so pre-P1 clients keep their behaviour through one code path, not two.
+        if (request.getTrainingArm() != null) {
+            project.setTrainingArm(
+                    TrainingArm.valueOf(request.getTrainingArm()));
+        }
+        project.setRegulated(Boolean.TRUE.equals(request.getRegulated()));
+        project.setDpEnabled(Boolean.TRUE.equals(request.getDpEnabled()));
+        project.setDpTargetEpsilon(request.getDpTargetEpsilon());
+        project.setDpDelta(request.getDpDelta());
+        project.setDpClipNorm(request.getDpClipNorm());
+        // DA-14 Ph3.2: optional derivation record — null-safe, so a request that omits it produces a
+        // normal from-scratch project (init_from_pretrained stays false, the refs stay null).
+        project.setInitFromPretrained(Boolean.TRUE.equals(request.getInitFromPretrained()));
+        project.setBaseRefSha256(request.getBaseRef());
+        project.setDerivationSpec(request.getDerivationSpec());
         project.setUser(owner);
-        project.setStatus("CREATED");
+        // V5 made projects.org_id NOT NULL. Pin the project to the owner's first
+        // org membership; fall back to the Default org (seeded by V5) for users
+        // that somehow have no membership. Real cross-org selection UI lives in
+        // a later sub-spec.
+        UUID orgId = orgMembershipRepository.findByUserId(owner.getId()).stream()
+                .findFirst()
+                .map(m -> m.getOrgId())
+                .orElse(DEFAULT_ORG_ID);
+        project.setOrgId(orgId);
+        project.setRequirementsOverride(request.getRequirementsOverride());
+        project.setStatus(ProjectStatus.CREATED.name());
+        // BA-1: the project begins life INITIALIZING; the async worker flips it to DONE/FAILED once
+        // model init finishes. Status is run-derived (BA-4) and this init phase takes precedence, so
+        // the project reads as INITIALIZING until then (no run exists yet).
+        project.setInitStatus(ProjectInitStatus.INITIALIZING);
         Project savedProject = projectRepository.save(project);
         log.debug("Persisted project shell with id={}", savedProject.getId());
 
@@ -152,42 +371,86 @@ public class ProjectService {
         }
         String absoluteModelPath = modelFile.getAbsolutePath();
         savedProject.setModelPath(absoluteModelPath);
+        Project shell = projectRepository.save(savedProject);
 
-        try {
-            modelInitializer.initializeModelFile(
-                    request.getModelType(),
-                    request.getModelName(),
-                    request.getOptimizer(),
-                    absoluteModelPath,
-                    request.getPretrainEpochs());
-        } catch (IOException | InterruptedException e) {
-            // Allow the @Transactional rollback to drop the orphan project row.
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw new ServerProcessException(
-                    "Model initialization failed for project " + savedProject.getId(), e);
+        // BA-1: model init spawns an unbounded Python process — running it inside this @Transactional
+        // request pinned a DB connection and a Tomcat thread for its whole duration. Dispatch it to the
+        // bounded async worker instead, but only AFTER this transaction commits so the worker's own
+        // unit of work sees the persisted row. createProject thus returns 201 immediately with the
+        // project INITIALIZING; the worker transitions it to CREATED (success) or FAILED (timeout/error)
+        // and broadcasts the change for a polling client.
+        final UUID projectId = shell.getId();
+        final String modelType = request.getModelType();
+        final String modelName = request.getModelName();
+        final String optimizer = request.getOptimizer();
+        final String taskType = shell.getTaskType();
+        final int pretrainEpochs = request.getPretrainEpochs();
+        Runnable dispatchInit = () -> modelInitWorker.initialize(
+                projectId, modelType, modelName, optimizer, absoluteModelPath, pretrainEpochs, taskType);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    dispatchInit.run();
+                }
+            });
+        } else {
+            // No ambient transaction (e.g. a Mockito unit test) — nothing to wait for; dispatch now.
+            dispatchInit.run();
         }
 
-        Project finalProject = projectRepository.save(savedProject);
-        log.info("Project {} fully initialised at {}", finalProject.getId(), absoluteModelPath);
-        return convertToDto(finalProject);
+        log.info("Project {} created (INITIALIZING); model init dispatched to async worker", projectId);
+        return convertToDto(shell);
     }
 
+    @Auditable(action = AuditAction.RUN_STARTED, targetIdParam = "projectId", targetType = "PROJECT")
     public ProjectResponseDto startServerForProject(@NonNull UUID projectId, StartProject request)
             throws IOException, InterruptedException {
 
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        requireOwnerOrAdmin(project);
+        authz.requireOrgScope(project.getOrgId());
+        authz.requireOwnerOrAdmin(project);
 
-        String strategyToUse = (request != null && request.getStrategy() != null && !request.getStrategy().isEmpty())
-                ? request.getStrategy()
-                : "FedAvg";
+        // P1-4: /start may RESTATE the project's arm, but must not silently disagree with it.
+        //
+        // P1-2 added trainingArm to this DTO and nothing ever read it: FlServerManager resolves the
+        // arm from project.getTrainingArm(). A client could send an arm here, have it pass
+        // validation, and be ignored — a contract that looks like it works. Honouring it instead
+        // would be worse: the arm decides which parameters are federated, so changing it between
+        // runs of one project makes those runs incomparable while they share a project identity.
+        // So the arm stays immutable after creation, and a mismatch is refused rather than
+        // silently applied or silently dropped.
+        if (request != null && request.getTrainingArm() != null) {
+            TrainingArm requested = TrainingArm.valueOf(request.getTrainingArm());
+            TrainingArm actual = project.getTrainingArm() != null
+                    ? project.getTrainingArm() : TrainingArm.FULL;
+            if (requested != actual) {
+                throw new ProjectStateException(String.format(
+                        "trainingArm mismatch: this project was created as %s and the arm cannot be "
+                        + "changed at start (requested %s). The arm decides which parameters are "
+                        + "federated, so changing it would make this run incomparable with the "
+                        + "project's earlier runs. Create a separate project for the %s arm.",
+                        actual, requested, requested));
+            }
+        }
+
+        String strategyToUse = resolveStrategy(
+                project.getModelType(),
+                request != null ? request.getStrategy() : null);
 
         Integer minClients = (request != null && request.getMinClients() != null)
                 ? request.getMinClients()
                 : 1;
+
+        // The round size, then the settings that depend on it, checked against the RESOLVED strategy and minClients
+        // before anything is created. Each resolved value is persisted on the run and passed to the spawn as is.
+        int clientsPerRound = resolveClientsPerRound(project, strategyToUse, minClients, request);
+        RobustAggregationSettings robustSettings = resolveRobustSettings(strategyToUse, minClients, clientsPerRound,
+                request);
+        // Secure aggregation: null means off; otherwise the one threshold is persisted on the run and spawned.
+        Integer secureAggThreshold = resolveSecureAggThreshold(strategyToUse, minClients, clientsPerRound, request,
+                flServerManager::isClientAuthRequired);
 
         Integer numRoundsToUse;
         if (request != null && request.getNumRounds() != null && request.getNumRounds() > 0) {
@@ -199,60 +462,176 @@ public class ProjectService {
         log.debug("Starting project {} with strategy={}, rounds={}, minClients={}",
                 projectId, strategyToUse, numRoundsToUse, minClients);
 
-        if (flowerServerManager.isServerRunning(projectId)) {
-            // Was previously a silent fall-through that double-spawned the server.
-            throw new ProjectStateException(
-                    "FL server is already running for project " + projectId
-                            + " on port " + project.getServerPort());
+        // BA-2: the running-check, run creation and spawn must be one atomic per-project critical
+        // section. Without it, two concurrent /start calls both see isServerRunning==false and both
+        // spawn — duplicate servers, one orphaned/untracked. The loser now finds the server running
+        // and gets a deterministic 409 (ProjectStateException) instead.
+        ReentrantLock startLock = startLocks.computeIfAbsent(projectId, k -> new ReentrantLock());
+        startLock.lock();
+        try {
+            if (flServerManager.isServerRunning(projectId)) {
+                // Was previously a silent fall-through that double-spawned the server.
+                throw new ProjectStateException(
+                        "FL server is already running for project " + projectId
+                                + " on port " + project.getServerPort());
+            }
+
+            Run run = null;
+            try {
+                run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
+                        robustSettings, secureAggThreshold);
+                project.setActiveRunId(run.getId());
+                projectRepository.save(project);
+
+                Optional<Integer> port = flServerManager.startServerForProject(
+                        project, strategyToUse, numRoundsToUse, minClients, robustSettings, secureAggThreshold,
+                        clientsPerRound);
+                project.setServerPort(port.orElse(null));
+                project.setStatus(ProjectStatus.RUNNING.name());
+                Project updatedProject = projectRepository.save(project);
+                runService.markRunning(run.getId(), port.orElse(null));
+
+                // MO-15: auto-stage this run's on-device model bundle so a mobile client that joins finds it
+                // at GET /api/runs/{runId}/model-bundle without an operator staging it by hand. Placed AFTER
+                // the spawn + markRunning: the stager schedules on a background worker and returns at once, so
+                // it never blocks the spawn or holds the BA-2 start lock. Phone-only + flag-gated (default off);
+                // its contract is never-throw, but wrap defensively so a scheduling failure can't fail a start.
+                try {
+                    modelBundleStager.stageForRun(run.getId(), project.getModelType());
+                } catch (RuntimeException stageEx) {
+                    log.warn("model-bundle auto-stage threw for run {} (ignored, start continues): {}",
+                            run.getId(), stageEx.toString());
+                }
+
+                ProjectStatusUpdateDto update = new ProjectStatusUpdateDto(
+                        updatedProject.getId(),
+                        projectStatusService.currentStatus(updatedProject).name(),   // BA-4 follow-up: derived, single source
+                        updatedProject.getServerPort());
+                webSocketService.sendStatusUpdate(update);
+                log.info("Started FL server for project {} (run {}) on port {}",
+                        projectId, run.getId(), port.orElse(null));
+                return convertToDto(updatedProject);
+            } catch (RuntimeException ex) {
+                if (run != null) { runService.markFailed(run.getId()); }
+                throw ex;
+            }
+        } finally {
+            startLock.unlock();
         }
-
-        int port = flowerServerManager.startServerForProject(
-                project, true, strategyToUse, numRoundsToUse, minClients);
-        project.setServerPort(port);
-        project.setStatus("RUNNING");
-
-        Project updatedProject = projectRepository.save(project);
-
-        ProjectStatusUpdateDto update = new ProjectStatusUpdateDto(
-                updatedProject.getId(), "RUNNING", updatedProject.getServerPort());
-        webSocketService.sendStatusUpdate(update);
-        log.info("Started FL server for project {} on port {}", projectId, port);
-
-        return convertToDto(updatedProject);
     }
 
     @Transactional
+    @Auditable(action = AuditAction.RUN_STOPPED, targetIdParam = "projectId", targetType = "PROJECT")
     public ProjectResponseDto stopServerForProject(@NonNull UUID projectId) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        requireOwnerOrAdmin(project);
+        // BA-13: take the SAME per-project lock the start path holds (startLocks), so a stop cannot
+        // interleave INSIDE a start's spawn->markRunning critical section. Without it, a stop could kill
+        // + untrack the child while the start is between the spawn and markRunning, then the start would
+        // resume and set the project/run RUNNING with a dead, untracked child ("phantom RUNNING"). The
+        // project is loaded INSIDE the lock so we never act on a status a concurrent start just changed.
+        ReentrantLock startLock = startLocks.computeIfAbsent(projectId, k -> new ReentrantLock());
+        startLock.lock();
+        try {
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+            authz.requireOrgScope(project.getOrgId());
+            authz.requireOwnerOrAdmin(project);
 
-        boolean stopped = flowerServerManager.stopServerForProject(projectId);
-        Project finalProjectState = project;
-        if (stopped || "RUNNING".equals(project.getStatus())) {
-            project.setServerPort(null);
-            project.setStatus("STOPPED");
-            finalProjectState = projectRepository.save(project);
-            log.info("Stopped FL server for project {}", projectId);
-        } else {
-            log.debug("No running server found for project {}; nothing to stop", projectId);
+            boolean stopped = flServerManager.stopServerForProject(projectId);
+            Project finalProjectState = project;
+            if (stopped || ProjectStatus.RUNNING.name().equals(project.getStatus())) {
+                project.setServerPort(null);
+                project.setStatus(ProjectStatus.STOPPED.name());
+                finalProjectState = projectRepository.save(project);
+                log.info("Stopped FL server for project {}", projectId);
+            } else {
+                log.debug("No running server found for project {}; nothing to stop", projectId);
+            }
+
+            if (finalProjectState.getActiveRunId() != null) {
+                runService.markStopped(finalProjectState.getActiveRunId());
+            }
+
+            // BA-4 follow-up: notify live watchers of the stop over STOMP. The stop path previously pushed
+            // nothing, so the dashboard stayed on RUNNING until a manual refresh. Push the DERIVED status
+            // (computed after markStopped) so the real-time value matches what the REST DTOs now return.
+            webSocketService.sendStatusUpdate(new ProjectStatusUpdateDto(
+                    finalProjectState.getId(),
+                    projectStatusService.currentStatus(finalProjectState).name(),
+                    null));
+
+            return convertToDto(finalProjectState);
+        } finally {
+            startLock.unlock();
         }
-
-        return convertToDto(finalProjectState);
     }
 
     public List<ProjectResponseDto> getProjectsForCurrentUser() {
-        User caller = currentUser();
-        List<Project> projects = projectRepository.findByUserId(caller.getId());
-        return projects.stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
+        User caller = authz.currentUser();
+        // Platform admins (unrestricted scope) see all orgs via the unscoped
+        // query; everyone else is constrained to their visible orgs (which falls
+        // back to the single default org for membership-less users).
+        List<Project> projects = orgScope.isUnrestricted()
+                ? projectRepository.findOwnedOrMemberOf(caller.getId())
+                : projectRepository.findOwnedOrMemberOfInOrgs(
+                        caller.getId(), orgScope.visibleOrgIds());
+        // BA-10: one membership query for every listed project, joined in memory,
+        // instead of one findByIdProjectIdAndIdUserId per project (the N+1).
+        Map<UUID, ProjectMembership> myMemberships = membershipsByProject(caller.getId(), projects);
+        return projects.stream().map(p -> {
+            ProjectResponseDto dto = convertToDto(p);
+            dto.setVisibility(p.getVisibility() != null ? p.getVisibility().name() : null);
+            if (p.getUser() != null && p.getUser().getId().equals(caller.getId())) {
+                dto.setMyRelationship("OWNER");
+            } else {
+                ProjectMembership m = myMemberships.get(p.getId());
+                dto.setMyRelationship(m != null && m.getRole() != null ? m.getRole().name() : null);
+            }
+            return dto;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * Loads the caller's memberships for the given projects in a SINGLE query and
+     * keys them by project id for O(1) in-memory joins (BA-10). Returns an empty
+     * map for an empty project list so we never emit an empty {@code IN ()}. At
+     * most one membership can exist per (project, user) — the pair is the PK — so
+     * the first-wins merge is only defensive.
+     */
+    private Map<UUID, ProjectMembership> membershipsByProject(Long userId, List<Project> projects) {
+        if (projects.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<UUID> projectIds = projects.stream().map(Project::getId).collect(Collectors.toList());
+        Map<UUID, ProjectMembership> byProject = new HashMap<>();
+        for (ProjectMembership m : membershipRepository.findByIdUserIdAndIdProjectIdIn(userId, projectIds)) {
+            byProject.putIfAbsent(m.getId().getProjectId(), m);
+        }
+        return byProject;
+    }
+
+    /**
+     * Loads the caller's access requests for the given projects in a SINGLE query
+     * and keys them by project id (BA-10). Returns an empty map for an empty
+     * project list so we never emit an empty {@code IN ()}. The (project, user)
+     * pair is uniquely constrained, so the first-wins merge is only defensive.
+     */
+    private Map<UUID, ProjectAccessRequest> accessRequestsByProject(Long userId, List<Project> projects) {
+        if (projects.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<UUID> projectIds = projects.stream().map(Project::getId).collect(Collectors.toList());
+        Map<UUID, ProjectAccessRequest> byProject = new HashMap<>();
+        for (ProjectAccessRequest r : accessRequestRepository.findByUserIdAndProjectIdIn(userId, projectIds)) {
+            byProject.putIfAbsent(r.getProject().getId(), r);
+        }
+        return byProject;
     }
 
     public List<RoundResultDto> getResultsForProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        requireOwnerOrAdmin(project);
+        authz.requireOrgScope(project.getOrgId());
+        authz.requireOwnerOrAdmin(project);
         return roundResultRepository.findByProjectIdOrderByServerRoundAsc(projectId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
@@ -263,30 +642,52 @@ public class ProjectService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
 
-        project.setStatus("COMPLETED");
+        project.setStatus(ProjectStatus.COMPLETED.name());
         project.setServerPort(null);
         projectRepository.save(project);
 
+        if (project.getActiveRunId() != null) {
+            runService.markCompleted(project.getActiveRunId());
+        }
+
         webSocketService.sendStatusUpdate(
-                new ProjectStatusUpdateDto(project.getId(), "COMPLETED", null));
+                new ProjectStatusUpdateDto(project.getId(),
+                        projectStatusService.currentStatus(project).name(), null));   // BA-4 follow-up: derived
         log.info("Project {} marked as completed", projectId);
     }
 
     @Transactional
+    @Auditable(action = AuditAction.PROJECT_DELETED, targetIdParam = "projectId", targetType = "PROJECT")
     public void deleteProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        requireOwnerOrAdmin(project);
+        authz.requireOrgScope(project.getOrgId());
+        // Direct deletion is platform-admin only. Owners cannot delete their own
+        // projects directly — they file a deletion request that an admin approves
+        // (ProjectDeletionService), which then calls this method in the admin's
+        // security context.
+        authz.requirePlatformAdmin();
 
-        // Best-effort: stop any running FL server before removing the row so
-        // we don't leak processes/ECS tasks.
+        // BA-13: stop the FL server and remove the row under the SAME per-project start lock, so a
+        // concurrent start cannot spawn+track a child in between and leave it orphaned once the project
+        // row is gone. (Residual, separately tracked: startServerForProject loads the project BEFORE
+        // acquiring this lock, so a start already past its load could still race a delete — closing
+        // that needs an in-lock existence re-check on the start path.)
+        ReentrantLock startLock = startLocks.computeIfAbsent(projectId, k -> new ReentrantLock());
+        startLock.lock();
         try {
-            flowerServerManager.stopServerForProject(projectId);
-        } catch (RuntimeException e) {
-            log.warn("Failed to stop FL server for project {} before delete; continuing",
-                    projectId, e);
+            // Best-effort: stop any running FL server before removing the row so
+            // we don't leak processes/ECS tasks.
+            try {
+                flServerManager.stopServerForProject(projectId);
+            } catch (RuntimeException e) {
+                log.warn("Failed to stop FL server for project {} before delete; continuing",
+                        projectId, e);
+            }
+            projectRepository.deleteById(projectId);
+        } finally {
+            startLock.unlock();
         }
-        projectRepository.deleteById(projectId);
         log.info("Project {} deleted", projectId);
     }
 
@@ -300,7 +701,7 @@ public class ProjectService {
      */
     public static final int MAX_LOGS_EXPORT_SIZE = 10_000;
 
-    public List<ServerLogDto> getLogsForProject(UUID projectId, Pageable requested) {
+    public List<ServerLogDto> getLogsForProject(@NonNull UUID projectId, Pageable requested) {
         Project project = requireProjectAndOwnership(projectId);
 
         // Clamp to MAX_LOGS_PAGE_SIZE so a caller can't ask for an unbounded
@@ -323,7 +724,7 @@ public class ProjectService {
      * endpoint. The cap protects the JVM from a runaway project; if real
      * users need bigger exports we should ship them to S3 instead.
      */
-    public List<ServerLogDto> getLogsForExport(UUID projectId) {
+    public List<ServerLogDto> getLogsForExport(@NonNull UUID projectId) {
         Project project = requireProjectAndOwnership(projectId);
         Pageable cap = PageRequest.of(0, MAX_LOGS_EXPORT_SIZE, Sort.by("timestamp").ascending());
         return serverLogRepository.findByProjectIdOrderByTimestampAsc(project.getId(), cap)
@@ -332,13 +733,11 @@ public class ProjectService {
                 .collect(Collectors.toList());
     }
 
-    private Project requireProjectAndOwnership(UUID projectId) {
-        if (projectId == null) {
-            throw ResourceNotFoundException.forEntity("Project", null);
-        }
+    private Project requireProjectAndOwnership(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        requireOwnerOrAdmin(project);
+        authz.requireOrgScope(project.getOrgId());
+        authz.requireOwnerOrAdmin(project);
         return project;
     }
 
@@ -349,5 +748,234 @@ public class ProjectService {
         dto.setStackTrace(entry.getStackTrace());
         dto.setTimestamp(entry.getTimestamp());
         return dto;
+    }
+
+    @Transactional
+    @SuppressWarnings("null")
+    public ProjectResponseDto updateProject(@NonNull UUID projectId, UpdateProjectRequest req) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        authz.requireOrgScope(project.getOrgId());
+        authz.requireOwnerOrAdmin(project);
+
+        if (req.getName() != null && !req.getName().isBlank()) {
+            project.setName(req.getName());
+        }
+        if (req.getDescription() != null) {
+            project.setModelDescription(req.getDescription());
+        }
+        if (req.getVisibility() != null) {
+            ProjectVisibility next = ProjectVisibility.valueOf(req.getVisibility());
+            if (project.getVisibility() != next) {
+                project.setVisibility(next);
+                // Notify current participants (excluding internal OWNER_SELF rows).
+                User actor = authz.currentUser();
+                NotificationDto n = new NotificationDto();
+                n.setType(NotificationDto.Type.PROJECT_VISIBILITY_CHANGED);
+                n.setProjectId(project.getId());
+                n.setProjectName(project.getName());
+                n.setActorId(actor.getId());
+                n.setActorUsername(actor.getUsername());
+                for (ProjectMembership m : membershipRepository.findByIdProjectId(project.getId())) {
+                    if (m.getRole() != MembershipRole.OWNER) {
+                        notificationService.notifyUser(m.getId().getUserId(), n);
+                    }
+                }
+            }
+        }
+        if (req.getRequirementsOverride() != null) {
+            project.setRequirementsOverride(req.getRequirementsOverride());
+        }
+        Project saved = projectRepository.save(project);
+        ProjectResponseDto dto = convertToDto(saved);
+        if (authz.isOwner(saved)) {
+            dto.setMyRelationship("OWNER");
+        }
+        return dto;
+    }
+
+    public ProjectResponseDto getProject(@NonNull UUID projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        // Org isolation: a project outside the caller's visible orgs is treated
+        // as non-existent (404) so we don't leak cross-tenant existence. Platform
+        // admins are unrestricted and skip this gate.
+        if (!orgScope.allows(project.getOrgId())) {
+            throw ResourceNotFoundException.project(projectId);
+        }
+        boolean isAdmin = authz.isPlatformAdmin();
+        boolean isOwner = authz.isOwner(project);
+        boolean isParticipant = isAdmin || isOwner
+                || authz.myMembership(project).map(m ->
+                      m.getRole() == MembershipRole.MEMBER
+                   || m.getRole() == MembershipRole.CLIENT).orElse(false);
+
+        if (isParticipant) {
+            ProjectResponseDto dto = convertToDto(project);
+            if (isOwner) {
+                dto.setMyRelationship("OWNER");
+            } else if (!isAdmin) {
+                authz.myMembership(project)
+                        .ifPresent(m -> dto.setMyRelationship(m.getRole().name()));
+            }
+            return dto;
+        }
+
+        if (project.getVisibility() == ProjectVisibility.PUBLIC) {
+            // Outsiders only see the world-readable fields of a PUBLIC project.
+            ProjectResponseDto trimmed = new ProjectResponseDto();
+            trimmed.setId(project.getId());
+            trimmed.setName(project.getName());
+            trimmed.setModelType(project.getModelType());
+            trimmed.setStatus(projectStatusService.currentStatus(project).name());   // BA-4
+            trimmed.setVisibility("PUBLIC");
+            return trimmed;
+        }
+        // PRIVATE outsiders get 404 so we don't leak existence.
+        throw ResourceNotFoundException.project(projectId);
+    }
+
+    // ─── Inference ("Use a model") support ───────────────────────────────────
+    //
+    // ProjectService owns projects and their on-disk model files, so it also owns
+    // "which models can the caller run, and where is the file". The actual model
+    // execution lives in InferenceService — this class never touches torch.
+
+    /** Where a trained model lives plus what it is, for {@link #resolveInferenceTarget}. */
+    public record InferenceTarget(String modelPath, String modelType, String modelName,
+                                  String status, String taskType) {}
+
+    /**
+     * Maps a stored modelType to the input the client must collect, or null if
+     * unknown. Sourced from the {@link ModelRecipeService} catalog (recipes.py),
+     * with the built-in fallback covering CNN/MLP/Transformer/Pneumonia.
+     */
+    public String inputKindFor(String modelType) {
+        if (modelType == null) return null;
+        return modelRecipeService.findByKey(modelType)
+                .map(com.federated.fl_platform_api.dto.ModelRecipeDto::inputKind)
+                .orElse(null);
+    }
+
+    /** Generation applies only to an LLM_LORA project whose task_type is CAUSAL_LM. */
+    static boolean isGenerationProject(String modelType, String taskType) {
+        return "LLM_LORA".equalsIgnoreCase(modelType) && "CAUSAL_LM".equalsIgnoreCase(taskType);
+    }
+
+    /** Input kind, aware of generation projects (CAUSAL_LM LLM_LORA → "generation"). */
+    public String inputKindFor(String modelType, String taskType) {
+        return isGenerationProject(modelType, taskType) ? "generation" : inputKindFor(modelType);
+    }
+
+    /**
+     * Human-readable class labels for a modelType, in output order. Sourced from
+     * the {@link ModelRecipeService} catalog; empty if the type is unknown.
+     */
+    public List<String> classesFor(String modelType) {
+        if (modelType == null) return List.of();
+        return modelRecipeService.findByKey(modelType)
+                .map(com.federated.fl_platform_api.dto.ModelRecipeDto::classes)
+                .map(c -> c == null ? List.<String>of() : c)
+                .orElse(List.of());
+    }
+
+    /**
+     * Lists the current user's projects whose aggregated model file exists on
+     * disk — i.e. models that can actually be run. Org-scoped via the same
+     * queries as {@link #getProjectsForCurrentUser()}.
+     */
+    public List<InferableModelDto> listInferableModels() {
+        User caller = authz.currentUser();
+        List<Project> projects = orgScope.isUnrestricted()
+                ? projectRepository.findOwnedOrMemberOf(caller.getId())
+                : projectRepository.findOwnedOrMemberOfInOrgs(caller.getId(), orgScope.visibleOrgIds());
+
+        List<InferableModelDto> out = new ArrayList<>();
+        for (Project p : projects) {
+            // BA-11 Chunk A: a project is inferable if the registry holds its head model OR (fallback) a
+            // .npz exists on disk. Existence-only here — no blob is materialized just to render the list.
+            String path = p.getModelPath();
+            boolean inferable = registryModelResolver.hasModel(p) || (path != null && new File(path).isFile());
+            if (!inferable) {
+                continue; // no trained artifact yet → not usable
+            }
+            String kind = inputKindFor(p.getModelType(), p.getTaskType());
+            InferableModelDto dto = new InferableModelDto();
+            dto.setProjectId(p.getId());
+            dto.setName(p.getName());
+            dto.setModelType(p.getModelType());
+            dto.setModelName(p.getModelName());
+            dto.setStatus(projectStatusService.currentStatus(p).name());   // BA-4
+            dto.setInputKind(kind);
+            dto.setClasses(classesFor(p.getModelType()));
+            dto.setSupported(kind != null);
+            out.add(dto);
+        }
+        return out;
+    }
+
+    /**
+     * Authz-gated resolution of a project's model file for inference. Applies the
+     * exact same org-scope + participant checks as {@link #getProject} so there is
+     * no security divergence: cross-org/invisible → 404, non-participant → 403.
+     * Verifies the model file exists (→ 409 if training hasn't produced one yet).
+     */
+    public InferenceTarget resolveInferenceTarget(@NonNull UUID projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        // Org isolation: invisible orgs are 404 (don't leak cross-tenant existence).
+        if (!orgScope.allows(project.getOrgId())) {
+            throw ResourceNotFoundException.project(projectId);
+        }
+        // Participant gate (owner/member/client/admin) → 403 otherwise.
+        authz.requireParticipant(project);
+
+        // BA-11 Chunk A: serve the registry's head model (content-addressed, integrity-checked) when one
+        // exists; fall back to the .npz for projects with no artifact yet (pre-registry / init-only / a
+        // failed registration) and for LoRA (safetensors head the .npz inference path can't read). For a
+        // FULL_CHECKPOINT the registry blob is byte-identical to the .npz, so this is behavior-preserving.
+        String path = registryModelResolver.resolveModelPath(project).orElseGet(project::getModelPath);
+        if (path == null || !new File(path).isFile()) {
+            throw new ProjectStateException(
+                    "This project has no trained model yet. Run training to completion first.");
+        }
+        return new InferenceTarget(path, project.getModelType(), project.getModelName(),
+                project.getStatus(), project.getTaskType());
+    }
+
+    public List<DiscoverProjectDto> getDiscoverProjects() {
+        User caller = authz.currentUser();
+        List<Project> candidates = orgScope.isUnrestricted()
+                ? projectRepository.findDiscoverable(caller.getId())
+                : projectRepository.findDiscoverableInOrgs(
+                        caller.getId(), orgScope.visibleOrgIds());
+        // BA-10: batch the per-candidate membership + access-request lookups into
+        // two queries keyed by the caller, joined in memory (was 2 queries per
+        // candidate — the N+1).
+        Map<UUID, ProjectMembership> myMemberships = membershipsByProject(caller.getId(), candidates);
+        Map<UUID, ProjectAccessRequest> myRequests = accessRequestsByProject(caller.getId(), candidates);
+        return candidates
+                .stream()
+                .filter(p -> p.getUser() == null || !p.getUser().getId().equals(caller.getId()))
+                .filter(p -> {
+                    ProjectMembership m = myMemberships.get(p.getId());
+                    return m == null
+                            || (m.getRole() != MembershipRole.MEMBER
+                                && m.getRole() != MembershipRole.CLIENT);
+                })
+                .map(p -> toDiscoverDto(p, myRequests.get(p.getId())))
+                .collect(Collectors.toList());
+    }
+
+    private DiscoverProjectDto toDiscoverDto(Project p, ProjectAccessRequest myRequest) {
+        DiscoverProjectDto d = new DiscoverProjectDto();
+        d.setId(p.getId());
+        d.setName(p.getName());
+        d.setVisibility(p.getVisibility() != null ? p.getVisibility().name() : null);
+        d.setOwnerUsername(p.getUser() != null ? p.getUser().getUsername() : null);
+        d.setModelType(p.getModelType());
+        d.setDescription(p.getModelDescription());
+        d.setMyRequestStatus(myRequest != null ? myRequest.getStatus().name() : "NONE");
+        return d;
     }
 }

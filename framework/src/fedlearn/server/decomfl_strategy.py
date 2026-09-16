@@ -1,16 +1,73 @@
 # src/fedlearn/server/decomfl_strategy.py
 """
-DeComFL Strategy implementing Algorithm 3 from the paper.
+DeComFL server-side aggregation strategy.
+
+Implements the server protocol of DeComFL — "Achieving Dimension-Free
+Communication in Federated Learning via Zeroth-Order Optimization"
+(Li, Ying, Liu, Dong, Yang; ICLR 2025; https://arxiv.org/abs/2405.15861).
+
+Aligned with the authors' reference implementation
+https://github.com/ZidongLiu/DeComFL (Apache-2.0); that attribution and license
+are retained here per Apache-2.0 section 4.
 """
 
 import logging
+import math
+import threading
 from typing import Optional, Callable, Tuple, List, Dict
 from collections import OrderedDict
 import torch
 import numpy as np
 from .strategy import Strategy
+from fedlearn.estimators.perturbation import canonical_perturbation
 
 log = logging.getLogger(__name__)
+
+
+# --- Learning-rate stability envelope (measured, not assumed) -------------------------------
+# DeComFL's learning rate is NOT dimension-transferable. The zeroth-order estimate has
+# ||g_hat|| ~ sqrt(d/P) * ||grad f||, so it is systematically LONGER than the true gradient as d
+# grows — an eta tuned at one dimension overshoots at a larger one and the run diverges.
+#
+# Measured in research/results/decomfl/:
+#   mu_eta_dimension_scaling.json — at d=103,002 the reference eta diverges to loss ~1e19;
+#       scaling eta by sqrt(d0/d) ALONE restores it (0.9815 AUC). Scaling mu alone does not.
+#   stability_ladder.json — at the reference eta: stable through d=20,602, diverged from
+#       d=30,902. The d=30,902 cell reaches 0.9805 AUC and THEN explodes, so the accuracy column
+#       cannot see it coming; only the shared-seed replay check caught it.
+#
+# The invariant is S = eta * sqrt(d), constant along the scaling law.
+LR_REFERENCE_D = 1026            # the shipped frozen head, Linear(512 -> 2)
+LR_REFERENCE_ETA = 0.01          # measured stable there
+LR_MEASURED_STABLE_D = 20602     # largest d that converged at LR_REFERENCE_ETA
+LR_MEASURED_DIVERGENT_D = 30902  # smallest d that diverged at LR_REFERENCE_ETA
+LR_STABLE_MAX_S = LR_REFERENCE_ETA * math.sqrt(LR_MEASURED_STABLE_D)        # ~1.435
+LR_DIVERGENT_MIN_S = LR_REFERENCE_ETA * math.sqrt(LR_MEASURED_DIVERGENT_D)  # ~1.758
+
+# Rounds a stalled client may pin the history floor before we say so out loud.
+HISTORY_PIN_WARN_LAG = 16
+
+
+def lr_stability_statistic(eta: float, d: int) -> float:
+    """S = eta*sqrt(d) — the quantity held constant by DeComFL's learning-rate scaling law."""
+    return eta * math.sqrt(d)
+
+
+def suggested_eta(d: int) -> float:
+    """The dimension-scaled learning rate: eta0 * sqrt(d0/d).
+
+    Reproduces the value that rescued the diverged d=103,002 cell in
+    `mu_eta_dimension_scaling.json` (0.0009980466738393954) exactly.
+    """
+    return LR_REFERENCE_ETA * math.sqrt(LR_REFERENCE_D / d)
+
+
+class DeComFLRebuildGap(RuntimeError):
+    """A client's DeComFL rebuild chain has a missing round: the server lacks the shared
+    seeds and/or averaged gradients for a round the client must replay to catch up. Handing
+    back a history with that round SILENTLY DROPPED (the old behaviour) would let the client
+    rebuild on an incomplete update chain and diverge from the true global model with no
+    error surfaced anywhere — so we fail loud instead (FR-4)."""
 
 
 class DeComFL(Strategy):
@@ -33,7 +90,8 @@ class DeComFL(Strategy):
             num_perturbations: int = 10,
             learning_rate: float = 0.001,
             smoothing_param: float = 0.001,
-            seed: int = 42
+            seed: int = 42,
+            allow_unstable_lr: bool = False
     ):
         """
         Args:
@@ -46,6 +104,9 @@ class DeComFL(Strategy):
             learning_rate: η - learning rate
             smoothing_param: μ - smoothing parameter for ZO estimation
             seed: Random seed
+            allow_unstable_lr: Downgrade the measured-divergent learning-rate check from an error
+                to a warning. Only set this deliberately — the failure it guards is silent
+                (the run learns first, then explodes).
         """
         self.initial_parameters = initial_parameters
         self.evaluate_fn = evaluate_fn
@@ -58,9 +119,14 @@ class DeComFL(Strategy):
         self.eta = learning_rate
         self.mu = smoothing_param
 
-        # Algorithm 3, Line 2: Initialize history
-        self.seed_history: List[List[List[int]]] = []  # [round][local_step][perturbation]
-        self.gradient_history: List[List[List[float]]] = []  # [round][local_step][perturbation]
+        # Algorithm 3, Line 2: Initialize history. Keyed by ROUND NUMBER (1-based, matching
+        # coordinator.current_round) so aggregate_fit / get_rebuild_history index by round
+        # unambiguously. Fixes audit #28/#29: the old list+per-client-append produced N entries
+        # per round (and off-by-one indexing), and handed each client a DIFFERENT perturbation
+        # direction — breaking DeComFL's shared-seed invariant.
+        self.seed_history: Dict[int, List[List[int]]] = {}        # round -> seeds[k][p]
+        self.gradient_history: Dict[int, List[List[float]]] = {}  # round -> avg_grad[k][p]
+        self._seed_lock = threading.Lock()  # guards get_or_create_seeds against concurrent client RPCs
 
         # Track last participation round for each client
         self.client_last_round: Dict[str, int] = {}
@@ -70,14 +136,64 @@ class DeComFL(Strategy):
         self.global_params_flat = self._flatten_params(initial_parameters)
 
 
-        # Random seed
-        np.random.seed(seed)
-        torch.manual_seed(seed)
+        # Local RNG for seed generation. Does NOT mutate the process-global numpy/torch RNG
+        # (B-2 fix): the old global np.random.seed/torch.manual_seed corrupted reproducibility for
+        # anything else sharing the interpreter. Perturbations use canonical_perturbation's own
+        # local CPU generator, so no global torch seeding is needed either.
+        self._seed_rng = np.random.default_rng(seed)
+
+        self._validate_learning_rate(allow_unstable_lr)
 
         # One-shot startup banner — INFO so it's captured in normal logs.
         log.info(
             "DeComFL initialised: K=%d, P=%d, eta=%g, mu=%g, model_dim=%d",
             self.K, self.P, self.eta, self.mu, len(self.global_params_flat),
+        )
+
+    def _validate_learning_rate(self, allow_unstable: bool) -> None:
+        """Check eta against the MEASURED dimension-stability envelope (see the module constants).
+
+        The strategy has always known both d and eta at construction and validated neither, and the
+        record shows the same divergence being hit twice — once documented
+        (`decomfl_unscaled_lr_divergence.json`) and then repeated at d=1.6M
+        (`ondevice_large_d_diverged_unscaled_lr.json`). This is that check.
+
+        Deliberately three-tiered rather than a single threshold: below the largest measured-stable
+        S we say nothing, above the smallest measured-DIVERGENT S we refuse, and the band between
+        them is unmeasured, so it warns instead of pretending to know.
+        """
+        d = len(self.global_params_flat)
+        s = lr_stability_statistic(self.eta, d)
+        if s <= LR_STABLE_MAX_S:
+            return
+
+        advice = (
+            f"eta*sqrt(d) = {s:.3f} at eta={self.eta:g}, d={d}. The measured envelope is "
+            f"stable to {LR_STABLE_MAX_S:.3f} (d={LR_MEASURED_STABLE_D}) and divergent from "
+            f"{LR_DIVERGENT_MIN_S:.3f} (d={LR_MEASURED_DIVERGENT_D}) at eta={LR_REFERENCE_ETA:g}. "
+            f"The dimension-scaled rate for d={d} is eta={suggested_eta(d):.3g}."
+        )
+
+        if s < LR_DIVERGENT_MIN_S:
+            log.warning(
+                "DeComFL learning rate is above the largest measured-stable value and inside the "
+                "UNMEASURED band; it may diverge. %s Suggested: eta=%.3g.", advice, suggested_eta(d),
+            )
+            return
+
+        if allow_unstable:
+            log.warning(
+                "DeComFL learning rate is in the measured-DIVERGENT regime and was explicitly "
+                "permitted via allow_unstable_lr. Expect the run to learn and then explode. %s",
+                advice,
+            )
+            return
+
+        raise ValueError(
+            "DeComFL learning rate is in the regime measured to DIVERGE. " + advice + " "
+            "This failure is silent — the diverging cell reached 0.9805 AUC before exploding to "
+            "loss 9.2e18, so an accuracy curve will not warn you. Pass allow_unstable_lr=True to "
+            "proceed anyway."
         )
 
     def initialize_parameters(self) -> Optional[OrderedDict[str, torch.Tensor]]:
@@ -96,28 +212,73 @@ class DeComFL(Strategy):
         for k in range(self.K):
             k_seeds = []
             for p in range(self.P):
-                seed = np.random.randint(0, 2 ** 31 - 1)
-                k_seeds.append(int(seed))
+                seed = int(self._seed_rng.integers(0, 2 ** 31 - 1))
+                k_seeds.append(seed)
             seeds.append(k_seeds)
 
         return seeds
 
+    def get_or_create_seeds(self, round_idx: int) -> List[List[int]]:
+        """Return the seeds for ``round_idx``, generating them EXACTLY ONCE.
+
+        DeComFL requires every client in a round to perturb along the same
+        seed-derived direction z, so seeds must be generated once per round and
+        shared by all clients — never regenerated per client RPC (audit #28).
+        This is the single entry point grpc_servicer must call: it is idempotent
+        and thread-safe, and records each round's seeds in ``seed_history`` once,
+        keyed by the round number that ``aggregate_fit`` indexes with.
+        """
+        with self._seed_lock:
+            seeds = self.seed_history.get(round_idx)
+            if seeds is None:
+                seeds = self.generate_seeds(round_idx)
+                self.seed_history[round_idx] = seeds
+            return seeds
+
     def get_rebuild_history(self, client_id: str, current_round: int) -> List[Dict]:
         """Get history needed for client to rebuild model."""
-        last_round = self.client_last_round.get(client_id, -1)
+        last_round = self.client_last_round.get(client_id)
+        if last_round is None:
+            # First contact: the client has just downloaded the CURRENT global model
+            # (x_{current_round-1}) via get_global_model, so it is already synced through
+            # round current_round-1. Record that baseline so a LATE joiner does not replay
+            # pre-join rounds on top of the model it just downloaded (which would double-apply,
+            # FR-1 late-join). For a client present from round 1 this is 0, correctly yielding
+            # an empty history.
+            last_round = current_round - 1
+            self.client_last_round[client_id] = last_round
 
         if last_round >= current_round - 1:
             return []
 
         rebuild_history = []
         for r in range(last_round + 1, current_round):
-            # Check if history exists for this round
-            if r >= 0 and r < len(self.seed_history) and r < len(self.gradient_history):
-                rebuild_history.append({
-                    'round_number': r,
-                    'seeds': self.seed_history[r],
-                    'gradients': self.gradient_history[r]
-                })
+            # Every completed round in the catch-up range MUST have both its shared seeds
+            # (recorded once by get_or_create_seeds) and its averaged gradients (recorded by
+            # aggregate_fit). A missing round is a torn server history: silently dropping it
+            # (the old behaviour) handed the client an incomplete update chain and diverged
+            # its local model from the true global model with no error anywhere. Fail loud
+            # (FR-4) — the servicer maps this to a hard RPC error and logs it, so the gap is
+            # detected instead of corrupting the client.
+            has_seeds = r in self.seed_history
+            has_grads = r in self.gradient_history
+            if not (has_seeds and has_grads):
+                missing = []
+                if not has_seeds:
+                    missing.append("seeds")
+                if not has_grads:
+                    missing.append("gradients")
+                raise DeComFLRebuildGap(
+                    f"DeComFL rebuild history for client '{client_id}' is missing "
+                    f"{' and '.join(missing)} for round {r} "
+                    f"(catch-up range {last_round + 1}..{current_round - 1}). Refusing to hand "
+                    "back a torn rebuild chain that would silently diverge the client's model."
+                )
+            rebuild_history.append({
+                'round_number': r,
+                'seeds': self.seed_history[r],
+                'gradients': self.gradient_history[r]
+            })
 
         return rebuild_history
 
@@ -146,56 +307,209 @@ class DeComFL(Strategy):
         client_gradients = {}
         for client_id, grad_scalars, num_examples in results:
             client_gradients[client_id] = grad_scalars
-            # Update client's last participation round
-            self.client_last_round[client_id] = server_round
+            # Mark the client as synced THROUGH server_round - 1, not server_round (FR-2).
+            # fit() reverts all K local steps, so after participating in round r the client's
+            # x_current still reflects x_{r-1} (the model it started the round from). It applies
+            # round r's AVERAGED update only at the START of round r+1, via get_rebuild_history,
+            # which returns range(last_round + 1, r + 1). Recording server_round made that range
+            # empty (guard: last_round >= current_round - 1) and pinned a full-participation
+            # client at x_0 forever; recording server_round - 1 makes it replay round r exactly.
+            self.client_last_round[client_id] = server_round - 1
 
         # Get current model parameters
+        # The update needs only the PER-(k,p) SUM across clients, never an individual client's
+        # scalars. That is what lets secure aggregation substitute a recovered sum here without
+        # touching the mathematics -- see aggregate_fit_secure.
+        g_sums = [
+            [sum(gs[k][p] for gs in client_gradients.values()) for p in range(self.P)]
+            for k in range(self.K)
+        ]
+        return self._apply_zo_update(server_round, g_sums, len(client_gradients))
+
+    def _apply_zo_update(
+            self,
+            server_round: int,
+            g_sums: List[List[float]],
+            num_clients: int,
+    ) -> OrderedDict[str, torch.Tensor]:
+        """Apply one DeComFL update from the per-(k,p) summed gradient scalars.
+
+        Shared by the plaintext and secure paths so the two cannot drift: whichever way the sums
+        were obtained, the model moves identically.
+        """
         x_current = self.global_params_flat.clone()
 
         # For each local step
         for k in range(self.K):
             delta = torch.zeros_like(x_current)
 
-            # Average gradients across clients
-            num_clients = len(client_gradients)
-            for client_id, grad_scalars in client_gradients.items():
-                for p in range(self.P):
-                    # Regenerate perturbation from seed
-                    z = self._generate_perturbation(self.seed_history[server_round][k][p])
+            for p in range(self.P):
+                # z depends only on (k, p), NOT on the client — regenerate it once and use the
+                # summed gradient scalar (O(K*P) instead of the v1 O(K*P*N) loop, C-1).
+                z = self._generate_perturbation(self.seed_history[server_round][k][p])
+                delta += g_sums[k][p] * z
 
-                    # Get gradient scalar for this client
-                    g = grad_scalars[k][p]
-
-                    # Accumulate gradient direction
-                    delta += g * z
-
-            # Average across clients and perturbations
+            # Average across clients and perturbations.
             delta = delta / (num_clients * self.P)
 
-            # Update model parameters
-            x_current = x_current - self.eta * delta * self.P
+            # Update model parameters. The 1/P averaging above IS the paper's update; the v1 code
+            # cancelled it with an extra * self.P, stepping the global model P x too far and off the
+            # rebuild trajectory (Bug 1, B1-C1). No * self.P here.
+            x_current = x_current - self.eta * delta
 
         # Update global model
         self.global_params_flat = x_current
+
+        self._prune_history(server_round)
 
         # Convert back to OrderedDict format
         updated_params = self._unflatten_params(x_current, self.initial_parameters)
 
         return updated_params
 
-    def _generate_perturbation(self, seed: int) -> torch.Tensor:
-        """Generate perturbation vector from seed."""
-        generator = torch.Generator(device=self.device)
-        generator.manual_seed(seed)
-        z = torch.randn(
-            len(self.global_params_flat),
-            generator=generator,
-            device=self.device
+    def aggregate_fit_secure(
+            self,
+            server_round: int,
+            masked_values: List[torch.Tensor],
+            summed_shares: Dict[int, torch.Tensor],
+            threshold: int,
+            num_clients: int,
+    ) -> Optional[OrderedDict[str, torch.Tensor]]:
+        """P2-2: aggregate a round in which clients sent MASKED scalars (LightSecAgg).
+
+        The server recovers ``sum_i x_i`` over the survivors without ever seeing any individual
+        client's contribution, then feeds it to the same :meth:`_apply_zo_update` the plaintext
+        path uses — so the resulting model matches the plaintext one to within the quantisation
+        bound (``n / (2 * scale)`` per scalar; see fedlearn.security.secure_aggregation).
+
+        This is cheap here precisely because the payload is ``K * P`` scalars rather than a
+        d-dimensional vector: the masking cost does not scale with the model.
+
+        Args:
+            masked_values: each survivor's ``y_i``, a flat ``[K*P]`` int64 field vector.
+            summed_shares: ``{holder_index: summed_share}`` — one vector per holder, whatever the
+                dropout count (the one-shot property).
+            threshold: Shamir reconstruction threshold.
+            num_clients: survivor count, used for the 1/N averaging.
+
+        Returns:
+            The updated global model, or ``None`` if no masked values were supplied.
+        """
+        from fedlearn.security.lightsecagg import recover_aggregate
+
+        if not masked_values:
+            return None
+
+        recovered = recover_aggregate(
+            masked_values=masked_values,
+            summed_shares=summed_shares,
+            threshold=threshold,
         )
-        return z
+        expected = self.K * self.P
+        if recovered.numel() != expected:
+            raise ValueError(
+                f"secure round recovered {recovered.numel()} scalars, expected K*P = {expected}"
+            )
+
+        flat = recovered.tolist()
+        g_sums = [[flat[k * self.P + p] for p in range(self.P)] for k in range(self.K)]
+
+        # Record the round's AVERAGED scalars so a client catching up can replay it.
+        #
+        # The plaintext path stores this from the coordinator, which holds the per-client results.
+        # The secure path has none to hold -- that is the point -- so the strategy records it
+        # here, from the recovered sum. Skipping it is not a missing optimisation but a torn
+        # rebuild chain: get_rebuild_history refuses a round with no gradients (correctly, since
+        # a silent gap diverges the client), so a secure round would make rejoin raise
+        # DeComFLRebuildGap outright rather than degrade.
+        #
+        # The AVERAGE, not the sum: clients replay this value directly, and a sum would step every
+        # rejoining client num_clients times too far. Nothing individual is exposed -- the average
+        # is the aggregate the round already published.
+        self.gradient_history[server_round] = [
+            [g / num_clients for g in row] for row in g_sums
+        ]
+
+        log.debug("Secure aggregation recovered %d scalars for round %d", expected, server_round)
+        return self._apply_zo_update(server_round, g_sums, num_clients)
+
+    def _prune_history(self, server_round: int) -> None:
+        """Drop history no client can still ask for.
+
+        ``get_rebuild_history`` hands a client synced through round L the rounds L+1..current-1,
+        so every round at or below ``min(client_last_round)`` is unreachable and is dead weight.
+        Without this the two histories grow as O(rounds) — 20,000-round runs are routine here —
+        which is a poor look for an algorithm whose whole claim is O(1) communication.
+
+        The floor is derived from what clients actually need rather than a fixed window, so a
+        round a lagging client still requires is NEVER discarded; that is what keeps this from
+        turning a legitimate rejoin into a :class:`DeComFLRebuildGap`. The cost is that one
+        stalled client pins the floor and blocks all pruning — correct, but worth saying out
+        loud, so it warns instead of growing silently.
+        """
+        if not self.client_last_round:
+            return  # nobody has synced yet; nothing is provably unreachable
+
+        floor = min(self.client_last_round.values())
+        for rnd in [r for r in self.seed_history if r <= floor]:
+            del self.seed_history[rnd]
+            self.gradient_history.pop(rnd, None)
+        for rnd in [r for r in self.gradient_history if r <= floor]:
+            del self.gradient_history[rnd]
+
+        lag = server_round - floor
+        if lag >= HISTORY_PIN_WARN_LAG and lag % HISTORY_PIN_WARN_LAG == 0:
+            stalled = sorted(c for c, r in self.client_last_round.items() if r == floor)
+            log.warning(
+                "DeComFL history pinned at round %d by client(s) %s (synced through %d, %d rounds "
+                "behind round %d); %d rounds of seed/gradient history are being retained for their "
+                "rebuild chain and cannot be pruned.",
+                floor, ", ".join(stalled), floor, lag, server_round, len(self.seed_history),
+            )
+
+    def _generate_perturbation(self, seed: int) -> torch.Tensor:
+        """Generate perturbation vector from seed.
+
+        CPU-canonical and device-independent (Bug-2 fix): the server and every client must
+        regenerate bit-identical z from the same seed, which a seeded torch.randn does NOT
+        guarantee across CPU/CUDA/MPS. Delegates to the shared canonical helper, then moves the
+        result to the compute device.
+        """
+        return canonical_perturbation(seed, len(self.global_params_flat)).to(self.device)
+
+    @property
+    def model_dim(self) -> int:
+        """Length of the server's flat parameter vector — the dimension the shared-seed perturbation
+        ``z`` spans. MUST equal each participating client's trainable flat dim (its
+        ``estimators.params.num_trainable(model)``); see :meth:`validate_participant_dim`."""
+        return len(self.global_params_flat)
+
+    def validate_participant_dim(self, client_flat_dim: int, client_id: str = "") -> None:
+        """FR-14 fail-loud guard: reject a client whose trainable flat dimension does not match the
+        server's, instead of letting the shared-seed perturbation misalign and the model diverge
+        silently. The mismatch means the server was built with a different parameter set than the
+        client trains — almost always a full ``state_dict()`` (buffers + frozen params) was passed as
+        ``initial_parameters`` where :func:`estimators.params.trainable_state` should have been."""
+        if client_flat_dim != self.model_dim:
+            who = f" (client {client_id})" if client_id else ""
+            raise ValueError(
+                f"DeComFL participant dimension mismatch{who}: client reports {client_flat_dim} "
+                f"trainable params but the server model_dim is {self.model_dim}. The server's "
+                f"initial_parameters must be the requires_grad-filtered trainable layout "
+                f"(estimators.params.trainable_state(model)), NOT a full state_dict() — buffers and "
+                f"frozen params otherwise inflate the server's flat vector and misalign the "
+                f"shared-seed perturbation."
+            )
 
     def _flatten_params(self, params: OrderedDict[str, torch.Tensor]) -> torch.Tensor:
-        """Flatten OrderedDict parameters to 1D tensor."""
+        """Flatten OrderedDict parameters to a 1D tensor.
+
+        CONTRACT (FR-14): ``params`` must be the client's TRAINABLE layout — the requires_grad-filtered
+        ``named_parameters()`` order (build it with ``estimators.params.trainable_state(model)``). It is
+        NOT a full ``state_dict()``: buffers + frozen params would extend this vector beyond the
+        client's and silently misalign the shared-seed perturbation z. Validated per client via
+        :meth:`validate_participant_dim`.
+        """
         flat = []
         for name, tensor in params.items():
             flat.append(tensor.view(-1))

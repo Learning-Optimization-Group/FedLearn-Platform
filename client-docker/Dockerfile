@@ -28,7 +28,7 @@ RUN pip3 install --no-cache-dir /app/framework/
 # 3. Copy client-specific execution scripts and requirements
 COPY client-docker/requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
-COPY client-docker/scripts/ /app/scripts/
+COPY fl-runtime/ /app/fl-runtime/
 COPY client-docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
@@ -41,7 +41,7 @@ RUN groupadd --system --gid ${APP_GID} fedlearn \
     && chown -R fedlearn:fedlearn /app /home/fedlearn
 
 ENV PYTHONPATH=/app:${PYTHONPATH}
-WORKDIR /app/scripts
+WORKDIR /app/fl-runtime
 USER fedlearn
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD []

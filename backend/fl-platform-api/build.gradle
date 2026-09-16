@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'jacoco'
     id 'org.springframework.boot' version '3.4.5'
     id 'io.spring.dependency-management' version '1.1.4'
 }
@@ -12,6 +13,11 @@ java {
         languageVersion = JavaLanguageVersion.of(21)
     }
 }
+
+// Override the Testcontainers version pinned by the Spring Boot 3.4.5 BOM (1.20.6):
+// its bundled docker-java is too old for Docker Engine 29.x and fails the daemon
+// ping with HTTP 400. 1.21.x ships a docker-java that negotiates the newer API.
+ext['testcontainers.version'] = '1.21.3'
 
 configurations {
     compileOnly {
@@ -30,14 +36,16 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
-    
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+
     // JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
 
-    // AWS ECS SDK for Fargate orchestration
-    implementation 'software.amazon.awssdk:ecs:2.25.11'
+    // SE-12: BouncyCastle for per-client X509 mTLS certificate issuance at enrollment.
+    implementation 'org.bouncycastle:bcpkix-jdk18on:1.78.1'
 
     // Flyway schema migrations (PostgreSQL dialect needed for Flyway 10+)
     implementation 'org.flywaydb:flyway-core'
@@ -45,14 +53,66 @@ dependencies {
 
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'org.postgresql:postgresql'
-    
+
     annotationProcessor 'org.projectlombok:lombok'
-    
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
-    runtimeOnly 'com.h2database:h2'
+
+    // Tests run against real PostgreSQL via Testcontainers (no H2). Versions are
+    // managed by the Spring Boot dependency BOM.
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:postgresql'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+
+    // Forward Docker / Testcontainers knobs to the forked test JVM when present
+    // in the environment. No-op on CI (Linux, default socket) where none are set;
+    // on a local Docker Desktop with a newer Engine these let the developer point
+    // Testcontainers at the right socket and pin the client API version.
+    ['DOCKER_HOST', 'DOCKER_API_VERSION', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH',
+     'TESTCONTAINERS_RYUK_DISABLED', 'TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE'].each { k ->
+        def v = System.getenv(k)
+        if (v) { environment k, v }
+    }
+    // docker-java's wire API version is taken from the `api.version` system
+    // property; without it the client defaults to 1.32, which Docker Engine 29+
+    // rejects ("client version 1.32 is too old; minimum is 1.40").
+    def apiVersion = System.getenv('DOCKER_API_VERSION')
+    if (apiVersion) { systemProperty 'api.version', apiVersion }
+
+    // Emit coverage data whenever the test suite runs.
+    finalizedBy tasks.named('jacocoTestReport')
+}
+
+jacoco {
+    toolVersion = '0.8.12'
+}
+
+tasks.named('jacocoTestReport') {
+    dependsOn tasks.named('test')
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+// Bundle-level regression floor: keep overall line coverage from slipping below
+// the current measured level. This is a modest anti-regression guard, not an
+// aspirational target — bump it up as coverage improves.
+tasks.named('jacocoTestCoverageVerification') {
+    dependsOn tasks.named('test')
+    violationRules {
+        rule {
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                // Measured line coverage was 74.6%; floor sits a few points below.
+                minimum = 0.70
+            }
+        }
+    }
 }

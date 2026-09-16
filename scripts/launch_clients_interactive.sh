@@ -14,7 +14,7 @@ CYAN='\033[0;36m'; BOLD='\033[1m'; DIM='\033[2m'; NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-CLIENT_SCRIPT_DIR="$PROJECT_ROOT/backend/fl-platform-api/src/main/resources/scripts"
+CLIENT_SCRIPT_DIR="$PROJECT_ROOT/fl-runtime"
 VENV_PATH="$PROJECT_ROOT/venv"
 BACKEND_URL="http://localhost:8081"
 HEALTH_URL="$BACKEND_URL/actuator/health"

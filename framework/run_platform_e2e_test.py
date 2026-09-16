@@ -108,7 +108,12 @@ def e2e_test_flow():
     print("===========================================\n")
     
     session = requests.Session()
-    
+    # Identify as a native (non-browser) client: SE-8 only returns accessToken in the login body
+    # for callers carrying this marker (a browser gets identity + the HttpOnly cookie only), and
+    # SE-9 only honours the Bearer header when the marker is present. Without it the Bearer path
+    # below would send "Bearer None" and the run would silently authenticate via the cookie jar.
+    session.headers.update({"X-FedLearn-Client": "fedlearn-e2e-test"})
+
     # 1. Register & Login
     username = f"e2e_user_{random_string()}"
     password = "e2e_Password123!"
@@ -136,8 +141,12 @@ def e2e_test_flow():
         return False
         
     token = log_res.json().get("accessToken")
+    if not token:
+        print("[!] Login response carried no accessToken — the native-client marker (SE-8) or the "
+              "token contract is broken; refusing to fall back to the cookie jar silently.")
+        return False
     session.headers.update({"Authorization": f"Bearer {token}"})
-    print("    [+] Authentication successful.")
+    print("    [+] Authentication successful (Bearer token from native-client login).")
     
     # 2. Create a Project
     print("[*] Creating a new Federated Learning Project via API...")

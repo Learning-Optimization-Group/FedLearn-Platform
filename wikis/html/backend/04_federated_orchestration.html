@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 - Federated Orchestration (FlServerManager) · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Backend</summary><ul>
+<li><a href="README.html">Backend Architecture Wiki</a></li>
+<li><a href="01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="03_project_management.html">Project Management Lifecycle</a></li>
+<li><a class="active" href="04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Backend</b> &nbsp;·&nbsp; 04 - Federated Orchestration (FlServerManager)</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="04-federated-orchestration-flservermanager">04 - Federated Orchestration (FlServerManager)<a class="headerlink" href="#04-federated-orchestration-flservermanager" title="Permanent link">&para;</a></h1>
+<p>The <code>FlServerManager</code> is the most operationally complex class in the Spring Boot backend. It is responsible for bridging the gap between the stateless Java REST API and the stateful, heavily computational Python Federated Learning servers.</p>
+<p>The application has <strong>one</strong> supported execution path: the FL server runs as a <strong>local child process</strong> on the same host as the backend. This is true everywhere — development, the <code>ec2demo</code> profile, and the hardened single-VM <code>production</code> profile. There is no cloud-execution mode; see <a href="#the-ecsfargate-path-removed-fail-closed">The ECS/Fargate path (removed, fail-closed)</a> below.</p>
+<h2 id="local-execution-the-flserverprocessrunner-seam">Local Execution (the FlServerProcessRunner seam)<a class="headerlink" href="#local-execution-the-flserverprocessrunner-seam" title="Permanent link">&para;</a></h2>
+<p><code>startServerForProject(...)</code> performs its policy gates and then delegates to <code>startLocalServer(...)</code>, the only real path in the class. The raw <code>ProcessBuilder</code> mechanics no longer live in <code>FlServerManager</code> itself — since <strong>DA-8</strong> they sit behind the <code>FlServerProcessRunner</code> seam, whose default implementation is <code>LocalProcessFlServerRunner</code>. The manager keeps all <em>policy</em> (argv construction, environment scrubbing, port reservation, run-state persistence, the startup probe, log broadcasting); the runner does nothing but apply the env customizer, merge stderr into stdout, set the working directory, and start the process. That split is what makes the spawn path unit-testable with a fake runner.</p>
+<h3 id="process-lifecycle">Process Lifecycle<a class="headerlink" href="#process-lifecycle" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Port Allocation:</strong> The manager scans the configured port range — <code>fl.server.port-range.start</code>/<code>.end</code>, defaulting to <strong>50000–50010</strong> — and reserves the first port it can actually bind with a probe <code>ServerSocket</code>. Reserved ports are tracked in a set guarded by a lock, so two concurrent project starts cannot pick the same port between probe-close and the Python child's bind.</li>
+<li><strong>Command Construction:</strong> It builds a command array around the FL-server shell wrapper, resolved from <code>python.script.fl-server.path</code> (default <code>../../fl-runtime/run_fl_server.sh</code>; <code>.bat</code> on Windows). Federation over Text (FoT) selects its own wrapper, <code>python.script.fot-server.path</code> (a <code>@Value</code> default in the manager — it is not declared in <code>application.properties</code>). The wrapper indirection is what lets the same Java code work on macOS, Linux, and Windows.</li>
+</ol>
+<p>Three conditional flag groups hang off the project's own configuration:
+   - <strong><code>--training-arm &lt;ARM&gt;</code></strong>, emitted <strong>only when the project's arm is not <code>FULL</code></strong>. That
+     asymmetry is deliberate: every pre-arm spawn's argv stays byte-identical to what it was, and
+     both <code>fl_server.py</code> and <code>client.py</code> resolve an omitted arm to <code>FULL</code>. Whether the <em>recipe</em>
+     supports the arm is validated by <code>recipes.validate_arm()</code> on the Python side — the catalog is
+     the authority; the <code>TrainingArm</code> enum and the <code>V22</code>/<code>V23</code> CHECK only bound the vocabulary on
+     this side. See <a href="03_project_management.html">03 - Project Management Lifecycle</a>.
+   - <strong><code>--aggregation FFA_LORA --task-type &lt;…&gt;</code></strong> for <code>LLM_LORA</code> projects.
+   - <strong>the <code>--dp-*</code> group</strong> when DP is enabled (SE-11). The flag names are a pinned contract with
+     <code>fl_server.py</code>'s argparse. Creation already validated completeness, but the spawn seam
+     re-checks so a null knob can never reach the argv as the literal string <code>"null"</code>
+     (SE-10 fail-closed); every value is a typed number formatted with <code>String.valueOf</code>, never a
+     raw string.
+3. <strong>Environment Construction:</strong> The child environment is <strong>rebuilt from an allowlist</strong> rather than inherited (SE-17), so no backend secret — DB password, web-auth JWT secret, CORS config — reaches the FL server. Only OS/runtime essentials plus the <code>FEDLEARN_*</code> namespace survive; the manager then sets the explicit per-run variables:
+   <code>java
+   env.keySet().removeIf(key -&gt; !isAllowedChildEnvKey(key));
+   env.put("FEDLEARN_INTERNAL_API_KEY", internalApiKey);
+   env.put("FEDLEARN_INTERNAL_RUN_TOKEN", internalRunToken);  // SE-7: scoped to (projectId, runId)
+   env.put("FEDLEARN_BACKEND_URL", backendInternalUrl);</code>
+   The per-run token (SE-7) is minted fresh for each start and is the only credential the child can present on <code>/api/internal/**</code> — a leaked run token can mutate only its own project. TLS enforcement (SE-2) and client-auth enforcement (SE-1/SE-7) are passed as explicit toggles, both off by default.
+4. <strong>Execution and Tracking:</strong> The runner starts the process and returns a <code>SpawnedFlProcess</code>. The manager stores <code>process.toHandle()</code> in a <code>ConcurrentHashMap&lt;UUID, ProcessHandle&gt;</code> keyed by the <code>projectId</code> — a <code>ProcessHandle</code> rather than a <code>Process</code> because a restarted JVM can only ever re-adopt a <em>handle</em> to a child that outlived a backend crash (BA-3).
+5. <strong>Identity Persistence:</strong> The child's PID, start instant, reserved port, and run-token hash are recorded on the active <code>Run</code> (BA-3, migrations <code>V15</code>/<code>V16</code>), so a startup reconciler can distinguish a still-live FL server from a dead — or PID-reused — one. If that persistence fails, the spawn <strong>fails closed</strong>: the child is killed rather than left as an unreconcilable orphan.</p>
+<h3 id="crash-recovery-startupreconciler-ba-3">Crash recovery: <code>StartupReconciler</code> (BA-3)<a class="headerlink" href="#crash-recovery-startupreconciler-ba-3" title="Permanent link">&para;</a></h3>
+<p>The in-memory <code>ConcurrentHashMap</code> is lost when the JVM dies, so a backend crash would otherwise orphan
+every FL server: the children keep running and holding gRPC ports while their runs sit forever in a
+non-terminal state with no handle to stop them. <code>bootstrap/StartupReconciler</code> closes that on boot. For
+each still-in-flight run it compares the recorded PID <strong>and</strong> the recorded OS start instant against
+the live process table (<code>ProcessProbe</code>), then either:</p>
+<ul>
+<li><strong>re-adopts</strong> the run — PID live <em>and</em> start instant matches, so the server genuinely survived the
+  restart. It is tracked again (a later <code>/stop</code> can terminate it) and its internal token is rehydrated
+  into <code>RunTokenRegistry</code> from <code>runs.internal_token_hash</code> so its result callbacks keep authenticating;
+  or</li>
+<li><strong>reaps</strong> it — the process is dead, the PID was never recorded, or the live PID belongs to a
+  <em>different</em> process (PID reuse). The run is reset to <code>FAILED</code> and the project returns to idle. A
+  PID-reused process is never killed: it is not ours, and our own server is already gone with its port
+  already free.</li>
+</ul>
+<p>Pairing the start instant with the PID is what makes PID reuse safe to detect; a recycled PID on an
+unrelated process cannot share the original's start time. Reconciliation never throws out of its
+runner — a failure here must not stop the application booting — and the last pass's summary is
+exposed as an actuator health-indicator detail.</p>
+<p>Boot reconciliation only fires once, so the same class carries a <strong>periodic stuck-run sweep</strong>
+(<code>app.fl.stuck-run-sweep.interval-ms</code>, default 60 s, flag-gated and fail-soft) for the other half of
+the problem: an FL server that dies while the <em>backend</em> stays up skips the terminal callback and
+leaves its run <code>RUNNING</code> forever. The sweep uses a <strong>two-pass debounce</strong> — a <code>RUNNING</code> run whose child
+is no longer tracked is reaped only if it was also untracked on the previous pass — so a run that is
+merely mid-completion or mid-stop settles to its terminal status first and a <code>FAILED</code> verdict cannot
+clobber a <code>COMPLETED</code> one. Only <code>RUNNING</code> is swept; <code>PENDING</code>/<code>STARTING</code> runs are legitimately
+mid-launch (a slow LLM start can sit in <code>STARTING</code> for minutes).</p>
+<h3 id="output-redirection">Output Redirection<a class="headerlink" href="#output-redirection" title="Permanent link">&para;</a></h3>
+<p>Because a spawned local process does not automatically print to the parent's console, the manager creates a dedicated daemon thread <code>fl-server-stdout-{id}</code>. This thread continuously reads from the child's <code>InputStream</code>.</p>
+<p>Every line read is passed to the <code>WebSocketService</code> to be broadcast to the UI. If the process crashes during startup — the probe window is <code>fl.server.startup-probe-seconds</code>, default <strong>3 seconds</strong> — an exception is thrown containing the captured <code>stdout</code> to help developers debug.</p>
+<h2 id="the-ecsfargate-path-removed-fail-closed">The ECS/Fargate path (removed, fail-closed)<a class="headerlink" href="#the-ecsfargate-path-removed-fail-closed" title="Permanent link">&para;</a></h2>
+<p><strong>There is no cloud-execution path in this build.</strong> The backend carries no AWS SDK dependency and no ECS orchestration code. The only surviving trace is a single property, <code>ecs.cluster-name=${ECS_CLUSTER_NAME:}</code> (blank by default), which exists purely so that setting it can be <strong>rejected</strong>. <code>ecs.task-definition</code>, <code>ecs.subnets</code>, <code>ecs.security-groups</code> and friends do not exist as properties at all.</p>
+<p>Two fail-closed gates enforce this:</p>
+<ol>
+<li><strong>Boot-time (OP-14, the real gate).</strong> <code>FlOrchestrationModeValidator</code> carries a <code>@PostConstruct</code> check that throws <code>IllegalStateException</code> when <code>ecs.cluster-name</code> is non-blank. It has <strong>no <code>@Profile</code> annotation</strong>, so it gates in <em>every</em> profile — ECS is unsupported everywhere. The blank default is the supported single-VM path and always boots. The point is to move the failure to startup: an operator who wires <code>ECS_CLUSTER_NAME</code> should be told immediately, not discover the gap mid-federation.
+   <code>OP-14: ecs.cluster-name is set ("...") but ECS/Fargate FL-server orchestration is not
+   implemented (tracked as OP-12). This build supports the hardened single-VM architecture
+   only — FL servers run as local processes. Unset ECS_CLUSTER_NAME to boot.</code></li>
+<li><strong>Runtime backstop.</strong> <code>FlServerManager.startServerForProject(...)</code> still throws <code>UnsupportedOperationException</code> on the same branch. A correctly-booted app can never reach it; it exists so that no route around the validator can record a project as <code>RUNNING</code> on an unreachable port while a real task leaks.</li>
+</ol>
+<blockquote>
+<p><strong>Historical note (past tense — not usable guidance).</strong> An AWS Fargate orchestration path <em>was</em> implemented once, in <code>1239dda refactor(backend): migrate to AWS Fargate orchestration</code>. The AWS SDK was subsequently removed (<code>9124b62</code>), which deleted that implementation along with it; <code>8d5dfdc</code> (OP-14) then added the boot-time validator to make the remaining configuration fail closed. None of that code is in the repository today, and none of it would compile without the SDK. Managed-task orchestration is <strong>deferred to OP-12</strong> and will, when built, arrive as an alternative <code>FlServerProcessRunner</code> implementation behind the DA-8 seam rather than as inline SDK calls.</p>
+</blockquote>
+<h3 id="the-supported-deployed-architecture">The supported deployed architecture<a class="headerlink" href="#the-supported-deployed-architecture" title="Permanent link">&para;</a></h3>
+<p>The <code>production</code> profile is the <strong>hardened single-VM</strong> profile — it is not, and never should be described as, an "ECS Fargate profile". FL servers run as local Python processes on the same VM as the backend, exactly as in development, with the hardening (secret scrubbing, fail-closed boot checks, run-token scoping) layered on top.</p>
+<h2 id="graceful-shutdown">Graceful Shutdown<a class="headerlink" href="#graceful-shutdown" title="Permanent link">&para;</a></h2>
+<p>To prevent orphaned processes, the manager hooks into the Spring Application Context lifecycle via the <code>@PreDestroy</code> annotation. When the Java backend is shutting down, it iterates through the <code>ConcurrentHashMap&lt;UUID, ProcessHandle&gt;</code> of running servers and calls <code>destroyForcibly()</code> on each live child. The same teardown (<code>stopServerForProject</code>) backs the stop endpoint, which additionally evicts the run's internal token from the <code>RunTokenRegistry</code> (SE-7) before terminating the child.</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

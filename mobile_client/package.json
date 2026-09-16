@@ -1,0 +1,92 @@
+{
+  "name": "fedlearn-mobile",
+  "version": "2.1.0",
+  "private": true,
+  "description": "FedLearn v2 mobile federated-learning client (React Native + native C++ core).",
+  "scripts": {
+    "start": "react-native start",
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "lint": "eslint .",
+    "test": "jest",
+    "test:coverage": "jest --coverage --ci",
+    "codegen": "react-native codegen"
+  },
+  "//": "VERSIONS ARE verify-before-use (02-TECH-STACK.md §17): pin exact via `npm view <pkg> version`. RN 0.8x line, NativeWind 4.x, TypeScript 5.x. react-native-reusables components are copied in (shadcn-style), not an npm dependency.",
+  "dependencies": {
+    "@react-navigation/bottom-tabs": "^7.0.0",
+    "@react-navigation/native": "^7.0.0",
+    "@react-navigation/native-stack": "^7.17.7",
+    "@stomp/stompjs": "^7.3.0",
+    "axios": "^1.7.0",
+    "lucide-react-native": "^0.511.0",
+    "nativewind": "^4.1.0",
+    "react": "19.1.0",
+    "react-native": "0.80.0",
+    "react-native-device-info": "^14.0.0",
+    "react-native-encrypted-storage": "^4.0.3",
+    "react-native-reanimated": "~4.0.0",
+    "react-native-safe-area-context": "^5.4.1",
+    "react-native-screens": "^4.11.1",
+    "react-native-svg": "^15.12.0",
+    "react-native-worklets": "^0.4.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.22.0",
+    "@react-native-community/cli": "^19.1.2",
+    "@react-native-community/cli-platform-android": "^19.1.2",
+    "@react-native/babel-preset": "0.80.0",
+    "@react-native/metro-config": "^0.80.0",
+    "@react-native/typescript-config": "0.80.0",
+    "@types/jest": "^29.5.14",
+    "@types/react": "^19.0.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^16.0.0",
+    "jest": "^29.0.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.59.3"
+  },
+  "jest": {
+    "preset": "react-native",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/.artifacts/",
+      "/.build/"
+    ],
+    "moduleNameMapper": {
+      "^@spec/(.*)$": "<rootDir>/bridge/specs/$1",
+      "^@/(.*)$": "<rootDir>/src/$1"
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(?:@react-native|react-native|nativewind|react-native-css-interop|react-native-reanimated|react-native-worklets|react-native-safe-area-context|react-native-svg|lucide-react-native|@react-navigation)/)"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.{ts,tsx}",
+      "!src/**/__tests__/**",
+      "!src/**/__mocks__/**",
+      "!src/**/*.types.ts",
+      "!src/theme/tokens.generated.ts"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "statements": 30,
+        "branches": 30,
+        "functions": 18,
+        "lines": 30
+      }
+    }
+  },
+  "codegenConfig": {
+    "name": "NativeFedLearnCoreSpec",
+    "type": "modules",
+    "jsSrcsDir": "bridge/specs",
+    "android": {
+      "javaPackageName": "com.fedlearn.mobile"
+    }
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

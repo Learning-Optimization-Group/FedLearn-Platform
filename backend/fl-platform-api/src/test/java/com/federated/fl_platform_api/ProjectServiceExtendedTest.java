@@ -2,15 +2,16 @@ package com.federated.fl_platform_api;
 
 import com.federated.fl_platform_api.dto.ProjectResponseDto;
 import com.federated.fl_platform_api.exception.ProjectStateException;
-import com.federated.fl_platform_api.flower.FlowerServerManager;
+import com.federated.fl_platform_api.orchestration.FlServerManager;
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.repository.RoundResultRepository;
 import com.federated.fl_platform_api.repository.ServerLogRepository;
-import com.federated.fl_platform_api.repository.UserRepository;
 import com.federated.fl_platform_api.service.ModelInitializer;
 import com.federated.fl_platform_api.service.ProjectService;
+import com.federated.fl_platform_api.service.RunService;
 import com.federated.fl_platform_api.service.WebSocketService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,10 +21,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
+
+import com.federated.fl_platform_api.dto.StartProject;
+import com.federated.fl_platform_api.model.Run;
 
 import java.util.Collections;
 import java.util.List;
@@ -39,14 +39,16 @@ import static org.mockito.Mockito.*;
 class ProjectServiceExtendedTest {
 
     @Mock private ProjectRepository projectRepository;
-    @Mock private UserRepository userRepository;
-    @Mock private FlowerServerManager flowerServerManager;
+    @Mock private FlServerManager flServerManager;
     @Mock private ModelInitializer modelInitializer;
     @Mock private RoundResultRepository roundResultRepository;
     @Mock private WebSocketService webSocketService;
     @Mock private ServerLogRepository serverLogRepository;
-    @Mock private SecurityContext securityContext;
-    @Mock private Authentication authentication;
+    @Mock private com.federated.fl_platform_api.service.AuthorizationService authz;
+    @Mock private com.federated.fl_platform_api.repository.ProjectMembershipRepository membershipRepository;
+    @Mock private com.federated.fl_platform_api.security.OrgScope orgScope;
+    @Mock private RunService runService;
+    @Mock private com.federated.fl_platform_api.service.ProjectStatusService projectStatusService;
 
     @InjectMocks
     private ProjectService projectService;
@@ -56,6 +58,14 @@ class ProjectServiceExtendedTest {
 
     @BeforeEach
     void setUp() {
+        // BA-4: mock the status deriver as the identity on the stored status string (see
+        // ProjectServiceTest); real run->status derivation is covered by ProjectStatusServiceTest.
+        org.mockito.Mockito.lenient().when(projectStatusService.currentStatus(org.mockito.ArgumentMatchers.any()))
+            .thenAnswer(inv -> {
+                String s = ((Project) inv.getArgument(0)).getStatus();
+                return s == null ? com.federated.fl_platform_api.model.ProjectStatus.CREATED
+                                 : com.federated.fl_platform_api.model.ProjectStatus.valueOf(s);
+            });
         testUser = new User();
         testUser.setId(1L);
         testUser.setUsername("testuser");
@@ -68,17 +78,13 @@ class ProjectServiceExtendedTest {
         testProject.setOptimizer("SGD");
         testProject.setUser(testUser);
         testProject.setStatus("STOPPED");
-
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getName()).thenReturn("testuser");
-        SecurityContextHolder.setContext(securityContext);
     }
 
-    // Helper: make the mock authentication return no admin role
+    // Helper kept for legacy callers — auth checks are now centralised in
+    // AuthorizationService, which we mock as a no-op for the happy path.
     private void asRegularUser() {
-        when(authentication.getAuthorities()).thenAnswer(inv ->
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        // Default mock behaviour for void methods is no-op, which is what we
+        // want for the "caller is permitted" path.
     }
 
     @Test
@@ -88,13 +94,17 @@ class ProjectServiceExtendedTest {
         p1.setName("P1"); p1.setModelType("CNN"); p1.setModelName("r"); p1.setOptimizer("SGD");
         p1.setUser(testUser); p1.setStatus("CREATED");
 
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(projectRepository.findByUserId(1L)).thenReturn(List.of(p1));
+        when(authz.currentUser()).thenReturn(testUser);
+        // Unrestricted scope routes to the unscoped query (the org-scoped path is
+        // covered separately in OrgIsolationTest).
+        when(orgScope.isUnrestricted()).thenReturn(true);
+        when(projectRepository.findOwnedOrMemberOf(1L)).thenReturn(List.of(p1));
 
         List<ProjectResponseDto> results = projectService.getProjectsForCurrentUser();
 
         assertEquals(1, results.size());
         assertEquals("P1", results.get(0).getName());
+        assertEquals("OWNER", results.get(0).getMyRelationship());
     }
 
     @Test
@@ -102,24 +112,28 @@ class ProjectServiceExtendedTest {
         testProject.setStatus("RUNNING");
         when(projectRepository.findById(testProject.getId())).thenReturn(Optional.of(testProject));
         asRegularUser();
-        when(flowerServerManager.stopServerForProject(testProject.getId())).thenReturn(true);
+        when(flServerManager.stopServerForProject(testProject.getId())).thenReturn(true);
         when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ProjectResponseDto dto = projectService.stopServerForProject(testProject.getId());
 
         assertEquals("STOPPED", dto.getStatus());
         verify(projectRepository).save(any(Project.class));
+        // BA-4 follow-up: stopping must notify live watchers over STOMP (previously it never pushed,
+        // so the dashboard stayed on RUNNING until a manual refresh).
+        verify(webSocketService).sendStatusUpdate(
+                org.mockito.ArgumentMatchers.argThat(u -> "STOPPED".equals(u.getNewStatus())));
     }
 
     @Test
     void deleteProject_shouldStopServerThenDelete() {
         when(projectRepository.findById(testProject.getId())).thenReturn(Optional.of(testProject));
         asRegularUser();
-        when(flowerServerManager.stopServerForProject(testProject.getId())).thenReturn(true);
+        when(flServerManager.stopServerForProject(testProject.getId())).thenReturn(true);
 
         projectService.deleteProject(testProject.getId());
 
-        verify(flowerServerManager).stopServerForProject(testProject.getId());
+        verify(flServerManager).stopServerForProject(testProject.getId());
         verify(projectRepository).deleteById(testProject.getId());
     }
 
@@ -128,7 +142,7 @@ class ProjectServiceExtendedTest {
         testProject.setStatus("RUNNING");
         when(projectRepository.findById(testProject.getId())).thenReturn(Optional.of(testProject));
         asRegularUser();
-        when(flowerServerManager.isServerRunning(testProject.getId())).thenReturn(true);
+        when(flServerManager.isServerRunning(testProject.getId())).thenReturn(true);
 
         assertThrows(ProjectStateException.class,
                 () -> projectService.startServerForProject(testProject.getId(), null));
@@ -153,17 +167,44 @@ class ProjectServiceExtendedTest {
 
     @Test
     void stopServerForProject_whenCallerIsNotOwner_shouldThrowAccessDeniedException() {
-        User otherUser = new User();
-        otherUser.setId(99L);
-        otherUser.setUsername("attacker");
-
         when(projectRepository.findById(testProject.getId())).thenReturn(Optional.of(testProject));
-        // Return a different user from the security context
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(otherUser));
-        when(authentication.getAuthorities()).thenAnswer(inv ->
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+        // AuthorizationService rejects the caller; ProjectService must surface
+        // the AccessDeniedException unchanged.
+        doThrow(new AccessDeniedException("You do not have access to this project"))
+                .when(authz).requireOwnerOrAdmin(testProject);
 
         assertThrows(AccessDeniedException.class,
                 () -> projectService.stopServerForProject(testProject.getId()));
+    }
+
+    @Test
+    void startServerForLlmLoraProjectForcesFedLoRAStrategy() throws Exception {
+        // Arrange: LLM_LORA project; caller submits "DeComFL" to prove the override.
+        testProject.setModelType("LLM_LORA");
+        testProject.setStatus("STOPPED");
+        when(projectRepository.findById(testProject.getId())).thenReturn(Optional.of(testProject));
+        when(flServerManager.isServerRunning(testProject.getId())).thenReturn(false);
+
+        Run stubRun = new Run();
+        stubRun.setId(UUID.randomUUID());
+        when(runService.createForStart(eq(testProject), eq("FedLoRA"), anyInt(), anyInt(), anyInt(), any(), any()))
+                .thenReturn(stubRun);
+        when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(flServerManager.startServerForProject(eq(testProject), eq("FedLoRA"), anyInt(), anyInt(), any(), any(), any()))
+                .thenReturn(Optional.of(50000));
+
+        StartProject request = new StartProject();
+        request.setStrategy("DeComFL");
+        request.setNumRounds(3);
+        request.setMinClients(1);
+
+        // Act
+        projectService.startServerForProject(testProject.getId(), request);
+
+        // Assert: both collaborators received the forced "FedLoRA" strategy, not "DeComFL".
+        verify(runService).createForStart(eq(testProject), eq("FedLoRA"), anyInt(), anyInt(), anyInt(),
+                org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull());
+        verify(flServerManager).startServerForProject(eq(testProject), eq("FedLoRA"), anyInt(), anyInt(),
+                org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(), any());
     }
 }

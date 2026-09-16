@@ -1,0 +1,187 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+      :root {
+        --bg:#000; --card:#0B0A09; --card2:#141210; --hair:rgba(255,244,232,0.10); --line:rgba(255,244,232,0.16);
+        --fg:#F5F1EA; --muted:#A8A096; --subtle:#6E665C;
+        --ember:#F7A35C; --rest:#F7A35C; --ws:#5FD39B; --grpc:#6FA8FF; --spawn:#9C9488; --data:#C79BFF;
+      }
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body { width:1600px; height:1060px; background:var(--bg); font-family:'Hanken Grotesk',sans-serif; -webkit-font-smoothing:antialiased; }
+      .stage { position:relative; width:1600px; height:1060px; overflow:hidden; }
+      .glow { position:absolute; inset:0; background:radial-gradient(60% 42% at 50% 4%, rgba(247,163,92,0.10), transparent 70%); }
+      .grid { position:absolute; inset:0; background-image:radial-gradient(circle, #1E1B17 1px, transparent 1px); background-size:30px 30px; -webkit-mask-image:radial-gradient(75% 70% at 50% 40%, #000 30%, transparent 100%); }
+      .wires { position:absolute; inset:0; z-index:1; }
+
+      header { position:absolute; left:56px; top:40px; right:56px; z-index:3; display:flex; justify-content:space-between; align-items:flex-start; }
+      .brand { display:flex; align-items:center; gap:14px; }
+      .brand h1 { font-family:'Bricolage Grotesque'; font-variation-settings:'opsz' 40,'wght' 600; font-size:30px; color:var(--fg); letter-spacing:-0.02em; line-height:1; }
+      .brand p { color:var(--muted); font-size:14px; margin-top:5px; }
+      .legend { display:grid; grid-template-columns:auto auto; gap:7px 22px; padding:14px 18px; background:rgba(11,10,9,0.7); border:1px solid var(--hair); border-radius:12px; backdrop-filter:blur(4px); }
+      .legend .it { display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--muted); }
+      .legend .ln { width:26px; height:0; border-top:3px solid currentColor; border-radius:3px; }
+      .legend .ln.dash { border-top-style:dashed; }
+
+      .card { position:absolute; z-index:2; background:var(--card); border:1px solid var(--hair); border-radius:16px; padding:15px 18px;
+              box-shadow:0 18px 50px -24px rgba(0,0,0,0.9); }
+      .card::before { content:''; position:absolute; left:0; right:0; top:0; height:1px; border-radius:16px 16px 0 0; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.07),transparent); }
+      .hd { display:flex; align-items:center; gap:11px; }
+      .tile { width:38px; height:38px; border-radius:10px; display:grid; place-items:center; color:var(--ember);
+              background:radial-gradient(120% 120% at 30% 0%, rgba(247,163,92,0.16), transparent 70%), var(--card2); border:1px solid var(--hair); flex:none; }
+      .tile svg { width:20px; height:20px; }
+      .ttl { font-size:17px; font-weight:600; color:var(--fg); letter-spacing:-0.01em; }
+      .port { font-family:'JetBrains Mono'; font-size:12px; color:var(--ember); font-weight:500; }
+      .sub { color:var(--muted); font-size:13px; margin-top:9px; }
+      .chips { display:flex; flex-wrap:wrap; gap:7px; margin-top:11px; }
+      .chip { font-size:11.5px; color:var(--muted); background:var(--card2); border:1px solid var(--hair); border-radius:999px; padding:3px 10px; white-space:nowrap; }
+      .chip.acc { color:var(--ember); border-color:rgba(247,163,92,0.35); }
+      .chip.lock { display:inline-flex; align-items:center; gap:5px; color:var(--ws); border-color:rgba(95,211,155,0.3); }
+      .chip.lock svg { width:12px; height:12px; }
+      .zone { position:absolute; z-index:3; font-family:'JetBrains Mono'; font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:var(--subtle); }
+
+      .pill { position:absolute; z-index:2; display:inline-flex; align-items:center; gap:8px; background:var(--card2); border:1px solid var(--line); border-radius:999px; padding:7px 14px; font-size:13px; color:var(--muted); }
+      .pill .dot { width:7px; height:7px; border-radius:50%; background:var(--spawn); }
+      .elabel { position:absolute; z-index:2; font-size:12.5px; }
+      .elabel .k { display:flex; align-items:center; gap:8px; }
+      .elabel .d { width:9px; height:9px; border-radius:2px; flex:none; }
+      .mono { font-family:'JetBrains Mono'; font-size:11px; }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <div class="glow"></div>
+      <div class="grid"></div>
+
+      <svg class="wires" viewBox="0 0 1600 1060" fill="none">
+        <defs>
+          <marker id="aR" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9 z" fill="var(--rest)"/></marker>
+          <marker id="aW" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9 z" fill="var(--ws)"/></marker>
+          <marker id="aG" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9 z" fill="var(--grpc)"/></marker>
+          <marker id="aS" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9 z" fill="var(--spawn)"/></marker>
+          <marker id="aD" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L8,4.5 L0,9 z" fill="var(--data)"/></marker>
+        </defs>
+
+        <!-- Dashboard <-> Spring : REST (ember) + WebSocket (mint), nginx pill on top -->
+        <line x1="786" y1="252" x2="786" y2="346" stroke="var(--rest)" stroke-width="2.5" marker-start="url(#aR)" marker-end="url(#aR)"/>
+        <line x1="814" y1="252" x2="814" y2="346" stroke="var(--ws)" stroke-width="2.5" marker-start="url(#aW)" marker-end="url(#aW)"/>
+
+        <!-- Spring -> FL server : spawn (dashed) + results return -->
+        <line x1="788" y1="496" x2="788" y2="576" stroke="var(--spawn)" stroke-width="2.5" stroke-dasharray="6 6" marker-end="url(#aS)"/>
+        <line x1="816" y1="576" x2="816" y2="496" stroke="var(--rest)" stroke-width="2" marker-end="url(#aR)"/>
+
+        <!-- Spring <-> Database : JDBC -->
+        <line x1="1044" y1="420" x2="1224" y2="420" stroke="var(--data)" stroke-width="2.5" marker-start="url(#aD)" marker-end="url(#aD)"/>
+
+        <!-- FL server <-> devices : gRPC (fan to 3) -->
+        <line x1="792" y1="716" x2="512" y2="806" stroke="var(--grpc)" stroke-width="2.5" marker-start="url(#aG)" marker-end="url(#aG)"/>
+        <line x1="800" y1="716" x2="800" y2="806" stroke="var(--grpc)" stroke-width="2.5" marker-start="url(#aG)" marker-end="url(#aG)"/>
+        <line x1="808" y1="716" x2="1100" y2="806" stroke="var(--grpc)" stroke-width="2.5" marker-start="url(#aG)" marker-end="url(#aG)"/>
+      </svg>
+
+      <!-- header -->
+      <header>
+        <div class="brand">
+          <svg width="44" height="44" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="e1" cx="42%" cy="34%" r="72%"><stop offset="0%" stop-color="#FFE2C2"/><stop offset="42%" stop-color="#F7A35C"/><stop offset="100%" stop-color="#DB7430"/></radialGradient>
+              <linearGradient id="sp1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F7A35C" stop-opacity="0.85"/><stop offset="100%" stop-color="#F7A35C" stop-opacity="0.22"/></linearGradient>
+            </defs>
+            <g stroke="url(#sp1)" stroke-width="10" stroke-linecap="round">
+              <line x1="512" y1="512" x2="512" y2="212"/><line x1="512" y1="512" x2="772" y2="362"/><line x1="512" y1="512" x2="772" y2="662"/>
+              <line x1="512" y1="512" x2="512" y2="812"/><line x1="512" y1="512" x2="252" y2="662"/><line x1="512" y1="512" x2="252" y2="362"/>
+            </g>
+            <g fill="url(#e1)"><circle cx="512" cy="212" r="48"/><circle cx="772" cy="362" r="34"/><circle cx="772" cy="662" r="44"/><circle cx="512" cy="812" r="34"/><circle cx="252" cy="662" r="44"/><circle cx="252" cy="362" r="34"/></g>
+            <circle cx="512" cy="512" r="118" fill="url(#e1)"/>
+          </svg>
+          <div>
+            <h1>FedLearn — System Architecture</h1>
+            <p>How the pieces fit together — train AI together, keep data private.</p>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="it" style="color:var(--rest)"><span class="ln"></span><span style="color:var(--muted)">REST / HTTPS</span></div>
+          <div class="it" style="color:var(--ws)"><span class="ln"></span><span style="color:var(--muted)">WebSocket (live)</span></div>
+          <div class="it" style="color:var(--grpc)"><span class="ln"></span><span style="color:var(--muted)">gRPC (training)</span></div>
+          <div class="it" style="color:var(--spawn)"><span class="ln dash"></span><span style="color:var(--muted)">spawns process</span></div>
+          <div class="it" style="color:var(--data)"><span class="ln"></span><span style="color:var(--muted)">database</span></div>
+          <div class="it" style="color:var(--ws)"><svg data-lucide="lock" style="width:14px;height:14px"></svg><span style="color:var(--muted)">data stays local</span></div>
+        </div>
+      </header>
+
+      <!-- Web Dashboard -->
+      <div class="card" style="left:650px; top:152px; width:300px; height:100px;">
+        <div class="hd"><span class="tile"><i data-lucide="layout-dashboard"></i></span>
+          <div><div class="ttl">Web Dashboard</div></div></div>
+        <div class="sub">React · Vite · Tailwind — you create &amp; watch projects here.</div>
+      </div>
+
+      <!-- nginx pill on the dashboard<->spring channel -->
+      <div class="pill" style="left:712px; top:283px;"><span class="dot"></span><span class="mono">nginx :443</span><span style="color:var(--subtle)">EC2 edge</span></div>
+
+      <!-- edge labels for dashboard<->spring -->
+      <div class="elabel" style="left:900px; top:268px;"><div class="k"><span class="d" style="background:var(--rest)"></span><span style="color:var(--fg)">REST</span></div><div style="color:var(--muted); margin-left:17px;">cookie auth · no tokens in JS</div></div>
+      <div class="elabel" style="left:900px; top:312px;"><div class="k"><span class="d" style="background:var(--ws)"></span><span style="color:var(--fg)">WebSocket / STOMP</span></div><div style="color:var(--muted); margin-left:17px;">live logs · status · results</div></div>
+
+      <!-- Spring Boot API -->
+      <div class="card" style="left:558px; top:346px; width:484px; height:150px;">
+        <div class="hd"><span class="tile"><i data-lucide="server"></i></span>
+          <div><div class="ttl">Spring Boot API <span class="port">:8081</span></div></div></div>
+        <div class="sub">Java 21 · REST + WebSocket. The control plane that runs everything.</div>
+        <div class="chips"><span class="chip">Sign-in (JWT cookie)</span><span class="chip">Projects</span><span class="chip">Results</span><span class="chip acc">Spawns FL servers</span></div>
+      </div>
+
+      <!-- Database -->
+      <div class="card" style="left:1224px; top:368px; width:300px; height:106px;">
+        <div class="hd"><span class="tile"><i data-lucide="database"></i></span>
+          <div><div class="ttl">Database</div></div></div>
+        <div class="sub">H2 (dev) · PostgreSQL (prod)</div>
+        <div class="chips"><span class="chip">Flyway-managed schema</span></div>
+      </div>
+      <div class="pill" style="left:1092px; top:400px;"><span class="dot" style="background:var(--data)"></span><span class="mono">JDBC</span></div>
+
+      <!-- FL Server -->
+      <div class="card" style="left:558px; top:576px; width:484px; height:140px;">
+        <div class="hd"><span class="tile"><i data-lucide="share-2"></i></span>
+          <div><div class="ttl">FL Server (Python) <span class="port">:50000–50010</span></div></div></div>
+        <div class="sub">gRPC coordinator · PyTorch. Auto-spawned per project; streams its output back as logs.</div>
+        <div class="chips"><span class="chip acc">FedAvg</span><span class="chip acc">DeComFL</span><span class="chip acc">FoT</span></div>
+      </div>
+      <div class="pill" style="left:586px; top:520px;"><span class="dot"></span><span style="color:var(--muted)">spawns <span class="mono" style="color:var(--subtle)">run_fl_server.sh</span></span></div>
+      <div class="pill" style="left:838px; top:520px;"><span class="dot" style="background:var(--rest)"></span><span style="color:var(--muted)">results callback</span></div>
+
+      <!-- gRPC center label -->
+      <div class="pill" style="left:636px; top:752px;"><span class="dot" style="background:var(--grpc)"></span><span style="color:var(--muted)">gRPC · global model ⇄ updates · heartbeat · auto-chunked</span></div>
+
+      <!-- devices zone label (kept clear of the gRPC fan, far left) -->
+      <div class="zone" style="left:56px; top:818px; width:300px; line-height:1.5;">Training devices<br/>raw data never leaves the device</div>
+
+      <!-- Device cards -->
+      <div class="card" style="left:368px; top:808px; width:264px; height:158px;">
+        <div class="hd"><span class="tile"><i data-lucide="laptop"></i></span><div class="ttl">Desktop client</div></div>
+        <div class="sub">Electron — runs natively or in Docker (incl. Jetson).</div>
+        <div class="chips"><span class="chip lock"><i data-lucide="lock"></i>local data</span></div>
+      </div>
+      <div class="card" style="left:668px; top:808px; width:264px; height:158px;">
+        <div class="hd"><span class="tile"><i data-lucide="container"></i></span><div class="ttl">Docker client</div></div>
+        <div class="sub">Multi-arch image · CPU, CUDA, or Jetson L4T.</div>
+        <div class="chips"><span class="chip lock"><i data-lucide="lock"></i>local data</span></div>
+      </div>
+      <div class="card" style="left:968px; top:808px; width:264px; height:158px;">
+        <div class="hd"><span class="tile"><i data-lucide="smartphone"></i></span><div class="ttl">Mobile client</div></div>
+        <div class="sub">React Native + native C++ (libtorch) · Android &amp; iOS.</div>
+        <div class="chips"><span class="chip lock"><i data-lucide="lock"></i>local data</span></div>
+      </div>
+    </div>
+    <script>
+      window.__ready = false;
+      lucide.createIcons();
+      (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => setTimeout(() => { window.__ready = true; }, 200));
+    </script>
+  </body>
+</html>

@@ -29,7 +29,7 @@ error()   { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 # ── Config ─────────────────────────────────────────────────────────────────────
 API_BASE="http://3.137.147.240:8081/api"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CLIENT_SCRIPT="$REPO_ROOT/client-docker/scripts/client.py"
+CLIENT_SCRIPT="$REPO_ROOT/fl-runtime/client.py"
 FRAMEWORK_SRC="$REPO_ROOT/framework/src"
 DOCKER_IMAGE="fedlearn-client:latest"
 

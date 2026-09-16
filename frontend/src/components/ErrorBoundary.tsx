@@ -51,25 +51,25 @@ export class ErrorBoundary extends Component<Props, State> {
           alignItems: 'center',
           justifyContent: 'center',
           padding: '2rem',
-          background: '#0b0b10',
-          color: '#e5e7eb',
-          fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+          background: 'var(--canvas)',
+          color: 'var(--fg)',
+          fontFamily: 'var(--font-sans)',
         }}
       >
         <div style={{ maxWidth: 560, width: '100%' }}>
           <h1 style={{ fontSize: '1.5rem', marginBottom: '0.75rem' }}>Something went wrong</h1>
-          <p style={{ color: '#9ca3af', marginBottom: '1.5rem' }}>
+          <p style={{ color: 'var(--fg-muted)', marginBottom: '1.5rem' }}>
             The page encountered an unexpected error and could not finish rendering.
             You can try recovering, or reload the page if the problem persists.
           </p>
           <pre
             style={{
-              background: '#111827',
+              background: 'var(--code-well)',
               padding: '0.75rem 1rem',
-              borderRadius: 6,
+              borderRadius: 'var(--radius-md)',
               fontSize: '0.8rem',
               overflowX: 'auto',
-              color: '#fca5a5',
+              color: 'var(--danger)',
               marginBottom: '1.5rem',
             }}
           >
@@ -81,10 +81,10 @@ export class ErrorBoundary extends Component<Props, State> {
               onClick={this.reset}
               style={{
                 padding: '0.5rem 1rem',
-                borderRadius: 6,
-                border: '1px solid #374151',
-                background: '#1f2937',
-                color: '#e5e7eb',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--hairline)',
+                background: 'var(--surface-2)',
+                color: 'var(--fg)',
                 cursor: 'pointer',
               }}
             >
@@ -95,10 +95,10 @@ export class ErrorBoundary extends Component<Props, State> {
               onClick={() => window.location.reload()}
               style={{
                 padding: '0.5rem 1rem',
-                borderRadius: 6,
+                borderRadius: 'var(--radius-md)',
                 border: 'none',
-                background: '#2563eb',
-                color: 'white',
+                background: 'var(--accent)',
+                color: 'var(--accent-fg)',
                 cursor: 'pointer',
               }}
             >

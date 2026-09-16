@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FedLearn adapter/checkpoint bundle manifest",
+  "description": "The versioned, content-addressed unit of specialization (DA-9). A bundle packages a specialized model for delivery/serving/on-device training. Its artifact_sha256 aligns the bundle with its registry row (DA-1/DA-3).",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "artifact_sha256", "kind", "recipe_key", "files"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "artifact_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "sha256 of the primary artifact bytes — the registry identity."
+    },
+    "kind": { "enum": ["LORA_ADAPTER", "FULL_CHECKPOINT"] },
+    "recipe_key": { "type": "string" },
+    "base_model_ref": {
+      "type": ["string", "null"],
+      "description": "The frozen base an adapter was trained over (required for LORA_ADAPTER)."
+    },
+    "license_tag": { "type": ["string", "null"] },
+    "lora": {
+      "type": ["object", "null"],
+      "description": "LoRA config, sourced from recipes.py (required for LORA_ADAPTER).",
+      "properties": {
+        "r": { "type": "integer", "minimum": 1 },
+        "alpha": { "type": "integer", "minimum": 1 },
+        "dropout": { "type": "number", "minimum": 0, "maximum": 1 },
+        "target_modules": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "eval_card_ref": {
+      "type": ["string", "null"],
+      "description": "Reference (sha256 / uri) to the eval card recorded at registration (DA-3)."
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "sha256"],
+        "properties": {
+          "name": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "provenance": {
+      "type": ["object", "null"],
+      "description": "Optional origin marker, e.g. {\"source\":\"golden-fixture-mvp\"} to flag a non-real-export bundle."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "LORA_ADAPTER" } } },
+      "then": {
+        "required": ["base_model_ref", "lora"],
+        "properties": {
+          "base_model_ref": { "type": "string" },
+          "lora": { "type": "object", "required": ["r", "alpha", "target_modules"] }
+        }
+      }
+    }
+  ]
+}

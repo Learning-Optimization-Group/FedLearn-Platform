@@ -1,7 +1,12 @@
 package com.federated.fl_platform_api.config;
 
+import com.federated.fl_platform_api.repository.AuditEventRepository;
+import com.federated.fl_platform_api.repository.UserRepository;
+import com.federated.fl_platform_api.security.AuditingAuthenticationFailureHandler;
+import com.federated.fl_platform_api.security.AuditingAuthenticationSuccessHandler;
 import com.federated.fl_platform_api.security.InternalApiKeyFilter;
 import com.federated.fl_platform_api.security.JwtAuthenticationFilter;
+import com.federated.fl_platform_api.security.OrgScopeFilter;
 import com.federated.fl_platform_api.service.CustomUserDetailsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +52,9 @@ public class SecurityConfig {
     private InternalApiKeyFilter internalApiKeyFilter;
 
     @Autowired
+    private OrgScopeFilter orgScopeFilter;
+
+    @Autowired
     private Environment environment;
 
     @Value("${app.cors.allowed-origins}")
@@ -55,6 +63,18 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuditingAuthenticationSuccessHandler auditingAuthenticationSuccessHandler(
+            UserRepository users, AuditEventRepository audits) {
+        return new AuditingAuthenticationSuccessHandler(users, audits);
+    }
+
+    @Bean
+    public AuditingAuthenticationFailureHandler auditingAuthenticationFailureHandler(
+            AuditEventRepository audits) {
+        return new AuditingAuthenticationFailureHandler(audits);
     }
 
     @Bean
@@ -84,7 +104,9 @@ public class SecurityConfig {
         // (e.g. "http://localhost:*") while still permitting credentials. With credentials
         // enabled, Spring requires patterns instead of a literal "*" origin.
         configuration.setAllowedOriginPatterns(origins);
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        // PATCH is load-bearing: project edit (PATCH /api/projects/{id}) and profile
+        // updates (PATCH /api/users/me/profile) both preflight against this list.
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -94,20 +116,14 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        // Build the public-path list dynamically. /h2-console/** is only added
-        // when the dev profile is active so that an accidentally-running prod
-        // instance can never expose the H2 web console — even if a future
-        // migration toggles spring.h2.console.enabled.
+        // Public paths (everything else requires authentication). The H2 web
+        // console path was removed when H2 was retired in favour of PostgreSQL.
         List<String> publicPaths = new ArrayList<>(List.of(
                 "/api/auth/**",
                 "/ws-logs/**",
                 "/error",
                 "/actuator/health"
         ));
-        if (environment.acceptsProfiles(profiles -> profiles.test("dev"))) {
-            publicPaths.add("/h2-console/**");
-            log.warn("DEV PROFILE ACTIVE — /h2-console/** is publicly accessible. Do not run this profile in production.");
-        }
 
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -120,12 +136,27 @@ public class SecurityConfig {
                         // here because InternalApiKeyFilter (added below) rejects any request without
                         // a valid X-Internal-Key header before Spring Security sees it.
                         .requestMatchers("/api/internal/**").permitAll()
+                        // Self-service profile: reachable by ANY authenticated user regardless of
+                        // role, ordered BEFORE any broader /api/users/** rule so an admin lock on
+                        // the legacy user-management surface can never shadow it. permitAll at the
+                        // chain level (same pattern as /api/auth/me): ProfileController enforces
+                        // authentication itself and 401s anonymous callers, which the SPA's
+                        // interceptor understands — the chain's default entry point would 403.
+                        .requestMatchers("/api/users/me/profile").permitAll()
+                        // SE-5: actuator management endpoints (loggers/metrics/…) are admin-only —
+                        // a plain USER could otherwise POST /actuator/loggers to flip log levels
+                        // (log-flood DoS / recon). /actuator/health stays permitAll via publicPaths
+                        // above for load-balancer liveness checks.
+                        .requestMatchers("/actuator/**").hasRole("PLATFORM_ADMIN")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(internalApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                // Runs after auth is established so it can resolve the caller's
+                // org memberships and populate the request-scoped OrgScope.
+                .addFilterAfter(orgScopeFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

@@ -213,6 +213,25 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(body, HttpStatus.BAD_GATEWAY);
     }
 
+    @ExceptionHandler(InferenceBusyException.class)
+    public ResponseEntity<ApiError> handleInferenceBusy(
+            InferenceBusyException ex, HttpServletRequest request) {
+        // Transient capacity signal — the inference worker pool is saturated.
+        // Surface a clean 503 + Retry-After so callers back off rather than pile on.
+        log.warn("Inference at capacity: {}", ex.getMessage());
+
+        ApiError body = ApiError.builder()
+                .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+                .error(HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, "5")
+                .body(body);
+    }
+
     // ─── Auth / authorization ───────────────────────────────────────────────
 
     @ExceptionHandler({BadCredentialsException.class, UsernameNotFoundException.class})

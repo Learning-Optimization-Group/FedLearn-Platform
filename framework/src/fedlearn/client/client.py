@@ -1,8 +1,6 @@
 # src/fedlearn/client/client.py
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-# import pika
-import pickle
 import grpc
 import torch
 import time
@@ -10,7 +8,6 @@ from typing import Tuple
 from .grpc_client import GrpcClient
 import logging
 import os
-# import pika
 import traceback
 
 log = logging.getLogger(__name__)
@@ -56,6 +53,11 @@ def start_client(server_address: str, client: Client, client_id: str):
 
     try:
         while True:
+            # FR-10: server-driven stop (delivered via the heartbeat response). Exit before
+            # starting another round once the server has asked this client to halt.
+            if comm_client.should_stop_training():
+                log.info("[%s] Server requested stop via heartbeat; shutting down", client_id)
+                break
             try:
                 # 1. Get model from server
                 log.debug("[%s] Fetching global model", client_id)
@@ -78,6 +80,13 @@ def start_client(server_address: str, client: Client, client_id: str):
                     # 2. Train the model (fit). client.fit() should call
                     # comm_client.update_status() during training to drive heartbeats.
                     new_parameters, num_examples = client.fit(parameters, config)
+
+                    # FR-10: if the server stopped mid-fit, fit() aborted early and the
+                    # parameters are a partial round — do not submit them; shut down.
+                    if comm_client.should_stop_training():
+                        log.info("[%s] Round %d aborted by server stop; discarding partial "
+                                 "update and shutting down", client_id, server_round)
+                        break
 
                     # 3. Submit the update
                     log.debug("[%s] Submitting update for round %d", client_id, server_round)

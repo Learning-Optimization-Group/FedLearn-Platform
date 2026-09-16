@@ -1,0 +1,118 @@
+"""The training arm must not decide which DATASET the client loads.
+
+Found by a live federation. The client built the correct model for its recipe, then crashed::
+
+    RuntimeError: Expected 3D (unbatched) or 4D (batched) input to conv2d,
+                  but got input of size: [32, 256]
+
+A CNN receiving a batch of 256-dim vectors: it had been handed FROZEN_DEMO's synthetic *vector*
+dataset while holding a CIFAR-10 convolutional model.
+
+The cause is mine, from P1-1b. `USE_DERIVED` used to mean "this is the FROZEN_DEMO recipe", so
+keying dataset selection on it was correct-by-accident. P1-1b redefined it as "this arm federates a
+trainable subset" — true for FROZEN_HEAD on *any* recipe. The model-building site was generalised
+to build the selected recipe; `load_data` was not, and kept loading FROZEN_DEMO's data for every
+frozen run.
+
+The invariant, stated plainly: **the dataset is a property of the RECIPE; the arm only decides which
+parameters are trainable and federated.** Freezing a backbone does not change what you train on.
+"""
+
+import ast
+import os
+
+HERE = os.path.dirname(__file__)
+CLIENT = os.path.join(HERE, "..", "client.py")
+
+
+def _load_data_fn():
+    tree = ast.parse(open(CLIENT).read())
+    fns = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "load_data"]
+    assert fns, "client.load_data() not found"
+    return fns[0]
+
+
+def _guards_mentioning(fn, name):
+    """Line numbers of `if` guards inside fn whose test references `name`."""
+    out = []
+    for node in ast.walk(fn):
+        if isinstance(node, ast.If):
+            for sub in ast.walk(node.test):
+                if isinstance(sub, ast.Name) and sub.id == name:
+                    out.append(node.lineno)
+    return out
+
+
+def _fn(name):
+    tree = ast.parse(open(CLIENT).read())
+    fns = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == name]
+    assert fns, f"client.{name}() not found"
+    return fns[0]
+
+
+def test_batch_handling_does_not_branch_on_the_arm():
+    """The same defect, one layer deeper: train() chose the batch SHAPE from the arm.
+
+    Fixing load_data alone got a CIFAR batch to a frozen CNN and then died differently --
+    `'str' object has no attribute 'to'` -- because train()'s USE_DERIVED branch unpacks
+    `features, labels = batch`, and a CIFAR batch is a dict, so that unpacked its KEYS.
+    Batch shape is a property of the dataset, which follows the recipe.
+    """
+    # Narrowed deliberately. USE_DERIVED legitimately governs ARM concerns inside train() -- it is
+    # what re-pins the frozen backbone's BatchNorm after net.train(). What it must never govern is
+    # how a BATCH is unpacked, so only guards whose body touches `batch` are offenders.
+    offenders = []
+    for node in ast.walk(_fn("train")):
+        if not isinstance(node, ast.If):
+            continue
+        if not any(isinstance(s, ast.Name) and s.id == "USE_DERIVED"
+                   for s in ast.walk(node.test)):
+            continue
+        touches_batch = any(isinstance(s, ast.Name) and s.id == "batch"
+                            for stmt in node.body for s in ast.walk(stmt))
+        if touches_batch:
+            offenders.append(node.lineno)
+    assert not offenders, (
+        f"client.train() branches on USE_DERIVED at line(s) {offenders} to decide how to unpack a "
+        f"batch. Batch shape is a dataset property, not an arm property.")
+
+
+def test_dataset_selection_does_not_branch_on_the_arm():
+    """THE regression. USE_DERIVED describes the ARM; it must not select the dataset."""
+    offenders = _guards_mentioning(_load_data_fn(), "USE_DERIVED")
+    assert not offenders, (
+        f"client.load_data() branches on USE_DERIVED at line(s) {offenders}. USE_DERIVED means "
+        f"'this arm federates a subset', which is true for FROZEN_HEAD on ANY recipe — so this "
+        f"hands FROZEN_DEMO's synthetic vector data to whatever model the recipe built. The "
+        f"dataset must follow the recipe (MODEL_TYPE), not the arm.")
+
+
+def test_the_frozen_demo_dataset_is_reached_by_recipe_not_by_arm():
+    """FROZEN_DEMO still needs its synthetic shard — reached because it IS that recipe."""
+    src = ast.unparse(_load_data_fn())
+    assert "FROZEN_DEMO" in src, "the FROZEN_DEMO shard is no longer reachable at all"
+    assert "MODEL_TYPE" in src, \
+        "load_data must select on the recipe (MODEL_TYPE), which is what makes the shard reachable"
+
+
+def test_the_model_build_site_still_honours_the_arm():
+    """The arm SHOULD drive which parameters train — that half of P1-1b was right and must stay.
+
+    Asserted through the cross-cutting entry point rather than by looking for `apply_arm` inside
+    __init__. Applying it inline in a build branch is precisely what let a FROZEN_HEAD pneumonia
+    run train its whole backbone: USE_PNEUMONIA is tested before USE_DERIVED, so the branch that
+    applied the arm was never reached. The property that matters is that the arm is applied
+    UNCONDITIONALLY after the chain, not that any particular function mentions it.
+    """
+    tree = ast.parse(open(CLIENT).read())
+    init = [n for n in ast.walk(tree)
+            if isinstance(n, ast.FunctionDef) and n.name == "__init__"]
+    src = "\n".join(ast.unparse(f) for f in init)
+    assert "apply_declared_arm" in src, \
+        "the client no longer applies the declared arm after building its model"
+
+    helper = [n for n in ast.walk(tree)
+              if isinstance(n, ast.FunctionDef) and n.name == "apply_declared_arm"]
+    assert helper, "apply_declared_arm is gone"
+    assert "apply_arm" in ast.unparse(helper[0]), \
+        "apply_declared_arm no longer actually applies the arm"

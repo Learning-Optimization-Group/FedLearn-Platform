@@ -1,12 +1,14 @@
 // =============================================================================
-// FedLearn Frontend — V2 Datasets View
+// FedLearn Frontend — Data View (Ledger design system)
 // =============================================================================
 // Aggregates dataset types (modelType) currently referenced by active projects.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Database, Layers } from 'lucide-react';
+import { Database, AlertCircle } from 'lucide-react';
 import * as api from '../../services/apiServices';
 import type { Project } from '../../services/apiServices';
+import { Card, MetricTile, Skeleton } from '../ui';
+import { PageHeader } from './PageHeader';
 
 interface DatasetSummary {
   modelType: string;
@@ -35,7 +37,7 @@ function summarize(projects: Project[]): DatasetSummary[] {
     }
   }
   return Array.from(byType.values())
-    .map(({ models, ...rest }) => rest)
+    .map(({ models: _models, ...rest }) => rest) // strip the internal Set; keep the rest
     .sort((a, b) => b.projectCount - a.projectCount);
 }
 
@@ -50,7 +52,7 @@ export function DatasetsView() {
         const res = await api.fetchProjects();
         setProjects(Array.isArray(res.data) ? res.data : []);
       } catch {
-        setError('Failed to fetch datasets.');
+        setError('Failed to load data.');
       } finally {
         setIsLoading(false);
       }
@@ -60,78 +62,67 @@ export function DatasetsView() {
   const summaries = useMemo(() => summarize(projects), [projects]);
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-black text-[#f5f5f7] font-sans">
-      <div className="h-24 flex items-center justify-between px-10 border-b border-[#2c2c2e] bg-[rgba(0,0,0,0.65)] backdrop-blur-3xl saturate-[1.8] sticky top-0 z-20">
-        <div>
-          <h1 className="text-[28px] font-semibold tracking-tight">Datasets</h1>
-          <p className="text-[15px] text-[#86868b] mt-0.5 tracking-tight">
-            Data domains actively consumed by federated projects.
-          </p>
-        </div>
-      </div>
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-canvas text-fg font-sans">
+      <PageHeader title="Data" subtitle="The kinds of data your projects learn from — never shared, only learned from." />
 
-      <div className="flex-1 overflow-y-auto px-10 py-10 bg-black">
-        {error && (
-          <div className="mb-6 px-5 py-3 rounded-2xl bg-[#ff453a]/10 text-[#ff453a] text-[14px] font-medium">
-            {error}
-          </div>
-        )}
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[1400px] px-6 py-6 md:px-10">
+          {error && (
+            <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+              {error}
+            </div>
+          )}
 
-        {isLoading ? (
-          <div className="flex items-center justify-center h-64 text-[#86868b]">
-            Loading datasets…
-          </div>
-        ) : summaries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-[#86868b] gap-2">
-            <p className="text-[17px]">No dataset types registered.</p>
-            <p className="text-[14px]">
-              Create a project with a model type to start populating this view.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {summaries.map((s) => (
-              <div
-                key={s.modelType}
-                className="bg-[#1c1c1e] rounded-[24px] p-6 flex flex-col gap-4 border border-[rgba(255,255,255,0.05)] hover:bg-[#2c2c2e]/60 transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#bf5af2]/10 text-[#bf5af2] flex items-center justify-center">
-                    <Database className="w-5 h-5" />
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[0, 1, 2].map((i) => (
+                <Card key={i} padding="lg" className="flex flex-col gap-4">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-11 w-11 rounded-lg" />
+                    <Skeleton className="h-5 w-28" />
                   </div>
-                  <div>
-                    <h3 className="text-[17px] font-semibold tracking-tight">{s.modelType}</h3>
-                    <p className="text-[13px] text-[#86868b] tracking-tight">
-                      {s.projectCount} project{s.projectCount > 1 ? 's' : ''}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-[#2c2c2e]/40 rounded-xl p-3 flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5 text-[#0a84ff]">
-                      <Layers className="w-3.5 h-3.5" />
-                      <span className="text-[10px] uppercase tracking-wider font-semibold">
-                        Unique Models
-                      </span>
-                    </div>
-                    <span className="text-[20px] font-semibold tracking-tight">
-                      {s.uniqueModels}
-                    </span>
-                  </div>
-                  <div className="bg-[#2c2c2e]/40 rounded-xl p-3 flex flex-col gap-1">
-                    <span className="text-[10px] uppercase tracking-wider font-semibold text-[#32d74b]">
-                      Running
-                    </span>
-                    <span className="text-[20px] font-semibold tracking-tight">
-                      {s.runningCount}
-                    </span>
-                  </div>
-                </div>
+                  <Skeleton className="h-16 w-full" />
+                </Card>
+              ))}
+            </div>
+          ) : summaries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center text-center gap-4 pt-16 md:pt-24">
+              <div className="grid h-12 w-12 place-items-center rounded-pill bg-surface-2 text-fg-muted">
+                <Database className="h-6 w-6" strokeWidth={1.5} />
               </div>
-            ))}
-          </div>
-        )}
+              <div className="max-w-sm">
+                <p className="text-h4 font-semibold text-fg">No data yet</p>
+                <p className="text-caption text-fg-muted mt-1">
+                  Create a project and the data it learns from will show up here.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {summaries.map((s) => (
+                <Card key={s.modelType} padding="lg" className="flex flex-col gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="icon-tile flex-shrink-0">
+                      <Database strokeWidth={1.5} className="w-5 h-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="text-h4 font-semibold text-fg truncate">{s.modelType}</h3>
+                      <p className="text-caption text-fg-muted">
+                        {s.projectCount} project{s.projectCount > 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 border-t border-hairline pt-4">
+                    <MetricTile label="Models" value={s.uniqueModels} />
+                    <MetricTile label="Training" value={s.runningCount} />
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

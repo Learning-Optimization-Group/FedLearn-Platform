@@ -1,17 +1,23 @@
+import hashlib
 import io
 import logging
 import os
 import threading
 import time
 from collections import OrderedDict
-from typing import Callable, Dict, List, Optional, Tuple, TypeVar
+from typing import Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple, TypeVar
 
 import grpc
 import torch
 
 from fedlearn.communication.generated import fedlearn_pb2
 from fedlearn.communication.generated import fedlearn_pb2_grpc
-from fedlearn.communication.serializer import parameters_to_proto
+from fedlearn.client.secure_agg_client import FrozenSurvivors
+from fedlearn.security.lightsecagg import PRIME as LIGHTSECAGG_PRIME
+from fedlearn.communication.serializer import (
+    parameters_to_proto, parameters_to_chunks, chunks_to_parameters,
+)
+from fedlearn.security.client_interceptor import maybe_wrap_channel
 
 log = logging.getLogger(__name__)
 
@@ -93,16 +99,30 @@ class GrpcClient:
             ('grpc.max_connection_age_grace_ms', 600000),
         ]
 
-        self.channel = _build_channel(server_address, grpc_options)
+        # SE-1: attach the connection token (from FEDLEARN_CONNECTION_TOKEN) to every call if present;
+        # a no-op when unset, so dev / unauthenticated servers are unaffected.
+        self.channel = maybe_wrap_channel(_build_channel(server_address, grpc_options))
         self.stub = fedlearn_pb2_grpc.FederatedLearningServiceStub(self.channel)
 
         # Parallel channel for heartbeats so they don't contend with long transfers.
-        self.heartbeat_channel = _build_channel(server_address, grpc_options)
+        self.heartbeat_channel = maybe_wrap_channel(_build_channel(server_address, grpc_options))
         self.heartbeat_stub = fedlearn_pb2_grpc.FederatedLearningServiceStub(self.heartbeat_channel)
 
         self.heartbeat_active = False
         self.heartbeat_thread: Optional[threading.Thread] = None
         self.heartbeat_interval = 5
+        # FR-10: an interruptible wait so stop_heartbeat() can end the inter-beat delay immediately
+        # instead of the thread having to sleep out the full interval before noticing it should stop.
+        self._heartbeat_stop = threading.Event()
+        # FR-10: server-driven stop. Latched by the heartbeat thread when a HeartbeatResponse
+        # carries should_stop=True; the training thread's fit loop polls it between local steps
+        # (should_stop_training()) and aborts the round. This is the cross-stub signal that lets
+        # the parallel heartbeat stub halt a fit() blocking the training stub.
+        self._stop_training = threading.Event()
+        # Guards the status triple shared between the training thread (update_status writer)
+        # and the heartbeat thread (snapshot reader) so a heartbeat never sees a torn write —
+        # e.g. the status of one phase with the step count of another.
+        self._status_lock = threading.Lock()
         self.current_status = "idle"
         self.current_step = 0
         self.total_steps = 0
@@ -133,17 +153,30 @@ class GrpcClient:
             current_round = 0
             config: Dict[str, str] = {}
             total_chunks = 0
+            codec = ""
             download_start = time.time()
+
+            # FR-8 (download half): verify the server-declared sha256 of the full payload
+            # before deserializing. Hash incrementally as chunks arrive so no second copy
+            # of the payload is ever materialized (same OOM rationale as the BytesIO note
+            # above). The server sets the hash on every chunk; accept it from whichever
+            # chunk carries it (empty = pre-integrity server, verification skipped).
+            hasher = hashlib.sha256()
+            declared_sha256 = ""
 
             for chunk in self.stub.GetGlobalModelStream(req, timeout=3600):
                 if chunk.chunk_index == 0:
                     current_round = chunk.current_round
                     config = dict(chunk.config)
                     total_chunks = chunk.total_chunks
+                    codec = chunk.codec
                     log.info("[%s] Receiving %d chunk(s) for round %d",
                              self.client_id, total_chunks, current_round)
 
+                if chunk.sha256:
+                    declared_sha256 = chunk.sha256
                 buffer.write(chunk.chunk_data)
+                hasher.update(chunk.chunk_data)
                 if (chunk.chunk_index + 1) % 2 == 0 or chunk.is_final_chunk:
                     progress = (chunk.chunk_index + 1) / chunk.total_chunks * 100
                     log.debug("[%s] Chunk %d/%d (%.1f%%)",
@@ -151,11 +184,37 @@ class GrpcClient:
 
             log.info("[%s] Download complete in %.1fs", self.client_id, time.time() - download_start)
 
-            buffer.seek(0)
-            model_data = torch.load(buffer, map_location='cpu', weights_only=True)
+            if declared_sha256:
+                actual_sha256 = hasher.hexdigest()
+                if actual_sha256 != declared_sha256:
+                    buffer.close()
+                    raise ValueError(
+                        f"[{self.client_id}] Global model download failed sha256 integrity check: "
+                        f"server declared {declared_sha256}, received payload hashes to "
+                        f"{actual_sha256}. Refusing to deserialize."
+                    )
+                log.debug("[%s] Payload sha256 verified (%s...)", self.client_id, declared_sha256[:12])
+            else:
+                log.debug("[%s] Server declared no payload sha256 (pre-integrity server); "
+                          "skipping verification", self.client_id)
+
+            blob = buffer.getvalue()
             buffer.close()
 
-            params = model_data['parameters']
+            # FR-8 (download half) version gate: decode the SAFETENSORS wire (the current
+            # format, symmetric with upload and the mobile C++ core) but transparently fall
+            # back to a legacy torch.save pickle blob so a new client still works against an
+            # old server during a staged rollout. The codec field is the primary signal; a
+            # magic-byte sniff is the backstop when an old server sets no codec. Integrity
+            # (sha256) was already verified above, format-agnostically.
+            is_pickle = len(blob) >= 2 and (blob[:2] == b"PK" or blob[0] == 0x80)
+            if codec.endswith("safetensors") if codec else not is_pickle:
+                params, _num_examples = chunks_to_parameters(
+                    blob, compressed=codec.startswith("lz4"))
+            else:
+                model_data = torch.load(io.BytesIO(blob), map_location='cpu', weights_only=True)
+                params = model_data['parameters']
+
             self.current_round = current_round
             return params, current_round, config
 
@@ -190,26 +249,18 @@ class GrpcClient:
 
     def _generate_model_chunks(self, params: OrderedDict[str, torch.Tensor], num_examples: int,
                                round_number: int, chunk_size: int = 50 * 1024 * 1024):
-        buffer = io.BytesIO()
-        torch.save(params, buffer)
-
-        view = memoryview(buffer.getbuffer())
-        total_chunks = (len(view) + chunk_size - 1) // chunk_size
-
-        try:
-            for i in range(0, len(view), chunk_size):
-                chunk_index = i // chunk_size
-                yield fedlearn_pb2.ModelUpdateChunk(
-                    client_id=self.client_id,
-                    trained_on_round=round_number,
-                    chunk_index=chunk_index,
-                    total_chunks=total_chunks,
-                    chunk_data=view[i:i + chunk_size].tobytes(),
-                    is_final_chunk=(chunk_index == total_chunks - 1),
-                    num_examples=num_examples,
-                )
-        finally:
-            view.release()
+        # Delegate serialization to parameters_to_chunks which now uses the safetensors wire
+        # format (no lz4; the gRPC streaming path is uncompressed by design — see serializer.py).
+        for chunk_dict in parameters_to_chunks(params, num_examples, chunk_size=chunk_size, compress=False):
+            yield fedlearn_pb2.ModelUpdateChunk(
+                client_id=self.client_id,
+                trained_on_round=round_number,
+                chunk_index=chunk_dict["chunk_index"],
+                total_chunks=chunk_dict["total_chunks"],
+                chunk_data=chunk_dict["chunk_data"],
+                is_final_chunk=chunk_dict["is_final_chunk"],
+                num_examples=num_examples,
+            )
 
     def _submit_update_stream(self, params: OrderedDict[str, torch.Tensor], num_examples: int,
                               round_number: int) -> bool:
@@ -255,17 +306,22 @@ class GrpcClient:
         return self._submit_update_unary(params, num_examples, round_number)
 
     def send_heartbeat(self) -> bool:
+        status, current_step, total_steps, current_round = self._status_snapshot()
         req = fedlearn_pb2.HeartbeatRequest(
             client_id=self.client_id,
-            status=self.current_status,
-            current_step=self.current_step,
-            total_steps=self.total_steps,
-            current_round=self.current_round,
+            status=status,
+            current_step=current_step,
+            total_steps=total_steps,
+            current_round=current_round,
         )
         try:
             res = self.heartbeat_stub.Heartbeat(req, timeout=30.0)
             if res.should_stop:
                 log.info("[%s] Server requested training stop", self.client_id)
+                # FR-10: latch the stop so the training thread's fit loop can see it and
+                # abort between local steps. Previously this response was discarded by
+                # _heartbeat_loop, making the server's stop request a no-op.
+                self._stop_training.set()
                 return False
             return res.acknowledged
         except grpc.RpcError as e:
@@ -281,10 +337,12 @@ class GrpcClient:
                 self.send_heartbeat()
             except Exception:
                 log.debug("[%s] Heartbeat loop exception", self.client_id, exc_info=True)
-            time.sleep(self.heartbeat_interval)
+            # Interruptible: returns immediately once stop_heartbeat() sets the event (FR-10).
+            self._heartbeat_stop.wait(self.heartbeat_interval)
 
     def start_heartbeat(self):
         if not self.heartbeat_active:
+            self._heartbeat_stop.clear()
             self.heartbeat_active = True
             self.heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
             self.heartbeat_thread.start()
@@ -292,20 +350,73 @@ class GrpcClient:
 
     def stop_heartbeat(self):
         self.heartbeat_active = False
+        self._heartbeat_stop.set()   # wake the loop out of its inter-beat wait at once
         if self.heartbeat_thread and self.heartbeat_thread.is_alive():
             self.heartbeat_thread.join(timeout=5)
             log.info("[%s] Heartbeat stopped", self.client_id)
 
+    def should_stop_training(self) -> bool:
+        """True once the server has asked this client to abort training (via heartbeat).
+
+        FR-10: polled by the fit loop between local steps on the TRAINING thread; set by the
+        heartbeat thread. Once set it stays set — a server-driven stop ends the run.
+        """
+        return self._stop_training.is_set()
+
     def update_status(self, status: str, current_step: int, total_steps: int):
-        self.current_status = status
-        self.current_step = current_step
-        self.total_steps = total_steps
+        """Publish the training thread's status triple for the heartbeat thread to report.
+
+        Written under _status_lock so the paired _status_snapshot() read on the heartbeat
+        thread can never observe a torn triple (three bare attribute stores are not atomic
+        as a unit).
+        """
+        with self._status_lock:
+            self.current_status = status
+            self.current_step = current_step
+            self.total_steps = total_steps
+
+    def _status_snapshot(self) -> Tuple[str, int, int, int]:
+        """Consistent (status, current_step, total_steps, current_round) for a heartbeat."""
+        with self._status_lock:
+            return self.current_status, self.current_step, self.total_steps, self.current_round
 
     def close(self):
         self.stop_heartbeat()
         self.channel.close()
         if hasattr(self, 'heartbeat_channel') and self.heartbeat_channel:
             self.heartbeat_channel.close()
+
+    def get_server_status(self) -> Optional[fedlearn_pb2.GetServerStatusResponse]:
+        """Best-effort fetch of the server's run/round state.
+
+        Uses the heartbeat channel (separate from the training stub, which may be
+        in a bad state after a cancelled call). Returns None if the server is
+        unreachable — the caller treats "can't confirm" as "not complete".
+        """
+        try:
+            req = fedlearn_pb2.GetServerStatusRequest()
+            return self.heartbeat_stub.GetServerStatus(req, timeout=10.0)
+        except grpc.RpcError as e:
+            log.debug("[%s] GetServerStatus probe failed: %s", self.client_id, e.details())
+            return None
+
+    def server_reports_complete(self) -> bool:
+        """True iff the server reports the run finished (rounds exhausted).
+
+        This is the durable end-of-run signal: a completed run tears the gRPC
+        RPCs down, so the client sees CANCELLED/UNAVAILABLE — but the server (if
+        it is draining) still reports TRAINING_COMPLETE here, letting the client
+        exit cleanly instead of retry-looping. A genuinely crashed/unreachable
+        server returns None from the probe, so this returns False and the caller
+        keeps its disconnect handling.
+        """
+        resp = self.get_server_status()
+        if resp is None:
+            return False
+        return (
+            resp.server_state
+            == fedlearn_pb2.GetServerStatusResponse.ServerState.TRAINING_COMPLETE
+        )
 
     def get_decomfl_config(self) -> Tuple[int, List[List[int]], List[Dict], dict]:
         """Fetch DeComFL configuration including seeds and rebuild history."""
@@ -376,3 +487,89 @@ class GrpcClient:
         except grpc.RpcError as e:
             log.error("[%s] SubmitGradientScalars failed: %s", self.client_id, e.details())
             return False
+
+    class MaskedSubmissionResult(NamedTuple):
+        """Outcome of one masked submission.
+
+        ``survivors`` is always the server's current view; ``frozen`` is populated ONLY once the
+        server has declared the round closed. Callers drive phase 3b off ``frozen`` and poll while
+        it is ``None`` — the two are kept separate so a partial view cannot be mistaken for a
+        final one.
+        """
+
+        accepted: bool
+        survivors: List[int]
+        frozen: Optional[FrozenSurvivors]
+
+    def submit_masked_gradient_scalars(
+            self,
+            masked_elements: Sequence[int],
+            num_examples: int,
+            round_num: int,
+            num_local_steps: int,
+            num_perturbations: int,
+    ) -> "GrpcClient.MaskedSubmissionResult":
+        """P2-2 phase 3a: submit ``quantize(g) + z`` instead of the plaintext scalars.
+
+        Deliberately a SEPARATE method rather than a flag on ``submit_gradient_scalars``. The two
+        requests differ in which oneof-like field is set, and a shared body would make it possible
+        -- through a default argument or an early return -- to populate ``gradients`` alongside
+        ``masked_gradients``. That request would leak every scalar in the clear while still being
+        accepted, and no server-side check would catch it because the masked half is perfectly
+        valid. Keeping the paths apart makes that request unconstructible here.
+
+        The masking itself belongs to :class:`~fedlearn.client.secure_agg_client.SecureAggregationClient`;
+        this method only puts its output on the wire.
+
+        Returns:
+            A :class:`MaskedSubmissionResult`. ``frozen`` is set only once the server has closed
+            the round, and is what phase 3b consumes; while it is ``None`` the caller re-submits
+            to poll. ``accepted`` distinguishes a refusal from an empty-but-legitimate cohort.
+
+        Raises:
+            ValueError: if the payload length contradicts ``num_local_steps * num_perturbations``.
+                Checked locally so the failure names this client's bug rather than arriving as a
+                rejection from a remote host.
+        """
+        expected = int(num_local_steps) * int(num_perturbations)
+        if len(masked_elements) != expected:
+            raise ValueError(
+                f"{len(masked_elements)} masked elements for K={num_local_steps}, "
+                f"P={num_perturbations}; expected K*P = {expected}"
+            )
+
+        request = fedlearn_pb2.SubmitGradientScalarsRequest(
+            client_id=self.client_id,
+            trained_on_round=round_num,
+            num_examples=num_examples,
+            masked_gradients=fedlearn_pb2.MaskedGradientScalars(
+                elements=[int(v) for v in masked_elements],
+                modulus=LIGHTSECAGG_PRIME,
+                num_local_steps=int(num_local_steps),
+                num_perturbations=int(num_perturbations),
+            ),
+        )
+
+        try:
+            response = _retry_unary(
+                lambda: self.stub.SubmitGradientScalars(request),
+                op_name="SubmitGradientScalars(masked)",
+            )
+        except grpc.RpcError as e:
+            log.error("[%s] masked SubmitGradientScalars failed: %s",
+                      self.client_id, e.details())
+            return self.MaskedSubmissionResult(accepted=False, survivors=[], frozen=None)
+
+        if not response.received:
+            log.error("[%s] server refused the masked submission for round %s",
+                      self.client_id, round_num)
+            return self.MaskedSubmissionResult(accepted=False, survivors=[], frozen=None)
+
+        survivors = [int(p) for p in response.surviving_partitions]
+        frozen = (
+            FrozenSurvivors(partitions=tuple(survivors))
+            if response.submissions_closed else None
+        )
+        return self.MaskedSubmissionResult(
+            accepted=True, survivors=survivors, frozen=frozen
+        )

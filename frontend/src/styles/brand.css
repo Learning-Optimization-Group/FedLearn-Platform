@@ -1,0 +1,123 @@
+/* =============================================================================
+ * Ledger brand utilities — the small expressive layer on top of the tokens.
+ * Quiet by design: no gradients, no glows, no ambient textures. Class names
+ * that older components reference are kept but resolve to calm equivalents.
+ * ========================================================================== */
+
+@layer components {
+  /* Tiny uppercase section label — the "eyebrow" above big headings. */
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+  }
+
+  /* Legacy hero gradient-text class — now a plain accent ink. */
+  .text-ember {
+    color: var(--accent);
+  }
+
+  /* Pill chip — quiet surface, hairline border, used for badges/tags. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--hairline);
+    background: var(--surface-1);
+    color: var(--fg-muted);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  /* Legacy halo class — now the standard card shadow. */
+  .glow-ember {
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Icon tile for feature rows — flat fill, accent ink. */
+  .icon-tile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-lg);
+    color: var(--accent);
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+  }
+
+  /* Display text — same family as body; hierarchy comes from size/weight. */
+  .font-display {
+    font-weight: 600;
+  }
+
+  /* The big hero headline. */
+  .display-hero {
+    font-family: var(--font-display);
+    font-weight: 650;
+    letter-spacing: -0.025em;
+  }
+}
+
+@layer utilities {
+  /* Legacy ambient backgrounds — now the plain canvas. */
+  .bg-ambient {
+    background: var(--canvas);
+  }
+  .bg-ambient-soft {
+    background: var(--canvas);
+  }
+
+  /* Legacy texture — retired. */
+  .bg-grid {
+    background: transparent;
+  }
+
+  /* Hairline divider. */
+  .rule-fade {
+    height: 1px;
+    border: 0;
+    background: var(--hairline);
+  }
+}
+
+/* --------------------------------- motion --------------------------------- */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+.reveal {
+  opacity: 0;
+  animation: rise-in 0.5s var(--ease-out) forwards;
+}
+.dot-pulse {
+  animation: status-pulse 1.8s var(--ease-in-out) infinite;
+}
+/* Legacy decorative motion — retired. */
+.float-slow {
+  animation: none;
+}
+.flow-line {
+  stroke-dasharray: 2 9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .dot-pulse {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}

@@ -16,13 +16,18 @@
 // =============================================================================
 
 import { contextBridge, ipcRenderer } from 'electron';
+import type { UpdateInfo, ProgressInfo } from 'electron-updater';
 // NOTE: electron-log cannot be used in sandboxed preload scripts.
 // console.error is forwarded to the main process console automatically.
+// electron-updater is type-only here (erased at compile time) — the preload bundle never pulls
+// in its runtime code, only the UpdateInfo/ProgressInfo shapes forwarded from Main via IPC.
 
 // ========== Validation Constants ==========
 
 const ALLOWED_HARDWARE_PROFILES = ['discrete', 'jetson', 'cpu', 'mps'] as const;
 const PROJECT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
+const MAX_IMAGE_BASE64_LEN = 14 * 1024 * 1024; // ~10 MB decoded
+const MAX_VECTOR_LEN = 100_000;
 const PARTITION_ID_PATTERN = /^[0-9]{1,10}$/;
 const SERVER_ADDRESS_PATTERN = /^[a-zA-Z0-9._:/-]{1,256}$/;
 const MAX_STRING_LENGTH = 256;
@@ -70,7 +75,7 @@ function isValidModelType(val: unknown): boolean {
     console.error(`[Preload:Validation] Model type is not a string: ${typeof val}`);
     return false;
   }
-  const valid = /^[a-zA-Z0-9_\-\.]{1,128}$/.test(val);
+  const valid = /^[a-zA-Z0-9_\-.]{1,128}$/.test(val);
   if (!valid) {
     console.error(`[Preload:Validation] Rejected model type failing pattern: "${val}"`);
   }
@@ -114,6 +119,33 @@ function isValidStringInput(val: unknown, fieldName: string): boolean {
   return true;
 }
 
+// The FL connection token is an HMAC-JWT (three base64url segments joined by dots).
+// It's optional here — absent means the legacy no-auth flow — but when present it must
+// be a bounded token-charset string before we forward it to Main.
+function isValidConnectionToken(val: unknown): boolean {
+  if (val === undefined || val === null) {
+    return true;
+  }
+  if (typeof val !== 'string' || val.length === 0 || val.length > 8192) {
+    console.error('[Preload:Validation] Connection token missing or out of bounds');
+    return false;
+  }
+  return /^[A-Za-z0-9._-]+$/.test(val);
+}
+
+// The FL server's certificate from the connection payload: absent (null or undefined, as a plaintext deployment
+// sends it) or a bounded PEM certificate. Main validates it fully before writing it to a file.
+function isShapedLikeCertificatePem(val: unknown): boolean {
+  if (val === undefined || val === null) {
+    return true;
+  }
+  if (typeof val !== 'string' || val.length > 16 * 1024) {
+    console.error('[Preload:Validation] Server certificate is not a bounded string');
+    return false;
+  }
+  return val.startsWith('-----BEGIN CERTIFICATE-----') && val.trimEnd().endsWith('-----END CERTIFICATE-----');
+}
+
 // ========== Secure API exposed to Renderer ==========
 
 export interface TrainingConfigInput {
@@ -123,6 +155,43 @@ export interface TrainingConfigInput {
   partitionId: string;
   modelType: string;
   datasetPath: string;
+  connectionToken?: string;
+  strategy?: string;
+  trainingArm?: string;
+  // Server trust from the connection payload: whether to dial TLS, and the certificate to verify the server with.
+  grpcTls?: boolean | null;
+  grpcServerCertPem?: string | null;
+}
+
+interface InferencePayloadInput {
+  imageBase64?: string;
+  values?: number[];
+  text?: string;
+}
+
+const MAX_TEXT_LEN = 10_000; // matches backend @Size(max = 10_000)
+
+function isValidInferencePayload(payload: unknown): payload is InferencePayloadInput {
+  if (!payload || typeof payload !== 'object') {
+    console.error('[Preload:Validation] Inference payload is not an object');
+    return false;
+  }
+  const p = payload as Record<string, unknown>;
+  if (typeof p.imageBase64 === 'string') {
+    return p.imageBase64.length > 0 && p.imageBase64.length <= MAX_IMAGE_BASE64_LEN;
+  }
+  if (Array.isArray(p.values)) {
+    return (
+      p.values.length > 0 &&
+      p.values.length <= MAX_VECTOR_LEN &&
+      p.values.every((v) => typeof v === 'number' && Number.isFinite(v))
+    );
+  }
+  if (typeof p.text === 'string') {
+    return p.text.trim().length > 0 && p.text.length <= MAX_TEXT_LEN;
+  }
+  console.error('[Preload:Validation] Inference payload has neither imageBase64, values, nor text');
+  return false;
 }
 
 contextBridge.exposeInMainWorld('fedLearnAPI', {
@@ -150,6 +219,20 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
     if (!isValidDatasetPath(config.datasetPath)) {
       return { success: false, error: 'Invalid dataset path' };
     }
+    if (!isValidConnectionToken(config.connectionToken)) {
+      return { success: false, error: 'Invalid connection token' };
+    }
+    // strategy is optional (a bounded token from the backend connection payload); reject a malformed
+    // one rather than forwarding garbage. Main re-validates with the same pattern (defense in depth).
+    if (config.strategy !== undefined && !/^[a-zA-Z0-9_\-.]{1,64}$/.test(config.strategy)) {
+      return { success: false, error: 'Invalid strategy' };
+    }
+    if (config.grpcTls !== undefined && config.grpcTls !== null && typeof config.grpcTls !== 'boolean') {
+      return { success: false, error: 'Invalid grpcTls' };
+    }
+    if (!isShapedLikeCertificatePem(config.grpcServerCertPem)) {
+      return { success: false, error: 'Invalid server certificate' };
+    }
 
     return ipcRenderer.invoke('docker:start-training', {
       hardwareProfile: config.hardwareProfile,
@@ -158,6 +241,12 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
       partitionId: config.partitionId,
       modelType: config.modelType,
       datasetPath: config.datasetPath,
+      connectionToken: config.connectionToken,
+      strategy: config.strategy,
+      // Main validates the arm strictly; leaving it out here meant a FROZEN_HEAD project trained as FULL.
+      trainingArm: config.trainingArm,
+      grpcTls: config.grpcTls ?? undefined,
+      grpcServerCertPem: config.grpcServerCertPem ?? undefined,
     });
   },
 
@@ -205,6 +294,23 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   },
 
   /**
+   * Register a callback fired when Main invalidates the current session
+   * (a 401 from the backend, or a locally-detected expired token) mid-use.
+   * The renderer reacts by clearing its own auth state and showing the login
+   * screen again — see App.tsx.
+   */
+  onSessionExpired: (callback: () => void): void => {
+    ipcRenderer.on('auth:session-expired', () => callback());
+  },
+
+  /**
+   * Remove all session-expired listeners (cleanup on unmount).
+   */
+  removeSessionExpiredListener: (): void => {
+    ipcRenderer.removeAllListeners('auth:session-expired');
+  },
+
+  /**
    * Register a callback for real-time training log events.
    * LogPanel renders these as plain text only — no HTML.
    */
@@ -225,26 +331,22 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   },
 
   /**
-   * Register a callback for Docker daemon unavailability events.
-   * Fired once on startup if the Docker socket is unreachable.
+   * Set the backend server URL. Persisted across app restarts; /api is appended
+   * automatically. Plaintext http:// to a non-loopback host is refused with
+   * code 'INSECURE_HTTP' unless opts.allowInsecureHttp is set — and even then
+   * the response carries a warning the caller must surface (credentials and the
+   * session token traverse the network unencrypted).
    */
-  onDockerUnavailable: (callback: (message: string) => void): void => {
-    ipcRenderer.on('docker:daemon-unavailable', (_event, value: string) => {
-      if (typeof value === 'string') {
-        callback(value);
-      }
-    });
-  },
-
-  /**
-   * Set the backend server URL. Persisted across app restarts.
-   * Users enter the URL (e.g. http://192.168.1.100:8081) and /api is appended automatically.
-   */
-  setServerUrl: async (url: string): Promise<{ success: boolean; url?: string; error?: string }> => {
+  setServerUrl: async (
+    url: string,
+    opts?: { allowInsecureHttp?: boolean },
+  ): Promise<{ success: boolean; url?: string; error?: string; code?: string; warning?: string }> => {
     if (!isValidStringInput(url, 'serverUrl')) {
       return { success: false, error: 'Invalid server URL' };
     }
-    return ipcRenderer.invoke('auth:set-server-url', url);
+    // Forward only the known flag — never an arbitrary renderer object.
+    const forwarded = opts?.allowInsecureHttp === true ? { allowInsecureHttp: true } : undefined;
+    return ipcRenderer.invoke('auth:set-server-url', url, forwarded);
   },
 
   /**
@@ -255,10 +357,130 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   },
 
   /**
+   * "Save password" opt-in: persist the login credentials encrypted (OS keychain) in Main.
+   * The renderer only ever passes/reads plaintext; the encrypted blob never leaves Main's store.
+   */
+  saveCredentials: async (username: string, password: string): Promise<{ success: boolean }> => {
+    if (!isValidStringInput(username, 'username') || !isValidStringInput(password, 'password')) {
+      return { success: false };
+    }
+    return ipcRenderer.invoke('auth:save-credentials', { username, password });
+  },
+
+  /**
+   * Load the saved credentials to pre-fill the login form. { success: false } when none stored.
+   */
+  getSavedCredentials: async (): Promise<{ success: boolean; username?: string; password?: string }> => {
+    return ipcRenderer.invoke('auth:get-credentials');
+  },
+
+  /**
+   * Forget any saved credentials (unchecked "Save password").
+   */
+  clearSavedCredentials: async (): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('auth:clear-credentials');
+  },
+
+  /**
    * Trigger native system file dialog to select a dataset path securely.
    */
   selectDatasetPath: async (): Promise<{ success: boolean; path?: string; error?: string }> => {
     return ipcRenderer.invoke('dialog:open-directory');
+  },
+
+  // ===================== Client Projects ("models I can train") =====================
+
+  /**
+   * List the projects the authenticated user may train (owner or approved
+   * CLIENT). Replaces manual project-id / server / partition entry.
+   */
+  listTrainableProjects: async (): Promise<{ success: boolean; projects?: unknown[]; error?: string }> => {
+    return ipcRenderer.invoke('client:list-projects');
+  },
+
+  /**
+   * Resolve a project's live gRPC connection (address + server-assigned
+   * partition id + model type) so training can start without manual entry.
+   */
+  getProjectConnection: async (
+    projectId: string,
+  ): Promise<{ success: boolean; connection?: unknown; error?: string }> => {
+    if (!isValidProjectId(projectId)) {
+      return { success: false, error: 'Invalid project ID' };
+    }
+    return ipcRenderer.invoke('client:get-connection', projectId);
+  },
+
+  // ===================== Inference ("Use a model") =====================
+
+  /**
+   * List the authenticated user's trained models that can be run interactively.
+   */
+  listModels: async (): Promise<{ success: boolean; models?: unknown[]; error?: string }> => {
+    return ipcRenderer.invoke('inference:list-models');
+  },
+
+  /**
+   * Run inference against a project's trained model. The payload carries either
+   * a base64 image (image models) or a numeric vector (tabular models).
+   */
+  runInference: async (
+    projectId: string,
+    payload: InferencePayloadInput,
+  ): Promise<{ success: boolean; result?: unknown; error?: string }> => {
+    if (!isValidProjectId(projectId)) {
+      return { success: false, error: 'Invalid project ID' };
+    }
+    if (!isValidInferencePayload(payload)) {
+      return { success: false, error: 'Invalid input payload' };
+    }
+    return ipcRenderer.invoke('inference:run', { projectId, payload });
+  },
+
+  /**
+   * Run streaming text generation against a project's trained generative model.
+   * Tokens arrive via the onInferenceToken listener; this call resolves with
+   * the full result once generation is complete.
+   */
+  runGeneration: async (
+    projectId: string,
+    payload: { prompt: string; maxNewTokens: number; temperature: number; history?: { role: 'user' | 'assistant'; content: string }[] },
+  ): Promise<{ success: boolean; result?: unknown; error?: string }> => {
+    if (!isValidProjectId(projectId)) return { success: false, error: 'Invalid project ID' };
+    if (
+      typeof payload?.prompt !== 'string' ||
+      !payload.prompt.trim() ||
+      payload.prompt.length > 10_000
+    ) {
+      return { success: false, error: 'Invalid prompt' };
+    }
+    return ipcRenderer.invoke('inference:run-generation', { projectId, payload });
+  },
+
+  /**
+   * Cancel an in-flight generation. Best-effort: the streamed partial is kept
+   * by the renderer regardless of the server response.
+   */
+  stopGeneration: async (projectId: string): Promise<{ success: boolean; stopped?: boolean; error?: string }> => {
+    if (!isValidProjectId(projectId)) return { success: false, error: 'Invalid project ID' };
+    return ipcRenderer.invoke('inference:stop-generation', { projectId });
+  },
+
+  /**
+   * Register a callback for streaming generation token events pushed by Main.
+   * Call removeInferenceTokenListener() on component unmount.
+   */
+  onInferenceToken: (callback: (token: string) => void): void => {
+    ipcRenderer.on('inference:token', (_event, value: string) => {
+      if (typeof value === 'string') callback(value);
+    });
+  },
+
+  /**
+   * Remove all inference:token listeners (cleanup on unmount).
+   */
+  removeInferenceTokenListener: (): void => {
+    ipcRenderer.removeAllListeners('inference:token');
   },
 
   /**
@@ -281,17 +503,24 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
     return ipcRenderer.invoke('hardware:detect');
   },
 
+  getDeviceCapabilities: (): Promise<{
+    success: boolean;
+    capabilities?: import('../shared/deviceCapabilities.types').DeviceCapabilities;
+    error?: string;
+  }> =>
+    ipcRenderer.invoke('device:capabilities'),
+
   // ===================== Auto Updater =====================
 
-  onUpdateAvailable: (callback: (info: any) => void): void => {
+  onUpdateAvailable: (callback: (info: UpdateInfo) => void): void => {
     ipcRenderer.on('updater:update-available', (_event, info) => callback(info));
   },
 
-  onUpdateProgress: (callback: (progress: any) => void): void => {
+  onUpdateProgress: (callback: (progress: ProgressInfo) => void): void => {
     ipcRenderer.on('updater:download-progress', (_event, progress) => callback(progress));
   },
 
-  onUpdateDownloaded: (callback: (info: any) => void): void => {
+  onUpdateDownloaded: (callback: (info: UpdateInfo) => void): void => {
     ipcRenderer.on('updater:update-downloaded', (_event, info) => callback(info));
   },
 

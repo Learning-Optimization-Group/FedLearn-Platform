@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 — The Federated Set · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>FL Runtime</summary><ul>
+<li><a href="README.html">FL Runtime Wiki</a></li>
+<li><a href="01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="03_training_arms.html">03 — Training Arms</a></li>
+<li><a class="active" href="04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>FL Runtime</b> &nbsp;·&nbsp; 04 — The Federated Set</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="04-the-federated-set">04 — The Federated Set<a class="headerlink" href="#04-the-federated-set" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a> → <a href="README.html">FL Runtime Wiki</a></p>
+</blockquote>
+<p>Which tensors actually cross the wire, and why the answer is not simply "the model".</p>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#two-filters-applied-in-order">Two Filters, Applied in Order</a></li>
+<li><a href="#the-non-float32-exclusion">The Non-Float32 Exclusion</a></li>
+<li><a href="#subset-federation">Subset Federation</a></li>
+<li><a href="#saving-merge_non_federated">Saving: <code>merge_non_federated</code></a></li>
+<li><a href="#evaluation-strictness">Evaluation Strictness</a></li>
+<li><a href="#the-npz-contract">The <code>.npz</code> Contract</a></li>
+<li><a href="#where-the-framework-takes-over">Where the Framework Takes Over</a></li>
+</ul>
+<hr />
+<h2 id="two-filters-applied-in-order">Two Filters, Applied in Order<a class="headerlink" href="#two-filters-applied-in-order" title="Permanent link">&para;</a></h2>
+<p>Both <code>fl_server.py</code> and <code>client.py</code> narrow the model to a <em>federated set</em> before anything touches the gRPC channel, and both apply the same two filters in the same order:</p>
+<div class="codehilite"><pre><span></span><code>model.state_dict()
+   │
+   │  (1) WIRE FILTER — federable_state(): keep float32 only
+   ▼
+   │  (2) ARM FILTER — keep keys matching the arm&#39;s trainable prefixes
+   ▼
+the federated set
+</code></pre></div>
+
+<p>The order is load-bearing and so is the sharing. Both sides call the <strong>same helpers</strong> from the framework (<code>fedlearn.estimators.params</code>) rather than each implementing its own predicate:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.estimators.params</span><span class="w"> </span><span class="kn">import</span> <span class="n">federable_state</span><span class="p">,</span> <span class="n">non_federable_names</span>
+</code></pre></div>
+
+<blockquote>
+<p><strong>Client and server must federate an identical key set, and two independent filters would drift. That divergence is how the frozen arm broke twice.</strong> This is the single most repeated failure mode in this codebase's history — a server/client disagreement about which tensors are federated.</p>
+</blockquote>
+<p>Both sides also <strong>log what they withheld</strong>. Silently dropping tensors is what would make this dangerous; a run has to be able to say what it withheld and a reader has to be able to audit it.</p>
+<hr />
+<h2 id="the-non-float32-exclusion">The Non-Float32 Exclusion<a class="headerlink" href="#the-non-float32-exclusion" title="Permanent link">&para;</a></h2>
+<p>The safetensors wire is <strong>float32-only by design</strong> — it must decode in the libtorch-free mobile C++ core, so other dtypes raise rather than being silently coerced.</p>
+<p>Every <code>nn.BatchNorm*</code> module carries an int64 <code>num_batches_tracked</code> buffer. Consequently a <code>FULL</code>-arm run on <strong>any</strong> BatchNorm model failed on the first <code>GetGlobalModel</code> — which excluded ResNets, the most common architecture in the FL literature, from the <code>FULL</code> arm entirely. <code>CIFAR_RESNET18</code> shipped able to declare only <code>FROZEN_HEAD</code> for exactly this reason.</p>
+<p>The fix (commit <code>3b13204</code>) filters non-float32 tensors <strong>out of the federated set</strong> rather than raising:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">federable_state</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>     <span class="c1"># framework/src/fedlearn/estimators/params.py:85</span>
+    <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">state</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">non_federable_names</span><span class="p">(</span><span class="n">state</span><span class="p">):</span> <span class="c1"># …:111</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">state</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">]</span>
+</code></pre></div>
+
+<p>Be precise about the scope of this change:</p>
+<ul>
+<li><strong>What is dropped:</strong> non-float32 tensors. In practice <code>num_batches_tracked</code>, a batch <strong>counter</strong> — averaging it across clients is meaningless, so nothing of value is lost and each client keeps its own.</li>
+<li><strong>What is <em>not</em> dropped:</strong> <code>running_mean</code> and <code>running_var</code>. They are float32 and continue to be averaged. Excluding those too would be <strong>FedBN</strong> — a different algorithm with different convergence behaviour — rather than a fix for what the wire can carry.</li>
+<li>For a float32-only model the function is the identity: same keys, same order, same tensor objects. No existing recipe changes behaviour.</li>
+</ul>
+<h3 id="where-it-appears-in-this-layer">Where it appears in this layer<a class="headerlink" href="#where-it-appears-in-this-layer" title="Permanent link">&para;</a></h3>
+<p><strong>Client</strong> (<code>client.py:724-737</code>, in <code>get_parameters()</code> on the <code>FULL</code> path):</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.estimators.params</span><span class="w"> </span><span class="kn">import</span> <span class="n">federable_state</span><span class="p">,</span> <span class="n">non_federable_names</span>
+<span class="n">full</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+<span class="n">withheld</span> <span class="o">=</span> <span class="n">non_federable_names</span><span class="p">(</span><span class="n">full</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">withheld</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_logged_withheld&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[Client] Withholding </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">withheld</span><span class="p">)</span><span class="si">}</span><span class="s2"> non-float32 tensor(s) from the federated &quot;</span>
+          <span class="sa">f</span><span class="s2">&quot;set (kept local): </span><span class="si">{</span><span class="n">withheld</span><span class="p">[:</span><span class="mi">4</span><span class="p">]</span><span class="si">}{</span><span class="s1">&#39; ...&#39;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="n">withheld</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">4</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_logged_withheld</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">return</span> <span class="n">federable_state</span><span class="p">(</span><span class="n">full</span><span class="p">)</span>
+</code></pre></div>
+
+<p>The log is latched to once per client so a long run does not repeat it every round.</p>
+<p><strong>Server</strong> (<code>fl_server.py:658-672</code>), applied to the parameters loaded from the <code>.npz</code>, <strong>before</strong> the arm filter, and with the count carried in <code>_n_withheld</code> because the evaluation closure reads it on every path:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">_withheld</span> <span class="o">=</span> <span class="n">non_federable_names</span><span class="p">(</span><span class="n">initial_parameters</span><span class="p">)</span>
+<span class="n">_n_withheld</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">_withheld</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">_withheld</span><span class="p">:</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Withholding </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">_withheld</span><span class="p">)</span><span class="si">}</span><span class="s2"> non-float32 tensor(s) from the federated set &quot;</span>
+                 <span class="sa">f</span><span class="s2">&quot;(kept local, restored at save): </span><span class="si">{</span><span class="n">_withheld</span><span class="p">[:</span><span class="mi">4</span><span class="p">]</span><span class="si">}</span><span class="s2">…&quot;</span><span class="p">)</span>
+<span class="err">…</span>
+<span class="n">full_initial_parameters</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="n">initial_parameters</span><span class="p">)</span>   <span class="c1"># keep the complete model</span>
+<span class="n">initial_parameters</span> <span class="o">=</span> <span class="n">federable_state</span><span class="p">(</span><span class="n">initial_parameters</span><span class="p">)</span>
+</code></pre></div>
+
+<p><code>_n_withheld</code> is bound to <code>0</code> <em>before</em> the <code>try:</code> block, so an early-exit or exception path can never hit an unbound local.</p>
+<p><code>tests/test_declared_arms_are_wire_compatible.py</code> guards the class of defect this belongs to: <strong>a recipe must not declare an arm whose payload cannot cross the wire.</strong> Note that building the model does <em>not</em> catch it — the model is fine; the payload is what fails — so the test builds the payload for each declared arm and checks it against the codec.</p>
+<hr />
+<h2 id="subset-federation">Subset Federation<a class="headerlink" href="#subset-federation" title="Permanent link">&para;</a></h2>
+<p>Under <code>FROZEN_HEAD</code> or <code>OVA_LP</code> the federated set narrows again, to the keys matching the arm's trainable prefixes. The frozen backbone stays local and never rides the wire.</p>
+<p><strong>Client</strong>, <code>get_parameters()</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">USE_DERIVED</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.estimators.params</span><span class="w"> </span><span class="kn">import</span> <span class="n">trainable_state</span>
+    <span class="k">return</span> <span class="n">trainable_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="p">)</span>
+</code></pre></div>
+
+<p><code>trainable_state</code> returns the <code>requires_grad</code> parameters in <code>named_parameters()</code> order — the <em>correct</em> payload for a subset arm, and the correct <code>initial_parameters</code> for a DeComFL server. Passing a full <code>state_dict()</code> instead would include buffers and frozen params that the client's <code>requires_grad</code> flatten omits, so <code>d_server &gt; d_client</code> and the shared-seed perturbation <code>z</code> silently misaligns.</p>
+<p><code>LLM_LORA</code> follows the same shape via a different mechanism: it uploads <code>get_peft_model_state_dict(net, save_embedding_layers=False)</code> narrowed to the adapter keys.</p>
+<p><strong>Client</strong>, <code>fit()</code>: the aggregated subset is loaded with <code>strict=False</code>, which is what keeps the frozen backbone local and off the wire while still applying the head the server aggregated.</p>
+<p><strong>Server</strong>: the arm filter described in <a href="03_training_arms.html#server-side">03</a>. If the arm's prefixes match <strong>no</strong> key in the <code>.npz</code>, the server logs the keys it saw and <code>exit(1)</code>s — an empty federated set is a hard failure, not a silently degenerate run.</p>
+<hr />
+<h2 id="saving-merge_non_federated">Saving: <code>merge_non_federated</code><a class="headerlink" href="#saving-merge_non_federated" title="Permanent link">&para;</a></h2>
+<p><code>merge_non_federated</code> (<code>fl_server.py:229</code>) is the save-side half of the load-side contract, and it exists because of a real live failure on 2026-08-13. After a successful 3-round <code>FROZEN_HEAD</code> run, the saved model contained <strong>two keys</strong>:</p>
+<div class="codehilite"><pre><span></span><code>PRE  keys (10): conv1.weight … fc3.bias
+POST keys  (2): fc3.bias, fc3.weight
+</code></pre></div>
+
+<p>The server writes the final <em>global</em> model to <code>--model-path</code>, and under a subset arm the global model <strong>is</strong> the head. So the run overwrote the only full copy of the model with a 2-key file: the artifact was not a usable model (you cannot run inference without a backbone), and the backbone it was trained against was unrecoverable.</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">merge_non_federated</span><span class="p">(</span><span class="n">final_parameters</span><span class="p">,</span> <span class="n">full_initial_parameters</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">full_initial_parameters</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">final_parameters</span>
+    <span class="n">merged</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">full_initial_parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">merged</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">final_parameters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">final_parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>   <span class="c1"># defensive: keys the original lacked</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">merged</span><span class="p">:</span>
+            <span class="n">merged</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+    <span class="k">return</span> <span class="n">merged</span>
+</code></pre></div>
+
+<p>Four properties:</p>
+<ul>
+<li><strong>The backbone merged back is the one the run actually used</strong>, not a fresh init — the head was trained against those exact frozen weights, so any other pairing describes a model that never existed.</li>
+<li><strong>Key order follows the original state_dict</strong>, because ordering is load-bearing for the safetensors wire and for the sha256 an artifact is addressed by.</li>
+<li><strong>It never raises.</strong> Losing a trained head to protect a backbone would be worse than the bug.</li>
+<li><strong>It is the identity for the <code>FULL</code> arm</strong> with nothing withheld.</li>
+</ul>
+<p>The same merge also restores the non-float32 tensors the wire filter withheld, so a BatchNorm model's <code>num_batches_tracked</code> is present in the saved <code>.npz</code> even though it never crossed the wire.</p>
+<p>Guarded by <code>tests/test_frozen_save_preserves_backbone.py</code>.</p>
+<hr />
+<h2 id="evaluation-strictness">Evaluation Strictness<a class="headerlink" href="#evaluation-strictness" title="Permanent link">&para;</a></h2>
+<p><code>evaluation_load_is_strict(model_type, training_arm, withheld)</code> (<code>fl_server.py:259</code>) decides whether <code>server_side_evaluate</code> loads the global model with <code>strict=True</code>.</p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">withheld</span><span class="p">:</span>
+    <span class="k">return</span> <span class="kc">False</span>        <span class="c1"># the wire legitimately withheld non-float32 tensors, even under FULL</span>
+<span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">model_type</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;TINYNET_GOLDEN&quot;</span><span class="p">:</span>
+    <span class="k">return</span> <span class="kc">False</span>        <span class="c1"># syncs only its 25 trainable fc1 params</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">recipes</span><span class="o">.</span><span class="n">trainable_prefixes</span><span class="p">(</span><span class="n">model_type</span><span class="p">,</span> <span class="n">training_arm</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span>
+<span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+    <span class="k">return</span> <span class="kc">True</span>         <span class="c1"># unknown recipe/arm: keep the stricter behaviour</span>
+</code></pre></div>
+
+<p>It was previously the single expression <code>model_type.upper() != 'TINYNET_GOLDEN'</code> — correct while that was the only subset-federating recipe, and wrong the moment any recipe could run <code>FROZEN_HEAD</code>. It let a completed frozen round fail evaluation with <code>Missing key(s) in state_dict: conv1.weight, …</code>.</p>
+<p><strong>Strictness is kept for the <code>FULL</code> arm on purpose.</strong> There it is a real guard against a malformed payload, and relaxing it globally to accommodate the frozen arm would discard that. The <code>withheld</code> short-circuit is what let BatchNorm models be unblocked for <code>FULL</code> without immediately failing evaluation on the very keys the wire had been told not to carry.</p>
+<p>Guarded by <code>tests/test_server_eval_strictness.py</code>.</p>
+<hr />
+<h2 id="the-npz-contract">The <code>.npz</code> Contract<a class="headerlink" href="#the-npz-contract" title="Permanent link">&para;</a></h2>
+<p>This layer's on-disk model format is a NumPy <code>.npz</code>, written by <code>init_model.py</code> and rewritten by <code>fl_server.py</code>, and read by both plus <code>infer.py</code>.</p>
+<ul>
+<li><strong><code>.</code> is not legal in an <code>npz</code> member name</strong>, so every key is stored as <code>key.replace('.', '__DOT__')</code> and un-escaped on load.</li>
+<li><strong><code>allow_pickle=False</code> on every read.</strong> Both <code>fl_server.py</code> and <code>infer.py</code> load with it explicitly; a non-<code>ndarray</code> member is skipped rather than deserialised (<code>fl_server.py</code> logs a warning, <code>infer.py</code> skips silently).</li>
+<li><strong>The <code>.npz</code> deliberately keeps the FULL model.</strong> The arm is applied at <em>load</em> time on the server, not at save time, so the frozen backbone stays recoverable. <code>merge_non_federated</code> is what upholds that on the write path.</li>
+<li><strong>What <code>init_model.py</code> stores varies by type</strong>: the adapter for <code>LLM_LORA</code>, the 25-parameter trainable layout for <code>TINYNET_GOLDEN</code>, the full <code>state_dict()</code> for everything else. See <a href="01_entry_points.html#init_modelpy--initial-weights">01</a>.</li>
+<li><strong>Write target vs init source are separable.</strong> <code>--model-path</code> is always the write target; <code>--init-model-path</code> (BA-11) lets the backend point initial weights at the immutable content-addressed registry head without that blob ever being overwritten.</li>
+</ul>
+<p><code>infer.py</code> loads the <code>.npz</code> with <code>strict=True</code> for non-LoRA recipes, so an artifact missing its backbone fails loudly rather than running a half-initialised model — which is precisely how the <code>merge_non_federated</code> bug would have surfaced downstream.</p>
+<hr />
+<h2 id="where-the-framework-takes-over">Where the Framework Takes Over<a class="headerlink" href="#where-the-framework-takes-over" title="Permanent link">&para;</a></h2>
+<p>Everything above is what this layer decides. Once <code>fl.server.start_server(...)</code> / <code>fl.client.start_client(...)</code> is called, encoding and transport belong to the framework:</p>
+<ul>
+<li><strong>Encoding</strong> — <code>fedlearn/communication/safetensors_codec.py</code>. Byte-deterministic, float32-only, decodable by the libtorch-free mobile C++ client. Never <code>torch.save</code> / pickle.</li>
+<li><strong>Chunking</strong> — size-gated at the call site and unconditional within the streaming path: <code>GrpcClient.submit_update()</code> picks the streaming upload only for transformers (<code>ALWAYS_STREAM_TRANSFORMERS = True</code>) or blobs over <code>STREAMING_THRESHOLD_MB = 100</code>; once streaming, the blob is always chunked at <code>FEDLEARN_CHUNK_SIZE_MB</code> (default 4 MB).</li>
+<li><strong>Heartbeat</strong> — clients hold two gRPC stubs; the training stub blocks during <code>fit()</code> while the heartbeat stub runs on a parallel thread. The heartbeat is bidirectional (FR-10): a <code>HeartbeatResponse</code> with <code>should_stop=True</code> latches <code>_stop_training</code>, which the fit loop polls to abort a round. <code>client.py</code> wires its <code>ZOSLClient</code> to the transport via <code>set_grpc_client()</code> and feeds round progress through a callback.</li>
+<li><strong>TLS</strong> — implemented and opt-in (SE-2). The client uses <code>insecure_channel</code> unless <code>FEDLEARN_GRPC_USE_TLS=1</code>. Default is plaintext. Client authentication is a separate mechanism, <code>FEDLEARN_CONNECTION_TOKEN</code> (SE-14).</li>
+</ul>
+<p>See <a href="../framework/02_grpc_communication.html">Framework: gRPC Communication</a> and <a href="../framework/04_client_internals.html">Framework: Client Internals</a> for the transport side.</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

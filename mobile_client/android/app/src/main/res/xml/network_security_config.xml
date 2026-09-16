@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Release default: TLS-only. Cleartext HTTP/gRPC is refused everywhere; the platform's
+     WAN transport story (plaintext gRPC, audit item #37) is handled at the network layer
+     (e.g. Tailscale), never by weakening app-wide TLS enforcement in a shipped build.
+     Local-demo cleartext lives in src/debug/res/xml/network_security_config.xml, which
+     overrides this file in debug builds only. -->
+<network-security-config>
+  <base-config cleartextTrafficPermitted="false">
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+  </base-config>
+</network-security-config>

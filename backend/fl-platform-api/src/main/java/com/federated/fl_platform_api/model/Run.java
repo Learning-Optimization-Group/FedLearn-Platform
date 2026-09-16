@@ -1,0 +1,163 @@
+package com.federated.fl_platform_api.model;
+
+import jakarta.persistence.*;
+import java.time.Instant;
+import java.util.UUID;
+
+@Entity
+@Table(name = "runs")
+public class Run {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private UUID id;
+
+    @Column(name = "project_id", nullable = false)
+    private UUID projectId;
+
+    @Column(nullable = false, length = 32)
+    private String strategy;
+
+    @Column(name = "num_rounds", nullable = false)
+    private int numRounds;
+
+    @Column(name = "min_clients", nullable = false)
+    private int minClients;
+
+    @Column(name = "clients_per_round", nullable = false)
+    private int clientsPerRound;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "partitioning_mode", nullable = false, length = 16)
+    private PartitioningMode partitioningMode = PartitioningMode.SHARDED;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private RunStatus status;
+
+    @Column(name = "server_host")
+    private String serverHost;
+
+    @Column(name = "server_port")
+    private Integer serverPort;
+
+    // BA-3: OS identity of the spawned FL-server child, recorded at spawn so a StartupReconciler can
+    // reap orphans after a backend crash. process_started_at guards against PID reuse.
+    @Column(name = "server_pid")
+    private Long serverPid;
+
+    @Column(name = "process_started_at")
+    private Instant processStartedAt;
+
+    // BA-3: SHA-256 hash of this run's per-run internal token, so a re-adopted server's token can be
+    // rehydrated into the RunTokenRegistry after a restart (the plaintext lives only in the child).
+    @Column(name = "internal_token_hash", length = 64)
+    private String internalTokenHash;
+
+    @Column(name = "grpc_ca_fingerprint", length = 128)
+    private String grpcCaFingerprint;
+
+    @Column
+    private Long seed;
+
+    @Column(name = "torch_version", length = 32)
+    private String torchVersion;
+
+    @Column(name = "recipe_key", nullable = false, length = 64)
+    private String recipeKey;
+
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    @Column(name = "started_at")
+    private Instant startedAt;
+
+    @Column(name = "ended_at")
+    private Instant endedAt;
+
+    // V24: which Byzantine-robust rule a Robust run used, and the settings sent to the server. All null for any
+    // other strategy, which a CHECK enforces. A Robust run started without settings records MEDIAN, the server
+    // default, so the record names the rule that actually ran.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "robust_method", length = 16)
+    private RobustMethod robustMethod;
+
+    @Column(name = "robust_byzantine_fraction")
+    private Double robustByzantineFraction;
+
+    @Column(name = "robust_trim_ratio")
+    private Double robustTrimRatio;
+
+    @Column(name = "centered_clip_tau")
+    private Double centeredClipTau;
+
+    // V25: whether the run masks client gradient scalars with secure aggregation (LightSecAgg), and how many
+    // clients' shares rebuild the sum. The manifest carries the flag so a client that cannot mask, such as the
+    // phone, refuses the run before training. CHECKs tie the two together and to DeComFL.
+    @Column(name = "secure_aggregation", nullable = false)
+    private boolean secureAggregation;
+
+    @Column(name = "secure_agg_threshold")
+    private Integer secureAggThreshold;
+
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
+    public UUID getProjectId() { return projectId; }
+    public void setProjectId(UUID projectId) { this.projectId = projectId; }
+    public String getStrategy() { return strategy; }
+    public void setStrategy(String strategy) { this.strategy = strategy; }
+    public int getNumRounds() { return numRounds; }
+    public void setNumRounds(int numRounds) { this.numRounds = numRounds; }
+    public int getMinClients() { return minClients; }
+    public void setMinClients(int minClients) { this.minClients = minClients; }
+    public int getClientsPerRound() { return clientsPerRound; }
+    public void setClientsPerRound(int clientsPerRound) { this.clientsPerRound = clientsPerRound; }
+    public PartitioningMode getPartitioningMode() { return partitioningMode; }
+    public void setPartitioningMode(PartitioningMode partitioningMode) { this.partitioningMode = partitioningMode; }
+    public RunStatus getStatus() { return status; }
+    public void setStatus(RunStatus status) { this.status = status; }
+    public String getServerHost() { return serverHost; }
+    public void setServerHost(String serverHost) { this.serverHost = serverHost; }
+    public Integer getServerPort() { return serverPort; }
+    public void setServerPort(Integer serverPort) { this.serverPort = serverPort; }
+
+    public Long getServerPid() { return serverPid; }
+    public void setServerPid(Long serverPid) { this.serverPid = serverPid; }
+
+    public Instant getProcessStartedAt() { return processStartedAt; }
+    public void setProcessStartedAt(Instant processStartedAt) { this.processStartedAt = processStartedAt; }
+
+    public String getInternalTokenHash() { return internalTokenHash; }
+    public void setInternalTokenHash(String internalTokenHash) { this.internalTokenHash = internalTokenHash; }
+    public String getGrpcCaFingerprint() { return grpcCaFingerprint; }
+    public void setGrpcCaFingerprint(String grpcCaFingerprint) { this.grpcCaFingerprint = grpcCaFingerprint; }
+    public Long getSeed() { return seed; }
+    public void setSeed(Long seed) { this.seed = seed; }
+    public String getTorchVersion() { return torchVersion; }
+    public void setTorchVersion(String torchVersion) { this.torchVersion = torchVersion; }
+    public String getRecipeKey() { return recipeKey; }
+    public void setRecipeKey(String recipeKey) { this.recipeKey = recipeKey; }
+    public Long getCreatedBy() { return createdBy; }
+    public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public Instant getStartedAt() { return startedAt; }
+    public void setStartedAt(Instant startedAt) { this.startedAt = startedAt; }
+    public Instant getEndedAt() { return endedAt; }
+    public void setEndedAt(Instant endedAt) { this.endedAt = endedAt; }
+    public RobustMethod getRobustMethod() { return robustMethod; }
+    public void setRobustMethod(RobustMethod robustMethod) { this.robustMethod = robustMethod; }
+    public Double getRobustByzantineFraction() { return robustByzantineFraction; }
+    public void setRobustByzantineFraction(Double robustByzantineFraction) { this.robustByzantineFraction = robustByzantineFraction; }
+    public Double getRobustTrimRatio() { return robustTrimRatio; }
+    public void setRobustTrimRatio(Double robustTrimRatio) { this.robustTrimRatio = robustTrimRatio; }
+    public Double getCenteredClipTau() { return centeredClipTau; }
+    public void setCenteredClipTau(Double centeredClipTau) { this.centeredClipTau = centeredClipTau; }
+    public boolean isSecureAggregation() { return secureAggregation; }
+    public void setSecureAggregation(boolean secureAggregation) { this.secureAggregation = secureAggregation; }
+    public Integer getSecureAggThreshold() { return secureAggThreshold; }
+    public void setSecureAggThreshold(Integer secureAggThreshold) { this.secureAggThreshold = secureAggThreshold; }
+}

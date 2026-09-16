@@ -52,6 +52,13 @@ class DeComFLClient(Client):
         # Current model parameters (flattened)
         self.x_current = self.zo_estimator._get_flat_params(self.model)
 
+        # FR-15: highest round whose averaged update has already been applied to x_current.
+        # The server advances its per-client baseline only on aggregation, but the client mutates
+        # x_current at config-fetch time — so a dropped submission makes the server re-hand an
+        # already-applied round. Tracking it here makes rebuild_model idempotent: replaying a round
+        # <= this watermark is a no-op, so an overlapping rebuild history cannot double-apply.
+        self._synced_through: int = -1
+
         # For heartbeat integration
         self.grpc_client = None
 
@@ -63,6 +70,87 @@ class DeComFLClient(Client):
     def set_grpc_client(self, grpc_client):
         """Set gRPC client for heartbeat updates."""
         self.grpc_client = grpc_client
+
+    def assert_dim_matches(self, server_model_dim: int) -> None:
+        """MO-19/FR-14: fail loud if the server's trainable flat dimension differs from this client's.
+
+        The server advertises ``model_dim`` in the DeComFL config; the shared-seed perturbation ``z``
+        it generates has that length. If this client's trainable parameter vector is a different
+        length, ``z`` misaligns and the model diverges silently — so we reject the run up front rather
+        than train garbage. Almost always the server was built from a full ``state_dict()`` (buffers +
+        frozen params) instead of the ``requires_grad``-filtered trainable layout
+        (:func:`estimators.params.trainable_state`). The server-side complement is
+        :meth:`fedlearn.server.decomfl_strategy.DeComFL.validate_participant_dim`.
+        """
+        client_dim = self.zo_estimator.get_num_params(self.model)
+        if client_dim != server_model_dim:
+            raise ValueError(
+                f"DeComFL trainable-dimension mismatch: this client has {client_dim} trainable "
+                f"params but the server's model_dim is {server_model_dim}. The shared-seed "
+                f"perturbation would misalign and the model would diverge. Ensure the server's "
+                f"initial_parameters are the requires_grad-filtered trainable layout "
+                f"(estimators.params.trainable_state), NOT a full state_dict() (buffers + frozen "
+                f"params inflate the server's flat vector)."
+            )
+
+    def load_global_model(
+            self,
+            parameters: OrderedDict[str, torch.Tensor],
+            synced_through_round: "int | None" = None,
+    ) -> None:
+        """Adopt the server's global model (DeComFL requires every party to share x_0).
+
+        Loads ``parameters`` into the local model and resets the flattened working copy
+        ``x_current`` so the zeroth-order trajectory starts from the *shared* global model,
+        not this client's constructor-time random init. Called once at startup; this is the
+        O(d) initial download the paper assumes — per-round communication stays O(1).
+
+        FR-16 (restart / late join): the downloaded global already reflects every aggregated round
+        below the server's current round, so ``synced_through_round`` records how far this client is
+        synced (``current_round - 1`` at download time). Without it, a restarted client — which
+        reuses its deterministic client_id and re-downloads x_{r-1} — would reset its watermark to
+        -1 while the server still remembers its pre-crash baseline and re-hands rounds it already
+        holds, double-applying them. Setting the watermark here makes those re-handed rounds a
+        no-op. A from-scratch client passes round 0 (or None), leaving the watermark at -1.
+
+        Trainable-only sync (FR-14): DeComFL only ever synchronises the ``requires_grad``-filtered
+        trainable layout (:func:`estimators.params.trainable_state`) — the exact d-vector the
+        shared-seed perturbation ``z`` indexes. FROZEN parameters (e.g. a frozen backbone / partial
+        fine-tune) and buffers are NOT sent; they keep this net's deterministic build-time init,
+        which every peer reproduces identically. A plain strict ``load_state_dict`` therefore
+        crashes on those legitimately-absent keys. So we load non-strict but enforce the invariant
+        that actually matters, model-agnostically: EVERY trainable param must be present (a missing
+        one would silently misalign ``z`` and diverge the model), and NO unexpected key may appear.
+        For a fully-trainable model this is exactly as strict as before — no per-model special case.
+        """
+        incoming = set(parameters.keys())
+        known = set(self.model.state_dict().keys())
+
+        unexpected = incoming - known
+        if unexpected:
+            raise ValueError(
+                f"load_global_model received keys that are not in the model: {sorted(unexpected)}"
+            )
+
+        trainable_keys = {name for name, p in self.model.named_parameters() if p.requires_grad}
+        missing_trainable = trainable_keys - incoming
+        if missing_trainable:
+            raise ValueError(
+                f"load_global_model is missing trainable parameter keys the shared-seed "
+                f"perturbation requires: {sorted(missing_trainable)}. DeComFL syncs the full "
+                f"trainable layout (estimators.params.trainable_state); only frozen params and "
+                f"buffers may be omitted."
+            )
+
+        self.model.load_state_dict(parameters, strict=False)
+        self.x_current = self.zo_estimator._get_flat_params(self.model).to(self.device)
+
+        # FR-16: the downloaded global already folds in every round below the server's current round.
+        if synced_through_round is not None:
+            self._synced_through = synced_through_round
+
+        log.debug("Synced local model to server global (%d params, synced through round %s)",
+                  len(self.x_current), self._synced_through)
 
     def get_parameters(self) -> OrderedDict[str, torch.Tensor]:
         """Return current model parameters."""
@@ -88,6 +176,16 @@ class DeComFLClient(Client):
 
         for round_data in rebuild_history:
             round_num = round_data['round_number']
+
+            # FR-15: skip any round already folded into x_current. The server advances a client's
+            # baseline only when its submission is aggregated, so a dropped/straggler client is
+            # re-handed a round it already applied; replaying it here would double-apply and
+            # silently diverge the local model from the global trajectory. Idempotent by watermark.
+            if round_num <= self._synced_through:
+                log.debug("Skipping already-applied rebuild round %d (synced through %d)",
+                          round_num, self._synced_through)
+                continue
+
             seeds = round_data['seeds']
             avg_gradients = round_data['gradients']
 
@@ -113,6 +211,10 @@ class DeComFLClient(Client):
 
                 # Update model
                 self.x_current = self.x_current - (learning_rate / P) * delta
+
+            # FR-15: record that this round is now folded in, so a later overlapping rebuild
+            # history (from a dropped submission) will skip it instead of re-applying.
+            self._synced_through = round_num
 
         # Apply rebuilt parameters to model
         self.zo_estimator._set_flat_params(self.model, self.x_current)
@@ -140,8 +242,14 @@ class DeComFLClient(Client):
         K = len(seeds)  # Number of local steps
         P = len(seeds[0]) if K > 0 else 0  # Number of perturbations
         eta = float(config.get('learning_rate', 0.001))
+        # FR-10: μ is server-authoritative — apply the server's smoothing_param so the ZO estimate is
+        # of the SAME smoothed function the server reconstructs (keep our default if the server omits
+        # it). A mismatched μ makes the gradient scalars derivatives of a different function.
+        mu = config.get('smoothing_param')
+        if mu is not None:
+            self.zo_estimator.mu = float(mu)
 
-        log.debug("Starting local DeComFL training (K=%d, P=%d)", K, P)
+        log.debug("Starting local DeComFL training (K=%d, P=%d, mu=%s)", K, P, self.zo_estimator.mu)
 
         # Track total perturbation for in-place revert to avoid OOM
         total_perturbation = torch.zeros_like(self.x_current)
@@ -152,6 +260,17 @@ class DeComFLClient(Client):
 
         # Algorithm 4, Line 14: Loop over local steps k = 1, ..., K
         for k in range(K):
+            # FR-10: honour a server-driven stop between local steps. The heartbeat thread
+            # latches the server's should_stop into the gRPC client's stop Event while this
+            # loop blocks the training stub; checking it here bounds the abort latency to
+            # ~one heartbeat interval + one local step instead of the full K-step round.
+            # total_perturbation only accumulates APPLIED steps, so the revert below stays
+            # exact for a partial run; the caller sees the stop via should_stop_training()
+            # and must not submit the partial scalars (the server has stopped anyway).
+            if self.grpc_client is not None and self.grpc_client.should_stop_training():
+                log.info("Server requested stop; aborting local training at step %d/%d", k, K)
+                break
+
             delta = torch.zeros_like(self.x_current)
             k_gradient_scalars = []
 
@@ -183,6 +302,17 @@ class DeComFLClient(Client):
             if self.grpc_client:
                 self.grpc_client.update_status("training", k + 1, total_steps)
 
+            # The unperturbed loss f(x_{i,r}^k; ξ) is the SAME for all P perturbations of this
+            # local step — x and the batch are both fixed here, only z varies. Evaluate it once
+            # and reuse, as the reference implementation does: P+1 forward passes per step
+            # instead of 2P. x advances at the end of every step, so this is re-evaluated per k.
+            base_loss = self.zo_estimator.compute_base_loss(
+                self.model,
+                self.x_current,
+                inputs,
+                targets
+            )
+
             # Algorithm 4, Line 16: Loop over perturbations p = 1, ..., P
             for p in range(P):
                 # Algorithm 4, Line 17: Generate perturbation z^k_r,p
@@ -197,7 +327,8 @@ class DeComFLClient(Client):
                     self.x_current,
                     z,
                     inputs,
-                    targets
+                    targets,
+                    base_loss=base_loss
                 )
                 k_gradient_scalars.append(g)
 

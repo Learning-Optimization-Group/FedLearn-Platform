@@ -6,11 +6,28 @@ public class ProjectResponseDto {
 
     private UUID id;
     private String name;
+    /**
+     * The training arm this project was created with (FULL / FROZEN_HEAD). Exposed so the UI can
+     * confirm the choice after creation: an arm that can be selected but never seen again leaves a
+     * user unable to verify what they built, and a frozen project looks identical to a full one.
+     */
+    private String trainingArm;
+
+    public String getTrainingArm() { return trainingArm; }
+
+    public void setTrainingArm(String trainingArm) { this.trainingArm = trainingArm; }
+
     private String modelType;
     private String modelName;
     private Integer serverPort;
     private String optimizer;
     private String status;
+    private String myRelationship;  // "OWNER" | "MEMBER" | "CLIENT" | null
+    private String visibility;       // "PUBLIC" | "RESTRICTED" | "PRIVATE"
+    // Populated only by the admin all-projects view (null elsewhere): lets the
+    // admin see who owns each project and how many participants it has.
+    private String ownerUsername;
+    private Integer participantCount;
 
     public UUID getId() {
         return id;
@@ -66,5 +83,37 @@ public class ProjectResponseDto {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getMyRelationship() {
+        return myRelationship;
+    }
+
+    public void setMyRelationship(String myRelationship) {
+        this.myRelationship = myRelationship;
+    }
+
+    public String getVisibility() {
+        return visibility;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
+    }
+
+    public String getOwnerUsername() {
+        return ownerUsername;
+    }
+
+    public void setOwnerUsername(String ownerUsername) {
+        this.ownerUsername = ownerUsername;
+    }
+
+    public Integer getParticipantCount() {
+        return participantCount;
+    }
+
+    public void setParticipantCount(Integer participantCount) {
+        this.participantCount = participantCount;
     }
 }

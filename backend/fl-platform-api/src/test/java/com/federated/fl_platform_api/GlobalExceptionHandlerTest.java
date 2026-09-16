@@ -55,6 +55,22 @@ class GlobalExceptionHandlerTest {
     @MockitoBean
     private com.federated.fl_platform_api.security.JwtTokenProvider jwtTokenProvider;
 
+    @MockitoBean
+    private com.federated.fl_platform_api.security.TokenRevocationService tokenRevocationService;
+    @MockitoBean
+    private com.federated.fl_platform_api.security.RunTokenRegistry runTokenRegistry;
+    // SecurityConfig's @Bean wiring for the auditing handlers transitively requires these.
+    @MockitoBean
+    private com.federated.fl_platform_api.repository.UserRepository userRepository;
+    @MockitoBean
+    private com.federated.fl_platform_api.repository.AuditEventRepository auditEventRepository;
+    // SecurityConfig now wires OrgScopeFilter, whose constructor needs these
+    // (the JPA repo + request-scoped OrgScope aren't present in the MVC slice).
+    @MockitoBean
+    private com.federated.fl_platform_api.repository.OrganizationMembershipRepository organizationMembershipRepository;
+    @MockitoBean
+    private com.federated.fl_platform_api.security.OrgScope orgScope;
+
     @Test
     @WithMockUser
     void resourceNotFound_shouldReturn404() throws Exception {

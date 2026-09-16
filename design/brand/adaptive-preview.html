@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * { margin: 0; padding: 0; }
+      body { background: #141210; display: flex; gap: 40px; padding: 48px; }
+      .label { color: #A8A096; font-family: monospace; font-size: 12px; margin-top: 10px; text-align: center; }
+      .col { display: flex; flex-direction: column; align-items: center; }
+      .circle { border-radius: 50%; overflow: hidden; }
+      .squircle { border-radius: 24%; overflow: hidden; }
+    </style>
+  </head>
+  <body>
+    <!-- the adaptive foreground (group scale 0.82) over the black background, with safe-zone guides -->
+    <div class="col">
+      <svg class="raw" width="240" height="240" viewBox="0 0 1024 1024">
+        <rect width="1024" height="1024" fill="#000"/>
+        <g transform="translate(512,512) scale(0.82) translate(-512,-512)">
+          <g stroke="#F7A35C" stroke-width="9" stroke-opacity="0.5" stroke-linecap="round">
+            <line x1="512" y1="512" x2="512" y2="212"/><line x1="512" y1="512" x2="772" y2="362"/>
+            <line x1="512" y1="512" x2="772" y2="662"/><line x1="512" y1="512" x2="512" y2="812"/>
+            <line x1="512" y1="512" x2="252" y2="662"/><line x1="512" y1="512" x2="252" y2="362"/>
+          </g>
+          <g fill="#F7A35C">
+            <circle cx="512" cy="212" r="48"/><circle cx="772" cy="362" r="34"/><circle cx="772" cy="662" r="44"/>
+            <circle cx="512" cy="812" r="34"/><circle cx="252" cy="662" r="44"/><circle cx="252" cy="362" r="34"/>
+          </g>
+          <circle cx="512" cy="512" r="118" fill="#FFC58C"/>
+        </g>
+        <circle cx="512" cy="512" r="313" fill="none" stroke="#F7A35C" stroke-opacity="0.45" stroke-dasharray="10 10"/>
+        <circle cx="512" cy="512" r="474" fill="none" stroke="#555" stroke-dasharray="10 10"/>
+      </svg>
+      <div class="label">full + safe-zone (dashed)</div>
+    </div>
+
+    <div class="col">
+      <svg class="circle" width="240" height="240" viewBox="0 0 1024 1024">
+        <rect width="1024" height="1024" fill="#000"/>
+        <g transform="translate(512,512) scale(0.82) translate(-512,-512)">
+          <g stroke="#F7A35C" stroke-width="9" stroke-opacity="0.5" stroke-linecap="round">
+            <line x1="512" y1="512" x2="512" y2="212"/><line x1="512" y1="512" x2="772" y2="362"/>
+            <line x1="512" y1="512" x2="772" y2="662"/><line x1="512" y1="512" x2="512" y2="812"/>
+            <line x1="512" y1="512" x2="252" y2="662"/><line x1="512" y1="512" x2="252" y2="362"/>
+          </g>
+          <g fill="#F7A35C">
+            <circle cx="512" cy="212" r="48"/><circle cx="772" cy="362" r="34"/><circle cx="772" cy="662" r="44"/>
+            <circle cx="512" cy="812" r="34"/><circle cx="252" cy="662" r="44"/><circle cx="252" cy="362" r="34"/>
+          </g>
+          <circle cx="512" cy="512" r="118" fill="#FFC58C"/>
+        </g>
+      </svg>
+      <div class="label">circle mask</div>
+    </div>
+
+    <div class="col">
+      <svg class="squircle" width="240" height="240" viewBox="0 0 1024 1024">
+        <rect width="1024" height="1024" fill="#000"/>
+        <g transform="translate(512,512) scale(0.82) translate(-512,-512)">
+          <g stroke="#F7A35C" stroke-width="9" stroke-opacity="0.5" stroke-linecap="round">
+            <line x1="512" y1="512" x2="512" y2="212"/><line x1="512" y1="512" x2="772" y2="362"/>
+            <line x1="512" y1="512" x2="772" y2="662"/><line x1="512" y1="512" x2="512" y2="812"/>
+            <line x1="512" y1="512" x2="252" y2="662"/><line x1="512" y1="512" x2="252" y2="362"/>
+          </g>
+          <g fill="#F7A35C">
+            <circle cx="512" cy="212" r="48"/><circle cx="772" cy="362" r="34"/><circle cx="772" cy="662" r="44"/>
+            <circle cx="512" cy="812" r="34"/><circle cx="252" cy="662" r="44"/><circle cx="252" cy="362" r="34"/>
+          </g>
+          <circle cx="512" cy="512" r="118" fill="#FFC58C"/>
+        </g>
+      </svg>
+      <div class="label">squircle mask</div>
+    </div>
+  </body>
+</html>

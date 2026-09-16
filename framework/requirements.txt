@@ -1,16 +1,18 @@
 # Core ML packages (PyTorch installed separately with CUDA support)
-torch
-torchvision
-torchaudio
-
-# Federated Learning
-flwr==1.20.0
-flwr-datasets==0.5.0
+# torch is PINNED to the golden-fixture / executorch-toolchain version (2.12.0): the DeComFL golden
+# fixtures + executorch==1.3.1 native extension were built against it, and test_torch_version_matches_manifest
+# gates on it. torchvision/torchaudio are intentionally NOT listed here: the framework does not import
+# them (setup.py already filters torch*/torchvision* out of install_requires), and pulling torchvision
+# from PyPI against this pytorch-index torch build produces an ABI mismatch (`operator torchvision::nms
+# does not exist`) that breaks transformers-importing tests. Install them from the matched pytorch CPU
+# index alongside torch only where a consumer actually needs them.
+torch==2.12.0
 
 # Transformers and NLP
 transformers==4.55.2
 datasets==3.1.0
 tokenizers==0.21.4
+peft>=0.11
 
 # Deep Learning utilities
 accelerate==1.10.0
@@ -24,11 +26,15 @@ pyarrow
 # Networking (updated grpcio version)
 grpcio>=1.75.1
 grpcio-health-checking>=1.62.3
-aiohttp==3.12.15
+aiohttp>=3.14.0,<4.0  # CVE-2026-34993/47265 (RCE) + DoS/smuggling fixes
 aiohttp-cors==0.8.1
 aiohappyeyeballs==2.6.1
 aiosignal==1.4.0
-requests==2.32.4
+requests>=2.33.0,<3.0  # CVE-2026-25645
+
+# Security — FL-boundary connection-token verification (SE-1). Vetted JWT lib for a security gate
+# (alg-confusion / none-alg handled) rather than hand-rolled JWS parsing.
+PyJWT>=2.8,<3
 
 # Google Cloud / Monitoring
 google-api-core==2.25.1
@@ -38,7 +44,7 @@ opencensus==0.11.4
 opencensus-context==0.1.3
 opentelemetry-api==1.36.0
 opentelemetry-exporter-prometheus==0.57b0
-opentelemetry-proto==1.27.0
+opentelemetry-proto==1.36.0  # 1.27.0 required protobuf<5, contradicting the protobuf>=5.29 pin below
 opentelemetry-sdk==1.36.0
 opentelemetry-semantic-conventions==0.57b0
 prometheus_client
@@ -57,7 +63,7 @@ pynvml==12.0.0
 
 # System utilities
 psutil>=5.9,<8.0
-click==8.1.8
+click==8.3.3  # PYSEC-2026-2132 is fixed here
 colorama==0.4.6
 colorful==0.5.7
 typer>=0.9,<0.13
@@ -65,15 +71,28 @@ rich>=13.0,<14.0
 tqdm>=4.65,<5.0
 
 # Cryptography
-cryptography>=41.0,<45.0
+# Pinned to the 50.x line: 46.x carried PYSEC-2026-3552/3553/3554 + GHSA-537c-gmf6-5ccf on top of
+# the earlier PYSEC-2026-35 (x2) + CVE-2026-26007. Needs cffi>=2.0.0. The backend lockfile tracks
+# this floor — fl-runtime/tests/test_requirements_security_floors.py fails if it drops below.
+cryptography>=50.0.1,<51.0
 pycryptodome>=3.19,<4.0
 
 # File handling
-pillow>=10.0,<12.0
+pillow>=12.2.0,<13.0  # PYSEC-2026-165 + CVE-2026-40192/42309/42310/42311 (the <12.0 cap sat below the fix)
 PyYAML>=6.0,<7.0
 
-# Data serialization (protobuf 4.x required by flwr)
-protobuf>=4.21.6,<5.0.0
+# Data serialization
+# The floor tracks the NEWEST gencode among the committed stubs, not a preference: protobuf requires
+# runtime >= gencode, and fot_pb2.py is generated at 5.29.0 (fedlearn_pb2.py at 4.25.1). The previous
+# <5.0.0 cap therefore produced a clean install that could not import fot_pb2 — i.e. the FoT servicer,
+# fot_server, and the fl_fot_server.py entry point the backend spawns. It went unnoticed because the
+# FoT path imports it lazily and the gradient path never does. Pinned by tests/test_protobuf_gencode_pin.py.
+# P0-2b: the backend and client-docker lockfiles used to cap protobuf <5.0.0 via flwr/flwr-datasets,
+# which made the FoT path uninstallable THERE — a second flwr-induced residual alongside SE-22
+# (cryptography). Both are now CLEARED: flwr-datasets was only ever used for one CIFAR-10 IID shard
+# (fl-runtime/recipes.py), which is now taken directly from `datasets` and is byte-identical to what
+# flwr produced (verified per-partition: research/benchmarks/verify_flwr_shard_equivalence.py).
+protobuf>=5.29.0,<6.0.0
 googleapis-common-protos==1.70.0
 msgpack>=1.0,<2.0
 dill>=0.3.7,<0.4

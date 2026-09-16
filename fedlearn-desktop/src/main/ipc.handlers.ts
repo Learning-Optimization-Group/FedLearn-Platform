@@ -6,101 +6,86 @@
 // preload.ts performs primary allowlist validation.
 // =============================================================================
 
-import { ipcMain, BrowserWindow, dialog } from 'electron';
+import { app, ipcMain, BrowserWindow, dialog } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
-import * as fs from 'fs';
-import * as path from 'path';
 import { DockerService, TrainingConfig, HardwareProfile } from './docker.service';
+import {
+  evaluateServerUrl,
+  sanitizeDatasetPath,
+  validateHardwareProfile,
+  validateProjectId,
+  validatePartitionId,
+  validateServerAddress,
+  validateStringInput,
+} from './validators';
+import { recordConsentedDatasetPath, isDatasetPathConsented } from './dataset-consent';
+import * as path from 'path';
+import { resolveServerTrust } from './grpcTls';
 import { AuthService } from './auth.service';
+import { InferenceService, InferencePayload } from './inference.service';
+import { ClientProjectService } from './client-projects.service';
+import { InferenceStreamService } from './inference-stream.service';
 import { detectHardware } from './hardware.probe';
+import { collectDeviceCapabilities } from './deviceCapabilities.collector';
 
-const ALLOWED_HARDWARE_PROFILES: ReadonlySet<string> = new Set(['discrete', 'jetson', 'cpu', 'mps']);
-const PROJECT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
-const PARTITION_ID_PATTERN = /^[0-9]{1,10}$/;
-const SERVER_ADDRESS_PATTERN = /^[a-zA-Z0-9._:/-]{1,256}$/;
-const MAX_DATASET_PATH_LEN = 2048;
+const MAX_IMAGE_BASE64_LEN = 14 * 1024 * 1024; // ~10 MB decoded
+const MAX_VECTOR_LEN = 100_000;
 
-/**
- * Normalizes and validates a dataset path before it's bind-mounted into a
- * training container. The renderer normally selects the path through the
- * native dialog (which is safe), but a compromised renderer or future text
- * input could craft a path that, once interpolated into the Docker bind
- * string `${path}:/data`, escapes to a sensitive host directory.
- *
- * Rules:
- *   - String of bounded length, no NUL bytes (no directory-traversal via
- *     embedded null terminator).
- *   - Resolves to an absolute path with no remaining `..` segments.
- *   - Path must currently exist and be a directory (catches typos and
- *     prevents bind-mounting non-existent paths which Docker would create
- *     as empty directories owned by root).
- *
- * Returns the canonical absolute path on success, or null on rejection.
- */
-function sanitizeDatasetPath(raw: unknown): string | null {
-  // Dataset path is optional — empty string means "use default dataset inside container".
-  if (typeof raw === 'string' && raw.trim() === '') {
-    return '';
-  }
-  if (typeof raw !== 'string' || raw.length === 0 || raw.length > MAX_DATASET_PATH_LEN) {
-    return null;
-  }
-  if (raw.includes('\0')) {
-    return null;
-  }
-  let resolved: string;
-  try {
-    resolved = path.resolve(raw);
-  } catch {
-    return null;
-  }
-  // After resolve(), `..` segments should already be collapsed. If any
-  // remain (only possible on platforms with unusual semantics), bail out.
-  if (resolved.split(path.sep).some((seg) => seg === '..')) {
-    return null;
-  }
-  if (!path.isAbsolute(resolved)) {
-    return null;
-  }
-  let stat: fs.Stats;
-  try {
-    stat = fs.statSync(resolved);
-  } catch {
-    return null;
-  }
-  if (!stat.isDirectory()) {
-    return null;
-  }
-  return resolved;
-}
+// Input validators (sanitizeDatasetPath, validateHardwareProfile, validateProjectId,
+// validatePartitionId, validateServerAddress, validateStringInput) live in ./validators
+// so they can be unit-tested directly. This file used to carry a diverged inline copy.
 
 let dockerService: DockerService;
 let authService: AuthService;
+let inferenceService: InferenceService;
+let clientProjectService: ClientProjectService;
 
-function validateHardwareProfile(profile: unknown): profile is HardwareProfile {
-  return typeof profile === 'string' && ALLOWED_HARDWARE_PROFILES.has(profile);
+/**
+ * Validates a renderer-supplied inference payload (defense-in-depth — preload
+ * validates too). Exactly one of imageBase64 / values must be present and within
+ * bounds. Returns a clean payload or null on rejection.
+ */
+const MAX_TEXT_LEN = 10_000; // matches backend @Size(max = 10_000)
+
+function sanitizeInferencePayload(raw: unknown): InferencePayload | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const p = raw as Record<string, unknown>;
+
+  if (typeof p.imageBase64 === 'string') {
+    const b64 = p.imageBase64;
+    if (b64.length === 0 || b64.length > MAX_IMAGE_BASE64_LEN) return null;
+    return { imageBase64: b64 };
+  }
+  if (Array.isArray(p.values)) {
+    if (p.values.length === 0 || p.values.length > MAX_VECTOR_LEN) return null;
+    if (!p.values.every((v) => typeof v === 'number' && Number.isFinite(v))) return null;
+    return { values: p.values as number[] };
+  }
+  if (typeof p.text === 'string') {
+    const txt = p.text;
+    if (txt.trim().length === 0 || txt.length > MAX_TEXT_LEN) return null;
+    return { text: txt };
+  }
+  return null;
 }
 
-function validateProjectId(id: unknown): id is string {
-  return typeof id === 'string' && PROJECT_ID_PATTERN.test(id);
-}
-
-function validatePartitionId(id: unknown): id is string {
-  return typeof id === 'string' && PARTITION_ID_PATTERN.test(id);
-}
-
-function validateServerAddress(addr: unknown): addr is string {
-  return typeof addr === 'string' && SERVER_ADDRESS_PATTERN.test(addr);
-}
-
-function validateStringInput(val: unknown, maxLength: number): val is string {
-  return typeof val === 'string' && val.length > 0 && val.length <= maxLength;
+/**
+ * Accessor for the singleton DockerService created in registerIpcHandlers.
+ * Used by the main process's before-quit handler to drain a running training
+ * container/native process on app exit. Returns undefined if IPC handlers were
+ * never registered (e.g. registration threw).
+ */
+export function getDockerService(): DockerService | undefined {
+  return dockerService;
 }
 
 export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   dockerService = new DockerService(mainWindow);
-  authService = new AuthService();
+  authService = new AuthService(mainWindow);
+  inferenceService = new InferenceService(authService);
+  clientProjectService = new ClientProjectService(authService);
+  const inferenceStreamService = new InferenceStreamService(authService, mainWindow);
 
   // ===================== File Dialogs =====================
   ipcMain.handle('dialog:open-directory', async () => {
@@ -112,6 +97,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       if (result.canceled || result.filePaths.length === 0) {
         return { success: false, error: 'User canceled.' };
       }
+      // Record the user-selected directory as consented so docker:start-training may mount it. Only a
+      // path the user physically picked here can later be bind-mounted (see dataset-consent.ts).
+      recordConsentedDatasetPath(result.filePaths[0]);
       return { success: true, path: result.filePaths[0] };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -152,7 +140,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         return { success: false, error: 'Invalid partition ID' };
       }
 
-      if (typeof cfg.modelType !== 'string' || !/^[a-zA-Z0-9_\-\.]{1,128}$/.test(cfg.modelType)) {
+      if (typeof cfg.modelType !== 'string' || !/^[a-zA-Z0-9_\-.]{1,128}$/.test(cfg.modelType)) {
         log.error(`[IPC:docker:start-training] Rejected invalid model type: ${String(cfg.modelType)}`);
         return { success: false, error: 'Invalid model type' };
       }
@@ -165,6 +153,54 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
           error: 'Invalid dataset path: must be an existing absolute directory',
         };
       }
+      // A non-empty dataset path is bind-mounted into the container, so it must be one the user actually
+      // selected via the native dialog — not an arbitrary path a compromised renderer supplied. ('' means
+      // "use the container's default dataset" and mounts nothing.)
+      if (safeDatasetPath !== '' && !isDatasetPathConsented(safeDatasetPath)) {
+        log.error('[IPC:docker:start-training] Rejected dataset path not chosen via the native dialog');
+        return {
+          success: false,
+          error: 'Dataset path must be selected with the "Select dataset" button',
+        };
+      }
+
+      // Defense-in-depth: a JWT connection token is a bounded string. If it's
+      // missing/malformed, forward undefined — the client then sends no token and a
+      // fail-closed FL server rejects it (correct), while a gate-off server ignores it.
+      const connectionToken = validateStringInput(cfg.connectionToken, 8192)
+        ? cfg.connectionToken
+        : undefined;
+
+      // The active run's strategy from the connection payload (a trusted backend value, re-validated
+      // defensively against a bounded token pattern). Forwarded to the client as --strategy so a
+      // non-MLP DeComFL project runs the DeComFL client path. Absent/malformed => undefined => the
+      // client defaults to FedAvg (the legacy behaviour), never a rejected start.
+      const strategy =
+        typeof cfg.strategy === 'string' && /^[a-zA-Z0-9_\-.]{1,64}$/.test(cfg.strategy)
+          ? cfg.strategy
+          : undefined;
+
+      // The arm is validated STRICTLY, unlike strategy above. Strategy falls back to undefined
+      // because the strategy strings are mostly no-ops on the client, so a bad one costs nothing.
+      // The arm is different: silently falling back to FULL against a FROZEN_HEAD server is
+      // exactly the mismatch this field exists to prevent — the client would upload every
+      // parameter while the server expects the head only. So an unrecognised arm fails the start
+      // with a clear message instead of being quietly downgraded.
+      let trainingArm: string | undefined;
+      if (cfg.trainingArm !== undefined && cfg.trainingArm !== null && cfg.trainingArm !== '') {
+        if (cfg.trainingArm !== 'FULL' && cfg.trainingArm !== 'FROZEN_HEAD') {
+          throw new Error(
+            `Unrecognised trainingArm "${String(cfg.trainingArm)}". Expected FULL or FROZEN_HEAD. ` +
+            'Refusing to start rather than defaulting to FULL, which would upload every parameter ' +
+            'to a server that may expect only the head.');
+        }
+        trainingArm = cfg.trainingArm;
+      }
+
+      // Server trust from the connection payload: dial TLS when the FL server serves it, verifying against the
+      // certificate the backend sent, written under userData (a public certificate, not a secret). A malformed value
+      // throws, and the start fails with its message.
+      const serverTrust = resolveServerTrust(cfg, path.join(app.getPath('userData'), 'certs'));
 
       const validConfig: TrainingConfig = {
         hardwareProfile: cfg.hardwareProfile as HardwareProfile,
@@ -174,6 +210,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         modelType: cfg.modelType as string,
         // Use the canonical resolved path, not the raw string from the renderer.
         datasetPath: safeDatasetPath,
+        connectionToken,
+        strategy,
+        trainingArm,
+        grpcTls: serverTrust.grpcTls,
+        grpcServerCertPath: serverTrust.grpcServerCertPath,
       };
 
       log.info(`[IPC:docker:start-training] Starting training with profile=${validConfig.hardwareProfile}, project=${validConfig.projectId}, model=${validConfig.modelType}`);
@@ -280,27 +321,32 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   // ===================== Server URL Channel =====================
 
-  ipcMain.handle('auth:set-server-url', async (_event, url: unknown) => {
+  ipcMain.handle('auth:set-server-url', async (_event, url: unknown, opts?: unknown) => {
     try {
-      if (typeof url !== 'string' || url.length === 0 || url.length > 512) {
-        log.error('[IPC:auth:set-server-url] Invalid URL input');
-        return { success: false, error: 'Invalid server URL' };
+      // DE-13: credentials + the session JWT flow to this URL, so plaintext
+      // http:// to a remote host is refused unless the user explicitly
+      // acknowledged the risk in the renderer (allowInsecureHttp).
+      const allowInsecureHttp =
+        !!opts &&
+        typeof opts === 'object' &&
+        (opts as Record<string, unknown>).allowInsecureHttp === true;
+
+      const evaluation = evaluateServerUrl(url, allowInsecureHttp);
+      if (!evaluation.ok) {
+        if (evaluation.code === 'INSECURE_HTTP') {
+          log.error('[IPC:auth:set-server-url] Refused remote plaintext http:// URL (no override)');
+          return { success: false, error: evaluation.error, code: evaluation.code };
+        }
+        log.error(`[IPC:auth:set-server-url] Rejected URL: ${evaluation.error}`);
+        return { success: false, error: evaluation.error };
       }
 
-      // Require http:// or https:// protocol
-      if (!/^https?:\/\//i.test(url.trim())) {
-        log.error('[IPC:auth:set-server-url] Rejected URL missing http(s):// protocol');
-        return { success: false, error: 'URL must start with http:// or https://' };
+      authService.setApiUrl(evaluation.url as string);
+      if (evaluation.warning) {
+        log.warn('[IPC:auth:set-server-url] Accepted remote plaintext http:// URL on explicit user override');
+        return { success: true, url: evaluation.url, warning: evaluation.warning };
       }
-
-      // Normalize: ensure it ends with /api
-      let normalized = url.trim().replace(/\/+$/, '');
-      if (!normalized.endsWith('/api')) {
-        normalized += '/api';
-      }
-
-      authService.setApiUrl(normalized);
-      return { success: true, url: normalized };
+      return { success: true, url: evaluation.url };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       log.error(`[IPC:auth:set-server-url] Failed: ${message}`);
@@ -316,6 +362,163 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       const message = err instanceof Error ? err.message : 'Unknown error';
       log.error(`[IPC:auth:get-server-url] Failed: ${message}`);
       return { success: false, url: '' };
+    }
+  });
+
+  // ===================== Saved Credentials ("Save password") =====================
+
+  ipcMain.handle('auth:save-credentials', async (_event, credentials: unknown) => {
+    try {
+      if (!credentials || typeof credentials !== 'object') {
+        return { success: false };
+      }
+      const creds = credentials as Record<string, unknown>;
+      if (!validateStringInput(creds.username, 256) || !validateStringInput(creds.password, 256)) {
+        log.error('[IPC:auth:save-credentials] Rejected invalid credentials input');
+        return { success: false };
+      }
+      const stored = authService.saveCredentials(creds.username as string, creds.password as string);
+      return { success: stored };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:auth:save-credentials] Failed: ${message}`);
+      return { success: false };
+    }
+  });
+
+  ipcMain.handle('auth:get-credentials', async () => {
+    try {
+      const creds = authService.getSavedCredentials();
+      if (!creds) {
+        return { success: false };
+      }
+      return { success: true, username: creds.username, password: creds.password };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:auth:get-credentials] Failed: ${message}`);
+      return { success: false };
+    }
+  });
+
+  ipcMain.handle('auth:clear-credentials', async () => {
+    try {
+      authService.clearSavedCredentials();
+      return { success: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:auth:clear-credentials] Failed: ${message}`);
+      return { success: false };
+    }
+  });
+
+  // ===================== Inference ("Use a model") =====================
+
+  ipcMain.handle('inference:list-models', async () => {
+    try {
+      return await inferenceService.listModels();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:inference:list-models] Failed: ${message}`);
+      return { success: false, error: message };
+    }
+  });
+
+  ipcMain.handle('inference:run', async (_event, args: unknown) => {
+    try {
+      if (!args || typeof args !== 'object') {
+        return { success: false, error: 'Invalid request' };
+      }
+      const a = args as Record<string, unknown>;
+      if (!validateProjectId(a.projectId)) {
+        log.error(`[IPC:inference:run] Rejected invalid project ID: ${String(a.projectId)}`);
+        return { success: false, error: 'Invalid project ID' };
+      }
+      const payload = sanitizeInferencePayload(a.payload);
+      if (payload === null) {
+        log.error('[IPC:inference:run] Rejected invalid payload');
+        return { success: false, error: 'Invalid input payload' };
+      }
+      return await inferenceService.runInference(a.projectId as string, payload);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:inference:run] Failed: ${message}`);
+      return { success: false, error: message };
+    }
+  });
+
+  // ===================== Inference — Generation (streaming) =====================
+
+  ipcMain.handle('inference:run-generation', async (_event, args: unknown) => {
+    try {
+      const a = (args ?? {}) as Record<string, unknown>;
+      if (!validateProjectId(a.projectId)) return { success: false, error: 'Invalid project ID' };
+      const p = (a.payload ?? {}) as Record<string, unknown>;
+      const prompt = typeof p.prompt === 'string' ? p.prompt : '';
+      if (!prompt.trim() || prompt.length > 10_000) return { success: false, error: 'Invalid prompt' };
+      const mnt = Number(p.maxNewTokens);
+      const maxNewTokens = Math.max(1, Math.min(2048, Number.isFinite(mnt) ? mnt : 256));
+      const t = Number(p.temperature);
+      const temperature = Math.max(0, Math.min(2, Number.isFinite(t) ? t : 0.7));
+      const history = Array.isArray(p.history)
+        ? (p.history as unknown[])
+            .filter(
+              (turn): turn is { role: 'user' | 'assistant'; content: string } =>
+                !!turn &&
+                typeof turn === 'object' &&
+                ((turn as Record<string, unknown>).role === 'user' ||
+                  (turn as Record<string, unknown>).role === 'assistant') &&
+                typeof (turn as Record<string, unknown>).content === 'string',
+            )
+            .slice(0, 100)
+        : undefined;
+      return await inferenceStreamService.runGeneration(a.projectId as string, {
+        prompt,
+        maxNewTokens,
+        temperature,
+        history,
+      });
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+    }
+  });
+
+  ipcMain.handle('inference:stop-generation', async (_event, args: unknown) => {
+    const a = (args ?? {}) as Record<string, unknown>;
+    if (!validateProjectId(a.projectId)) return { success: false, error: 'Invalid project ID' };
+    return await inferenceStreamService.stopGeneration(a.projectId as string);
+  });
+
+  // ===================== Client Projects ("models I can train") =====================
+
+  ipcMain.handle('client:list-projects', async () => {
+    try {
+      return await clientProjectService.listProjects();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:client:list-projects] Failed: ${message}`);
+      return { success: false, error: message };
+    }
+  });
+
+  ipcMain.handle('client:get-connection', async (_event, projectId: unknown) => {
+    try {
+      if (!validateProjectId(projectId)) {
+        log.error(`[IPC:client:get-connection] Rejected invalid project ID: ${String(projectId)}`);
+        return { success: false, error: 'Invalid project ID' };
+      }
+      return await clientProjectService.getConnection(projectId as string);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:client:get-connection] Failed: ${message}`);
+      return { success: false, error: message };
+    }
+  });
+
+  ipcMain.handle('device:capabilities', async () => {
+    try {
+      return { success: true, capabilities: collectDeviceCapabilities() };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'capability probe failed' };
     }
   });
 
@@ -355,5 +558,5 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, hardware:detect, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory, updater:install');
+  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, hardware:detect, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory, inference:list-models, inference:run, updater:install');
 }

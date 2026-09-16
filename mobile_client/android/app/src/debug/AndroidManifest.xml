@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DEBUG-ONLY manifest overlay, merged on top of main/AndroidManifest.xml in debug builds.
+     networkSecurityConfig only applies on API 24+; this flag is the pre-API-24 fallback so a
+     debug build can still reach a plaintext LAN demo host on older devices. Release builds
+     keep usesCleartextTraffic="false" from the main manifest. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+  <application
+    android:usesCleartextTraffic="true"
+    tools:replace="android:usesCleartextTraffic" />
+</manifest>

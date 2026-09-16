@@ -1,0 +1,33 @@
+{
+  "description": "FedAvg (first-order) local-update golden. LocalTrainer.fit(mu=0): local_epochs full-batch SGD steps, lr, CrossEntropy, on the committed TinyNet.",
+  "torch_version": "2.12.0",
+  "platform_machine": "arm64",
+  "learning_rate": 0.1,
+  "local_epochs": 5,
+  "flat_dim": 25,
+  "initial_flat_file": "zo_flat.f32",
+  "inputs_file": "zo_inputs.f32",
+  "targets_file": "zo_targets.i64",
+  "param_layout": [
+    [
+      "fc1.weight",
+      [
+        5,
+        4
+      ],
+      20
+    ],
+    [
+      "fc1.bias",
+      [
+        5
+      ],
+      5
+    ]
+  ],
+  "final_flat_file": "fedavg_local_final.f32",
+  "final_flat_sha256": "a57c98c268a726660308c15222fc2a2a417929bda2a7d570260a833efa06ae22",
+  "state_file": "fedavg_local_state.safetensors",
+  "state_sha256": "1713d29354c8bd801304a22e89d4d3622ecaea820d0833a0ed76636b4b5779a3",
+  "endpoint_atol": 0.002
+}

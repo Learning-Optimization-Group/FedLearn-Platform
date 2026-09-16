@@ -1,0 +1,20 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="FedLearn network mark">
+  <rect width="1024" height="1024" rx="224" fill="#F6F3EE"/>
+  <g stroke="#1C314D" stroke-opacity="0.35" stroke-width="14" stroke-linecap="round">
+    <line x1="512" y1="512" x2="512" y2="232"/>
+    <line x1="512" y1="512" x2="754" y2="372"/>
+    <line x1="512" y1="512" x2="754" y2="652"/>
+    <line x1="512" y1="512" x2="512" y2="792"/>
+    <line x1="512" y1="512" x2="270" y2="652"/>
+    <line x1="512" y1="512" x2="270" y2="372"/>
+  </g>
+  <g fill="#1C314D">
+    <circle cx="512" cy="232" r="46"/>
+    <circle cx="754" cy="372" r="34"/>
+    <circle cx="754" cy="652" r="42"/>
+    <circle cx="512" cy="792" r="34"/>
+    <circle cx="270" cy="652" r="42"/>
+    <circle cx="270" cy="372" r="34"/>
+    <circle cx="512" cy="512" r="112"/>
+  </g>
+</svg>

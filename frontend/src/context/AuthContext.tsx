@@ -9,19 +9,30 @@ const log = createLogger('AuthContext');
  * the browser attaches automatically. The User shape here mirrors what the
  * /auth/me endpoint returns; nothing more.
  */
+export type Role = 'USER' | 'PROJECT_OWNER' | 'PLATFORM_ADMIN';
+
 interface User {
     username: string;
     email: string;
-    role: 'USER' | 'ADMIN';
+    role: Role;
 }
 
 interface AuthContextType {
     currentUser: User | null;
     isLoading: boolean;
+    /** PLATFORM_ADMIN — can manage users/roles and approve platform-level requests. */
+    isAdmin: boolean;
+    /** PROJECT_OWNER or PLATFORM_ADMIN — can create/own projects. */
+    isOwner: boolean;
     /** Replace the in-memory user (called by LoginPage on successful login). */
     setSession: (user: User) => void;
     /** Best-effort backend logout + clear local state. */
     logout: () => Promise<void>;
+}
+
+/** Coerce an arbitrary backend value into a known role; default USER. */
+function normalizeRole(role: unknown): Role {
+    return role === 'PLATFORM_ADMIN' || role === 'PROJECT_OWNER' ? role : 'USER';
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -46,7 +57,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 setUser({
                     username: identity.username,
                     email: identity.email,
-                    role: identity.role,
+                    role: normalizeRole(identity.role),
                 });
             })
             .catch(() => {
@@ -58,8 +69,63 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return () => { cancelled = true; };
     }, []);
 
+    // Keep the in-memory identity fresh while the tab is authenticated.
+    // Authorities are reloaded from the DB on every backend request, so a
+    // server-side role change only needs a re-poll of /auth/me to surface —
+    // no full page reload. We re-poll when the tab regains focus or becomes
+    // visible again, debounced so rapid focus/visibility toggles don't hammer
+    // the endpoint. Listeners are registered only while authenticated and torn
+    // down on logout/unmount. Uses the same cookie-backed call as bootstrap —
+    // no token handling, no transport change.
+    const isAuthenticated = user !== null;
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
+        let cancelled = false;
+        let inFlight = false;
+        let lastRefreshAt = 0;
+        const MIN_INTERVAL_MS = 5000;
+
+        const refresh = () => {
+            if (cancelled || inFlight) return;
+            const now = Date.now();
+            if (now - lastRefreshAt < MIN_INTERVAL_MS) return;
+            lastRefreshAt = now;
+            inFlight = true;
+            fetchCurrentUser()
+                .then((res) => {
+                    if (cancelled) return;
+                    const identity: AuthIdentity = res.data;
+                    setUser({
+                        username: identity.username,
+                        email: identity.email,
+                        role: normalizeRole(identity.role),
+                    });
+                })
+                .catch(() => {
+                    // A failed refresh (transient network blip, silent 401)
+                    // shouldn't tear down a working session — leave state as-is.
+                })
+                .finally(() => {
+                    inFlight = false;
+                });
+        };
+
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') refresh();
+        };
+
+        window.addEventListener('focus', refresh);
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => {
+            cancelled = true;
+            window.removeEventListener('focus', refresh);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
+    }, [isAuthenticated]);
+
     const setSession = useCallback((newUser: User) => {
-        setUser(newUser);
+        setUser({ ...newUser, role: normalizeRole(newUser.role) });
     }, []);
 
     const logout = useCallback(async () => {
@@ -74,7 +140,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(null);
     }, []);
 
-    const value: AuthContextType = { currentUser: user, isLoading, setSession, logout };
+    const isAdmin = user?.role === 'PLATFORM_ADMIN';
+    const isOwner = user?.role === 'PLATFORM_ADMIN' || user?.role === 'PROJECT_OWNER';
+
+    const value: AuthContextType = { currentUser: user, isLoading, isAdmin, isOwner, setSession, logout };
 
     return (
         <AuthContext.Provider value={value}>
@@ -83,6 +152,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     );
 };
 
+// FE-6: the useAuth hook is intentionally co-located with its provider (the canonical
+// context pattern). Splitting it into a separate module purely to satisfy fast-refresh
+// would churn every import site for no runtime benefit, so scope the rule off here only.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = (): AuthContextType => {
     const context = useContext(AuthContext);
     if (!context) {

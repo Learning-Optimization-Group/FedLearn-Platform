@@ -5,12 +5,11 @@ from dataclasses import dataclass
 
 from .strategy import Strategy
 from .coordinator import FLCoordinator
-# import pika
-# import pickle
-# from .async_coordinator import FLCoordinator, ResultConsumer
-from .strategy import FedAvgAggregator
 from .grpc_servicer import FederatedLearningServiceServicer
 from ..communication.generated import fedlearn_pb2_grpc
+from ..security.interceptor import interceptor_from_env
+from ..security.identity import partition_extractor_from_env
+from ..security.tls import check_server_tls_policy
 import logging
 import sys
 import os
@@ -28,14 +27,71 @@ class JSONFormatter(logging.Formatter):
             log_obj["stackTrace"] = self.formatException(record.exc_info)
         return json.dumps(log_obj)
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(JSONFormatter())
-logger.handlers = [handler]
+def configure_logging() -> None:
+    """Configure root logging as JSON-on-stdout for the FL-server process.
+
+    Called explicitly by start_server (the entrypoint) — NOT at import time — so importing the
+    framework as a library does not hijack the host application's root logger (FR-9). The FL server
+    runs as its own process spawned by the backend, which parses this JSON stdout, so owning the
+    root logger is appropriate for that entrypoint.
+    """
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JSONFormatter())
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.handlers = [handler]
+
+
+# A secure round needs at least two survivors: a one-client aggregate is that client's own
+# contribution, so the mechanism would report success while providing nothing.
+MIN_SECURE_AGG_THRESHOLD = 2
+
+
 @dataclass
 class ServerConfig:
     num_rounds: int = 3
+
+    # P2-2. Off by default: turning secure aggregation on changes the wire format for gradient
+    # submissions, so a server that enabled it unasked would refuse every existing client.
+    secure_aggregation: bool = False
+    # Shamir reconstruction threshold -- how many holders must return a summed share. Validated
+    # against the cohort in build_servicer, where clients_per_round is known.
+    secure_agg_threshold: int = 2
+
+
+def build_servicer(coordinator, config: "ServerConfig"):
+    """Construct the gRPC servicer for a run, validating the secure-aggregation configuration.
+
+    A seam rather than inline construction inside start_server, which binds a port and blocks:
+    the configuration is worth testing on its own, and a bad threshold should be caught here
+    rather than discovered when a round fails its deadline.
+    """
+    if config.secure_aggregation:
+        threshold = int(config.secure_agg_threshold)
+        if threshold < MIN_SECURE_AGG_THRESHOLD:
+            raise ValueError(
+                f"secure aggregation threshold must be at least {MIN_SECURE_AGG_THRESHOLD}, got "
+                f"{threshold}. A threshold of 1 admits a round with a single survivor, and a "
+                f"one-client aggregate IS that client's own contribution in plaintext -- the "
+                f"protocol would run and every check would pass while providing no privacy."
+            )
+        cohort = getattr(coordinator, "clients_per_round", 0) or 0
+        if cohort and threshold > cohort:
+            raise ValueError(
+                f"secure aggregation threshold {threshold} exceeds the cohort of {cohort} "
+                f"clients per round. Holders are survivors of that cohort, so the threshold "
+                f"could never be met and every round would freeze and then fail its deadline."
+            )
+
+    return FederatedLearningServiceServicer(
+        coordinator,
+        # SE-15: bind each connection token's server-assigned partition to a single client_id.
+        # Wired to the same FEDLEARN_REQUIRE_CLIENT_AUTH gate as the auth interceptor; returns
+        # None (binding disabled) in local/dev fail-open.
+        partition_extractor=partition_extractor_from_env(),
+        secure_agg_threshold=int(config.secure_agg_threshold),
+        secure_aggregation=bool(config.secure_aggregation),
+    )
 
 
 def start_server(
@@ -55,6 +111,7 @@ def start_server(
     Returns:
         Tuple of (history, final_parameters)
     """
+    configure_logging()   # FR-9: set up JSON root logging at the entrypoint, not at import time
     logging.info(f"Starting FedLearn server on {server_address}")
 
     # Create coordinator
@@ -68,8 +125,14 @@ def start_server(
     # Create gRPC server with proper options
     max_expected_clients = int(os.environ.get('MAX_CLIENTS', 50))
     optimal_workers = (max_expected_clients * 2) + 10
+    # SE-1: gate the FL boundary on a valid connection token when FEDLEARN_REQUIRE_CLIENT_AUTH=1.
+    # Absent (local/dev) -> no interceptor -> fail-open. Enforce-on but no secret -> raises here.
+    auth_interceptor = interceptor_from_env()
+    logging.info("FL-boundary client-token auth %s",
+                 "ENABLED" if auth_interceptor is not None else "disabled (dev fail-open)")
     grpc_server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=optimal_workers),
+        interceptors=[auth_interceptor] if auth_interceptor is not None else [],
         options=[
             # Keepalive settings for long-running clients
             ('grpc.keepalive_time_ms', 120000),  # 120 seconds
@@ -94,12 +157,18 @@ def start_server(
 
     # Add servicer
     fedlearn_pb2_grpc.add_FederatedLearningServiceServicer_to_server(
-        FederatedLearningServiceServicer(coordinator),
+        build_servicer(coordinator, config),
         grpc_server
     )
+    if config.secure_aggregation:
+        logging.info(
+            "[Server] Secure aggregation ENABLED (LightSecAgg, threshold=%d). Plaintext "
+            "gradient scalars will be refused.", config.secure_agg_threshold,
+        )
 
-    # Bind address. Uses TLS when FEDLEARN_GRPC_USE_TLS=1.
-    use_tls = os.environ.get("FEDLEARN_GRPC_USE_TLS", "0") == "1"
+    # Bind address. Uses TLS when FEDLEARN_GRPC_USE_TLS=1. SE-2: fail closed rather than serve a
+    # deployed profile (FEDLEARN_REQUIRE_TLS=1) in plaintext, and require the certs when TLS is on.
+    use_tls = check_server_tls_policy()
     if use_tls:
         server_key_path = os.environ["FEDLEARN_GRPC_SERVER_KEY"]
         server_cert_path = os.environ["FEDLEARN_GRPC_SERVER_CERT"]
@@ -161,6 +230,17 @@ def start_server(
 
         # Get final parameters
         final_parameters = coordinator.get_global_model_params()
+
+        # Signal end-of-run to still-connected clients and give them a brief
+        # window to observe it (GetDeComFLConfig -> -1 / GetServerStatus ->
+        # TRAINING_COMPLETE) so they exit cleanly, instead of retry-looping on
+        # the CANCELLED/UNAVAILABLE that the hard grpc_server.stop() below would
+        # otherwise surface as their next poll.
+        coordinator.mark_training_complete()
+        drain_seconds = float(os.environ.get("FEDLEARN_COMPLETION_DRAIN_SECONDS", "3"))
+        if drain_seconds > 0:
+            logging.info("Training complete; draining for %.1fs so clients can exit cleanly", drain_seconds)
+            time.sleep(drain_seconds)
 
         logging.info("Federated learning complete. Stopping server...")
 

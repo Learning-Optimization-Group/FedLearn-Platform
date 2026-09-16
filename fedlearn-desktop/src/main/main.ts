@@ -9,10 +9,11 @@
 // No use of the deprecated 'remote' module.
 // =============================================================================
 
-import { app, BrowserWindow, session, crashReporter } from 'electron';
+import { app, BrowserWindow, Menu, session, crashReporter } from 'electron';
+import type { MenuItemConstructorOptions } from 'electron';
 import * as path from 'path';
 import log from 'electron-log';
-import { registerIpcHandlers } from './ipc.handlers';
+import { registerIpcHandlers, getDockerService } from './ipc.handlers';
 import { initializeUpdater } from './updater';
 
 // Crash reports written to disk — visible via app.getPath('crashDumps').
@@ -31,14 +32,45 @@ let mainWindow: BrowserWindow | null = null;
 
 const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
 
+// Application menu with STANDARD ROLES ONLY: restores the system copy/paste,
+// zoom, and window shortcuts without custom items or IPC. Section-switching
+// shortcuts (Cmd/Ctrl+1..3) live in a renderer keydown listener, deliberately
+// NOT here — a menu item reaching the renderer would require a new IPC channel.
+function setApplicationMenu(): void {
+  const template: MenuItemConstructorOptions[] = [
+    ...(process.platform === 'darwin'
+      ? ([{ role: 'appMenu' }] as MenuItemConstructorOptions[])
+      : []),
+    { role: 'editMenu' },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+    { role: 'windowMenu' },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 960,
-    minHeight: 640,
+    // Shell layout budget: 64px rail + ~380px setup column + usable log pane
+    // needs >= 1024 wide; drag strip + checklist + logs + status bar needs
+    // >= 700 tall.
+    width: 1360,
+    height: 860,
+    minWidth: 1024,
+    minHeight: 700,
     title: 'FedLearn Desktop',
-    backgroundColor: '#0a0a0f',
+    // Mirrors the light canvas token from design/tokens.json — the main
+    // process cannot read CSS vars, so this literal must be kept in sync
+    // manually on any palette swap.
+    backgroundColor: '#F6F3EE',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {
@@ -71,10 +103,16 @@ function createWindow(): void {
     : [];
   const apiConnectSrc = [...defaultApiOrigins, ...apiOriginsFromEnv].join(' ');
 
-  // CSP is injected via a <meta> tag in index.html for packaged (file://) builds,
-  // because Chromium's interpretation of 'self' under file:// origins is inconsistent
-  // and can block legitimate scripts bundled in the asar. For dev builds served over
-  // HTTP, the response-header approach works correctly.
+  // CSP is injected via a <meta> tag in index.html for packaged (file://) builds
+  // (baked in at build time by HtmlWebpackPlugin — see webpack.csp.js and
+  // webpack.prod.config.js), because Chromium's interpretation of 'self' under
+  // file:// origins is inconsistent and can block legitimate scripts bundled in
+  // the asar. For dev builds served over HTTP, the response-header approach
+  // works correctly, and 'unsafe-eval' is required here because webpack's
+  // development build uses the `eval` devtool — the packaged production build
+  // carries neither this header nor 'unsafe-eval' in its meta CSP. Fonts are
+  // bundled locally (src/renderer/fonts.css), so no remote font host is needed
+  // in either environment.
   if (isDev) {
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
       callback({
@@ -84,8 +122,8 @@ function createWindow(): void {
             [
               "default-src 'self'",
               "script-src 'self' 'unsafe-eval'",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "font-src 'self' https://fonts.gstatic.com",
+              "style-src 'self' 'unsafe-inline'",
+              "font-src 'self'",
               "img-src 'self' data:",
               `connect-src 'self' ${apiConnectSrc}`.trim(),
               "frame-src 'none'",
@@ -130,6 +168,7 @@ function createWindow(): void {
 // ========== App Lifecycle ==========
 
 app.whenReady().then(() => {
+  setApplicationMenu();
   createWindow();
 
   app.on('activate', () => {
@@ -144,6 +183,46 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+// Drain any running training before exit. Containers are created with AutoRemove:false and the
+// native client is spawned non-detached, so quitting mid-run would otherwise orphan a Jetson
+// Docker container until it is lazily cleaned up on the next run. This covers Cmd+Q and — on
+// non-macOS — closing the last window (window-all-closed -> app.quit() above, which fires
+// before-quit). On macOS, closing the window does NOT quit the app, so training keeps running
+// under the still-live app and nothing is orphaned. We intercept the first quit and best-effort
+// drain, with a hard timeout so a wedged Docker daemon can't make the app unquittable.
+let isDraining = false;
+app.on('before-quit', (event) => {
+  if (isDraining) {
+    return; // drain already in progress; let the eventual app.exit(0) proceed
+  }
+  // getDockerService() is non-undefined whenever IPC handlers registered (the normal case after
+  // startup); it's undefined only if registration threw. stopTraining() is a cheap no-op when
+  // nothing is running, so we don't gate on training state here.
+  const docker = getDockerService();
+  if (!docker) {
+    return;
+  }
+  isDraining = true;
+  event.preventDefault();
+  log.info('[Main] before-quit: draining any active training before exit');
+
+  let exited = false;
+  const exit = () => { if (!exited) { exited = true; app.exit(0); } };
+  // Hard cap: a hung/unresponsive Docker daemon must never make quit hang forever. Must exceed
+  // the Jetson drain's worst responsive case — stopDockerContainer does container.stop({t:10})
+  // (up to ~10s for a SIGTERM-ignoring container) THEN container.remove — so 8s would force-exit
+  // before remove() and orphan the container. 15s covers the slow-but-responsive path; only a
+  // genuinely wedged daemon (where cleanup is impossible anyway) hits this backstop.
+  const hardTimeout = setTimeout(() => {
+    log.warn('[Main] before-quit: drain exceeded timeout; forcing exit');
+    exit();
+  }, 15000);
+
+  Promise.resolve(docker.stopTraining())
+    .catch((err) => log.error('[Main] before-quit: stopTraining failed', err))
+    .finally(() => { clearTimeout(hardTimeout); exit(); });
 });
 
 // ========== Security Hardening ==========

@@ -19,4 +19,8 @@ public class ResourceNotFoundException extends RuntimeException {
     public static ResourceNotFoundException project(UUID id) {
         return forEntity("Project", id);
     }
+
+    public static ResourceNotFoundException run(UUID id) {
+        return forEntity("Run", id);
+    }
 }

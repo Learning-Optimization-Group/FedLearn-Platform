@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Play, Sparkles, X } from 'lucide-react';
-import { Project } from '../../services/apiServices';
+import { AlertCircle } from 'lucide-react';
+import { Project, StartServerData, errorMessage } from '../../services/apiServices';
 import { createLogger } from '../../lib/logger';
+import { Modal, Input, Select, Button, FormField } from '../ui';
 
 const log = createLogger('StartProjectModal');
 
@@ -9,123 +10,295 @@ interface StartProjectModalProps {
   isOpen: boolean;
   project: Project | null;
   onClose: () => void;
-  onSubmit: (projectId: string, config: { strategy: string; numRounds: number; minClients: number }) => Promise<void>;
+  onSubmit: (projectId: string, config: StartServerData) => Promise<void>;
 }
+
+// Plain-language descriptions for each training method (values stay as-is).
+const STRATEGIES: { value: string; label: string }[] = [
+  { value: 'FedAvg', label: 'Standard — averages everyone\'s learning (recommended)' },
+  { value: 'FedProx', label: 'Stable — keeps clients close to the shared model on uneven data' },
+  { value: 'DeComFL', label: 'Low-bandwidth — sends tiny updates' },
+  { value: 'FedOpt', label: 'Adaptive — faster convergence on varied data' },
+  { value: 'Robust', label: 'Robust — resists a few bad or noisy clients' },
+  { value: 'FoT', label: 'For text models' },
+];
+
+type RobustParam = 'fraction' | 'trim' | 'tau' | null;
+
+// Byzantine-robust aggregation rules the server implements (value = backend RobustMethod name). The help
+// lines state what the FR-12 breakdown sweeps measured, not only the textbook bound: several rules refuse
+// to run below a cohort size, and the server rejects those configurations at start.
+const ROBUST_RULES: { value: string; label: string; help: string; param: RobustParam }[] = [
+  { value: 'MEDIAN', label: 'Median — middle value for each weight', param: null,
+    help: 'Tolerates up to half of devices being bad. The simplest choice.' },
+  { value: 'TRIMMED_MEAN', label: 'Trimmed mean — drops the extremes', param: 'trim',
+    help: 'Tolerates bad devices up to the share it trims from each end.' },
+  { value: 'KRUM', label: 'Krum — keeps the single most typical update', param: 'fraction',
+    help: 'Needs at least 3 devices, and more as the expected bad share grows. Uses one device’s update per round.' },
+  { value: 'MULTI_KRUM', label: 'Multi-Krum — averages the most typical updates', param: 'fraction',
+    help: 'Needs at least 3 devices, and more as the expected bad share grows.' },
+  { value: 'BULYAN', label: 'Bulyan — strictest filtering', param: 'fraction',
+    help: 'Needs many devices: fewer than a quarter can be bad, and 20 devices support about 1 in 5.' },
+  { value: 'CENTERED_CLIP', label: 'Centered clipping — caps how far one update can pull', param: 'tau',
+    help: 'Bounds each update instead of discarding any. The radius should match a typical update size.' },
+];
+
+// Secure aggregation's lowest reconstruction threshold, and its default: the server refuses anything lower.
+const SECURE_AGG_MIN_THRESHOLD = 2;
 
 export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartProjectModalProps) {
   const [strategy, setStrategy] = useState('FedAvg');
   const [numRounds, setNumRounds] = useState(5);
   const [minClients, setMinClients] = useState(2);
+  const [robustMethod, setRobustMethod] = useState('MEDIAN');
+  const [byzantineFraction, setByzantineFraction] = useState(0.1);
+  const [trimRatio, setTrimRatio] = useState(0.1);
+  const [centeredClipTau, setCenteredClipTau] = useState(1);
+  const [secureAggregation, setSecureAggregation] = useState(false);
+  const [secureAggThreshold, setSecureAggThreshold] = useState(SECURE_AGG_MIN_THRESHOLD);
+  // null = follow "Devices needed to start" until the user sets a round size of their own.
+  const [clientsPerRound, setClientsPerRound] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  if (!isOpen || !project) return null;
+  if (!project) return null;
+
+  const isLlmLora = (project?.modelType ?? '').toUpperCase() === 'LLM_LORA';
+  const showRobust = !isLlmLora && strategy === 'Robust';
+  const selectedRule = ROBUST_RULES.find((r) => r.value === robustMethod);
+  // Secure aggregation masks only DeComFL's gradient scalars, so it is offered only there.
+  const showSecure = !isLlmLora && strategy === 'DeComFL';
+  // Text federation has no rounds of devices to size.
+  const showPerRound = isLlmLora || strategy !== 'FoT';
+  const perRound = clientsPerRound ?? minClients;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     try {
       setIsLoading(true);
-      await onSubmit(project.id, {
+      const config: StartServerData = {
         strategy,
         numRounds: Number(numRounds),
         minClients: Number(minClients),
-      });
+      };
+      // Robust fields are added only for the Robust method, and only the parameter the chosen rule
+      // reads. The backend rejects robust fields on any other method, so leftovers from a rule the user
+      // looked at and then switched away from must never ride along.
+      if (showRobust && selectedRule) {
+        config.robustMethod = selectedRule.value;
+        if (selectedRule.param === 'fraction') config.byzantineFraction = Number(byzantineFraction);
+        if (selectedRule.param === 'trim') config.trimRatio = Number(trimRatio);
+        if (selectedRule.param === 'tau') config.centeredClipTau = Number(centeredClipTau);
+      }
+      // Likewise secure aggregation: sent only while DeComFL is selected and it is switched on.
+      if (showSecure && secureAggregation) {
+        config.secureAggregation = true;
+        config.secureAggThreshold = Number(secureAggThreshold);
+      }
+      // Sent only when a round waits for more devices than the minimum; equal is what the server does anyway.
+      if (showPerRound && Number(perRound) > Number(minClients)) {
+        config.clientsPerRound = Number(perRound);
+      }
+      await onSubmit(project.id, config);
       // Reset form defaults upon success
       setStrategy('FedAvg');
       setNumRounds(5);
       setMinClients(2);
+      setRobustMethod('MEDIAN');
+      setByzantineFraction(0.1);
+      setTrimRatio(0.1);
+      setCenteredClipTau(1);
+      setSecureAggregation(false);
+      setSecureAggThreshold(SECURE_AGG_MIN_THRESHOLD);
+      setClientsPerRound(null);
     } catch (err) {
+      // Keep the modal open and surface the backend detail inline, so the
+      // failure isn't hidden behind the modal on the route beneath it.
+      setError(errorMessage(err, 'Could not start training. Please try again.'));
       log.error('startProject submit failed', err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const selectClass =
-    "w-full bg-slate-900 border border-slate-700/50 rounded-md px-4 py-3 text-[14px] text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all appearance-none cursor-pointer";
-  const inputClass =
-    "w-full bg-slate-900 border border-slate-700/50 rounded-md px-4 py-3 text-[14px] text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all";
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm font-sans"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      title="Start training"
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button type="submit" form="start-project-form" disabled={isLoading}>
+            {isLoading ? 'Starting…' : 'Start training'}
+          </Button>
+        </>
+      }
     >
-      <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-md shadow-2xl shadow-cyan-900/10 flex flex-col overflow-hidden text-slate-200">
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 pb-4 border-b border-slate-800">
-          <div className="flex items-center gap-2">
-            <Play className="w-5 h-5 text-cyan-400" />
-            <h2 className="text-[18px] font-semibold tracking-tight text-slate-100">Start Project Server</h2>
-          </div>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center text-slate-400 bg-slate-800 hover:bg-slate-700 rounded-sm transition-colors">
-            <X className="w-4 h-4" />
-          </button>
+      <p className="-mt-1 mb-5 text-body text-fg-muted">
+        Set up this training run for <strong className="font-medium text-fg">{project.name}</strong>.
+        You can change these any time you start again.
+      </p>
+
+      <form id="start-project-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
+        {error && (
+          <p className="flex items-center gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2.5 text-label text-danger">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
+            {error}
+          </p>
+        )}
+
+        {/* Strategy */}
+        {isLlmLora ? (
+          <FormField label="Training method">
+            <div className="rounded-md border border-hairline bg-surface-2 px-3 py-2 text-caption text-fg-muted">
+              FedLoRA (automatic for LoRA fine-tuning)
+            </div>
+          </FormField>
+        ) : (
+          <FormField label="Training method">
+            <Select value={strategy} onChange={(e) => setStrategy(e.target.value)}>
+              {STRATEGIES.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </Select>
+          </FormField>
+        )}
+
+        {showRobust && (
+          <>
+            <FormField label="Aggregation rule" help={selectedRule?.help}>
+              <Select value={robustMethod} onChange={(e) => setRobustMethod(e.target.value)}>
+                {ROBUST_RULES.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </Select>
+            </FormField>
+            {selectedRule?.param === 'fraction' && (
+              <FormField
+                label="Share of devices that may be malicious"
+                help="Your estimate, from 0 to 0.49 — 0.1 means about 1 in 10. It decides how many updates the rule sets aside."
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  max="0.49"
+                  step="0.01"
+                  value={byzantineFraction}
+                  onChange={(e) => setByzantineFraction(Number(e.target.value))}
+                  required
+                />
+              </FormField>
+            )}
+            {selectedRule?.param === 'trim' && (
+              <FormField
+                label="Share trimmed from each end"
+                help="From 0 to 0.49. This is also the largest share of bad devices the rule tolerates."
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  max="0.49"
+                  step="0.01"
+                  value={trimRatio}
+                  onChange={(e) => setTrimRatio(Number(e.target.value))}
+                  required
+                />
+              </FormField>
+            )}
+            {selectedRule?.param === 'tau' && (
+              <FormField label="Clipping radius" help="How far a single update may pull the model. Must be above 0.">
+                <Input
+                  type="number"
+                  min="0.0001"
+                  step="any"
+                  value={centeredClipTau}
+                  onChange={(e) => setCenteredClipTau(Number(e.target.value))}
+                  required
+                />
+              </FormField>
+            )}
+          </>
+        )}
+
+        {showSecure && (
+          <>
+            <FormField
+              label="Secure aggregation"
+              help="Each device masks its update, so the server only ever sees the combined result."
+            >
+              <Select
+                value={secureAggregation ? 'on' : 'off'}
+                onChange={(e) => setSecureAggregation(e.target.value === 'on')}
+              >
+                <option value="off">Off</option>
+                <option value="on">On</option>
+              </Select>
+            </FormField>
+            {secureAggregation && (
+              <>
+                <FormField
+                  label="Devices needed to rebuild the sum"
+                  help="At least 2, and no more than the devices per round."
+                >
+                  <Input
+                    type="number"
+                    min={SECURE_AGG_MIN_THRESHOLD}
+                    max={perRound}
+                    step="1"
+                    value={secureAggThreshold}
+                    onChange={(e) => setSecureAggThreshold(Number(e.target.value))}
+                    required
+                  />
+                </FormField>
+                <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2.5 text-label text-fg">
+                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-warning" strokeWidth={1.5} />
+                  Phones can’t join a secure run yet, so devices need the desktop app or the Docker client. The
+                  server also can’t screen individual updates for poisoning, because it never sees them.
+                </p>
+              </>
+            )}
+          </>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Training rounds" help="How many times devices share progress.">
+            <Input
+              type="number"
+              min="1"
+              value={numRounds}
+              onChange={(e) => setNumRounds(Number(e.target.value))}
+              required
+            />
+          </FormField>
+          <FormField label="Devices needed to start" help="The fewest a round can finish with if others drop out.">
+            <Input
+              type="number"
+              min="1"
+              value={minClients}
+              onChange={(e) => setMinClients(Number(e.target.value))}
+              required
+            />
+          </FormField>
+          {showPerRound && (
+            <FormField
+              label="Devices per round"
+              help="A round finishes once this many report. Set it above the minimum so one device dropping out doesn't stop training."
+            >
+              <Input
+                type="number"
+                min={minClients}
+                value={perRound}
+                onChange={(e) => setClientsPerRound(Number(e.target.value))}
+                required
+              />
+            </FormField>
+          )}
         </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5 bg-slate-800/20">
-          <div className="flex flex-col gap-1 mb-2">
-            <h3 className="text-[14px] font-medium text-slate-200">Configure Run Parameter</h3>
-            <p className="text-[13px] text-slate-400">Settings for orchestrating clients in project <strong className="text-slate-300">{project.name}</strong>.</p>
-          </div>
-
-          {/* Strategy */}
-          <div className="flex flex-col gap-2">
-            <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Aggregation Strategy</label>
-            <select value={strategy} onChange={(e) => setStrategy(e.target.value)} className={selectClass}>
-              <option value="FedAvg">FedAvg</option>
-              <option value="FedAdam">FedAdam</option>
-              <option value="FedAdagrad">FedAdagrad</option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            {/* Rounds */}
-            <div className="flex flex-col gap-2">
-              <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Total Rounds</label>
-              <input
-                type="number"
-                min="1"
-                value={numRounds}
-                onChange={(e) => setNumRounds(Number(e.target.value))}
-                className={inputClass}
-                required
-              />
-            </div>
-            {/* Min Clients */}
-            <div className="flex flex-col gap-2">
-              <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Min. Clients</label>
-              <input
-                type="number"
-                min="1"
-                value={minClients}
-                onChange={(e) => setMinClients(Number(e.target.value))}
-                className={inputClass}
-                required
-              />
-            </div>
-          </div>
-
-          {/* Buttons */}
-          <div className="flex gap-3 mt-4 pt-4 border-t border-slate-700/50">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isLoading}
-              className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-md text-[14px] font-medium tracking-tight border border-slate-600 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 py-2.5 rounded-md text-[14px] font-semibold tracking-tight transition-all duration-200 shadow-[0_0_15px_rgba(6,182,212,0.3)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isLoading ? 'Starting...' : <><Play className="w-4 h-4 fill-current" /> Start Server</>}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 }

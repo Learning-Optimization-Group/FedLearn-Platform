@@ -69,3 +69,31 @@ class TestFedAvgAggregator:
         ]
         result = self.aggregator.aggregate(updates)
         assert torch.allclose(result["layer.bias"], torch.tensor([5.0]), atol=1e-4)
+
+    def test_aggregate_missing_key_does_not_shrink_toward_zero(self):
+        """FR-18: a client missing a key must not drag that key toward zero.
+
+        The old aggregator weighted every key by num_examples/total_examples over ALL clients, but
+        summed contributions only from clients that HAD the key — so a key held by a subset was
+        scaled by that subset's weight share (< 1), decaying it toward zero every round (and, when
+        an attacker inflates num_examples, bypassing the per-client L2 clip on the omitted key).
+        The mean of a key must be renormalized over the clients that actually provided it.
+        """
+        a = (None, OrderedDict([("w", torch.tensor([2.0])), ("b", torch.tensor([10.0]))]), 100)
+        b = (None, OrderedDict([("w", torch.tensor([4.0]))]), 100)  # missing "b"
+        out = self.aggregator.aggregate([a, b])
+        # "w" is held by both -> mean(2, 4) = 3 (unchanged from the homogeneous case).
+        assert torch.allclose(out["w"], torch.tensor([3.0]), atol=1e-5)
+        # "b" is held only by A -> its own value, NOT 0.5 * 10 = 5.
+        assert torch.allclose(out["b"], torch.tensor([10.0]), atol=1e-5)
+
+    def test_aggregate_key_absent_from_first_client_is_not_dropped(self):
+        """FR-18 / fedavg-4: the aggregate key set is the UNION across clients, not just updates[0].
+
+        Templating on the first client silently drops any key only later clients carry.
+        """
+        a = (None, OrderedDict([("w", torch.tensor([2.0]))]), 100)  # first client lacks "b"
+        b = (None, OrderedDict([("w", torch.tensor([4.0])), ("b", torch.tensor([8.0]))]), 100)
+        out = self.aggregator.aggregate([a, b])
+        assert set(out.keys()) == {"w", "b"}
+        assert torch.allclose(out["b"], torch.tensor([8.0]), atol=1e-5)  # only B provided it

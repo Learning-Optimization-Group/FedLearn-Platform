@@ -103,7 +103,7 @@ if [ "$PLATFORM" = "macos" ]; then
 
     export PYTHONPATH="${PROJECT_ROOT}/framework/src:${PYTHONPATH}"
 
-    exec python3 "${SCRIPT_DIR}/scripts/client.py" \
+    exec python3 "${PROJECT_ROOT}/fl-runtime/client.py" \
         --project-id "$PROJECT_ID" \
         --server-address "$SERVER_ADDRESS" \
         --partition-id "$PARTITION_ID" \

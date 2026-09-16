@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FedLearn-Platform — Component Versions · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="fonts/fonts.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="index.html">Master Wiki</a></li>
+<li><a class="active" href="VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="fl-runtime/05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Overview</b> &nbsp;·&nbsp; FedLearn-Platform — Component Versions</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="fedlearn-platform-component-versions">FedLearn-Platform — Component Versions<a class="headerlink" href="#fedlearn-platform-component-versions" title="Permanent link">&para;</a></h1>
+<p><strong>This file is the single source of truth for the release version of each
+deployable unit.</strong> Nothing else in the repo is — a version quoted in a README,
+a wiki page or a design doc is a copy, and this table wins when they disagree.
+Update the relevant row whenever a component ships a tagged release. Versions
+follow <a href="https://semver.org">Semantic Versioning</a>.</p>
+<h2 id="current-versions">Current versions<a class="headerlink" href="#current-versions" title="Permanent link">&para;</a></h2>
+<p>Verified against the package files on 2026-08-13.</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version</th>
+<th>Package file</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>backend</strong> (Spring Boot API)</td>
+<td><code>1.4.1-beta</code></td>
+<td><code>backend/fl-platform-api/build.gradle</code> (<code>version = '1.4.1-beta'</code>)</td>
+</tr>
+<tr>
+<td><strong>framework</strong> (Python FL library)</td>
+<td><code>0.1.0</code></td>
+<td><code>framework/setup.py</code> (<code>version='0.1.0'</code>)</td>
+</tr>
+<tr>
+<td><strong>frontend</strong> (React web app)</td>
+<td><code>1.4.1-beta</code></td>
+<td><code>frontend/package.json</code></td>
+</tr>
+<tr>
+<td><strong>desktop</strong> (Electron app)</td>
+<td><code>3.2.0-beta</code></td>
+<td><code>fedlearn-desktop/package.json</code></td>
+</tr>
+<tr>
+<td><strong>mobile</strong> (React Native app)</td>
+<td><code>2.1.0</code></td>
+<td><code>mobile_client/package.json</code></td>
+</tr>
+<tr>
+<td><strong>client-docker</strong> (container)</td>
+<td>—</td>
+<td><code>client-docker/Dockerfile</code> (tag mirrors the framework version it bundles)</td>
+</tr>
+</tbody>
+</table>
+<p><code>fl-runtime/</code> is the seventh deployable unit but carries <strong>no version string of
+its own</strong>: it has no package file, and it ships inside the same artifacts as the
+framework (the <code>client-docker</code> image and the desktop PyInstaller bundle both
+package <code>framework/</code> <strong>and</strong> <code>fl-runtime/</code>). Treat it as versioned with the
+framework until it gains a package file of its own.</p>
+<h2 id="versioning-policy">Versioning policy<a class="headerlink" href="#versioning-policy" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>backend / frontend</strong>: versioned <strong>together, as a pair</strong>; they share the same
+  REST API contract and are always deployed together. A change to one that does
+  not touch the other still moves both rows.</li>
+<li><strong>framework</strong>: versioned <strong>independently</strong>; bumped when the gRPC contract,
+  aggregation strategies, or public Python API changes.</li>
+<li><strong>desktop / mobile</strong>: versioned <strong>independently</strong> of everything else and of
+  each other; each follows its own release cadence aligned with platform store
+  requirements.</li>
+<li><strong>client-docker</strong>: <strong>not independently versioned</strong>; the Docker tag mirrors the
+  framework version it bundles.</li>
+</ul>
+<h2 id="how-to-bump-a-version">How to bump a version<a class="headerlink" href="#how-to-bump-a-version" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Update the version string in the package file listed above.</li>
+<li>Update the table in this file. Never do one without the other — a package
+   file and this table that disagree is the failure this file exists to prevent.</li>
+<li>Tag the commit with the per-unit release prefix: <code>git tag &lt;component&gt;-v&lt;version&gt;</code>
+   (e.g. <code>desktop-v3.1.0-beta</code>, <code>mobile-v2.1.0</code>). The prefix scopes the CI
+   release workflow (<code>release-desktop.yml</code> / <code>release-mobile.yml</code>) so only the
+   matching unit builds.</li>
+</ol>
+<p>Not every shipped change is a release. Several substantial cycles below landed
+with <strong>no</strong> version bump in any unit; those are recorded here as history with
+the versions they left unchanged, rather than being omitted.</p>
+<h2 id="release-history">Release history<a class="headerlink" href="#release-history" title="Permanent link">&para;</a></h2>
+<h3 id="2026-08-12-2026-08-13-no-version-bump">2026-08-12 → 2026-08-13 — no version bump<a class="headerlink" href="#2026-08-12-2026-08-13-no-version-bump" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>—</td>
+<td>unchanged</td>
+<td><code>flwr</code> / <code>flwr-datasets</code> dropped repo-wide (<code>65048b6</code>), clearing the SE-22 <code>cryptography&lt;45.0.0</code> cap and an unnoticed <code>protobuf&lt;5.0.0</code> one; the CIFAR-10 IID shard is now native in <code>fl-runtime/recipes.py</code> and was verified byte-identical per partition before the swap</td>
+</tr>
+<tr>
+<td>—</td>
+<td>unchanged</td>
+<td>In-process simulator (<code>d4e91f3</code>): <code>framework/src/fedlearn/simulation/</code> drives the production <code>FLCoordinator</code> and strategies by direct call — no gRPC, no port pool — measured to 5,000 clients</td>
+</tr>
+<tr>
+<td>—</td>
+<td>unchanged</td>
+<td>Training arms become a first-class, persisted project property: <code>FULL</code> / <code>FROZEN_HEAD</code> (<code>V22</code>) and then <code>OVA_LP</code> (<code>V23</code>, <code>886749d</code>), where an arm carries an <strong>objective</strong> and not only a trainable subset. <code>CIFAR_RESNET18</code> joins the recipe catalog as the first pretrained-backbone recipe</td>
+</tr>
+</tbody>
+</table>
+<p>No unit shipped a tagged release in this cycle; every version above stayed where
+2026-06-16 left it. Recorded here because the platform's capabilities moved even
+though its version numbers did not.</p>
+<h3 id="2026-07-17-ledger-design-system-no-version-bump">2026-07-17 — Ledger design system — no version bump<a class="headerlink" href="#2026-07-17-ledger-design-system-no-version-bump" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>frontend</td>
+<td><code>1.4.1-beta</code> (unchanged)</td>
+<td><code>2c50672</code> replaced the Ember tokens with <strong>Ledger</strong> in <code>design/tokens.json</code> and regenerated every per-platform output; <code>fdd8a79</code> restyled the representative frontend views onto Ledger the same day (and fixed a latent class-merge bug)</td>
+</tr>
+<tr>
+<td>desktop</td>
+<td><code>3.2.0-beta</code> (unchanged)</td>
+<td>renderer <code>tokens.css</code> regenerated from the same source of truth</td>
+</tr>
+<tr>
+<td>mobile</td>
+<td><code>2.1.0</code> (unchanged)</td>
+<td><code>src/theme/tokens.generated.ts</code> + <code>global.css</code> regenerated; the <code>2.1.0</code> row below still reads "Ember theme", which is correct <strong>as history</strong> — that version's tokens were later replaced in place by Ledger without a bump</td>
+</tr>
+</tbody>
+</table>
+<p>Ledger is <em>navy structural ink on quiet paper surfaces</em>, light-first: canvas
+<code>#F6F3EE</code>, surface <code>#FFFFFF</code>, ink <code>#191A1C</code>, muted <code>#6B6760</code>, accent <code>#1C314D</code>
+(hover <code>#14243A</code>); the dark family is navy-dark (canvas <code>#0B1622</code>, accent
+<code>#4F8AC9</code>) and stays wired. Type is Hanken Grotesk for <strong>both</strong> sans and display
+plus JetBrains Mono, with <code>'calt' 1, 'tnum' 1</code>. It superseded <strong>Ember</strong> (2026-06-10),
+which had superseded <strong>Instrument</strong> (2026-06-09) — three cycles, of which only
+Ledger is current. Bricolage Grotesque was Ember's display face and survives only
+in <code>design/brand/*.html</code> comparison assets, not in the token font stack.</p>
+<p><code>design/tokens.json</code> is the single source of truth and <code>design/build-tokens.mjs</code>
+generates the per-platform artifacts; CI has a "Design tokens in sync with source
+of truth" step, so a hand-edited generated file fails the build. This is why the
+rebrand touched three units and bumped none of them: no unit shipped a tagged
+release, so under the policy above no version row moved.</p>
+<h3 id="2026-06-16">2026-06-16<a class="headerlink" href="#2026-06-16" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>desktop</td>
+<td><code>3.2.0-beta</code></td>
+<td>Model Playground — interactive "Use a model" inference (image + vector), reached over validated IPC with the JWT kept in the keychain</td>
+</tr>
+</tbody>
+</table>
+<p>Backend and web also gained the inference feature this cycle (new <code>/api/inference</code> API and <code>/playground</code> view) but are versioned as a pair and stay <code>1.4.1-beta</code>.</p>
+<h3 id="2026-06-10">2026-06-10<a class="headerlink" href="#2026-06-10" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>desktop</td>
+<td><code>3.1.0-beta</code></td>
+<td>Ember design-system rebrand (renderer + rebranded icons)</td>
+</tr>
+<tr>
+<td>mobile</td>
+<td><code>2.1.0</code></td>
+<td>Ember theme + brand fonts; buildable iOS/Android app projects with native FL-core wiring</td>
+</tr>
+</tbody>
+</table>
+<p>Frontend also received the Ember rollout this cycle but stays <code>1.4.1-beta</code>
+(versioned as a pair with the unchanged backend). Repository root was
+reorganized (diagrams/VERSIONS into <code>wikis/</code>, <code>renovate.json</code> into <code>.github/</code>).</p>
+<h3 id="2026-06-09">2026-06-09<a class="headerlink" href="#2026-06-09" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>backend</td>
+<td><code>1.4.1-beta</code></td>
+<td>FoT server scripts; project lifecycle fixes</td>
+</tr>
+<tr>
+<td>framework</td>
+<td><code>0.1.0</code></td>
+<td>FoT module (gRPC contract, agent, distiller, 11 tests); DeComFL correctness fixes</td>
+</tr>
+<tr>
+<td>frontend</td>
+<td><code>1.4.1-beta</code></td>
+<td>Instrument design system; dark-default theme; UI primitives</td>
+</tr>
+<tr>
+<td>desktop</td>
+<td><code>3.0.4-beta</code></td>
+<td>Instrument tokens; emoji → lucide icon migration</td>
+</tr>
+<tr>
+<td>mobile</td>
+<td><code>2.0.0</code></td>
+<td>Instrument design system; useThemeTokens hook</td>
+</tr>
+</tbody>
+</table></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

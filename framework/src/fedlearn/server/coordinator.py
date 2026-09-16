@@ -1,4 +1,6 @@
 import logging
+import math
+import os
 import threading
 from collections import OrderedDict
 import torch
@@ -6,8 +8,45 @@ from typing import Optional, List, Tuple, Dict
 import time
 from threading import Lock
 from .strategy import Strategy
+from .robust_aggregation import clip_l2_norm
+from .decomfl_strategy import DeComFL   # FR-6: typed dispatch (no circular import — decomfl_strategy doesn't import coordinator)
 
 log = logging.getLogger(__name__)
+
+# Default per-round client-dropout deadline (seconds). A synchronous FedAvg
+# round otherwise blocks forever if a selected client never reports.
+DEFAULT_ROUND_TIMEOUT_S = 120.0
+
+
+def _round_timeout_from_env(default: float) -> float:
+    """Read FEDLEARN_ROUND_TIMEOUT_S with a safe int/float parse + fallback."""
+    raw = os.environ.get("FEDLEARN_ROUND_TIMEOUT_S")
+    if raw is None:
+        return default
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        log.warning(
+            "Invalid FEDLEARN_ROUND_TIMEOUT_S=%r; falling back to %.1fs",
+            raw, default,
+        )
+        return default
+    if value <= 0:
+        log.warning(
+            "Non-positive FEDLEARN_ROUND_TIMEOUT_S=%r; falling back to %.1fs",
+            raw, default,
+        )
+        return default
+    return value
+
+
+class MalformedDeComFLSubmission(ValueError):
+    """A DeComFL gradient-scalar submission whose shape is not the round's expected K x P grid.
+
+    Raised at coordinator ingress so the gRPC servicer can surface it as INVALID_ARGUMENT — a
+    malformed grid would otherwise reach aggregate_fit (which indexes grad_scalars[k][p]) and crash
+    the aggregation thread after the client was already acknowledged.
+    """
 
 
 class FLCoordinator:
@@ -15,10 +54,38 @@ class FLCoordinator:
     A class that owns the concept of rounds and signals the main loop when a round is complete.
     """
 
-    def __init__(self, strategy: Strategy, min_clients_for_aggregation: int,clients_per_round:int):
+    def __init__(self, strategy: Strategy, min_clients_for_aggregation: int, clients_per_round: int,
+                 round_timeout_s: Optional[float] = None,
+                 grad_clip_threshold: Optional[float] = 1000.0,
+                 client_update_l2_clip: Optional[float] = None):
         self.strategy = strategy
         self.min_clients = min_clients_for_aggregation
         self.clients_per_round = clients_per_round
+
+        # SE-3 poisoning defense (layer 2): clamp each DeComFL gradient scalar into
+        # [-grad_clip_threshold, +grad_clip_threshold] at ingress. The honest zeroth-order scalar
+        # envelope is ~O(10) (O(100) at init), so the 1e3 default sits >=10x above honest support:
+        # the clamp is the identity map on honest values, preserving DeComFL's bounded-gradient
+        # convergence assumption with zero trajectory bias, while capping a 1e9-scale hijack to a
+        # bounded, recoverable per-round step. Set to None to disable. NOT covered here (documented
+        # scope): within-bound stealth bias and rail collusion need client identity (SE-1) +
+        # reputation; robust aggregation (trimmed-mean/median) is a large-cohort feature deferred
+        # behind a min-cohort gate, being a no-op at the 1-3 client cohorts this platform runs.
+        self.grad_clip_threshold = grad_clip_threshold
+
+        # SE-3 poisoning defense (FedAvg path): optional server-side L2 clip of each client's UPDATE
+        # DELTA (params - current global) to this budget, so no single client can move the global by
+        # more than it. None disables it (the default): unlike the DeComFL scalar clamp, a too-tight
+        # bound on dense FedAvg deltas can bias honest convergence, so it is an opt-in knob. Non-finite
+        # rejection (below and in the serializer) is always on and has no such tradeoff.
+        self.client_update_l2_clip = client_update_l2_clip
+
+        # Per-round dropout deadline. Precedence: explicit constructor arg >
+        # FEDLEARN_ROUND_TIMEOUT_S env var > module default.
+        if round_timeout_s is not None:
+            self.round_timeout_s = float(round_timeout_s)
+        else:
+            self.round_timeout_s = _round_timeout_from_env(DEFAULT_ROUND_TIMEOUT_S)
 
         self._lock = threading.Lock()
         self._round_complete_event = threading.Event()
@@ -26,30 +93,300 @@ class FLCoordinator:
         self._global_model_params: Optional[OrderedDict[str, torch.Tensor]] = None
         self._client_updates_received: List[Tuple[OrderedDict[str, torch.Tensor], int]] = []
         self._registered_clients: set[str] = set()
+        # SE-15: pin one connection-token partition to one wire client_id (a 1:1 bijection), so a
+        # single valid token cannot be replayed under many client_ids to Sybil the cohort / dominate
+        # aggregation. Populated lazily on first use per identity (trust-on-first-use).
+        self._partition_to_client: dict[int, str] = {}
+        self._client_to_partition: dict[str, int] = {}
         self.current_round = 1  # Start at round 1
         self.stop_requested = False
+        # True only after all configured rounds finished successfully (distinct
+        # from stop_requested, which also covers user-stop / error teardown).
+        self.training_complete = False
         self.latest_metrics: Optional[dict] = None
+        # Client-reported training telemetry (loss/accuracy/compute), fed by ReportClientMetrics (v2).
+        self.client_metrics_log: List[dict] = []
         self.client_heartbeats: Dict[str, dict] = {}
         self.heartbeat_lock = Lock()
         self.heartbeat_timeout = 300
+
+        # Failure state surfaced when a round is force-aggregated or aborted on timeout.
+        self.last_round_failed = False
+        self.last_round_message: Optional[str] = None
+
+        # Monotonic timestamp marking when the current round began. Used to
+        # enforce round_timeout_s independently of wall-clock adjustments.
+        self._round_started_at = time.monotonic()
+
+        # P2-2: set by the gRPC servicer, which owns the per-round secure-aggregation sessions.
+        # The coordinator needs to reach the current round's session on the deadline path, but it
+        # must not own that state -- a plaintext deployment has none, and the servicer is where
+        # the verified-partition context lives. Returns None when the round is not secure.
+        self._secure_session_provider = None
 
     def start_round(self):
         """Called by the main loop to begin a new round."""
         with self._lock:
             self._client_updates_received.clear()  # Prevent stale state leakage across rounds
+            self._round_started_at = time.monotonic()  # Reset the dropout deadline for this round
         self._round_complete_event.clear()
 
     def wait_for_round_to_complete(self):
-        """Called by the main loop. Blocks until the current round finishes."""
+        """Called by the main loop. Blocks until the current round finishes.
+
+        If the configured per-round dropout timeout elapses before all
+        ``clients_per_round`` report, the round is resolved instead of hanging
+        forever: force-aggregated with whatever arrived if at least
+        ``min_clients`` (>=1) reported, otherwise the server is signalled to stop.
+
+        A secure round is resolved in steps, not at once: a deadline may only close its cohort or
+        freeze its surviving set, after which clients still have work to do. So the wait carries
+        on with a fresh deadline until the round completes or is stopped. Returning after the
+        first step made the main loop log the round complete and start the next one while the
+        holders were still finishing it, and a run ended a round short.
+        """
         while not self._round_complete_event.wait(timeout=1.0):
             if self.stop_requested:
                 break
+            if (time.monotonic() - self._round_started_at) >= self.round_timeout_s:
+                self._handle_round_timeout()
+                if self._round_complete_event.is_set() or self.stop_requested:
+                    break
+                with self._lock:
+                    self._round_started_at = time.monotonic()
+
+    def set_secure_session_provider(self, provider) -> None:
+        """Register how to reach a round's secure-aggregation session (P2-2).
+
+        Called by the servicer at construction. Left unset on a plaintext deployment, where every
+        secure branch below is then inert.
+        """
+        self._secure_session_provider = provider
+
+    def _current_secure_session(self):
+        """The secure session for the current round, or None if this round is not secure."""
+        if self._secure_session_provider is None:
+            return None
+        return self._secure_session_provider(self.current_round)
+
+    def _handle_round_timeout(self):
+        """Resolve a round that blew its dropout deadline.
+
+        The wall-clock *policy* lives here (and in wait_for_round_to_complete, which decides
+        when the deadline has passed); the resolution *mechanism* is
+        resolve_round_incomplete(). Splitting them (P0-1c) lets the in-process simulator model
+        dropout deterministically — calling the mechanism directly — without sleeping out a
+        120s deadline per dropped round, while leaving deployed behaviour byte-for-byte the
+        same: this is still the only caller on the server path, and it still phrases the
+        failure as a timeout.
+        """
+        self.resolve_round_incomplete(
+            f"timed out after {self.round_timeout_s:.1f}s"
+        )
+
+    def resolve_round_incomplete(self, reason: str):
+        """Force-resolve the current round without waiting for the remaining clients.
+
+        Called when the cohort will not complete: by _handle_round_timeout on the deployed
+        server (deadline elapsed) and directly by the simulator (dropout was *modelled*, so
+        there is nothing to wait for). Deliberately does NOT consult the clock — the caller
+        owns that decision.
+
+        If at least ``max(1, min_clients)`` updates arrived, the round is force-aggregated with
+        whatever is present. Otherwise the run is stopped rather than aggregating an empty
+        cohort, which would produce a zero-key aggregate and silently wipe the global model.
+
+        Idempotent: a round already resolved inline (the Nth submit fires the trigger itself)
+        is left alone, so a redundant call cannot double-aggregate.
+
+        Mirrors the locking discipline of submit_client_update: re-check the received-count and
+        invoke the aggregation trigger while holding self._lock so we don't race a client
+        update that completes the round at the same instant.
+        """
+        with self._lock:
+            # A client may have completed the round between the caller's decision and our
+            # acquiring the lock; if so, the trigger already fired.
+            if self._round_complete_event.is_set():
+                return
+
+            # P2-2: a secure round resolves differently, and the difference is not a special case
+            # so much as a different question. The plaintext deadline asks "aggregate what
+            # arrived?"; a secure round cannot, because holders have not produced summed shares
+            # yet -- there is nothing to recover from. What the deadline does here is FREEZE the
+            # surviving set, which is precisely what unblocks the holders.
+            session = self._current_secure_session()
+            if session is not None and not session.is_cohort_closed and len(session.cohort_keys()):
+                # Clients wait for a closed cohort before sealing shares, so a round where fewer
+                # than clients_per_round ever published would otherwise never get started at all.
+                keys = session.close_cohort()
+                if not session.survivors:
+                    # Nobody can have submitted yet: every client was waiting for this close, so the
+                    # round has only just started and is not judged here. Judging it as a short
+                    # plaintext round ("0 of N reported") stopped every run at the first round after
+                    # a client left for good.
+                    required = max(1, self.min_clients, session.threshold)
+                    if len(keys) >= required:
+                        log.warning(
+                            "Secure round %d %s; closing the cohort at %d key(s): %s. Clients can "
+                            "now seal shares, and the round has until the next deadline to submit.",
+                            self.current_round, reason, len(keys), sorted(keys),
+                        )
+                        return
+                    log.error(
+                        "Secure round %d %s with only %d client(s) publishing a key (min "
+                        "required=%d); stopping server",
+                        self.current_round, reason, len(keys), required,
+                    )
+                    self.last_round_failed = True
+                    self.last_round_message = (
+                        f"Round {self.current_round} {reason} with only {len(keys)} client(s) "
+                        f"publishing a key (min required={required}); server stopped."
+                    )
+                    self.stop_requested = True
+                    self._round_complete_event.set()
+                    return
+            if session is not None and session.survivors:
+                self._resolve_secure_round_incomplete(session, reason)
+                return
+
+            received = len(self._client_updates_received)
+            total = self.clients_per_round
+            # The strategy aggregates from min_clients; require at least 1.
+            required = max(1, self.min_clients)
+
+            if received >= required:
+                log.warning(
+                    "Round %d %s; force-aggregating %d of %d clients "
+                    "that reported (min required=%d)",
+                    self.current_round, reason, received, total, required,
+                )
+                self.last_round_failed = True
+                self.last_round_message = (
+                    f"Round {self.current_round} {reason}; "
+                    f"force-aggregated {received}/{total} clients (min required={required})."
+                )
+                # FR-4: dispatch to the strategy-appropriate trigger. The submit paths are protocol-
+                # specific (FedAvg->submit_client_update, DeComFL->submit_decomfl_update) so they call
+                # their trigger directly, but this path is strategy-agnostic and must not
+                # hardcode the FedAvg trigger — that would skip DeComFL's gradient_history write.
+                self._trigger_round_completion()
+            else:
+                log.error(
+                    "Round %d %s with only %d of %d clients reported "
+                    "(min required=%d); stopping server",
+                    self.current_round, reason, received, total, required,
+                )
+                self.last_round_failed = True
+                self.last_round_message = (
+                    f"Round {self.current_round} {reason} "
+                    f"with only {received}/{total} clients reported (min required={required}); "
+                    f"server stopped."
+                )
+                self.stop_requested = True
+                self._round_complete_event.set()  # Release the main loop
+
+    def _resolve_secure_round_incomplete(self, session, reason: str) -> None:
+        """Resolve a secure round that will not complete on its own. Caller holds self._lock.
+
+        Three outcomes, in the order the round passes through them:
+
+        * **Not yet frozen** -- freeze the surviving set and return. The round is not finished;
+          it is now *finishable*, because holders can compute summed shares over an agreed set.
+          This is the ordinary dropout case and the reason the deadline exists.
+        * **Frozen, but too few survivors** -- stop the run rather than aggregate a thin cohort,
+          mirroring the plaintext rule. A survivor count below the Shamir threshold could not be
+          reconstructed anyway, so this is a hard floor and not just a quality judgement.
+        * **Frozen, enough survivors, still not recoverable** -- the holders did not return their
+          summed shares within a second deadline. Freezing was not a cure, and the round must
+          fail loudly rather than hang.
+        """
+        survivors = session.survivors
+        required = max(1, self.min_clients, session.threshold)
+
+        # The floor is checked BEFORE freezing, because freezing a cohort this thin only delays a
+        # certain failure: the holders who return summed shares ARE the survivors, so a survivor
+        # count below the Shamir threshold can never reach it however long we wait.
+        if len(survivors) >= required and not session.is_closed:
+            frozen = session.close_submissions()
+            log.warning(
+                "Secure round %d %s; freezing the surviving set at %d client(s): %s. Holders can "
+                "now return summed shares over an agreed set.",
+                self.current_round, reason, len(frozen), frozen,
+            )
+            return
+
+        if len(survivors) < required:
+            log.error(
+                "Secure round %d %s with only %d survivor(s) (min required=%d, Shamir "
+                "threshold=%d); stopping server",
+                self.current_round, reason, len(survivors), required, session.threshold,
+            )
+            self.last_round_failed = True
+            self.last_round_message = (
+                f"Round {self.current_round} {reason} with only {len(survivors)} secure "
+                f"survivor(s) (min required={required}); server stopped."
+            )
+            self.stop_requested = True
+            self._round_complete_event.set()
+            return
+
+        # Two very different failures reach this point, and saying the wrong one sends an
+        # operator to the wrong place. If the round is READY, the holders did their part and
+        # recovery itself failed -- which the servicer swallowed, because the share was
+        # legitimately accepted and a retry would not have helped.
+        if session.ready():
+            log.error(
+                "Secure round %d %s: the round was recoverable (%d survivor(s), %d/%d summed "
+                "shares) but recovery did not complete -- see the earlier traceback, typically a "
+                "server-supplied evaluate_fn. Stopping server.",
+                self.current_round, reason, len(survivors),
+                session.summed_share_count, session.threshold,
+            )
+            self.last_round_failed = True
+            self.last_round_message = (
+                f"Round {self.current_round} {reason}: the round was recoverable "
+                f"({len(survivors)} survivors, {session.summed_share_count}/{session.threshold} "
+                f"shares) but recovery failed on the server; see the server log. Server stopped."
+            )
+            self.stop_requested = True
+            self._round_complete_event.set()
+            return
+
+        log.error(
+            "Secure round %d %s: the set was frozen at %d survivor(s) but only %d of %d "
+            "summed shares came back; the round cannot be recovered. Stopping server.",
+            self.current_round, reason, len(survivors),
+            session.summed_share_count, session.threshold,
+        )
+        self.last_round_failed = True
+        self.last_round_message = (
+            f"Round {self.current_round} {reason}: frozen at {len(survivors)} survivor(s) but "
+            f"only {session.summed_share_count}/{session.threshold} summed share(s) returned; "
+            f"server stopped."
+        )
+        self.stop_requested = True
+        self._round_complete_event.set()
 
     def get_global_model_for_client(self) -> Tuple[Optional[OrderedDict[str, torch.Tensor]], int, dict]:
         with self._lock:
             if self.stop_requested:
                 return None, -1, {}
-            return self._global_model_params, self.current_round, {}
+            return self._global_model_params, self.current_round, self._strategy_client_config()
+
+    def _strategy_client_config(self) -> dict:
+        """Per-round client-side hyperparameters the strategy wants delivered to clients.
+
+        This is the params-path analogue of DeComFL's GetDeComFLConfig (which ships lr + seeds):
+        a strategy that needs to push client-side knobs — e.g. FedProx's proximal ``mu`` — exposes
+        ``get_client_config()`` returning a str->str dict (the proto config is map<string,string>).
+        Strategies without it (FedAvg / DeComFL / FedLoRA) yield an empty config, preserving the
+        prior behaviour exactly. The result is read by the client trainer's fit(), mirroring how
+        ``learning_rate`` is plumbed.
+        """
+        get_cfg = getattr(self.strategy, "get_client_config", None)
+        if get_cfg is None:
+            return {}
+        return get_cfg()
 
     # Maximum allowed num_examples to prevent model poisoning via inflated dataset sizes
     MAX_NUM_EXAMPLES = 100_000
@@ -64,6 +401,20 @@ class FLCoordinator:
                 # Client is ahead, something is wrong. Ignore.
                 return
 
+            # FR-5: dedup. A retried FedAvg submit (ABORTED/UNAVAILABLE/DEADLINE_EXCEEDED are
+            # client-retryable, so the server can see the same client's update twice in a round)
+            # must be counted ONCE — a second append both inflates that client's weight in the
+            # weighted average AND can trip the clients_per_round aggregation trigger with fewer
+            # than N distinct clients. First accepted update wins; a duplicate is an idempotent
+            # no-op. Mirrors the DeComFL submit path; derived from the pending list so it resets
+            # with it each round.
+            if any(cid == client_id for cid, _p, _n in self._client_updates_received):
+                log.warning(
+                    "Ignoring duplicate update from %s in round %d (already counted)",
+                    client_id, self.current_round,
+                )
+                return
+
             # Sanitize num_examples to prevent model poisoning
             if num_examples <= 0:
                 # Suspicious payload — keep at WARNING so it shows up without DEBUG noise.
@@ -74,8 +425,56 @@ class FLCoordinator:
                 return
             num_examples = min(num_examples, self.MAX_NUM_EXAMPLES)
 
+            # An empty update carries no parameters — never a legitimate training result. In a
+            # clients_per_round==1 (or all-empty) cohort it makes FedAvg produce a ZERO-key aggregate
+            # that silently WIPES the global model to {} while the round advances as a false success:
+            # the finiteness check below is all([]) == True and the FR-17 shape loop is a no-op on
+            # zero keys, so nothing else catches it. Reject it here, attributably (servicer ->
+            # INVALID_ARGUMENT), exactly like a shape mismatch.
+            if not params:
+                raise ValueError(
+                    f"empty model update from {client_id} (no parameters); a client update must "
+                    "carry its trained parameters")
+
+            # SE-3: reject non-finite params before they reach aggregation — one NaN/Inf would corrupt
+            # the averaged global for every honest client in the round. The serializer already rejects
+            # these on the gRPC path; this makes the coordinator self-defending against any direct
+            # caller too (mirroring submit_decomfl_update). Raised, not dropped, so the servicer maps
+            # it to a client-visible INVALID_ARGUMENT. Validated in float32 — the aggregation precision —
+            # so a value that is finite in a wider dtype but overflows float32 (e.g. 1e300 as float64)
+            # is rejected here rather than silently becoming inf/NaN downstream (or inside the clip).
+            if not all(self._tensor_is_finite(t) for t in params.values()):
+                raise ValueError(
+                    f"non-finite tensor value in model update from {client_id} (poisoning defense)")
+
+            # FR-17: reject a shape-mismatched update at ingress. FedAvg aggregation does an in-place
+            # torch.add(global[key], client[key]) — a client tensor whose shape differs from the
+            # global would raise deep inside aggregate_fit, AFTER this round's updates were cleared
+            # and the client was ACKed, wedging the round, discarding every honest update,
+            # misattributing the error to the last (often honest) submitter, and then tripping the
+            # timeout path that stops the whole server. Reject it here loudly and attributably (the
+            # servicer maps ValueError -> INVALID_ARGUMENT), exactly as the DeComFL path validates its
+            # K x P grid at ingress. Only keys shared with the global are checked — missing/extra keys
+            # are a separate homogeneity concern (FR-18); the reference is absent only before the
+            # first global model is set, in which case there is nothing to validate against yet.
+            if self._global_model_params is not None:
+                for key, tensor in params.items():
+                    ref = self._global_model_params.get(key)
+                    if ref is not None and tuple(tensor.shape) != tuple(ref.shape):
+                        raise ValueError(
+                            f"shape mismatch in model update from {client_id}: key '{key}' has "
+                            f"shape {tuple(tensor.shape)} but the global model expects "
+                            f"{tuple(ref.shape)} (poisoning/version-skew defense)"
+                        )
+
+            # SE-3: optionally clip the client's update delta to a configured L2 budget.
+            if self.client_update_l2_clip is not None and self._global_model_params is not None:
+                params = self._clip_update_delta(client_id, params)
+
             log.debug("Received update from %s for round %d", client_id, self.current_round)
-            self._client_updates_received.append((params, num_examples))
+            # SE-3: tag with the client identity so a poisoned update is attributable (and consistent
+            # with the DeComFL path). Strategy aggregators accept this 3-tuple form.
+            self._client_updates_received.append((client_id, params, num_examples))
 
             if len(self._client_updates_received) == self.clients_per_round:
                 log.info(
@@ -83,6 +482,71 @@ class FLCoordinator:
                     self.clients_per_round, self.current_round,
                 )
                 self._trigger_aggregation_and_evaluation()
+
+    @staticmethod
+    def _tensor_is_finite(t: "torch.Tensor") -> bool:
+        """SE-3: finite in the tensor's own dtype AND in float32 (the aggregation precision).
+
+        A value finite only in a wider dtype — e.g. 1e300 as float64 — overflows to inf when downcast
+        to float32 and would silently corrupt the average, or become NaN inside the delta clip
+        (clip_l2_norm scales an inf delta by 0 -> NaN). Treating it as non-finite here rejects it at
+        ingress instead. Integer/bool buffers are always finite (and torch.isfinite is float/complex
+        only, so we short-circuit them).
+        """
+        if not (t.is_floating_point() or t.is_complex()):
+            return True
+        if not bool(torch.isfinite(t).all()):
+            return False
+        if t.is_floating_point():
+            return bool(torch.isfinite(t.to(torch.float32)).all())
+        return True
+
+    def _clip_update_delta(self, client_id: str, params: "OrderedDict[str, torch.Tensor]"):
+        """SE-3: clip the client's update DELTA (``params - current global``) to ``client_update_l2_clip``
+        in joint L2 norm, returning ``global + clipped_delta``. Only floating-point tensors that match a
+        global key/shape are clipped; non-float buffers (e.g. BatchNorm counters) and shape-mismatched or
+        new keys pass through unchanged. Bounds any single client's per-round influence on the global.
+        Called while ``self._lock`` is held.
+        """
+        global_params = self._global_model_params
+        delta: "OrderedDict[str, torch.Tensor]" = OrderedDict()
+        for k, v in params.items():
+            g = global_params.get(k)
+            if v.is_floating_point() and g is not None and g.shape == v.shape:
+                # Align to the global's device: a CUDA-hosted server holds the global on cuda while a
+                # deserialized client update is on cpu, and mixing devices in the subtraction raises.
+                delta[k] = v.float().to(g.device) - g.float()
+        if not delta:
+            return params  # nothing clippable (e.g. all-integer buffers) — leave as-is
+
+        clipped, orig_norm = clip_l2_norm(delta, self.client_update_l2_clip)
+        if orig_norm > self.client_update_l2_clip:
+            log.warning(
+                "Clipped update delta from %s: L2 norm %.4g -> %.4g (SE-3 poisoning defense)",
+                client_id, orig_norm, self.client_update_l2_clip,
+            )
+
+        out: "OrderedDict[str, torch.Tensor]" = OrderedDict()
+        for k, v in params.items():
+            if k in delta:
+                out[k] = global_params[k].float() + clipped[k]
+            else:
+                out[k] = v
+        return out
+
+    def _trigger_round_completion(self):
+        """Dispatch a completed/force-resolved round to the strategy-appropriate aggregation path.
+
+        DeComFL needs its own trigger: it records gradient_history[round] (clients replay it via
+        get_rebuild_history to rebuild locally) and guards a None evaluate. The default FedAvg trigger
+        does neither, so routing a DeComFL round through it silently desyncs every client and can
+        crash on a run with no evaluate_fn. Uses the same DeComFL detection as the DeComFL trigger.
+        Called while self._lock is held.
+        """
+        if isinstance(self.strategy, DeComFL):
+            self._trigger_decomfl_aggregation_and_evaluation()
+        else:
+            self._trigger_aggregation_and_evaluation()
 
     def _trigger_aggregation_and_evaluation(self):
         """Aggregate client updates and advance the round counter.
@@ -104,8 +568,16 @@ class FLCoordinator:
 
         if aggregated_parameters is not None:
             self._global_model_params = aggregated_parameters
-            loss, metrics = self.strategy.evaluate(self.current_round, self._global_model_params)
-            self.latest_metrics = {"loss": loss, **metrics}
+            # FR-22: Strategy.evaluate is Optional[Tuple[float, dict]] — it returns None when no
+            # evaluate_fn is configured (the constructor default for FedAvg/FedProx/FedOpt/FedLoRA/
+            # Robust). Unpacking None as a 2-tuple raised a TypeError inside the lock, after updates
+            # were cleared, wedging the round. Guard it exactly as the DeComFL trigger already does.
+            eval_result = self.strategy.evaluate(self.current_round, self._global_model_params)
+            if eval_result is not None:
+                loss, metrics = eval_result
+                self.latest_metrics = {"loss": loss, **metrics}
+            else:
+                self.latest_metrics = None
         else:
             # Aggregation returning None is a hard failure for the round, but
             # the server can continue — log at WARNING so operators see it
@@ -129,9 +601,44 @@ class FLCoordinator:
         self.stop_requested = True
         self._round_complete_event.set()  # Release any waiting threads
 
+    def mark_training_complete(self):
+        """Signal that all configured rounds finished successfully.
+
+        Sets stop_requested so clients polling for the next round receive the
+        GetDeComFLConfig -> -1 terminal sentinel, and sets training_complete so
+        GetServerStatus reports TRAINING_COMPLETE. Together these let a client
+        recognise a *normal* end-of-run and exit 0 instead of retry-looping on
+        the CANCELLED/UNAVAILABLE that a hard gRPC teardown would otherwise
+        surface. Distinct from signal_stop(), which marks a stop/error teardown
+        that is NOT a clean completion.
+        """
+        with self._lock:
+            self.training_complete = True
+            self.stop_requested = True
+        self._round_complete_event.set()  # Release any waiting threads
+
     def register_client(self, client_id: str) -> bool:
         with self._lock:
             self._registered_clients.add(client_id)
+            return True
+
+    def bind_or_check_identity(self, partition_id: int, client_id: str) -> bool:
+        """SE-15: enforce a 1:1 binding between a connection token's server-assigned ``partition_id``
+        and the wire ``client_id``. The first ``(partition, client_id)`` pair pins the binding
+        (trust-on-first-use); thereafter this partition MUST always present that same client_id, and
+        that client_id MUST NOT be claimed by any other partition. Returns ``False`` on any conflict —
+        a token replayed under a second client_id (the Sybil), or a client_id already owned by a
+        different token. The whole check-then-bind runs under the coordinator lock, so two concurrent
+        first-use calls for the same partition cannot both win.
+        """
+        with self._lock:
+            bound_client = self._partition_to_client.get(partition_id)
+            if bound_client is not None:
+                return bound_client == client_id
+            if self._client_to_partition.get(client_id, partition_id) != partition_id:
+                return False  # this client_id already belongs to a different partition (token)
+            self._partition_to_client[partition_id] = client_id
+            self._client_to_partition[client_id] = partition_id
             return True
 
     def get_global_model_params(self) -> Optional[OrderedDict[str, torch.Tensor]]:
@@ -141,8 +648,13 @@ class FLCoordinator:
 
 
     def update_client_heartbeat(self, client_id:str, status:str, current_step:int, total_steps:int, current_round:int)->tuple[bool,bool,str]:
-        """
-        Update the last  heartbeat time for a client
+        """Record a client heartbeat and return the server's stop directive.
+
+        Returns ``(acknowledged, should_stop, message)``. FR-10: ``should_stop`` reflects the
+        coordinator's REAL stop state (``stop_requested``, set by signal_stop() and the
+        quorum-lost round-timeout path) instead of a hardcoded False — a globally-stopped
+        coordinator asks every heart-beating client to halt its fit loop. The heartbeat is
+        still recorded first so liveness bookkeeping stays accurate during teardown.
         """
 
         with self.heartbeat_lock:
@@ -162,9 +674,10 @@ class FLCoordinator:
                 client_id, status, current_round, current_step, total_steps, progress,
             )
 
-        should_stop = False
+        if self.stop_requested:
+            return True, True, f"Server stop requested; {client_id} should abort training"
 
-        return True, should_stop, f"Heartbeat received for {client_id}"
+        return True, False, f"Heartbeat received for {client_id}"
 
     def get_active_clients(self)->list[str]:
         """
@@ -197,10 +710,17 @@ class FLCoordinator:
             last_seen = self.client_heartbeats[client_id]['last_seen']
             return (time.time() - last_seen) < self.heartbeat_timeout
 
+    def record_client_metrics(self, metrics: dict) -> None:
+        """Store a client's per-round training telemetry (ReportClientMetrics, v2 §6.4)."""
+        with self.heartbeat_lock:
+            self.client_metrics_log.append(metrics)
+        self.latest_metrics = metrics
+
     def get_server_status(self) -> dict:
         """Get current server status."""
         with self._lock:
             return {
+                "training_complete": self.training_complete,
                 "current_round": self.current_round,
                 "required_clients_for_round": self.min_clients,
                 "received_updates_this_round": len(self._client_updates_received)
@@ -247,6 +767,55 @@ class FLCoordinator:
                 len(self._client_updates_received) + 1, self.clients_per_round,
             )
 
+            # FR-5: validate the K x P grid shape against the strategy's configuration BEFORE the
+            # scalars can reach aggregate_fit (which does grad_scalars[k][p] and would otherwise
+            # crash the aggregation thread on a wrong shape, long after the client was acknowledged).
+            # Raised — not silently dropped — so the servicer maps it to a client-visible
+            # INVALID_ARGUMENT. Validated on a copy of the shape only; content checks follow below.
+            expected_k = getattr(self.strategy, "K", None)
+            expected_p = getattr(self.strategy, "P", None)
+            if expected_k is not None and expected_p is not None:
+                if len(gradient_scalars) != expected_k or any(len(row) != expected_p for row in gradient_scalars):
+                    raise MalformedDeComFLSubmission(
+                        f"expected {expected_k}x{expected_p} gradient scalars from {client_id}, "
+                        f"got {len(gradient_scalars)} step(s) with widths {[len(r) for r in gradient_scalars]}"
+                    )
+
+            # FR-5: dedup. A client that already submitted (and was accepted) this round must not be
+            # appended again — a second submission would be double-counted in the averaged update,
+            # inflating that one client's weight. Keep the first accepted update, ignore the rest.
+            if any(cid == client_id for cid, _, _ in self._client_updates_received):
+                log.warning(
+                    "Ignoring duplicate DeComFL update from %s in round %d",
+                    client_id, self.current_round,
+                )
+                return
+
+            # Reject non-finite gradient scalars before they reach aggregation (SE-3 poisoning
+            # defense): a single NaN/Inf would corrupt the averaged update for every honest client
+            # in the round, an unattributable denial-of-integrity attack over a plaintext channel.
+            if not all(math.isfinite(g) for row in gradient_scalars for g in row):
+                log.warning(
+                    "Rejecting DeComFL update from %s: non-finite gradient scalars (poisoning defense)",
+                    client_id,
+                )
+                return
+
+            # Layer 2 (SE-3): clamp finite-but-large scalars to a bounded magnitude (see __init__).
+            # A client sending g=1e9 would otherwise dominate g_sum and hijack the averaged step for
+            # every honest client. We CLAMP (not reject) to preserve liveness, and do it here at
+            # ingress — before storage — so both consumers of the stored scalars stay in lockstep:
+            # aggregate_fit (steps the real global model) and _calculate_average_gradients (feeds
+            # gradient_history, which clients replay to rebuild locally) read identical values.
+            tau = self.grad_clip_threshold
+            if tau is not None:
+                if any(abs(g) > tau for row in gradient_scalars for g in row):
+                    log.warning(
+                        "Clamping out-of-range gradient scalars from %s to +/-%g (SE-3 poisoning defense)",
+                        client_id, tau,
+                    )
+                gradient_scalars = [[max(-tau, min(tau, g)) for g in row] for row in gradient_scalars]
+
             # Store as tuple: (client_id, gradient_scalars, num_examples)
             self._client_updates_received.append((client_id, gradient_scalars, num_examples))
 
@@ -281,18 +850,24 @@ class FLCoordinator:
             # Calculate average gradients and store in strategy history
             avg_gradients = self._calculate_average_gradients(results)
 
-            # Check if strategy is DeComFL and has gradient_history
-            if 'DeComFL' in str(type(self.strategy)) and hasattr(self.strategy, 'gradient_history'):
-                self.strategy.gradient_history.append(avg_gradients)
+            # FR-6: typed dispatch — isinstance guarantees gradient_history exists on a DeComFL.
+            if isinstance(self.strategy, DeComFL):
+                # Keyed by round (dict) so it aligns with seed_history + get_rebuild_history (audit #29)
+                self.strategy.gradient_history[self.current_round] = avg_gradients
                 log.debug("Stored gradient history for round %d", self.current_round)
 
-            # Evaluate
-            loss, metrics = self.strategy.evaluate(self.current_round, self._global_model_params)
-            self.latest_metrics = {"loss": loss, **metrics}
-            log.info(
-                "Round %d complete (loss=%.4f, metrics=%s)",
-                self.current_round, loss, metrics,
-            )
+            # Evaluate. evaluate() returns None when the server has no evaluate_fn (e.g. a bare
+            # scalar-aggregation MVP); guard so a round completes instead of crashing on unpack.
+            eval_result = self.strategy.evaluate(self.current_round, self._global_model_params)
+            if eval_result is not None:
+                loss, metrics = eval_result
+                self.latest_metrics = {"loss": loss, **metrics}
+                log.info(
+                    "Round %d complete (loss=%.4f, metrics=%s)",
+                    self.current_round, loss, metrics,
+                )
+            else:
+                log.info("Round %d complete (no evaluate_fn configured; eval skipped)", self.current_round)
         else:
             log.warning("DeComFL aggregation for round %d failed", self.current_round)
             self.latest_metrics = None
@@ -300,6 +875,85 @@ class FLCoordinator:
         # Advance round and signal LAST — see _trigger_aggregation_and_evaluation.
         self.current_round += 1
         self._round_complete_event.set()
+
+    def complete_secure_decomfl_round(self, session) -> bool:
+        """P2-2: finish a round whose clients sent MASKED scalars, once recovery is possible.
+
+        The secure analogue of _trigger_decomfl_aggregation_and_evaluation, and deliberately a
+        separate entry point rather than a branch inside it: the plaintext trigger consumes
+        per-client results, and on this path there are none to consume. That absence is the
+        privacy property, not a missing feature.
+
+        Unlike the plaintext path, completion is a TWO-stage condition. Masked submissions being
+        in is not enough — holders cannot compute their summed shares until the surviving set is
+        frozen, so the round completes on the threshold-th summed share arriving, not on the last
+        masked value.
+
+        Idempotent and lock-guarded, matching resolve_round_incomplete: the threshold share and a
+        deadline may race, and double-aggregating would step the global model twice.
+
+        Returns:
+            True if this call completed the round; False if it was not ready or already done.
+        """
+        with self._lock:
+            if self._round_complete_event.is_set():
+                return False
+
+            # The session must belong to the round we are about to advance. A holder's summed
+            # share for round r can arrive after the server has already moved to r+1 -- the
+            # client polls on its own schedule -- and applying r's recovered scalars as r+1's
+            # update, against r+1's perturbation seeds, produces a well-formed model that is
+            # simply wrong, with nothing downstream able to detect it.
+            #
+            # The round-complete event is not a guard against this: start_round clears it at the
+            # top of every round, which is precisely when the late share lands.
+            if session.round_index != self.current_round:
+                log.warning(
+                    "Ignoring a summed share for round %d: the server is on round %d. The stale "
+                    "round already resolved and its scalars must not be applied here.",
+                    session.round_index, self.current_round,
+                )
+                return False
+
+            if not session.is_closed or not session.ready():
+                return False
+
+            masked_values, summed_shares = session.recovery_inputs()
+            num_clients = len(masked_values)
+            log.info(
+                "Completing secure DeComFL round %d over %d survivor(s) from %d summed share(s)",
+                self.current_round, num_clients, len(summed_shares),
+            )
+
+            aggregated = self.strategy.aggregate_fit_secure(
+                server_round=self.current_round,
+                masked_values=masked_values,
+                summed_shares=summed_shares,
+                threshold=session.threshold,
+                num_clients=num_clients,
+            )
+
+            if aggregated is not None:
+                self._global_model_params = aggregated
+                eval_result = self.strategy.evaluate(
+                    self.current_round, self._global_model_params
+                )
+                if eval_result is not None:
+                    loss, metrics = eval_result
+                    self.latest_metrics = {"loss": loss, **metrics}
+                    log.info("Secure round %d complete (loss=%.4f, metrics=%s)",
+                             self.current_round, loss, metrics)
+                else:
+                    log.info("Secure round %d complete (no evaluate_fn configured)",
+                             self.current_round)
+            else:
+                log.warning("Secure DeComFL aggregation for round %d failed", self.current_round)
+                self.latest_metrics = None
+
+            # Advance and signal LAST, matching the plaintext trigger's ordering.
+            self.current_round += 1
+            self._round_complete_event.set()
+            return True
 
     def _calculate_average_gradients(
             self,

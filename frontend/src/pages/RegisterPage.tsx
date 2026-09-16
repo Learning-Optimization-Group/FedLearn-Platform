@@ -1,8 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { isAxiosError } from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
+import { ShieldCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { registerUser } from '../services/apiServices';
 import { createLogger } from '../lib/logger';
-import '../styles/AuthStyles.css';
+import { Button, Card, Input, FormField } from '../components/ui';
+import { Wordmark } from '../components/brand';
 
 const log = createLogger('RegisterPage');
 
@@ -86,19 +89,29 @@ const RegisterPage: React.FC = () => {
             redirectTimerRef.current = setTimeout(() => {
                 navigate('/login');
             }, 2000);
-        } catch (err: any) {
-            log.error('register failed', err);
-            const data = err?.response?.data;
+        } catch (err: unknown) {
+            // Never log the raw error: an AxiosError's `.config.data` carries the submitted
+            // { username, email, password }, so logging the whole object would write the plaintext
+            // password to the log sink. Log only a safe status/message summary.
+            log.error(
+                'register failed',
+                isAxiosError(err) ? `${err.response?.status ?? 'network'}: ${err.message}` : String(err),
+            );
             // GlobalExceptionHandler returns either {message, fieldErrors:{...}}
             // (validation), {message} (generic), or — for legacy paths —
             // {error}. Try them in order without losing the field-level detail.
             let displayError = 'An error occurred during registration. Please try again later.';
-            if (data?.fieldErrors && typeof data.fieldErrors === 'object') {
-                displayError = `Validation failed: ${Object.values(data.fieldErrors).join(', ')}`;
-            } else if (data?.message) {
-                displayError = data.message;
-            } else if (data?.error) {
-                displayError = data.error;
+            if (isAxiosError(err)) {
+                const data = err.response?.data as
+                    | { message?: string; error?: string; fieldErrors?: Record<string, string> }
+                    | undefined;
+                if (data?.fieldErrors && typeof data.fieldErrors === 'object') {
+                    displayError = `Validation failed: ${Object.values(data.fieldErrors).join(', ')}`;
+                } else if (data?.message) {
+                    displayError = data.message;
+                } else if (data?.error) {
+                    displayError = data.error;
+                }
             }
             setError(displayError);
         } finally {
@@ -107,69 +120,113 @@ const RegisterPage: React.FC = () => {
     };
 
     return (
-        <div className="auth-container">
-            <h2>Register</h2>
-            <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                    <label htmlFor="username">Username</label>
-                    <input
-                        type="text"
-                        id="username"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        required
-                        autoComplete="username"
-                    />
+        <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-12 font-sans text-fg">
+            <div className="reveal w-full max-w-md">
+                <div className="mb-8 flex justify-center">
+                    <Link to="/" aria-label="FedLearn home">
+                        <Wordmark size={32} />
+                    </Link>
                 </div>
 
-                <div className="form-group">
-                    <label htmlFor="email">Email</label>
-                    <input
-                        type="email"
-                        id="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        autoComplete="email"
-                    />
-                </div>
+                <Card padding="lg" className="p-7">
+                    <h1 className="text-h3 text-fg">Create your account</h1>
+                    <p className="mt-1.5 text-body text-fg-muted">
+                        Start training AI together — it's free.
+                    </p>
 
-                <div className="form-group">
-                    <label htmlFor="password">Password</label>
-                    <input
-                        type="password"
-                        id="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        autoComplete="new-password"
-                        minLength={MIN_PASSWORD_LENGTH}
-                    />
-                    <small>Minimum {MIN_PASSWORD_LENGTH} characters with uppercase, lowercase, and number</small>
-                </div>
+                    <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
+                        <FormField label="Username">
+                            <Input
+                                type="text"
+                                id="username"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                required
+                                autoComplete="username"
+                                placeholder="yourname"
+                            />
+                        </FormField>
 
-                <div className="form-group">
-                    <label htmlFor="confirmPassword">Confirm Password</label>
-                    <input
-                        type="password"
-                        id="confirmPassword"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
-                        autoComplete="new-password"
-                    />
-                </div>
+                        <FormField label="Email">
+                            <Input
+                                type="email"
+                                id="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                autoComplete="email"
+                                placeholder="you@example.com"
+                            />
+                        </FormField>
 
-                {error && <p className="error-message" role="alert">{error}</p>}
-                {successMessage && <p className="success-message" role="status">{successMessage}</p>}
+                        <FormField
+                            label="Password"
+                            help={`At least ${MIN_PASSWORD_LENGTH} characters, with an uppercase letter, a lowercase letter, and a number.`}
+                        >
+                            <Input
+                                type="password"
+                                id="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                autoComplete="new-password"
+                                minLength={MIN_PASSWORD_LENGTH}
+                                placeholder="••••••••"
+                            />
+                        </FormField>
 
-                <button type="submit" disabled={isLoading} className="auth-button">
-                    {isLoading ? 'Registering...' : 'Register'}
-                </button>
-            </form>
-            <p className="auth-switch">
-                Already have an account? <Link to="/login">Login here</Link>
-            </p>
+                        <FormField label="Confirm password">
+                            <Input
+                                type="password"
+                                id="confirmPassword"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                required
+                                autoComplete="new-password"
+                                placeholder="••••••••"
+                            />
+                        </FormField>
+
+                        {error && (
+                            <p
+                                className="flex items-start gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2.5 text-label text-danger"
+                                role="alert"
+                            >
+                                <AlertCircle className="mt-px h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
+                                {error}
+                            </p>
+                        )}
+                        {successMessage && (
+                            <p
+                                className="flex items-start gap-2 rounded-md border border-success/30 bg-success/10 px-3 py-2.5 text-label text-success"
+                                role="status"
+                            >
+                                <CheckCircle2 className="mt-px h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
+                                {successMessage}
+                            </p>
+                        )}
+
+                        <Button type="submit" disabled={isLoading} className="mt-2 w-full">
+                            {isLoading ? 'Creating account…' : 'Create account'}
+                        </Button>
+                    </form>
+
+                    <p className="mt-6 text-center text-label text-fg-muted">
+                        Already have an account?{' '}
+                        <Link
+                            to="/login"
+                            className="font-medium text-accent transition-colors hover:text-accent-hover"
+                        >
+                            Sign in
+                        </Link>
+                    </p>
+                </Card>
+
+                <p className="mt-6 flex items-center justify-center gap-2 text-caption text-fg-subtle">
+                    <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    Private by design — your data stays on your devices.
+                </p>
+            </div>
         </div>
     );
 };

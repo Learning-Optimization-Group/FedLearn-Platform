@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome layer for Android 13+ themed icons. Single tone (white) — the
+     system applies its theme tint; only the alpha/shape matters here. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <group
+        android:scaleX="0.82"
+        android:scaleY="0.82"
+        android:pivotX="512"
+        android:pivotY="512">
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="9"
+            android:strokeAlpha="0.55"
+            android:strokeLineCap="round"
+            android:pathData="M512,512 L512,212 M512,512 L772,362 M512,512 L772,662 M512,512 L512,812 M512,512 L252,662 M512,512 L252,362" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M464,212 a48,48 0 1,1 96,0 a48,48 0 1,1 -96,0 Z M738,362 a34,34 0 1,1 68,0 a34,34 0 1,1 -68,0 Z M728,662 a44,44 0 1,1 88,0 a44,44 0 1,1 -88,0 Z M478,812 a34,34 0 1,1 68,0 a34,34 0 1,1 -68,0 Z M208,662 a44,44 0 1,1 88,0 a44,44 0 1,1 -88,0 Z M218,362 a34,34 0 1,1 68,0 a34,34 0 1,1 -68,0 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M394,512 a118,118 0 1,1 236,0 a118,118 0 1,1 -236,0 Z" />
+    </group>
+</vector>

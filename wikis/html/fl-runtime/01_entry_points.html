@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 — Entry Points & the Backend Contract · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>FL Runtime</summary><ul>
+<li><a href="README.html">FL Runtime Wiki</a></li>
+<li><a class="active" href="01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>FL Runtime</b> &nbsp;·&nbsp; 01 — Entry Points & the Backend Contract</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="01-entry-points-the-backend-contract">01 — Entry Points &amp; the Backend Contract<a class="headerlink" href="#01-entry-points-the-backend-contract" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a> → <a href="README.html">FL Runtime Wiki</a></p>
+</blockquote>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#how-the-backend-resolves-this-directory">How the Backend Resolves This Directory</a></li>
+<li><a href="#why-a-shell-wrapper-and-not-a-python-path">Why a Shell Wrapper and Not a Python Path</a></li>
+<li><a href="#fl_serverpy--the-fl-aggregation-server"><code>fl_server.py</code> — the FL aggregation server</a></li>
+<li><a href="#clientpy--the-one-canonical-fl-client"><code>client.py</code> — the one canonical FL client</a></li>
+<li><a href="#init_modelpy--initial-weights"><code>init_model.py</code> — initial weights</a></li>
+<li><a href="#inferpy--single-input-inference"><code>infer.py</code> — single-input inference</a></li>
+<li><a href="#recipespy--the-catalog-cli"><code>recipes.py</code> — the catalog CLI</a></li>
+<li><a href="#fl_fot_serverpy--federation-over-text"><code>fl_fot_server.py</code> — Federation over Text</a></li>
+<li><a href="#benchmarkspy--the-metric-core"><code>benchmarks.py</code> — the metric core</a></li>
+<li><a href="#support-modules">Support modules</a></li>
+<li><a href="#the-wrappers-one-by-one">The wrappers, one by one</a></li>
+</ul>
+<hr />
+<h2 id="how-the-backend-resolves-this-directory">How the Backend Resolves This Directory<a class="headerlink" href="#how-the-backend-resolves-this-directory" title="Permanent link">&para;</a></h2>
+<p>Six properties in <code>backend/fl-platform-api/src/main/resources/application.properties</code> point the Java side at this directory. The block sits at lines <strong>149–154</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="na">python.executable.path</span><span class="o">=</span><span class="s">${PYTHON_EXECUTABLE_PATH:../../fl-runtime/run_init_model.sh}</span>
+<span class="na">python.flbat.path</span><span class="o">=</span><span class="s">${PYTHON_FLBAT_PATH:../../fl-runtime/run_fl_server.sh}</span>
+<span class="na">python.script.init-model.path</span><span class="o">=</span><span class="s">${PYTHON_SCRIPT_INIT_MODEL_PATH:../../fl-runtime/init_model.py}</span>
+<span class="na">python.script.fl-server.path</span><span class="o">=</span><span class="s">${PYTHON_SCRIPT_FL_SERVER_PATH:../../fl-runtime/run_fl_server.sh}</span>
+<span class="na">python.script.infer.path</span><span class="o">=</span><span class="s">${PYTHON_SCRIPT_INFER_PATH:../../fl-runtime/run_infer.sh}</span>
+<span class="na">python.script.recipes.path</span><span class="o">=</span><span class="s">${PYTHON_SCRIPT_RECIPES_PATH:../../fl-runtime/run_recipes.sh}</span>
+</code></pre></div>
+
+<p>A seventh, <code>python.script.fot-server.path</code>, has no entry in the properties file at all — <code>FlServerManager</code> carries its default inline (<code>../../fl-runtime/run_fot_server.sh</code>, <code>FlServerManager.java:59</code>).</p>
+<p>Which Java class reads which property:</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Consumer</th>
+<th>What it launches</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>python.script.fl-server.path</code></td>
+<td><code>FlServerManager.java:56</code></td>
+<td><code>run_fl_server.sh</code> → <code>fl_server.py</code></td>
+</tr>
+<tr>
+<td><code>python.script.fot-server.path</code></td>
+<td><code>FlServerManager.java:59</code></td>
+<td><code>run_fot_server.sh</code> → <code>fl_fot_server.py</code></td>
+</tr>
+<tr>
+<td><code>python.executable.path</code></td>
+<td><code>ModelInitializer.java:22</code></td>
+<td><code>run_init_model.sh</code> → <code>init_model.py</code></td>
+</tr>
+<tr>
+<td><code>python.script.infer.path</code></td>
+<td><code>InferenceService.java:71</code></td>
+<td><code>run_infer.sh</code> → <code>infer.py</code></td>
+</tr>
+<tr>
+<td><code>python.script.recipes.path</code></td>
+<td><code>ModelRecipeService.java:46</code></td>
+<td><code>run_recipes.sh --describe</code> → <code>recipes.py</code></td>
+</tr>
+</tbody>
+</table>
+<p>Two of these names are misleading and worth calling out, because they invite the wrong guess:</p>
+<ul>
+<li><strong><code>python.executable.path</code> is not a Python interpreter.</strong> Despite the name, <code>ModelInitializer</code> treats it as <em>the init-model wrapper script path</em> (the field is even called <code>initModelWrapperPath</code>). Nothing in the codebase reads it as an interpreter.</li>
+<li><strong><code>python.script.init-model.path</code> is not read by anything.</strong> It points at the raw <code>.py</code>, but <code>ModelInitializer</code> launches the wrapper from <code>python.executable.path</code> instead. The same is true of <code>python.flbat.path</code>. Both are vestigial; changing them changes nothing.</li>
+</ul>
+<blockquote>
+<p><strong>The relative defaults resolve from the backend's working directory.</strong> <code>../../fl-runtime/…</code> is relative to wherever the JVM was started, so the backend is normally launched from <code>backend/fl-platform-api/</code> (<code>cd backend/fl-platform-api &amp;&amp; ./gradlew bootRun</code>). Start it from the repo root and every one of these paths misses. Deployments override them with the <code>PYTHON_*</code> environment variables rather than relying on the working directory.</p>
+</blockquote>
+<h3 id="the-interpreter">The interpreter<a class="headerlink" href="#the-interpreter" title="Permanent link">&para;</a></h3>
+<p>Every <code>run_*.sh</code> wrapper that runs an entry point picks its interpreter the same way (the exception is the dev-only <code>run_clients.sh</code>, which sources a venv and calls a bare <code>python</code>):</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">PYTHON</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">FEDLEARN_PYTHON</span><span class="k">:-</span><span class="nv">python3</span><span class="si">}</span><span class="s2">&quot;</span>
+</code></pre></div>
+
+<p>So <code>FEDLEARN_PYTHON=/opt/venv/bin/python</code> is the supported way to point the runtime at a virtualenv without editing scripts. The commented-out <code>source /home/ec2-user/app/venv/bin/activate</code> lines in the wrappers are disabled leftovers from an earlier EC2 layout — they do nothing today.</p>
+<hr />
+<h2 id="why-a-shell-wrapper-and-not-a-python-path">Why a Shell Wrapper and Not a Python Path<a class="headerlink" href="#why-a-shell-wrapper-and-not-a-python-path" title="Permanent link">&para;</a></h2>
+<p>The backend builds its command like this (<code>FlServerManager.buildServerCommand</code>, and identically in <code>ModelInitializer.buildInitCommand</code> / <code>ModelRecipeService.runDescribe</code>):</p>
+<div class="codehilite"><pre><span></span><code><span class="n">List</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span><span class="w"> </span><span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">ArrayList</span><span class="o">&lt;&gt;</span><span class="p">();</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">isWindows</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">command</span><span class="p">.</span><span class="na">add</span><span class="p">(</span><span class="s">&quot;bash&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="n">command</span><span class="p">.</span><span class="na">add</span><span class="p">(</span><span class="n">absoluteScriptPath</span><span class="p">);</span>
+<span class="c1">// … then the flags</span>
+</code></pre></div>
+
+<p>On macOS and Linux it prepends <code>bash</code> and runs the <code>.sh</code>. On Windows it prepends nothing and runs whatever the property points at — which is expected to be the <code>.bat</code> companion. That single indirection is what lets one Java code path work on all three platforms: the <em>wrapper</em> owns the platform-specific interpreter activation, and the Java side only ever knows about flags.</p>
+<p><strong>Only two <code>.bat</code> companions exist</strong> — <code>run_fl_server.bat</code> and <code>run_init_model.bat</code> — and both are stale: they hardcode a personal Anaconda root (<code>C:\Users\CHINMAY\anaconda3</code>), activate a <code>llm-gpu</code> conda env, and invoke <code>python src\main\resources\scripts\fl_server.py</code>, a path that no longer exists anywhere in the repository (the scripts moved to <code>fl-runtime/</code>). There are no <code>.bat</code> companions for <code>run_recipes.sh</code>, <code>run_infer.sh</code>, <code>run_fot_server.sh</code> or <code>run_benchmark.sh</code> at all. <strong>Windows is therefore not a working target for this layer today</strong>, despite the wrapper indirection being designed for it.</p>
+<hr />
+<h2 id="fl_serverpy-the-fl-aggregation-server"><code>fl_server.py</code> — the FL aggregation server<a class="headerlink" href="#fl_serverpy-the-fl-aggregation-server" title="Permanent link">&para;</a></h2>
+<p>The FL server the backend spawns for every gradient run. It loads initial weights from an <code>.npz</code>, constructs a framework <code>Strategy</code>, runs <code>fl.server.start_server(...)</code>, then saves, registers and reports the result.</p>
+<p><strong>CLI surface</strong> (<code>build_arg_parser</code>, <code>fl_server.py:473</code> — deliberately extracted from <code>main()</code> so the flag contract is unit-testable without booting a server):</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Required</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--model-path</code></td>
+<td>yes</td>
+<td>—</td>
+<td>The run's <code>.npz</code>. <strong>Write target</strong> for the aggregated result, and the init source unless <code>--init-model-path</code> is given</td>
+</tr>
+<tr>
+<td><code>--init-model-path</code></td>
+<td>no</td>
+<td><code>None</code></td>
+<td>BA-11: read <em>initial</em> weights from the registry head instead. <code>--model-path</code> stays the write target, so the immutable content-addressed blob is never overwritten</td>
+</tr>
+<tr>
+<td><code>--project-id</code></td>
+<td>yes</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr>
+<td><code>--num-rounds</code></td>
+<td>no</td>
+<td><code>5</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>--min-clients</code></td>
+<td>no</td>
+<td><code>1</code></td>
+<td><code>min_fit_clients</code> for the strategy</td>
+</tr>
+<tr>
+<td><code>--model-type</code></td>
+<td>yes</td>
+<td>—</td>
+<td><code>type=str.upper</code>; <code>choices=recipes.catalog_keys()</code> — data-driven from the catalog</td>
+</tr>
+<tr>
+<td><code>--model-name</code></td>
+<td>yes</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr>
+<td><code>--port</code></td>
+<td>no</td>
+<td><code>50051</code></td>
+<td>The backend passes a port reserved from <code>50000-50010</code></td>
+</tr>
+<tr>
+<td><code>--strategy</code></td>
+<td>no</td>
+<td><code>FedAvg</code></td>
+<td><code>fedavg</code> / <code>decomfl</code> / <code>fedlora</code> / <code>fedprox</code> / <code>fedopt</code> / <code>robust</code></td>
+</tr>
+<tr>
+<td><code>--training-arm</code></td>
+<td>no</td>
+<td><code>None</code> → <code>FULL</code></td>
+<td>Validated against the recipe's <code>supported_arms</code>. See <a href="03_training_arms.html">03</a></td>
+</tr>
+<tr>
+<td><code>--seed</code></td>
+<td>no</td>
+<td><code>None</code></td>
+<td>Omitted ⇒ a fresh seed is drawn from the OS CSPRNG and recorded on the eval card</td>
+</tr>
+<tr>
+<td><code>--aggregation</code></td>
+<td>no</td>
+<td><code>FFA_LORA</code></td>
+<td><code>FFA_LORA</code> / <code>FEDIT</code>; LLM_LORA only</td>
+</tr>
+<tr>
+<td><code>--task-type</code></td>
+<td>no</td>
+<td><code>SEQ_CLASSIFICATION</code></td>
+<td><code>SEQ_CLASSIFICATION</code> / <code>CAUSAL_LM</code>; LLM_LORA only</td>
+</tr>
+<tr>
+<td><code>--dataset</code></td>
+<td>no</td>
+<td><code>cb</code></td>
+<td><code>cb</code> / <code>sst2</code> / <code>ecg</code></td>
+</tr>
+<tr>
+<td><code>--dp-enabled</code></td>
+<td>no</td>
+<td>off</td>
+<td>FedLoRA-only central DP (FR-13 / SE-11)</td>
+</tr>
+<tr>
+<td><code>--dp-clip-norm</code></td>
+<td>no</td>
+<td><code>None</code></td>
+<td>L2 clip bound S per client adapter delta</td>
+</tr>
+<tr>
+<td><code>--dp-noise-multiplier</code></td>
+<td>no</td>
+<td><code>None</code></td>
+<td>Raw z; mutually exclusive with <code>--dp-target-epsilon</code></td>
+</tr>
+<tr>
+<td><code>--dp-target-epsilon</code></td>
+<td>no</td>
+<td><code>None</code></td>
+<td>ε budget, solved to z by the RDP accountant inside <code>FedLoRA</code></td>
+</tr>
+<tr>
+<td><code>--dp-delta</code></td>
+<td>no</td>
+<td><code>None</code></td>
+<td>Required with <code>--dp-target-epsilon</code></td>
+</tr>
+<tr>
+<td><code>--dp-num-clients</code></td>
+<td>no</td>
+<td><code>None</code></td>
+<td>Enrolled population N for q = cohort/N; omitted ⇒ q = 1</td>
+</tr>
+<tr>
+<td><code>--dp-rounds</code></td>
+<td>no</td>
+<td><code>None</code></td>
+<td>Round count T the budget is accounted over</td>
+</tr>
+<tr>
+<td><code>--dp-seed</code></td>
+<td>no</td>
+<td><code>None</code></td>
+<td>Seeds only the DP noise RNG, deliberately independent of <code>--seed</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>What the backend actually emits.</strong> <code>FlServerManager.buildServerCommand</code> builds <code>--project-id</code>, <code>--model-path</code>, optionally <code>--init-model-path</code>, <code>--port</code>, <code>--strategy</code>, <code>--num-rounds</code>, <code>--model-type</code>, <code>--model-name</code>, <code>--min-clients</code>, then:</p>
+<ul>
+<li><code>--training-arm</code> <strong>only when the project's arm is not <code>FULL</code></strong>, so every pre-existing spawn's argv is byte-identical to before the arm feature landed. Both <code>fl_server.py</code> and <code>client.py</code> resolve an omitted arm to <code>FULL</code>.</li>
+<li><code>--aggregation FFA_LORA</code> and <code>--task-type</code> when <code>modelType == LLM_LORA</code>.</li>
+<li>The <code>--dp-*</code> block when the project has DP enabled, re-validated at the seam so a null knob can never reach the argv as the string <code>"null"</code>.</li>
+</ul>
+<p>The backend never passes <code>--seed</code> or <code>--dataset</code>; both fall to their defaults.</p>
+<p><strong>Run shape</strong> (<code>main</code>, <code>fl_server.py:540</code>):</p>
+<ol>
+<li><code>resolve_run_seed(args)</code> (<code>fl_server.py:515</code>) — seeds <code>random</code>, <code>numpy</code>, <code>torch</code> (and CUDA), and writes the resolved integer back onto <code>args</code> so <code>build_eval_card</code> commits the seed that actually seeded the RNGs.</li>
+<li>Build the architecture through the recipe registry (<code>init_model.get_model</code>), except for <code>LLM_LORA</code>, which rebuilds its peft model per eval round instead.</li>
+<li>Load the <code>.npz</code>, restore <code>__DOT__</code>-escaped keys, apply the wire filter and then the arm filter — see <a href="04_the_federated_set.html">04</a>.</li>
+<li>Pick the server-side test loader, then define <code>server_side_evaluate</code>, which additionally emits a rich per-round benchmark record via <code>benchmarks.build_round_record</code>.</li>
+<li><code>select_strategy(args, initial_parameters, evaluate_fn)</code> (<code>fl_server.py:289</code>) — pure dispatch, extracted so it is unit-testable without a gRPC server.</li>
+<li><code>fl.server.start_server(...)</code> — the framework takes over.</li>
+<li>Save (<code>merge_non_federated</code> first), register the artifact + eval card, POST per-round results and benchmark records to <code>/api/internal/**</code>, then mark the project finished.</li>
+</ol>
+<p><strong>Strategy dispatch.</strong> <code>select_strategy</code> recognises <code>decomfl</code>, <code>fedlora</code>, <code>fedprox</code>, <code>fedopt</code>, <code>robust</code>, and <code>fedavg</code>. <strong>An unrecognised name raises</strong> (FR-28) rather than silently falling back to FedAvg while every strategy-specific flag is ignored — the function's own docstring still describes the old fallback behaviour and is stale on that point; the code is the truth. <code>FedProx</code>/<code>FedOpt</code>/<code>RobustAggregator</code> are constructed with hardcoded sensible defaults (μ = 0.1; FedAdam with server_lr 1.0, β₁ 0.9, β₂ 0.99, τ 1e-3; coordinate-wise median with trim_ratio 0.1 and no clipping) — plumbing those through from the project config is unfinished work, not a completed feature.</p>
+<p><strong>Backend callbacks.</strong> The server talks back over <code>/api/internal/**</code> using two headers built by <code>_internal_headers()</code>: <code>X-Internal-Key</code> (<code>FEDLEARN_INTERNAL_API_KEY</code>, the shared secret) and <code>X-Internal-Run-Token</code> (<code>FEDLEARN_INTERNAL_RUN_TOKEN</code>, the SE-7 per-run token scoped to this project). Missing the shared key raises rather than silently no-op'ing. <code>FEDLEARN_BACKEND_URL</code> selects the callback host; it falls back to <code>http://&lt;SERVER_HOST|AWS_HOST|localhost&gt;:8081</code>.</p>
+<hr />
+<h2 id="clientpy-the-one-canonical-fl-client"><code>client.py</code> — the one canonical FL client<a class="headerlink" href="#clientpy-the-one-canonical-fl-client" title="Permanent link">&para;</a></h2>
+<p><strong>DA-5: there is exactly one FL client source in this repository, and this is it.</strong> The Docker image (<code>client-docker/Dockerfile</code> → <code>COPY fl-runtime/ /app/fl-runtime/</code>, <code>WORKDIR /app/fl-runtime</code>, <code>entrypoint.sh</code> → <code>exec python3 -u client.py …</code>), the desktop PyInstaller bundle (<code>client-docker/packaging/fedlearn-client.spec</code> → <code>CLIENT_ENTRY = fl-runtime/client.py</code>) and the desktop dev-mode fallback (<code>docker.service.ts:271</code> → <code>path.join(repoRoot, 'fl-runtime', 'client.py')</code>) all consume this file. There is no <code>client-docker/scripts/</code> client fork; do not reintroduce one.</p>
+<p><strong>CLI surface</strong> (<code>build_arg_parser</code>, <code>client.py:1015</code> — extracted from <code>main()</code> for the same testability reason as the server's):</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Required</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--project-id</code></td>
+<td>yes</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr>
+<td><code>--server-address</code></td>
+<td>yes</td>
+<td>—</td>
+<td><code>host:port</code></td>
+</tr>
+<tr>
+<td><code>--partition-id</code></td>
+<td>yes</td>
+<td>—</td>
+<td><code>choices=range(0, 10)</code> — <code>NUM_PARTITIONS</code> is a fixed 10</td>
+</tr>
+<tr>
+<td><code>--model-type</code></td>
+<td>no</td>
+<td><code>None</code></td>
+<td><code>choices=recipes.catalog_keys()</code></td>
+</tr>
+<tr>
+<td><code>--model-name</code></td>
+<td>no</td>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>--aggregation</code></td>
+<td>no</td>
+<td><code>FFA_LORA</code></td>
+<td><code>FFA_LORA</code> / <code>FEDIT</code></td>
+</tr>
+<tr>
+<td><code>--task-type</code></td>
+<td>no</td>
+<td><code>SEQ_CLASSIFICATION</code></td>
+<td><code>SEQ_CLASSIFICATION</code> / <code>CAUSAL_LM</code></td>
+</tr>
+<tr>
+<td><code>--dataset</code></td>
+<td>no</td>
+<td><code>cb</code></td>
+<td><code>cb</code> / <code>sst2</code> / <code>ecg</code></td>
+</tr>
+<tr>
+<td><code>--strategy</code></td>
+<td>no</td>
+<td><code>FedAvg</code></td>
+<td><code>FedAvg</code> or <code>DeComFL</code></td>
+</tr>
+<tr>
+<td><code>--training-arm</code></td>
+<td>no</td>
+<td><code>None</code> → <code>FULL</code></td>
+<td>Validated against the recipe's <code>supported_arms</code> at startup</td>
+</tr>
+<tr>
+<td><code>--use-llm</code></td>
+<td>no</td>
+<td>off</td>
+<td>Deprecated; use <code>--model-type TRANSFORMER</code></td>
+</tr>
+<tr>
+<td><code>--device</code></td>
+<td>no</td>
+<td><code>$FEDLEARN_DEVICE</code> or <code>auto</code></td>
+<td><code>auto</code> / <code>cpu</code> / <code>cuda</code> / <code>mps</code>; resolved by <code>device.resolve_device</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>There is no <code>--client-id</code>.</strong> The client id is derived: <code>f"project_{args.project_id}_client_{args.partition_id}"</code>.</p>
+<p><strong>Mode flags.</strong> <code>main()</code> translates <code>--model-type</code> into module-global booleans — <code>USE_LLM</code>, <code>USE_MLP</code>, <code>USE_PNEUMONIA</code>, <code>USE_LLM_LORA</code> — plus <code>MODEL_TYPE</code>, <code>TRAINING_ARM</code> and <code>USE_DERIVED</code>. <code>USE_DERIVED</code> means <em>"this arm federates a trainable subset"</em>, derived from <code>recipes.trainable_prefixes(mt, arm) is not None</code> rather than from an arm-name comparison. That derivation matters: an arm-name test silently excluded <code>OVA_LP</code>, which is also a subset arm.</p>
+<p><strong>Two client classes, one file.</strong> <code>--strategy DeComFL</code> constructs the framework's <code>DeComFLClient</code> (with per-model-type model + loader selection) and calls <code>fl.client.start_decomfl_client(...)</code>, whose return value is a terminal outcome string (<code>"completed"</code> / <code>"disconnected"</code> / <code>"error"</code>). Anything else constructs the local <code>ZOSLClient(fl.Client)</code> (<code>client.py:642</code>) and calls <code>fl.client.start_client(...)</code>. <code>LLM_LORA</code> + <code>DeComFL</code> is refused with <code>sys.exit(1)</code> on both the client and the server — the zeroth-order path needs a flat float-vector parameter space that adapter-only sync cannot provide.</p>
+<p><strong>Hardcoded overrides.</strong> Selecting <code>MLP</code> forces <code>--dataset ecg</code>, <code>--strategy DeComFL</code>, <code>num_clients = 5</code> (<code>ECG_NUM_CLIENTS</code>, <code>client.py:921</code> — note <code>fl_server.py</code>'s same-named constant is <code>3</code>) and the <code>ecg_data/ecg.csv</code> path, overriding whatever was passed. <code>PNEUMONIA_CNN</code> reads <code>FEDLEARN_NUM_CLIENTS</code> (default 2) and <code>FEDLEARN_PNEUMONIA_BATCH</code> (default 16). Everything else defaults to <code>num_clients = 2</code>.</p>
+<p><strong>Container/desktop plumbing.</strong> <code>client-docker/entrypoint.sh</code> hard-fails if <code>PROJECT_ID</code>, <code>SERVER_ADDRESS</code> or <code>PARTITION_ID</code> is unset, then builds those three flags itself and appends <code>--model-type</code>, <code>--strategy</code> and <code>--training-arm</code> from the <code>MODEL_TYPE</code> / <code>STRATEGY</code> / <code>TRAINING_ARM</code> environment variables before forwarding <code>"$@"</code> for extras. The desktop sets those env vars for the Docker path (<code>docker.service.ts:72</code>) and passes the flags directly for the native path (<code>docker.service.ts:336</code>).</p>
+<hr />
+<h2 id="init_modelpy-initial-weights"><code>init_model.py</code> — initial weights<a class="headerlink" href="#init_modelpy-initial-weights" title="Permanent link">&para;</a></h2>
+<p>Builds a model and writes its parameters to an <code>.npz</code> that <code>fl_server.py</code> later reads as round-0 global weights. Invoked by <code>ModelInitializer</code> at project creation, on a 300-second timeout (<code>python.script.init-model.timeout-seconds</code>, BA-1) so a hung init cannot pin a request thread holding a DB connection.</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Required</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--model-type</code></td>
+<td>yes</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>--model-name</code></td>
+<td>yes</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>--optimizer</code></td>
+<td>yes</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>--out</code></td>
+<td>yes</td>
+<td>— (the <code>.npz</code> path)</td>
+</tr>
+<tr>
+<td><code>--pretrain-epochs</code></td>
+<td>no</td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>--aggregation</code></td>
+<td>no</td>
+<td><code>FFA_LORA</code> (<code>FFA_LORA</code> / <code>FEDIT</code>)</td>
+</tr>
+<tr>
+<td><code>--task-type</code></td>
+<td>no</td>
+<td><code>SEQ_CLASSIFICATION</code> (<code>SEQ_CLASSIFICATION</code> / <code>CAUSAL_LM</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Note there is <strong>no <code>choices=</code> on <code>--model-type</code> here</strong> — unlike <code>fl_server.py</code> and <code>client.py</code>, this script accepts any string and lets <code>recipes.get_recipe</code> raise on an unknown key.</p>
+<p>Three things it does that are easy to miss:</p>
+<ul>
+<li><strong><code>get_model</code> is a one-line registry delegate</strong> (<code>init_model.py:38-54</code>): <code>recipes.get_recipe(model_type).build_model(device, model_name=…, aggregation=…, task_type=…)</code>. There is no per-type <code>if</code>/<code>elif</code> model construction here any more. See <a href="02_recipe_catalog.html#how-far-registry-dispatch-actually-got">02</a>.</li>
+<li><strong>The saved state differs by model type</strong> (<code>init_model.py:158-171</code>). <code>LLM_LORA</code> saves <code>get_peft_model_state_dict(net, save_embedding_layers=False)</code> — the adapter, not a full checkpoint. <code>TINYNET_GOLDEN</code> saves <code>trainable_state(net)</code> (25 params = <code>fc1</code>) because DeComFL federates trainable parameters only, and a full <code>state_dict()</code> would give the server <code>model_dim=43</code> against 25-dim clients and reject every one. Everything else saves the full <code>state_dict()</code>.</li>
+<li><strong>Keys are escaped for <code>.npz</code>.</strong> <code>.</code> is not legal in an <code>npz</code> member name, so every key is written as <code>key.replace('.', '__DOT__')</code> and un-escaped on load by <code>fl_server.py</code> and <code>infer.py</code>.</li>
+</ul>
+<p><code>--pretrain-epochs &gt; 0</code> only does anything for <code>CNN</code> (1000 CIFAR-10 samples, batch 32). <code>TRANSFORMER</code>, <code>MLP</code> and <code>LLM_LORA</code> print an explicit warning and ignore it; <code>PNEUMONIA_CNN</code>, <code>CIFAR_RESNET18</code> and <code>TINYNET_GOLDEN</code> have no branch at all, so it is ignored silently.</p>
+<blockquote>
+<p><code>init_model.py:18-36</code> still defines a private <code>CnnNet</code> class. Nothing references it — <code>get_model</code> routes <code>CNN</code> to <code>models.CnnNet</code> through the registry. It is dead code.</p>
+</blockquote>
+<hr />
+<h2 id="inferpy-single-input-inference"><code>infer.py</code> — single-input inference<a class="headerlink" href="#inferpy-single-input-inference" title="Permanent link">&para;</a></h2>
+<p>Rebuilds the training architecture, loads the aggregated <code>.npz</code>, runs one forward pass. Invoked by <code>InferenceService</code> via <code>run_infer.sh</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Required</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--model-path</code></td>
+<td>yes</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>--model-type</code></td>
+<td>yes</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>--model-name</code></td>
+<td>yes</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>--in</code></td>
+<td>yes</td>
+<td>— (input payload JSON path)</td>
+</tr>
+<tr>
+<td><code>--out</code></td>
+<td>yes</td>
+<td>— (result JSON path)</td>
+</tr>
+<tr>
+<td><code>--task-type</code></td>
+<td>no</td>
+<td><code>SEQ_CLASSIFICATION</code></td>
+</tr>
+<tr>
+<td><code>--max-new-tokens</code></td>
+<td>no</td>
+<td><code>256</code></td>
+</tr>
+<tr>
+<td><code>--temperature</code></td>
+<td>no</td>
+<td><code>0.7</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>The result goes to the <code>--out</code> file, never to stdout.</strong> That is a deliberate contract: torch/CUDA banners and wrapper log lines pollute stdout, so the Java side reads the out-file and treats stdout as diagnostics only.</p>
+<p>Input payloads are one of <code>{"kind":"image","imagePath":…}</code>, <code>{"kind":"vector","values":[…]}</code>, <code>{"kind":"text","text":…}</code> or <code>{"kind":"generation","prompt":…,"history":[…]}</code>. The payload kind is checked against the recipe's declared <code>input_kind</code> and mismatches raise <code>InputError</code>.</p>
+<p>Failures are always written as a structured result, tagged so the backend can map them: <code>errorKind: "input"</code> (an <code>InputError</code> — bad image, wrong vector length, empty text → HTTP 400) versus <code>errorKind: "internal"</code> (model load, arch import, torch → 502). Decoded-image size is capped at <code>MAX_IMAGE_PIXELS = 50_000_000</code> before any pixel is touched, so a decompression bomb is caller error rather than an OOM.</p>
+<p><code>build_model</code> (<code>infer.py:63-74</code>) is a one-line delegate to <code>recipes.get_recipe(model_type).build_for_inference(...)</code>, which returns <code>(net, classes, input_kind, transform)</code>.</p>
+<hr />
+<h2 id="recipespy-the-catalog-cli"><code>recipes.py</code> — the catalog CLI<a class="headerlink" href="#recipespy-the-catalog-cli" title="Permanent link">&para;</a></h2>
+<p>Importable as a module by every other script, and runnable as a CLI with exactly one flag:</p>
+<div class="codehilite"><pre><span></span><code>bash<span class="w"> </span>run_recipes.sh<span class="w"> </span>--describe<span class="w">     </span><span class="c1"># prints the catalog as JSON to stdout, exits 0</span>
+bash<span class="w"> </span>run_recipes.sh<span class="w">                </span><span class="c1"># prints argparse help, exits 0</span>
+</code></pre></div>
+
+<p><code>ModelRecipeService</code> spawns it with a 30-second timeout, <strong>discards stderr</strong> so wrapper/torch noise cannot corrupt the JSON on stdout, and caches the parsed result for the JVM's lifetime. There is deliberately <strong>no hardcoded Java fallback</strong> (DA-10) — a previous duplicate had drifted out of sync with the catalog, so a load failure now throws <code>IllegalStateException</code> and is not cached, letting a transient problem recover on retry. Full detail in <a href="02_recipe_catalog.html">02</a>.</p>
+<hr />
+<h2 id="fl_fot_serverpy-federation-over-text"><code>fl_fot_server.py</code> — Federation over Text<a class="headerlink" href="#fl_fot_serverpy-federation-over-text" title="Permanent link">&para;</a></h2>
+<p>The spawn entry point for the FoT path, launched by <code>FlServerManager</code> exactly like <code>fl_server.py</code> (via <code>run_fot_server.sh</code>) so its stdout JSON events stream to the dashboard over STOMP.</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Required</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--project-id</code></td>
+<td>no</td>
+<td><code>""</code></td>
+</tr>
+<tr>
+<td><code>--port</code></td>
+<td>yes</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>--num-rounds</code></td>
+<td>no</td>
+<td><code>5</code></td>
+</tr>
+<tr>
+<td><code>--round-seconds</code></td>
+<td>no</td>
+<td><code>5.0</code></td>
+</tr>
+<tr>
+<td><code>--quorum</code></td>
+<td>no</td>
+<td><code>2</code></td>
+</tr>
+<tr>
+<td><code>--backend</code></td>
+<td>no</td>
+<td><code>stub</code></td>
+</tr>
+</tbody>
+</table>
+<p>The backend emits only <code>--project-id</code>, <code>--port</code> and <code>--num-rounds</code> on the FoT branch — no model-type, no model-path, no DP flags (SE-11 refuses to spawn FoT for a DP-enabled project outright).</p>
+<p>The file is a thin shim: it walks up to eight directory levels looking for <code>framework/src/fedlearn</code>, puts it on <code>sys.path</code> if <code>import fedlearn</code> fails, then calls <code>fedlearn.fot.fot_server.start_fot_server</code>. FoT is <strong>additive and orthogonal to the gradient path</strong> and torch-free by design.</p>
+<blockquote>
+<p><strong>Do not present FoT as a validated capability.</strong> <code>--backend</code> defaults to <code>stub</code>, and <code>fedlearn.fot.backend.get_backend</code> wires only <code>DeterministicStubBackend</code> — <code>local-http</code>, <code>vllm</code> and <code>ollama</code> all raise <code>BackendError</code>. No LLM has ever run through this path, and there is no FoT result in <code>research/results/</code>.</p>
+</blockquote>
+<hr />
+<h2 id="benchmarkspy-the-metric-core"><code>benchmarks.py</code> — the metric core<a class="headerlink" href="#benchmarkspy-the-metric-core" title="Permanent link">&para;</a></h2>
+<p>The single source of truth for <em>how every benchmark metric is computed</em>, so the online (per-round, inside <code>fl_server.py</code>) and offline (deliberate, via the CLI) numbers are directly comparable.</p>
+<div class="codehilite"><pre><span></span><code>bash<span class="w"> </span>run_benchmark.sh<span class="w"> </span>--predictions<span class="w"> </span>preds.json<span class="w"> </span><span class="o">[</span>--out<span class="w"> </span>report.json<span class="o">]</span>
+</code></pre></div>
+
+<p>Its module docstring refers to a <code>run_benchmark.py</code> CLI; <strong>no such file exists</strong> — the CLI is <code>benchmarks.py</code>'s own <code>_cli</code>, reached through <code>run_benchmark.sh</code>.</p>
+<p>Two properties are load-bearing:</p>
+<ul>
+<li><strong>ARM64 / Jetson safe.</strong> Only numpy + scikit-learn, and every sklearn use is guarded so a missing install degrades to a pure-numpy fallback rather than crashing a live FL run. <code>fl_server.py</code> imports <code>benchmarks</code> (and therefore sklearn) <strong>before torch</strong>, mirroring <code>client.py</code>'s <code>import sklearn</code> on line 4 — the ARM64 static-TLS/libgomp allocation workaround.</li>
+<li><strong>camelCase output keys</strong>, so the payload maps 1:1 onto the Java <code>BenchmarkRoundDto</code> with no renaming.</li>
+</ul>
+<p>It computes classification macro metrics (accuracy, balanced accuracy, precision/recall/F1 in macro/micro/weighted, MCC, Cohen's κ, log-loss, ROC-AUC, expected calibration error, Brier score), per-class micro metrics and a confusion matrix, generative metrics (eval loss, perplexity = exp(loss), token accuracy), and a label-distribution + normalised Shannon entropy non-IID proxy.</p>
+<hr />
+<h2 id="support-modules">Support modules<a class="headerlink" href="#support-modules" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>config.py</code></td>
+<td><code>DatasetConfig</code> / <code>ECGDatasetConfig</code> / <code>DeComFLConfig</code> dataclasses plus <code>DATASET_CONFIGS</code> (<code>cb</code>, <code>sst2</code>, <code>ecg</code>) and <code>DECOMFL_CONFIGS</code> (<code>default</code>, <code>ecg</code>). Accessed via <code>get_dataset_config()</code> / <code>get_decomfl_config()</code>, both of which raise on an unknown name.</td>
+</tr>
+<tr>
+<td><code>data.py</code></td>
+<td><code>load_server_test_data(is_llm, dataset_name)</code>. The LLM branch tokenises <code>super_glue/cb</code> or <code>glue/sst2</code> with the opt-125m tokenizer straight from <code>config.py</code>; the CNN branch is a one-line delegate to <code>recipes.get_recipe("CNN").load_server_test_data(batch_size=128)</code>.</td>
+</tr>
+<tr>
+<td><code>device.py</code></td>
+<td><code>resolve_device(choice)</code> — <code>auto</code> picks cuda &gt; mps &gt; cpu; an explicitly requested but unavailable accelerator warns and falls back to cpu rather than crashing. Kept out of <code>client.py</code> so it is unit-testable without the heavy client import.</td>
+</tr>
+<tr>
+<td><code>models.py</code></td>
+<td><code>CnnNet</code> — the canonical CIFAR-10 CNN (<code>conv1</code>/<code>conv2</code>/<code>fc1</code>/<code>fc2</code>/<code>fc3</code>). The registry builds <code>CNN</code> from here.</td>
+</tr>
+<tr>
+<td><code>models/ecg_mlp.py</code></td>
+<td><code>ECGModel(input_dim, hidden_dim, num_classes)</code> — the <code>MLP</code> recipe's architecture.</td>
+</tr>
+<tr>
+<td><code>data_loaders/ecg_loader.py</code></td>
+<td>ECG CSV loading and partitioning, now reached through <code>recipes.get_recipe("MLP")</code>.</td>
+</tr>
+<tr>
+<td><code>architecture/cnn/</code></td>
+<td>A legacy CNN package superseded by <code>models.CnnNet</code>. Still bundled by the PyInstaller spec.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="the-wrappers-one-by-one">The wrappers, one by one<a class="headerlink" href="#the-wrappers-one-by-one" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Wrapper</th>
+<th>Runs</th>
+<th>Behaviour worth knowing</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run_fl_server.sh</code></td>
+<td><code>fl_server.py</code></td>
+<td>Truncates and <code>tee</code>s to <code>fl_server_deep_debug.log</code> in the script directory on every run, and preserves Python's exit code via <code>${PIPESTATUS[0]}</code> rather than <code>tee</code>'s</td>
+</tr>
+<tr>
+<td><code>run_fl_server.bat</code></td>
+<td>—</td>
+<td><strong>Stale.</strong> Hardcoded conda root; points at a <code>src\main\resources\scripts\</code> path that no longer exists</td>
+</tr>
+<tr>
+<td><code>run_init_model.sh</code></td>
+<td><code>init_model.py</code></td>
+<td>Plain passthrough, <code>cd</code> to the script dir first</td>
+</tr>
+<tr>
+<td><code>run_init_model.bat</code></td>
+<td>—</td>
+<td><strong>Stale</strong>, same two problems as above</td>
+</tr>
+<tr>
+<td><code>run_recipes.sh</code></td>
+<td><code>recipes.py</code></td>
+<td>Plain passthrough; stdout is the JSON catalog</td>
+</tr>
+<tr>
+<td><code>run_infer.sh</code></td>
+<td><code>infer.py</code></td>
+<td>Plain passthrough; the wrapper's stdout is diagnostic only, the result is in <code>--out</code></td>
+</tr>
+<tr>
+<td><code>run_fot_server.sh</code></td>
+<td><code>fl_fot_server.py</code></td>
+<td><code>tee</code>s to <code>fot_server_debug.log</code>, same <code>PIPESTATUS</code> handling as the FL server wrapper</td>
+</tr>
+<tr>
+<td><code>run_benchmark.sh</code></td>
+<td><code>benchmarks.py</code></td>
+<td>Plain passthrough; its header documents the <code>preds.json</code> shape</td>
+</tr>
+<tr>
+<td><code>run_clients.sh</code></td>
+<td><code>client.py</code> × N</td>
+<td>Developer convenience only — spawns N clients in new terminals (iTerm / Terminal.app / gnome-terminal / xfce4-terminal). Carries a <strong>hardcoded <code>PROJECT_ID</code></strong> and a <code>PROJECT_ROOT</code> computed by walking six levels up from a directory layout that no longer exists; edit before use</td>
+</tr>
+</tbody>
+</table>
+<p>All the <code>.sh</code> wrappers <code>cd</code> into <code>SCRIPT_DIR</code> before running Python. That is what makes the scripts' sibling imports (<code>import recipes</code>, <code>from config import …</code>, <code>from data import …</code>) resolve regardless of the caller's working directory.</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

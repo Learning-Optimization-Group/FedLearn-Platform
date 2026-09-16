@@ -17,9 +17,31 @@ unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY
 export no_proxy="*"
 export GRPC_ENABLE_FORK_SUPPORT=0
 
+# Forward the recipe key + aggregation strategy from the environment when set (the desktop's
+# buildContainerEnv sets MODEL_TYPE/STRATEGY). MODEL_TYPE was previously dropped here — the container
+# client then silently defaulted to CNN; and without STRATEGY a non-MLP DeComFL project ran the
+# FedAvg client path against a DeComFL server (a silent mismatch). An array keeps empty/spaced values
+# safe, and an explicit --model-type/--strategy in "$@" still wins (argparse takes the last).
+EXTRA_ARGS=()
+if [ -n "$MODEL_TYPE" ]; then
+    echo "[entrypoint] MODEL_TYPE=$MODEL_TYPE"
+    EXTRA_ARGS+=(--model-type "$MODEL_TYPE")
+fi
+if [ -n "$STRATEGY" ]; then
+    echo "[entrypoint] STRATEGY=$STRATEGY"
+    EXTRA_ARGS+=(--strategy "$STRATEGY")
+fi
+if [ -n "$TRAINING_ARM" ]; then
+    # The arm the FL server was spawned with. Without it the client trains and uploads every
+    # parameter while a FROZEN_HEAD server expects only the head.
+    echo "[entrypoint] TRAINING_ARM=$TRAINING_ARM"
+    EXTRA_ARGS+=(--training-arm "$TRAINING_ARM")
+fi
+
 echo "[entrypoint] Launching python3 client.py ..."
 exec python3 -u client.py \
     --project-id "$PROJECT_ID" \
     --server-address "$SERVER_ADDRESS" \
     --partition-id "$PARTITION_ID" \
+    "${EXTRA_ARGS[@]}" \
     "$@"

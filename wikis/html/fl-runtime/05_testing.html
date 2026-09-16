@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 — Testing & CI · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>FL Runtime</summary><ul>
+<li><a href="README.html">FL Runtime Wiki</a></li>
+<li><a href="01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a class="active" href="05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>FL Runtime</b> &nbsp;·&nbsp; 05 — Testing & CI</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="05-testing-ci">05 — Testing &amp; CI<a class="headerlink" href="#05-testing-ci" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a> → <a href="README.html">FL Runtime Wiki</a></p>
+</blockquote>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#running-the-suite">Running the Suite</a></li>
+<li><a href="#pytestini-and-the-slow-marker"><code>pytest.ini</code> and the <code>slow</code> Marker</a></li>
+<li><a href="#conftestpy--making-import-fedlearn-work"><code>conftest.py</code> — making <code>import fedlearn</code> work</a></li>
+<li><a href="#te-10-a-skipped-test-fails-the-job">TE-10: a Skipped Test Fails the Job</a></li>
+<li><a href="#the-ci-job">The CI Job</a></li>
+<li><a href="#what-the-suite-pins">What the Suite Pins</a></li>
+<li><a href="#known-staleness-around-this-layer">Known Staleness Around This Layer</a></li>
+</ul>
+<hr />
+<h2 id="running-the-suite">Running the Suite<a class="headerlink" href="#running-the-suite" title="Permanent link">&para;</a></h2>
+<p><code>fl-runtime/</code> has its <strong>own</strong> pytest suite, separate from <code>framework/tests/</code> and gated by its own CI job.</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>fl-runtime<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q
+</code></pre></div>
+
+<p>That is verbatim how CI runs it. As of this writing the suite collects <strong>287 tests across 40 files</strong>; <code>pytest.ini</code> deselects 28 as <code>slow</code>, leaving <strong>259 selected</strong>.</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># a single file</span>
+<span class="nb">cd</span><span class="w"> </span>fl-runtime<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/test_training_arm.py<span class="w"> </span>-q
+
+<span class="c1"># include the slow tests (needs network and/or cached model artifacts)</span>
+<span class="nb">cd</span><span class="w"> </span>fl-runtime<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;&quot;</span>
+
+<span class="c1"># reproduce CI&#39;s skip-integrity gate locally</span>
+<span class="nb">cd</span><span class="w"> </span>fl-runtime<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">FEDLEARN_FAIL_ON_UNEXPECTED_SKIP</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q
+</code></pre></div>
+
+<hr />
+<h2 id="pytestini-and-the-slow-marker"><code>pytest.ini</code> and the <code>slow</code> Marker<a class="headerlink" href="#pytestini-and-the-slow-marker" title="Permanent link">&para;</a></h2>
+<p>The whole file is three directives:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">[pytest]</span>
+<span class="na">addopts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">-m &quot;not slow&quot;</span>
+<span class="na">markers</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="na">slow</span><span class="o">:</span><span class="w"> </span><span class="s">marks tests that require network access or cached model artifacts (deselect with -m &quot;not slow&quot;)</span>
+</code></pre></div>
+
+<p>Two things follow, and the distinction between them matters:</p>
+<ul>
+<li><strong><code>-m "not slow"</code> is a <em>deselection</em>, not a skip.</strong> Deselected tests emit no skip report at all, so they never trip the TE-10 guard below. This is the sanctioned way to keep a network-dependent test out of the default run.</li>
+<li><strong>There is no coverage enforcement here.</strong> Unlike <code>framework/pytest.ini</code>, which adds <code>--cov=fedlearn</code> and can fail its job on a coverage drop, this suite's job is a bare pytest with the skip guard.</li>
+</ul>
+<p>Twelve files carry at least one <code>@pytest.mark.slow</code>: <code>test_arm_applies_to_every_recipe_branch</code>, <code>test_client_llm_lora</code>, <code>test_declared_arms_are_wire_compatible</code>, <code>test_frozen_means_frozen</code>, <code>test_infer_generate</code>, <code>test_infer_registry_dispatch</code>, <code>test_infer_text</code>, <code>test_init_model_llm_lora</code>, <code>test_llm_lora_recipe</code>, <code>test_pretrained_backbone</code>, <code>test_recipe_cnn_data_parity</code>, <code>test_recipes_registry</code>. In every case the reason is the same: a real dataset download (CIFAR-10, SST-2) or a real HuggingFace checkpoint pull.</p>
+<p>Two files — <code>test_client_llm_lora.py</code> and <code>test_init_model_llm_lora.py</code> — contribute <strong>zero</strong> selected tests, because every test in them is slow-marked.</p>
+<hr />
+<h2 id="conftestpy-making-import-fedlearn-work"><code>conftest.py</code> — making <code>import fedlearn</code> work<a class="headerlink" href="#conftestpy-making-import-fedlearn-work" title="Permanent link">&para;</a></h2>
+<p><code>tests/conftest.py</code> does two things before any test runs.</p>
+<p><strong>1. It puts the in-repo framework on <code>sys.path</code>.</strong> The trainer scripts do <code>import fedlearn</code>, which in a real deployment is pip-installed alongside them. A bare checkout and the CI job do not install it, so every test that imports one of those scripts would die at <em>collection</em> with <code>ModuleNotFoundError</code>. The conftest walks up to twelve directory levels looking for <code>framework/src</code>, prepends it to <code>sys.path</code>, <strong>and also exports it on <code>PYTHONPATH</code></strong> — because several tests spawn <code>python init_model.py</code> (etc.) in a fresh interpreter that re-imports <code>fedlearn</code> but does not inherit the parent's <code>sys.path</code>. Only <code>PYTHONPATH</code> crosses a process boundary.</p>
+<p><strong>2. It installs the TE-10 skip-integrity guard</strong>, described next.</p>
+<hr />
+<h2 id="te-10-a-skipped-test-fails-the-job">TE-10: a Skipped Test Fails the Job<a class="headerlink" href="#te-10-a-skipped-test-fails-the-job" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>A silently-skipped test is a <strong>false green</strong>: the suite reports success while the behaviour under test never ran.</p>
+</blockquote>
+<p>When the guard is active, any test that ends up SKIPPED for a reason not explicitly allowlisted fails the run with a summary of the offenders.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">_ALLOWED_SKIP_REASONS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>   <span class="c1"># this suite has no legitimate skips today</span>
+</code></pre></div>
+
+<p><strong>Activation:</strong> on when <code>$CI</code> is truthy (GitHub Actions always sets <code>CI=true</code>); force it with <code>FEDLEARN_FAIL_ON_UNEXPECTED_SKIP=1</code>, suppress it with <code>=0</code>.</p>
+<p><strong>What does <em>not</em> trip it:</strong></p>
+<ul>
+<li><code>-m "not slow"</code> deselection — deselected tests emit no skip report at all, so the slow-marker workflow is untouched.</li>
+<li><code>xfail</code> / <code>xpass</code> — an expected failure is not a silent skip.</li>
+<li>Reasons listed in <code>_ALLOWED_SKIP_REASONS</code>. That set is currently empty, and each future entry needs a written justification.</li>
+</ul>
+<p>Implementation-wise the guard hooks three points, which is what makes it hard to sneak past: <code>pytest_runtest_logreport</code> (marker skips surface in setup, runtime <code>pytest.skip</code>/<code>importorskip</code> in call), <code>pytest_collectreport</code> (module-level skips and module <code>importorskip</code>), and <code>pytest_sessionfinish</code> (flips a green <code>exitstatus</code> to 1). The terminal summary spells out the remedy:</p>
+<blockquote>
+<p>"A skipped test is a false green: make it run, or allowlist its exact reason in <code>tests/conftest.py</code> with a written justification."</p>
+</blockquote>
+<p>The same guard exists in <code>framework/tests/conftest.py</code>; it is duplicated rather than shared so this directory stays self-contained in deployments.</p>
+<hr />
+<h2 id="the-ci-job">The CI Job<a class="headerlink" href="#the-ci-job" title="Permanent link">&para;</a></h2>
+<p><code>.github/workflows/ci.yml</code>, job <strong><code>backend-scripts</code></strong>. CI is path-filtered — this job runs only when the filter matches:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">backend_scripts</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&#39;fl-runtime/**&#39;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&#39;backend/fl-platform-api/requirements.txt&#39;</span>
+</code></pre></div>
+
+<p>The second path is there because <code>test_requirements_security_floors.py</code> reads that lockfile.</p>
+<div class="codehilite"><pre><span></span><code><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pytest (FL trainer scripts; pytest.ini deselects -m slow)</span>
+<span class="w">  </span><span class="nt">working-directory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fl-runtime</span>
+<span class="w">  </span><span class="nt">env</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">FEDLEARN_FAIL_ON_UNEXPECTED_SKIP</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;1&#39;</span>
+<span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">python -m pytest -q</span>
+</code></pre></div>
+
+<p>Environment notes worth knowing before you debug a red job:</p>
+<ul>
+<li><strong>Python 3.12.</strong> Matches the repo pin (<code>.tool-versions</code> → 3.12.9); the framework declares a 3.10+ floor but 3.12 is what is actually tested.</li>
+<li><strong>CPU torch, pinned to <code>2.5.1</code> / torchvision <code>0.20.1</code> / torchaudio <code>2.5.1</code></strong> from the PyTorch CPU index, so pip treats them as satisfied and does not re-resolve torch off the default index. <strong>This differs from the <code>framework</code> job, which pins <code>torch==2.12.0</code></strong> to match the DeComFL golden fixture — the two jobs deliberately run different torch versions.</li>
+<li><strong><code>peft</code>, <code>scikit-learn</code> and <code>PyJWT</code> are installed explicitly</strong>, on top of <code>backend/fl-platform-api/requirements.txt</code>. They are not in that lockfile (it predates the LoRA work), but the non-slow suite needs all three: <code>client.py</code> has a module-level <code>import sklearn</code> (line 4), so <em>any</em> test importing it fails at collection without it; the LoRA / eval-card / perplexity tests import <code>peft</code> at runtime; and the FL-server import chain reaches <code>security/token_verify.py</code> → <code>import jwt</code>. Without them the suite errors out with collection errors — a false red the moment the scripts change.</li>
+<li>The job installs the <strong>backend</strong> lockfile and reaches the framework via <code>sys.path</code>, which is why those three have to be named here rather than inherited.</li>
+</ul>
+<hr />
+<h2 id="what-the-suite-pins">What the Suite Pins<a class="headerlink" href="#what-the-suite-pins" title="Permanent link">&para;</a></h2>
+<p>Most of these files are named after a <em>property</em>, not a function, because most of them were written after a live federation surfaced a defect that unit tests had missed. Grouped by concern:</p>
+<h3 id="training-arms">Training arms<a class="headerlink" href="#training-arms" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Selected</th>
+<th>Pins</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>test_training_arm.py</code></td>
+<td>21</td>
+<td>The arm as a first-class declared concept: <code>apply_arm</code> idempotence, unknown-arm rejection, <code>validate_arm</code> resolution, the federated payload following the arm, and the provenance stamp differing across arms of the same recipe</td>
+</tr>
+<tr>
+<td><code>test_arm_client_server_agreement.py</code></td>
+<td>18</td>
+<td>The contract the whole feature rests on — client and server must agree on <strong>which parameters are federated</strong>. Nothing asserted this until P1-5, and the gap was real: the client kept its default <code>FULL</code> and uploaded a full state dict to a server holding only the head</td>
+</tr>
+<tr>
+<td><code>test_ova_lp_arm.py</code></td>
+<td>17</td>
+<td><code>OVA_LP</code> is declared, is offered only where <code>FROZEN_HEAD</code> is, trains the <em>same parameters</em> as <code>FROZEN_HEAD</code>, and carries the one-vs-all objective. Also documents what is deliberately <strong>not</strong> implemented (the two-stage schedule)</td>
+</tr>
+<tr>
+<td><code>test_arm_tradeoff.py</code></td>
+<td>17</td>
+<td>The picker's numbers are a rendering of the record, not a hand-written claim — regenerates and compares where the record is present, and rejects a number shown without its caveat</td>
+</tr>
+<tr>
+<td><code>test_arm_eval_card.py</code></td>
+<td>5</td>
+<td>The arm rides on every result and cannot silently collide with another arm's result. Written before the implementation</td>
+</tr>
+<tr>
+<td><code>test_arm_does_not_choose_the_dataset.py</code></td>
+<td>4</td>
+<td>The arm must not decide which <strong>dataset</strong> the client loads. From a live crash: <code>Expected 3D or 4D input to conv2d, but got input of size: [32, 256]</code></td>
+</tr>
+<tr>
+<td><code>test_fl_server_arm_scope.py</code></td>
+<td>3</td>
+<td>The server's arm filter must be <em>reachable at runtime</em> — a function-local <code>import recipes</code> further down <code>main()</code> made the earlier use an unbound local</td>
+</tr>
+<tr>
+<td><code>test_arm_applies_to_every_recipe_branch.py</code></td>
+<td>2 (3 slow)</td>
+<td>The arm must be applied whichever branch built the model. From a live <code>FROZEN_HEAD</code> run whose backbone moved by 0.65 while reporting itself frozen</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-frozen-path-and-the-wire">The frozen path and the wire<a class="headerlink" href="#the-frozen-path-and-the-wire" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Selected</th>
+<th>Pins</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>test_server_eval_strictness.py</code></td>
+<td>8</td>
+<td>Server-side evaluation must load a subset-federated global model <strong>non-strictly</strong>, derived from the arm rather than a hardcoded recipe name</td>
+</tr>
+<tr>
+<td><code>test_frozen_save_preserves_backbone.py</code></td>
+<td>7</td>
+<td>A frozen run must not destroy the backbone its own output depends on</td>
+</tr>
+<tr>
+<td><code>test_fedprox_respects_the_frozen_arm.py</code></td>
+<td>7</td>
+<td>The proximal term regularises the federated subset and leaves the frozen backbone alone — <code>_apply_proximal_gradient</code> zips positionally, so a wrong <code>global_params</code> would pair backbone tensors with head values and stop</td>
+</tr>
+<tr>
+<td><code>test_frozen_means_frozen.py</code></td>
+<td>6 (slow)</td>
+<td>A frozen backbone must not adapt its BatchNorm statistics to local data</td>
+</tr>
+<tr>
+<td><code>test_frozen_backbone_recipe.py</code></td>
+<td>6</td>
+<td>The <code>FROZEN_DEMO</code> recipe builder + the DA-11 partial-load path</td>
+</tr>
+<tr>
+<td><code>test_pretrained_backbone.py</code></td>
+<td>5 (slow)</td>
+<td>Pretrained-backbone recipes — and the honest negative that motivated them: <code>FROZEN_HEAD</code> on a randomly-initialised CIFAR-10 backbone sat at chance (10.05 / 10.02 / 10.00 %, loss 2.3042 against ln(10) = 2.3026)</td>
+</tr>
+<tr>
+<td><code>test_client_derived_subset_federation.py</code></td>
+<td>2</td>
+<td>The production client federates a derived model <strong>head-only</strong></td>
+</tr>
+<tr>
+<td><code>test_declared_arms_are_wire_compatible.py</code></td>
+<td>1 (slow)</td>
+<td>A recipe must not declare an arm whose payload cannot cross the wire — targets the defect <em>class</em>, having seen three instances</td>
+</tr>
+<tr>
+<td><code>test_frozen_backbone_federation_run.py</code></td>
+<td>1</td>
+<td>Derivation actually runs: a real, converging, multi-round head-only FedAvg loop, seeded and self-contained</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-recipe-registry">The recipe registry<a class="headerlink" href="#the-recipe-registry" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Selected</th>
+<th>Pins</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>test_recipes_registry.py</code></td>
+<td>23 (some slow)</td>
+<td>Every dispatched key resolves; the <code>--describe</code> catalog stays byte-stable; <code>BLOOD_CNN</code> is resolvable but un-advertised; and DA-14 Ph3.1's data-driven <code>init_model.get_model</code> routes an arbitrary fake recipe through with no <code>init_model</code> edit</td>
+</tr>
+<tr>
+<td><code>test_recipes_base_models_buildable.py</code></td>
+<td>9</td>
+<td>Every advertised <code>(recipe, base_model)</code> pair instantiates without raising — an advertised base model is a user-facing promise. Pretrained downloads are stubbed with tiny <code>from_config</code> models, so the test proves the name-dispatch path reaches a real constructor without touching the network</td>
+</tr>
+<tr>
+<td><code>test_llm_lora_recipe.py</code></td>
+<td>8 (some slow)</td>
+<td>The LoRA recipe: adapter keys, tokenizer-per-base-model, <code>FFA_LORA</code> freezing</td>
+</tr>
+<tr>
+<td><code>test_recipe_cnn_data_parity.py</code></td>
+<td>5 (slow)</td>
+<td>The CIFAR-10 shard is byte-identical to the <code>flwr</code> implementation it replaced — the fixed-10-shard partitioner, the <code>shuffle→shard→split</code> order, and the train/test source asymmetry</td>
+</tr>
+<tr>
+<td><code>test_causal_lm_recipe.py</code></td>
+<td>4</td>
+<td>The <code>CAUSAL_LM</code> task path</td>
+</tr>
+<tr>
+<td><code>test_recipe_mlp_data_parity.py</code></td>
+<td>2</td>
+<td>The ECG shard reproduces the exact partition the hand-threaded <code>ecg_loader</code> call produced</td>
+</tr>
+<tr>
+<td><code>test_recipe_catalog_matches_runnable_choices.py</code></td>
+<td>2</td>
+<td>The catalog equals the set of <code>--model-type</code> values the scripts accept — the guarantee SE-10's spawn gate rests on</td>
+</tr>
+</tbody>
+</table>
+<h3 id="server-client-inference-and-infrastructure">Server, client, inference and infrastructure<a class="headerlink" href="#server-client-inference-and-infrastructure" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Selected</th>
+<th>Pins</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>test_fl_server_select_strategy.py</code></td>
+<td>19</td>
+<td>Every <code>--strategy</code> branch constructs the right framework strategy with the right hyperparameters, and an unrecognised name fails loud (FR-28)</td>
+</tr>
+<tr>
+<td><code>test_fl_server_eval_card.py</code></td>
+<td>12</td>
+<td>SE-11: a DP run's card carries an <code>accounted_epsilon</code> verbatim from the strategy; a non-DP run has <strong>no</strong> <code>dp</code> key at all. Plus DA-3's run-seed contract — the card's <code>seed</code> is always a concrete integer</td>
+</tr>
+<tr>
+<td><code>test_benchmarks.py</code></td>
+<td>9</td>
+<td>The metric core, over pure <code>(y_true, y_pred[, y_score])</code> inputs with no torch and no GPU</td>
+</tr>
+<tr>
+<td><code>test_client_tinynet_golden_decomfl.py</code></td>
+<td>7</td>
+<td>A desktop client can join a <code>TINYNET_GOLDEN</code> DeComFL federation with the phone as the other client — same recipe, byte-identical state-dict keys, deterministic frozen <code>fc2</code></td>
+</tr>
+<tr>
+<td><code>test_client_fedprox_config.py</code></td>
+<td>6</td>
+<td>FR-32: the production client <strong>honors</strong> FedProx (it used to refuse it), plus the string→int <code>local_epochs</code> coercion the <code>map&lt;string,string&gt;</code> gRPC config forces</td>
+</tr>
+<tr>
+<td><code>test_pneumonia_hf_load_kwargs.py</code></td>
+<td>5</td>
+<td>SE-19: the HuggingFace fallback must not auto-execute remote code</td>
+</tr>
+<tr>
+<td><code>test_infer_registry_dispatch.py</code></td>
+<td>5 (slow)</td>
+<td><code>infer.build_model</code> delegating to the registry is byte-identical: same state-dict keys, same labels, same input kind — and the returned module is now the registry's class</td>
+</tr>
+<tr>
+<td><code>test_device.py</code></td>
+<td>4</td>
+<td><code>resolve_device</code>: <code>auto</code> ordering and the fall-back-to-cpu-with-a-warning behaviour</td>
+</tr>
+<tr>
+<td><code>test_requirements_security_floors.py</code></td>
+<td>3</td>
+<td>The backend lockfile must not pin below the security floors <code>framework/requirements.txt</code> documents — and <code>flwr</code> stays out of the lockfiles</td>
+</tr>
+<tr>
+<td><code>test_infer_chat.py</code> / <code>test_infer_text.py</code> / <code>test_infer_generate.py</code></td>
+<td>2 / 1 / 1</td>
+<td>Chat-history rendering, text classification, and generative inference</td>
+</tr>
+<tr>
+<td><code>test_init_model_tinynet_golden.py</code> / <code>test_init_model_llm_lora.py</code></td>
+<td>1 / 0 (slow)</td>
+<td><code>init_model.py</code>'s two non-default state-dict extraction branches</td>
+</tr>
+<tr>
+<td><code>test_fl_server_perplexity.py</code></td>
+<td>1</td>
+<td><code>perplexity_from_loss</code> is overflow-guarded — a diverged round reports <code>inf</code> rather than raising</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="known-staleness-around-this-layer">Known Staleness Around This Layer<a class="headerlink" href="#known-staleness-around-this-layer" title="Permanent link">&para;</a></h2>
+<p>Recorded here because it is real, is not fixed by anything in this directory, and would otherwise be rediscovered the hard way. None of it is a wiki claim; all of it was read directly.</p>
+<ul>
+<li><strong><code>run_fl_server.bat</code> and <code>run_init_model.bat</code> are broken.</strong> Both hardcode a personal Anaconda root and invoke <code>python src\main\resources\scripts\&lt;script&gt;.py</code> — a path that does not exist anywhere in this repository. There are no <code>.bat</code> companions at all for <code>run_recipes.sh</code>, <code>run_infer.sh</code>, <code>run_fot_server.sh</code> or <code>run_benchmark.sh</code>, so the Windows branch of the backend's spawn logic has nothing valid to point at for those.</li>
+<li><strong><code>client-docker/packaging/fedlearn-client.spec:37</code> still lists <code>flwr_datasets</code> in <code>FULL_COLLECT</code>, and the loop <code>raise</code>s on failure.</strong> Since <code>flwr-datasets</code> is no longer installed anywhere, <code>collect_all('flwr_datasets')</code> will fail and take the PyInstaller build down with it. The <code>NOTE: matplotlib cannot be excluded — flwr_datasets/__init__.py …</code> comment at line 95 is stale for the same reason. <code>client-docker/requirements.txt:23</code>'s pyarrow note is stale but inert.</li>
+<li><strong><code>application.properties</code> lines 145-147</strong> describe the local-process Python paths as <em>"used by ModelInitializer for dev runs only — production uses the ECS Fargate FL-server path"</em>. There is no ECS path; OP-14 removed it and <code>FlOrchestrationModeValidator</code> now fails the boot if <code>ecs.cluster-name</code> is set. These paths are the only path, in every profile.</li>
+<li><strong><code>python.script.init-model.path</code> and <code>python.flbat.path</code> are defined but read by no Java class.</strong> <code>ModelInitializer</code> uses <code>python.executable.path</code> (which, despite the name, holds a <em>wrapper script</em> path, not an interpreter).</li>
+<li><strong><code>select_strategy</code>'s docstring contradicts its code.</strong> It says "FedAvg remains the fallback for both the explicit <code>fedavg</code> name and any unrecognized strategy"; FR-28 changed that to a hard <code>ValueError</code>. The code is right.</li>
+<li><strong><code>benchmarks.py</code>'s module docstring refers to a <code>run_benchmark.py</code> CLI</strong> that does not exist — the CLI is <code>benchmarks.py</code> itself, reached through <code>run_benchmark.sh</code>.</li>
+<li><strong><code>init_model.py:18-36</code> defines a <code>CnnNet</code> that nothing references.</strong> <code>get_model</code> builds <code>CNN</code> through the registry (<code>models.CnnNet</code>). Dead code.</li>
+<li><strong><code>Recipe.is_functional</code>'s hardcoded tuple omits <code>CIFAR_RESNET18</code></strong>, whose model and data both live in <code>recipes.py</code>. Nothing in production reads the property, so this is an inaccurate signal rather than a behavioural bug.</li>
+<li><strong><code>run_clients.sh</code> carries a hardcoded <code>PROJECT_ID</code></strong> and computes <code>PROJECT_ROOT</code> by walking six levels up from a directory layout that no longer exists. Edit before use.</li>
+<li><strong><code>fl_server_deep_debug.log</code> (~93 KB) and <code>fl_server_deep_debug.log.FedProx.marker</code> sit in the working tree.</strong> <code>run_fl_server.sh</code> truncates and rewrites the log on every run, so it is a run artifact rather than source.</li>
+<li><strong>The frontend's <code>Project.trainingArm</code> type is <code>'FULL' | 'FROZEN_HEAD'</code></strong> (<code>frontend/src/services/apiServices.ts:66</code>), which is missing <code>OVA_LP</code>. The picker itself renders <code>supportedArms</code> from the catalog, so the selector still offers the arm; it is the narrower response type that is out of date.</li>
+</ul></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

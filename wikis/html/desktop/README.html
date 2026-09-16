@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FedLearn Desktop — Wiki · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Desktop</summary><ul>
+<li><a class="active" href="README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Desktop</b> &nbsp;·&nbsp; FedLearn Desktop — Wiki</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="fedlearn-desktop-wiki">FedLearn Desktop — Wiki<a class="headerlink" href="#fedlearn-desktop-wiki" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a></p>
+</blockquote>
+<p>The <code>fedlearn-desktop</code> module is the cross-platform Electron application that serves as the local training orchestrator for FedLearn participants. It provides a secure graphical interface to configure, launch, and monitor federated learning training sessions — either through a PyInstaller native binary (macOS MPS, Windows CUDA/CPU) or a Docker container (NVIDIA Jetson SoC) — and to run inference against already-trained models.</p>
+<blockquote>
+<p><strong>Design-system history.</strong> The renderer moved to the <strong>Ember</strong> system in <code>3.1.0-beta</code> (<code>0da835b</code>), which had itself superseded <strong>Instrument</strong> (<code>74cda60</code>). Both are now history: <code>2c50672</code> replaced Ember with <strong>Ledger</strong> — navy structural ink on quiet paper surfaces, light-first — and <code>3d54484</code> rolled Ledger across web, desktop and mobile. <code>src/renderer/tokens.css</code> is generated from <code>design/tokens.json</code> by <code>design/build-tokens.mjs</code> and carries a <code>DO NOT EDIT</code> header; a CI job (<code>scripts/check_design_tokens.sh</code>) fails the build if it drifts from the source of truth. Bricolage Grotesque was retired with Ember — the font stack is Hanken Grotesk (sans <strong>and</strong> display) plus JetBrains Mono, both self-hosted via <code>@fontsource</code>.</p>
+<p>The three-process security model, the contextBridge IPC contract, and the two execution paths below are unaffected by any of those cycles.</p>
+</blockquote>
+<p><strong>Current version: <code>3.2.0-beta</code></strong> (<code>fedlearn-desktop/package.json</code>, mirrored in <a href="../VERSIONS.html"><code>wikis/VERSIONS.md</code></a>).</p>
+<hr />
+<h2 id="document-index">Document Index<a class="headerlink" href="#document-index" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Document</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>01</td>
+<td><a href="01-overview-and-architecture.html">Overview &amp; Architecture</a></td>
+<td>Three-process model, execution paths, data flow, directory structure, key design decisions</td>
+</tr>
+<tr>
+<td>02</td>
+<td><a href="02-security-model.html">Security Model</a></td>
+<td>BrowserWindow hardening, CSP, contextBridge, double-validation, dataset-path consent, JWT confinement, safeStorage, XSS prevention, dependency posture</td>
+</tr>
+<tr>
+<td>03</td>
+<td><a href="03-main-process.html">Main Process Deep Dive</a></td>
+<td><code>main.ts</code>, <code>ipc.handlers.ts</code>, <code>validators.ts</code>, <code>docker.service.ts</code>, <code>auth.service.ts</code>, <code>http.ts</code>, <code>hardware.probe.ts</code>, the inference/client-project services, IPC channel reference</td>
+</tr>
+<tr>
+<td>04</td>
+<td><a href="04-preload-ipc-bridge.html">Preload &amp; IPC Bridge</a></td>
+<td>contextBridge API, validation strategy, complete <code>window.fedLearnAPI</code> reference, push channels, TypeScript integration</td>
+</tr>
+<tr>
+<td>05</td>
+<td><a href="05-renderer-components.html">Renderer &amp; React Components</a></td>
+<td>Shell layout, <code>App.tsx</code> state, <code>TrainSection</code>, <code>ModelPlayground</code>, <code>SettingsSection</code>, <code>AuthModal</code>, <code>LogPanel</code>, <code>StatusBar</code>, <code>UpdateBanner</code>, styles, performance patterns</td>
+</tr>
+<tr>
+<td>06</td>
+<td><a href="06-build-and-packaging.html">Build, Packaging &amp; Distribution</a></td>
+<td>Webpack configs, dev workflow, production build, electron-builder, PyInstaller bundle, platform details, code signing, release artifacts, CI gates</td>
+</tr>
+<tr>
+<td>07</td>
+<td><a href="07-hardware-profiles.html">Hardware Profiles &amp; Training Execution</a></td>
+<td>MPS, CUDA, CPU, Jetson profiles; execution flows; Jetson GPU access (the <code>--runtime nvidia</code> correction); launch arguments; lifecycle state machine; troubleshooting</td>
+</tr>
+<tr>
+<td>08</td>
+<td><a href="08-developer-guide.html">Developer Guide &amp; Contributing</a></td>
+<td>Prerequisites, setup, script reference, conventions, adding IPC channels/components/profiles, debugging, the jest suite, gotchas</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="quick-reference">Quick Reference<a class="headerlink" href="#quick-reference" title="Permanent link">&para;</a></h2>
+<h3 id="technology-stack">Technology Stack<a class="headerlink" href="#technology-stack" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>Electron 42.x  ←→  React 18.3 + TypeScript 5.7
+     │
+     ├── Main Process (Node.js)
+     │   ├── dockerode          — Docker Engine API (Jetson path only)
+     │   ├── electron-store + safeStorage — encrypted JWT + saved credentials
+     │   ├── axios (shared `http` instance) — backend REST
+     │   ├── @stomp/stompjs + ws — STOMP bridge for streaming inference tokens
+     │   ├── electron-updater   — background auto-update
+     │   └── electron-log       — structured logging
+     │
+     ├── Preload (contextBridge)
+     │   └── Input validation + ipcRenderer
+     │
+     └── Renderer (Chromium sandbox)
+         └── React SPA + lucide-react icons (no Node.js access)
+</code></pre></div>
+
+<h3 id="execution-paths">Execution Paths<a class="headerlink" href="#execution-paths" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Profile</th>
+<th>Backend</th>
+<th>GPU Runtime</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mps</code></td>
+<td>PyInstaller binary</td>
+<td>Apple Metal Performance Shaders</td>
+</tr>
+<tr>
+<td><code>discrete</code></td>
+<td>PyInstaller binary</td>
+<td>NVIDIA CUDA</td>
+</tr>
+<tr>
+<td><code>cpu</code></td>
+<td>PyInstaller binary</td>
+<td>CPU only</td>
+</tr>
+<tr>
+<td><code>jetson</code></td>
+<td>Docker container</td>
+<td>NVIDIA Tegra — see <a href="07-hardware-profiles.html#nvidia-jetson-soc-docker">07</a> before trusting the device-mount recipe on JetPack 6+</td>
+</tr>
+</tbody>
+</table>
+<p><code>DockerService.startTraining()</code> dispatches on <code>hardwareProfile</code> alone: <code>jetson</code> → Docker, everything else → the bundled native client.</p>
+<h3 id="development-quick-start">Development Quick Start<a class="headerlink" href="#development-quick-start" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>fedlearn-desktop
+npm<span class="w"> </span>install
+npm<span class="w"> </span>run<span class="w"> </span>dev<span class="w">       </span><span class="c1"># Starts 4 processes (webpack main + preload + renderer dev server + Electron)</span>
+</code></pre></div>
+
+<h3 id="build-package">Build &amp; Package<a class="headerlink" href="#build-package" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>npm<span class="w"> </span>run<span class="w"> </span>build<span class="w">                </span><span class="c1"># Production webpack compile (all three targets)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:mac<span class="w">          </span><span class="c1"># macOS DMG + zip (arm64 only)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:win:cpu<span class="w">      </span><span class="c1"># Windows NSIS (CPU client bundle)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:win:cuda<span class="w">     </span><span class="c1"># Windows NSIS (CUDA client bundle)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:linux<span class="w">        </span><span class="c1"># Linux AppImage + deb (x64 + arm64)</span>
+</code></pre></div>
+
+<p>Every <code>package:*</code> script runs <code>scripts/check-native-bundle.js</code> <strong>first</strong> — packaging aborts loudly if the PyInstaller client bundle is missing rather than shipping an installer that fails on "Start training".</p>
+<h3 id="key-security-invariants">Key Security Invariants<a class="headerlink" href="#key-security-invariants" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>JWT stays in Main.</strong> The renderer only receives <code>{ success: boolean }</code>; the token is encrypted with <code>safeStorage</code> (OS keychain) and never crosses the bridge.</li>
+<li><strong>All inputs validated twice.</strong> Preload (<code>preload.ts</code>) and again in Main (<code>validators.ts</code>, called from <code>ipc.handlers.ts</code>).</li>
+<li><strong>Only a user-chosen dataset directory can be bind-mounted.</strong> <code>dataset-consent.ts</code> records paths returned by the native directory dialog; <code>docker:start-training</code> refuses any other path.</li>
+<li><strong>Docker socket never mounted into containers.</strong> Only <code>DockerService</code> in Main touches it — and it is not even probed until the Jetson path needs it.</li>
+<li><strong>Log output rendered as plain text.</strong> No <code>innerHTML</code>, no <code>dangerouslySetInnerHTML</code>.</li>
+<li><strong>No new window creation from the renderer.</strong> <code>setWindowOpenHandler</code> denies every open; <code>will-navigate</code> blocks off-app navigation.</li>
+<li><strong>Remote plaintext <code>http://</code> server URLs are refused</strong> unless the user explicitly acknowledges the risk (DE-13).</li>
+</ol>
+<hr />
+<h2 id="related-documentation">Related Documentation<a class="headerlink" href="#related-documentation" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../backend/README.html">Backend Wiki</a> — Spring Boot API that coordinates federated learning rounds</li>
+<li><a href="../frontend/README.html">Frontend Wiki</a> — Web dashboard for project management</li>
+<li><a href="../framework/README.html">Framework Wiki</a> — Python federated learning framework. It is <strong>entirely custom</strong> — its own server, client, strategies and protobuf, with no Flower FL semantics. <code>flwr</code>/<code>flwr-datasets</code> are no longer dependencies of any unit either (dropped in <code>65048b6</code>); the desktop app never depended on them.</li>
+<li><a href="../client-docker/README.html">Client Docker Wiki</a> — the container image the Jetson profile runs, and the PyInstaller packaging scripts the desktop installers embed</li>
+<li><a href="../mobile/README.html">Mobile Wiki</a> — the on-device mobile FL client</li>
+</ul></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

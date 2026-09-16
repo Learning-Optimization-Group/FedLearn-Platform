@@ -1,12 +1,20 @@
 package com.federated.fl_platform_api.controller;
 
+import com.federated.fl_platform_api.audit.Auditable;
 import com.federated.fl_platform_api.dto.LoginRequest;
 import com.federated.fl_platform_api.dto.RegisterRequest;
 import com.federated.fl_platform_api.exception.ResourceNotFoundException;
+import com.federated.fl_platform_api.model.AuditAction;
 import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.UserRepository;
+import com.federated.fl_platform_api.security.AuditingAuthenticationFailureHandler;
+import com.federated.fl_platform_api.security.AuditingAuthenticationSuccessHandler;
+import com.federated.fl_platform_api.security.JwtAuthenticationFilter;
 import com.federated.fl_platform_api.security.JwtTokenProvider;
+import com.federated.fl_platform_api.security.LoginRateLimiter;
+import com.federated.fl_platform_api.security.TokenRevocationService;
 import com.federated.fl_platform_api.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,10 +29,15 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -36,6 +49,10 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
     private final UserRepository userRepository;
+    private final AuditingAuthenticationSuccessHandler successHandler;
+    private final AuditingAuthenticationFailureHandler failureHandler;
+    private final LoginRateLimiter loginRateLimiter;
+    private final TokenRevocationService tokenRevocationService;
 
     @Value("${app.auth.cookie.secure:true}")
     private boolean cookieSecure;
@@ -43,20 +60,35 @@ public class AuthController {
     @Value("${app.auth.cookie.same-site:Strict}")
     private String cookieSameSite;
 
-    @Value("${app.auth.cookie.max-age-seconds:3600}")
-    private long cookieMaxAgeSeconds;
+    // SE-8: the auth cookie must not outlive the JWT (a valid-looking cookie past the JWT's exp yields
+    // silent 401s). Derive the cookie max-age from the JWT lifetime so the two can't drift.
+    @Value("${app.jwt.expiration-ms}")
+    private long jwtExpirationMs;
 
     @Autowired
     public AuthController(UserService userService, AuthenticationManager authenticationManager,
-                          JwtTokenProvider tokenProvider, UserRepository userRepository) {
+                          JwtTokenProvider tokenProvider, UserRepository userRepository,
+                          AuditingAuthenticationSuccessHandler successHandler,
+                          AuditingAuthenticationFailureHandler failureHandler,
+                          LoginRateLimiter loginRateLimiter,
+                          TokenRevocationService tokenRevocationService) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.tokenProvider = tokenProvider;
         this.userRepository = userRepository;
+        this.successHandler = successHandler;
+        this.failureHandler = failureHandler;
+        this.loginRateLimiter = loginRateLimiter;
+        this.tokenRevocationService = tokenRevocationService;
     }
 
     @PostMapping("/register")
     @SuppressWarnings("null")
+    // Caller is unauthenticated, so the aspect resolves actor=null. The generated user id
+    // is unavailable as a method parameter, so we omit targetIdParam — the action enum
+    // alone identifies the event. The aspect runs only after userService.registerUser
+    // succeeds; failed registrations (duplicate username, validation error) write no audit row.
+    @Auditable(action = AuditAction.USER_REGISTERED, targetType = "USER")
     public ResponseEntity<Map<String, Object>> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
         // UserAlreadyExistsException → 409, validation → 400, anything else → 500,
         // all centralised in GlobalExceptionHandler.
@@ -78,14 +110,45 @@ public class AuthController {
 
     @PostMapping("/login")
     @SuppressWarnings("null")
-    public ResponseEntity<Map<String, Object>> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
-        // AuthenticationException (bad credentials, locked, etc.) → 401 via GlobalExceptionHandler.
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequest.getUsername(),
-                        loginRequest.getPassword()
-                )
-        );
+    public ResponseEntity<Map<String, Object>> authenticateUser(@Valid @RequestBody LoginRequest loginRequest,
+                                                                HttpServletRequest http) {
+        // AuthenticationException (bad credentials, disabled, locked, etc.) → 401 via
+        // GlobalExceptionHandler. We catch it here only long enough to emit a
+        // USER_LOGIN_FAILED audit row, then rethrow so the existing 401 path is unchanged.
+        // SE-4: throttle brute-force. Block a locked-out username or source IP before even
+        // attempting authentication; a valid login below clears the account's counter.
+        String usernameKey = "u:" + loginRequest.getUsername();
+        String ipKey = "ip:" + http.getRemoteAddr();
+        if (loginRateLimiter.isLocked(usernameKey) || loginRateLimiter.isLocked(ipKey)) {
+            // SE-4 (done-when #1): tell the caller how long to back off. Use the longer of the two
+            // locked keys' remaining windows, rounded up to whole seconds (>= 1) per RFC 7231.
+            long retryAfterSeconds = Stream.of(usernameKey, ipKey)
+                    .map(loginRateLimiter::retryAfter)
+                    .flatMap(Optional::stream)
+                    .mapToLong(d -> Math.max(1L, (long) Math.ceil(d.toMillis() / 1000.0)))
+                    .max()
+                    .orElse(1L);
+            log.warn("Login throttled for user '{}' from {} (retry after {}s)",
+                    loginRequest.getUsername(), http.getRemoteAddr(), retryAfterSeconds);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header(HttpHeaders.RETRY_AFTER, Long.toString(retryAfterSeconds))
+                    .body(Map.<String, Object>of("error", "Too many failed login attempts. Please try again later."));
+        }
+
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getUsername(),
+                            loginRequest.getPassword()
+                    )
+            );
+        } catch (AuthenticationException ex) {
+            failureHandler.onFailure(loginRequest.getUsername(), http);
+            loginRateLimiter.recordFailure(usernameKey);
+            loginRateLimiter.recordFailure(ipKey);
+            throw ex;
+        }
 
         String authenticatedPrincipalName = authentication.getName();
         SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -98,24 +161,36 @@ public class AuthController {
                     return ResourceNotFoundException.forEntity("User", authenticatedPrincipalName);
                 });
 
+        // Emit USER_LOGIN_SUCCEEDED audit row and update last_login_at BEFORE building
+        // the response so a transient DB issue surfaces as a 500 rather than a half-committed login.
+        successHandler.onSuccess(authenticatedPrincipalName, http);
+        loginRateLimiter.reset(usernameKey); // a good password ends the throttle for this account
+
         ResponseCookie jwtCookie = ResponseCookie.from("jwtToken", jwt)
                 .httpOnly(true)
                 .secure(cookieSecure)
                 .path("/")
-                .maxAge(cookieMaxAgeSeconds)
+                .maxAge(jwtExpirationMs / 1000)   // SE-8: cookie expires with the JWT
                 .sameSite(cookieSameSite)
                 .build();
 
-        // Cookie-only auth: the JWT lives exclusively in the HttpOnly cookie so
-        // it can never be read by JS (defeats XSS exfiltration). The body
-        // returns only the user identity the SPA needs to render the shell.
-        // Frontends should call GET /api/auth/me on bootstrap to learn whether
-        // a session cookie is still valid.
-        Map<String, Object> responseBody = Map.of(
-                "username", appUser.getUsername(),
-                "email", appUser.getEmail(),
-                "role", appUser.getRole()
-        );
+        // The JWT is set as an HttpOnly cookie (defeats XSS exfiltration) for browser SPAs,
+        // which ignore the body and rely on the cookie + GET /api/auth/me for session checks.
+        // SE-8 (done-when #3): the browser must NOT receive a JS-readable token in the body.
+        // Only native clients (mobile/desktop) — which cannot read the HttpOnly Set-Cookie and
+        // replay the JWT as a Bearer from secure platform storage — get accessToken. They
+        // self-identify with the X-FedLearn-Client marker, the same signal SE-9 gates Bearer
+        // acceptance on, so a browser login response carries identity only.
+        String clientMarker = http.getHeader(JwtAuthenticationFilter.NATIVE_CLIENT_HEADER);
+        boolean nativeClient = clientMarker != null && !clientMarker.isBlank();
+
+        Map<String, Object> responseBody = new LinkedHashMap<>();
+        responseBody.put("username", appUser.getUsername());
+        responseBody.put("email", appUser.getEmail());
+        responseBody.put("role", appUser.getPlatformRole().name());
+        if (nativeClient) {
+            responseBody.put("accessToken", jwt);
+        }
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
@@ -146,7 +221,7 @@ public class AuthController {
         return ResponseEntity.ok(Map.of(
                 "username", appUser.getUsername(),
                 "email", appUser.getEmail(),
-                "role", appUser.getRole()
+                "role", appUser.getPlatformRole().name()
         ));
     }
 
@@ -156,7 +231,18 @@ public class AuthController {
      * immediately.
      */
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout() {
+    @Auditable(action = AuditAction.USER_LOGGED_OUT)
+    public ResponseEntity<Void> logout(HttpServletRequest http) {
+        // SE-8: revoke the current token's jti so it stops working immediately. Clearing the cookie
+        // alone leaves the token itself valid until exp — a stolen copy would keep working.
+        String jwt = readJwtCookie(http);
+        if (jwt != null && !jwt.isEmpty()) {
+            try {
+                tokenRevocationService.revoke(tokenProvider.getJti(jwt), tokenProvider.getExpiration(jwt));
+            } catch (RuntimeException e) {
+                log.debug("logout: could not revoke token ({})", e.getClass().getSimpleName());
+            }
+        }
         ResponseCookie cleared = ResponseCookie.from("jwtToken", "")
                 .httpOnly(true)
                 .secure(cookieSecure)
@@ -167,5 +253,16 @@ public class AuthController {
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, cleared.toString())
                 .build();
+    }
+
+    private static String readJwtCookie(HttpServletRequest http) {
+        if (http.getCookies() != null) {
+            for (jakarta.servlet.http.Cookie c : http.getCookies()) {
+                if ("jwtToken".equals(c.getName())) {
+                    return c.getValue();
+                }
+            }
+        }
+        return null;
     }
 }

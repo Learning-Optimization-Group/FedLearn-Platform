@@ -17,7 +17,7 @@ const STATUS_CONFIG: Record<
   { label: string; colorClass: string; animate: boolean }
 > = {
   idle: { label: 'Idle', colorClass: 'status-idle', animate: false },
-  pulling: { label: 'Pulling Image', colorClass: 'status-pulling', animate: true },
+  pulling: { label: 'Pulling image', colorClass: 'status-pulling', animate: true },
   running: { label: 'Training', colorClass: 'status-running', animate: true },
   completed: { label: 'Completed', colorClass: 'status-completed', animate: false },
   error: { label: 'Error', colorClass: 'status-error', animate: false },

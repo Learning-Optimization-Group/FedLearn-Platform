@@ -25,7 +25,6 @@ function emit(level: Level, scope: string, message: string, ...rest: unknown[]):
         return;
     }
     const tag = `[${scope}]`;
-    // eslint-disable-next-line no-console
     console[level](tag, message, ...rest);
 }
 

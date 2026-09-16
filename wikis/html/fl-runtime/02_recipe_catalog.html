@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 — The Model-Recipe Catalog · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>FL Runtime</summary><ul>
+<li><a href="README.html">FL Runtime Wiki</a></li>
+<li><a href="01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a class="active" href="02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>FL Runtime</b> &nbsp;·&nbsp; 02 — The Model-Recipe Catalog</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="02-the-model-recipe-catalog">02 — The Model-Recipe Catalog<a class="headerlink" href="#02-the-model-recipe-catalog" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a> → <a href="README.html">FL Runtime Wiki</a></p>
+</blockquote>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#what-a-recipe-is">What a Recipe Is</a></li>
+<li><a href="#recipe_metadata--the-seven-catalog-keys"><code>RECIPE_METADATA</code> — the seven catalog keys</a></li>
+<li><a href="#--describe-is-deliberately-torch-free"><code>--describe</code> Is Deliberately Torch-Free</a></li>
+<li><a href="#from-recipespy-to-the-project-creation-picker">From <code>recipes.py</code> to the Project-Creation Picker</a></li>
+<li><a href="#the-two-out-of-catalog-recipes">The Two Out-of-Catalog Recipes</a></li>
+<li><a href="#the-recipe-dispatch-object">The <code>Recipe</code> Dispatch Object</a></li>
+<li><a href="#how-far-registry-dispatch-actually-got">How Far Registry Dispatch Actually Got</a></li>
+<li><a href="#adding-a-model-type-what-you-actually-have-to-wire">Adding a Model Type: What You Actually Have to Wire</a></li>
+<li><a href="#the-cifar-10-shard-after-flwr">The CIFAR-10 Shard, After <code>flwr</code></a></li>
+<li><a href="#dataset-resolution-per-recipe">Dataset Resolution per Recipe</a></li>
+</ul>
+<hr />
+<h2 id="what-a-recipe-is">What a Recipe Is<a class="headerlink" href="#what-a-recipe-is" title="Permanent link">&para;</a></h2>
+<p><code>fl-runtime/recipes.py</code> is the single source of truth for the trainable model types the platform offers. A <strong>recipe</strong> bundles, under one stable <code>key</code>:</p>
+<ul>
+<li>an <strong>architecture</strong> (<code>build_model</code>)</li>
+<li>a <strong>dataset loader</strong>, client-side and server-side (<code>load_client_data</code>, <code>load_server_test_data</code>)</li>
+<li>an <strong>input transform</strong> (<code>input_transform</code> — an image transform, or a tokenizer for text recipes)</li>
+<li><strong>class labels</strong> (<code>classes</code>)</li>
+<li>an <strong>input kind</strong> (<code>image</code> / <code>vector</code> / <code>text</code>, plus <code>generation</code> for the causal-LM task)</li>
+<li><strong>UI metadata</strong> — display name, selectable base models, offered optimizers, hardware requirements</li>
+<li>the <strong>training arms</strong> it supports, and what freezes under each (see <a href="03_training_arms.html">03</a>)</li>
+</ul>
+<p>Keys are resolved case-insensitively: <code>get_recipe(key)</code> upper-cases before lookup (<code>recipes.py:1463</code>), and <code>is_recipe(key)</code> is the non-raising membership test.</p>
+<hr />
+<h2 id="recipe_metadata-the-seven-catalog-keys"><code>RECIPE_METADATA</code> — the seven catalog keys<a class="headerlink" href="#recipe_metadata-the-seven-catalog-keys" title="Permanent link">&para;</a></h2>
+<p><code>RECIPE_METADATA</code> (<code>recipes.py:241</code>) is a list of plain dicts. <strong>It currently holds seven entries</strong> — any doc saying "six" predates <code>CIFAR_RESNET18</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Display name</th>
+<th>Input</th>
+<th>Classes</th>
+<th><code>supported_arms</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PNEUMONIA_CNN</code></td>
+<td>Pneumonia Chest X-ray</td>
+<td>image</td>
+<td>2 (NORMAL / PNEUMONIA)</td>
+<td><code>FULL</code>, <code>FROZEN_HEAD</code></td>
+</tr>
+<tr>
+<td><code>CNN</code></td>
+<td>Image classifier (CIFAR-10)</td>
+<td>image</td>
+<td>10</td>
+<td><code>FULL</code>, <code>FROZEN_HEAD</code></td>
+</tr>
+<tr>
+<td><code>CIFAR_RESNET18</code></td>
+<td>Image classifier (CIFAR-10, pretrained ResNet-18)</td>
+<td>image</td>
+<td>10</td>
+<td><code>FULL</code>, <code>FROZEN_HEAD</code>, <code>OVA_LP</code></td>
+</tr>
+<tr>
+<td><code>MLP</code></td>
+<td>ECG heartbeat (Normal/Abnormal)</td>
+<td>vector</td>
+<td>2</td>
+<td><code>FULL</code></td>
+</tr>
+<tr>
+<td><code>TRANSFORMER</code></td>
+<td>Text classifier (OPT-125M)</td>
+<td>text</td>
+<td>3</td>
+<td><code>FULL</code></td>
+</tr>
+<tr>
+<td><code>LLM_LORA</code></td>
+<td>Text LLM (LoRA fine-tune)</td>
+<td>text</td>
+<td>2</td>
+<td><code>FULL</code></td>
+</tr>
+<tr>
+<td><code>TINYNET_GOLDEN</code></td>
+<td>On-device DeComFL demo (TinyNet)</td>
+<td>vector</td>
+<td>3</td>
+<td><code>FULL</code></td>
+</tr>
+</tbody>
+</table>
+<p>The order of that list is the order of the catalog, and <code>catalog_keys()</code> (<code>recipes.py:418</code>) returns exactly those keys — which is also the <code>choices=</code> for <code>--model-type</code> on both <code>fl_server.py</code> and <code>client.py</code>. That is deliberate: a new catalog recipe automatically becomes an accepted model type with no argparse edit.</p>
+<p>Per-recipe details worth knowing:</p>
+<ul>
+<li><strong><code>CIFAR_RESNET18</code> is the pretrained-backbone recipe.</strong> It declares its provenance explicitly under a <code>pretrained</code> block (<code>source: torchvision</code>, <code>weights: ResNet18_Weights.IMAGENET1K_V1</code>), with the ImageNet 1000-class head discarded and replaced by a fresh 10-class CIFAR head. Declaring it rather than leaving it implicit is what lets a result answer <em>"which backbone produced this?"</em> — the first question anyone asks of a frozen-arm number. It is also the only recipe carrying <code>arm_notes</code>, which state plainly that the paper's two-stage schedule is <strong>not</strong> implemented.</li>
+<li><strong><code>CNN</code>'s <code>FROZEN_HEAD</code> prefix is <code>fc3.</code>, not <code>classifier.</code>.</strong> The entry originally declared <code>classifier.</code>, which <code>CnnNet</code> (<code>conv1</code>/<code>conv2</code>/<code>fc1</code>/<code>fc2</code>/<code>fc3</code>) has no module for — so <code>FROZEN_HEAD</code> raised at model build. <code>fc3</code> is the real head.</li>
+<li><strong><code>TINYNET_GOLDEN</code> freezes <code>fc2</code> by construction</strong>, not by arm. It is <code>Linear(4,5) → ReLU → Linear(5,3)</code> with 25 trainable parameters (<code>fc1</code>), initialised deterministically at seed 0 so it byte-matches the golden <code>.pte</code> the mobile ExecuTorch client encodes. It is <code>FULL</code>-only precisely because an arm switch would change the trainable layout the on-device golden depends on.</li>
+<li><strong><code>LLM_LORA</code> carries a <code>lora</code> block</strong> (<code>r: 8, alpha: 16, dropout: 0.05, target_modules: ["q_proj","v_proj"]</code>) and <code>aggregation: FFA_LORA</code>, and offers two base models (<code>qwen2.5-0.5b</code>, <code>tinyllama-1.1b</code>).</li>
+<li><strong><code>requirements</code> is a real gate, not decoration.</strong> Every entry declares <code>min_ram_gb</code>, <code>min_storage_gb</code>, <code>mobile_safe</code>, <code>max_trainable_params</code>, and mobile recipes add <code>min_os_android</code> / <code>min_os_ios</code>.</li>
+</ul>
+<hr />
+<h2 id="-describe-is-deliberately-torch-free"><code>--describe</code> Is Deliberately Torch-Free<a class="headerlink" href="#-describe-is-deliberately-torch-free" title="Permanent link">&para;</a></h2>
+<p><code>recipes.py</code>'s module-level imports are <code>argparse</code>, <code>json</code>, <code>os</code>, <code>sys</code> — <strong>nothing else</strong>. Every torch, torchvision, transformers, peft and datasets import lives <em>inside</em> a function body.</p>
+<p>That is not tidiness; it is what makes serving the catalog cheap. <code>ModelRecipeService</code> spawns <code>run_recipes.sh --describe</code> in a fresh interpreter with a <strong>30-second timeout</strong>. If importing the module pulled in torch, that spawn would cost seconds of import time and megabytes of RSS for what is a metadata dump. <code>arm_tradeoff()</code> reads a JSON file for the same reason.</p>
+<p><code>describe()</code> (<code>recipes.py:400</code>) returns <code>RECIPE_METADATA</code> with one enrichment: recipes offering a <strong>choice</strong> of arms get their measured <code>arm_tradeoff</code> attached. Single-arm recipes deliberately do not — there is nothing to trade off, and attaching a figure would imply an un-offered arm had been evaluated for that recipe.</p>
+<hr />
+<h2 id="from-recipespy-to-the-project-creation-picker">From <code>recipes.py</code> to the Project-Creation Picker<a class="headerlink" href="#from-recipespy-to-the-project-creation-picker" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>recipes.py  RECIPE_METADATA
+     │  describe()  →  JSON on stdout
+     ▼
+run_recipes.sh --describe          (bash on POSIX; the raw path on Windows)
+     ▼
+ModelRecipeService.runDescribe()   30s timeout, stderr DISCARDed so torch noise
+     │                             cannot corrupt the JSON, result cached for the
+     │                             JVM&#39;s lifetime (recipes are static config)
+     ▼
+GET /api/model-recipes  →  ModelRecipeDto[]
+     ▼
+Frontend CreateProjectModal  →  recipe picker (+ the arm selector when
+                                 supportedArms.length &gt; 1)
+</code></pre></div>
+
+<p>Two design decisions on the Java side are load-bearing:</p>
+<ol>
+<li><strong>No hardcoded Java fallback (DA-10).</strong> A duplicate catalog once existed in Java and had already drifted — it was missing <code>BLOOD_CNN</code> and <code>LLM_LORA</code>. Since the app spawns Python for all training and inference anyway, a broken <code>recipes.py</code> should surface loudly rather than be masked by stale data. A load failure throws <code>IllegalStateException</code> and is <strong>not</strong> cached, so a transient problem recovers on the next request.</li>
+<li><strong><code>requireModelTypeInCatalog</code> gates every spawn (SE-10).</strong> <code>FlServerManager</code> refuses to start a gradient FL server whose <code>modelType</code> is not an <strong>exact-case</strong> catalog key. The exact-case requirement is a canonical-key consistency policy rather than crash prevention — <code>fl_server.py</code>'s <code>--model-type</code> uses <code>type=str.upper</code>, so a lowercase variant would in fact normalise correctly. Requiring the canonical key keeps the persisted <code>modelType</code> identical to the catalog and to the artifact's <code>recipeKey</code>. FoT runs carry no model type on their argv and are exempt.</li>
+</ol>
+<p><code>fl-runtime/tests/test_recipe_catalog_matches_runnable_choices.py</code> pins that the catalog and the two scripts' <code>--model-type</code> choices are the <em>same set</em> — the guarantee the SE-10 gate rests on.</p>
+<hr />
+<h2 id="the-two-out-of-catalog-recipes">The Two Out-of-Catalog Recipes<a class="headerlink" href="#the-two-out-of-catalog-recipes" title="Permanent link">&para;</a></h2>
+<p><code>_NONCATALOG_METADATA</code> (<code>recipes.py:814</code>) registers two further recipes into <code>_METADATA_BY_KEY</code> <strong>after</strong> <code>describe()</code>'s source list. The consequence is precise: <code>get_recipe</code> and <code>is_recipe</code> resolve them, <code>--describe</code> and the project picker never see them, and <code>catalog_keys()</code> excludes them so they are not accepted <code>--model-type</code> values either. Dispatchable but not selectable.</p>
+<h3 id="blood_cnn-excluded-because-its-dependency-ships-nowhere"><code>BLOOD_CNN</code> — excluded because its dependency ships nowhere<a class="headerlink" href="#blood_cnn-excluded-because-its-dependency-ships-nowhere" title="Permanent link">&para;</a></h3>
+<p>BloodMNIST 8-class peripheral-blood-cell microscopy. The recipe is <strong>fully functional</strong> — <code>build_blood_cnn()</code> builds and <code>load_blood_*_data()</code> pulls a real batch — and it was verified to work.</p>
+<p>It stays out of the catalog because <code>medmnist</code>, and its transitive <code>scikit-image</code> / <code>fire</code>, <strong>are not declared in any requirements file in this repository</strong> (<code>framework/requirements.txt</code> drives the actual <code>fl_server.py</code> spawn environment; <code>backend/fl-platform-api/requirements.txt</code>, <code>client-docker/requirements.txt</code> and <code>client-docker/packaging/requirements-client.txt</code> cover the rest). Advertising the key would let the SE-10 catalog gate <em>pass</em> and then crash the spawn on <code>ModuleNotFoundError</code> the moment <code>load_blood_server_test_data()</code> ran — the exact failure class SE-10 exists to prevent, just one import deeper.</p>
+<p>Registering it as non-catalog also fixed a latent crash: <code>init_model.py</code> dispatched <code>BLOOD_CNN</code> through <code>recipes.get_recipe('BLOOD_CNN')</code> while the registry had no such key, so the call raised <code>ValueError</code>.</p>
+<p>To promote it: add <code>medmnist</code> (+ <code>scikit-image</code>, <code>fire</code>) everywhere <code>fl_server.py</code>/<code>client.py</code> run — <strong>verifying aarch64/Jetson wheel availability for <code>scikit-image</code> first</strong> — then move the entry into <code>RECIPE_METADATA</code>.</p>
+<h3 id="frozen_demo-excluded-because-it-is-a-demo-superseded-by-the-real-thing"><code>FROZEN_DEMO</code> — excluded because it is a demo superseded by the real thing<a class="headerlink" href="#frozen_demo-excluded-because-it-is-a-demo-superseded-by-the-real-thing" title="Permanent link">&para;</a></h3>
+<p>A frozen <code>Linear(256, 128)</code> backbone plus a trainable <code>Linear(128, 3)</code> head, over a self-contained synthetic vector dataset (no external data, deterministic per partition). It exists to exercise the DA-11 partial-load path — <code>build_frozen_backbone_model</code> can reconstruct a content-addressed frozen backbone via <code>reconstruct_frozen_backbone</code> and re-freeze it — with only the head federated.</p>
+<p>Its backbone is built under <code>torch.manual_seed(0)</code> inside a <code>fork_rng</code>, because <strong>every federation peer must materialise an identical frozen backbone</strong>: the head is aggregated over the wire and the backbone is not, so a per-peer random backbone would make the aggregated head meaningless. (<code>build_tinynet_golden</code> seeds itself for exactly the same reason.)</p>
+<p>It is registered non-catalog as a demo superseded by the real derivation-record recipe. One trace of its history survives in <code>client.py</code>: <code>main()</code> still contains <code>if requested is None and mt == "FROZEN_DEMO": requested = "FROZEN_HEAD"</code> to preserve its pre-arm default — a branch that the <code>choices=recipes.catalog_keys()</code> on <code>--model-type</code> makes unreachable from the CLI today.</p>
+<hr />
+<h2 id="the-recipe-dispatch-object">The <code>Recipe</code> Dispatch Object<a class="headerlink" href="#the-recipe-dispatch-object" title="Permanent link">&para;</a></h2>
+<p><code>get_recipe(key)</code> returns a <code>Recipe</code> (<code>recipes.py:1309</code>) — a thin object over the metadata dict with six methods:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>build_model(device, model_name, aggregation, task_type)</code></td>
+<td>the <code>nn.Module</code></td>
+</tr>
+<tr>
+<td><code>input_transform(model_name)</code></td>
+<td>image transform, or tokenizer for text recipes; raises <code>NotImplementedError</code> when a recipe has none</td>
+</tr>
+<tr>
+<td><code>load_client_data(partition_id, num_clients, task_type, **kw)</code></td>
+<td><code>(train_loader, val_loader)</code></td>
+</tr>
+<tr>
+<td><code>load_server_test_data(task_type, **kw)</code></td>
+<td>the server's eval <code>DataLoader</code></td>
+</tr>
+<tr>
+<td><code>adapter_keys(model, aggregation)</code></td>
+<td>LoRA adapter key set (LLM_LORA)</td>
+</tr>
+<tr>
+<td><code>build_for_inference(model_name, task_type)</code></td>
+<td><code>(net, classes, input_kind, transform)</code> — so <code>infer.py</code> stays a one-line delegate</td>
+</tr>
+</tbody>
+</table>
+<p><code>build_for_inference</code> is data-driven with exactly two per-recipe tweaks that live here rather than in <code>infer.py</code>: <code>TRANSFORMER</code> wires the model to its tokenizer's pad id, and <code>LLM_LORA</code> reports the <code>generation</code> input kind for the causal task. Because <code>input_transform</code> raises <em>before</em> importing anything, a recipe with no transform (<code>CNN</code>, <code>MLP</code>) never drags <code>transformers</code> into an inference process.</p>
+<blockquote>
+<p><strong><code>Recipe.is_functional</code> is stale and unused outside tests.</strong> It reports whether a recipe's model <em>and</em> data both live in <code>recipes.py</code>, and its hardcoded tuple omits <code>CIFAR_RESNET18</code> — even though <code>build_cifar_resnet18</code>, <code>load_cifar_resnet18_client_data</code> and <code>load_cifar_resnet18_server_test_data</code> are all in this file. Nothing in production reads the property (only <code>tests/test_recipes_registry.py</code>, <code>test_frozen_backbone_recipe.py</code> and <code>test_llm_lora_recipe.py</code> do), so the omission is a documentation-level inaccuracy rather than a behavioural bug — but do not trust it as a capability signal.</p>
+</blockquote>
+<hr />
+<h2 id="how-far-registry-dispatch-actually-got">How Far Registry Dispatch Actually Got<a class="headerlink" href="#how-far-registry-dispatch-actually-got" title="Permanent link">&para;</a></h2>
+<p>The registry is the catalog's source of truth. It is <strong>not yet a full dispatch registry</strong>, but the boundary has moved and older descriptions of it are wrong in a specific way. Believe this table, which reflects the code as of the <code>DA-14 Ph3.1</code> work:</p>
+<table>
+<thead>
+<tr>
+<th>Consumer</th>
+<th>Model construction</th>
+<th>Data loading</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>init_model.py</code></td>
+<td><strong>Fully registry-dispatched.</strong> <code>get_model</code> (<code>init_model.py:38-54</code>) is a single <code>recipes.get_recipe(model_type).build_model(...)</code> call — no per-type <code>if</code>/<code>elif</code> at all</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td><code>infer.py</code></td>
+<td><strong>Fully registry-dispatched.</strong> <code>build_model</code> (<code>infer.py:63-74</code>) delegates to <code>build_for_inference</code></td>
+<td>n/a</td>
+</tr>
+<tr>
+<td><code>data.py</code></td>
+<td>n/a</td>
+<td>CNN delegates to the registry; the LLM branch still tokenises inline from <code>config.py</code></td>
+</tr>
+<tr>
+<td><code>client.py</code></td>
+<td><strong>Still an <code>if</code>/<code>elif</code> chain</strong> (<code>client.py:648-689</code>), but every branch now ends in <code>recipes.get_recipe(…).build_model(DEVICE)</code></td>
+<td><strong>Still an <code>if</code>/<code>elif</code> chain</strong> (<code>load_data</code>, <code>client.py:197-338</code>); most branches delegate to the registry, but the <code>USE_LLM</code> branch tokenises and Dirichlet-splits inline</td>
+</tr>
+<tr>
+<td><code>fl_server.py</code></td>
+<td>Delegates to <code>init_model.get_model</code> (hence registry) — except <code>LLM_LORA</code>, which rebuilds per eval round</td>
+<td><strong>Still an <code>if</code>/<code>elif</code> chain</strong> (<code>fl_server.py:728-757</code>) selecting the server test loader</td>
+</tr>
+</tbody>
+</table>
+<p>So the "adding a recipe entry alone yields a broken model type" hazard is <strong>real but no longer located in <code>init_model.py</code></strong> — there is no <code>raise ValueError(f"Unsupported model architecture: …")</code> anywhere in this directory any more. The gap moved <em>inside</em> <code>recipes.py</code>: <code>Recipe.build_model</code>, <code>input_transform</code>, <code>load_client_data</code> and <code>load_server_test_data</code> are themselves per-key <code>if</code>/<code>elif</code> chains that end in</p>
+<div class="codehilite"><pre><span></span><code><span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;build_model not implemented in recipes.py for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Two chains outside <code>recipes.py</code> also still need a branch for a genuinely new model type: <code>client.py</code>'s <code>load_data</code> (unless the new recipe's data can ride an existing branch) and <code>fl_server.py</code>'s server-test-loader selection.</p>
+<p><code>tests/test_recipes_registry.py</code> pins the Ph3.1 property directly — it monkeypatches a fake <code>FAKE_NET</code> recipe into <code>recipes.get_recipe</code> and asserts <code>init_model.get_model</code> routes it through without any <code>init_model</code> edit. <code>tests/test_infer_registry_dispatch.py</code> does the same for <code>infer.py</code> with a <code>FAKE_IMG</code> recipe.</p>
+<hr />
+<h2 id="adding-a-model-type-what-you-actually-have-to-wire">Adding a Model Type: What You Actually Have to Wire<a class="headerlink" href="#adding-a-model-type-what-you-actually-have-to-wire" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Add the <code>RECIPE_METADATA</code> entry</strong> — <code>key</code>, <code>display_name</code>, <code>input_kind</code>, <code>classes</code>, <code>base_models</code>, <code>optimizers</code>, <code>requirements</code>, <code>supported_arms</code>, <code>trainable_spec</code>. That alone gets the key into <code>--describe</code>, into the frontend picker, and into both scripts' <code>--model-type</code> choices.</li>
+<li><strong>Add the <code>Recipe</code> branches it needs</strong>, inside <code>recipes.py</code>: <code>build_model</code> always; <code>input_transform</code> if it has one; <code>load_client_data</code> / <code>load_server_test_data</code> if it is meant to be trainable rather than inference-only. Without <code>build_model</code>, the key is advertised and then raises <code>NotImplementedError</code> at the first spawn.</li>
+<li><strong>Add a server-test-loader branch in <code>fl_server.py</code></strong> if the recipe's eval data does not fall through to <code>data.load_server_test_data</code>.</li>
+<li><strong>Add a <code>load_data</code> branch in <code>client.py</code></strong> if it needs a loader no existing branch provides.</li>
+<li><strong>Declare its arms honestly.</strong> A declared arm whose payload cannot cross the wire is caught by <code>tests/test_declared_arms_are_wire_compatible.py</code>; a declared prefix that matches no parameter is caught by the same file. See <a href="03_training_arms.html">03</a> and <a href="04_the_federated_set.html">04</a>.</li>
+</ol>
+<p><strong>No Java or TypeScript edits are needed</strong> for any of this — the catalog is data-driven end to end.</p>
+<hr />
+<h2 id="the-cifar-10-shard-after-flwr">The CIFAR-10 Shard, After <code>flwr</code><a class="headerlink" href="#the-cifar-10-shard-after-flwr" title="Permanent link">&para;</a></h2>
+<p><code>flwr</code> and <code>flwr-datasets</code> are <strong>gone from this repository</strong> (<code>65048b6</code>). They were never used for FL semantics; the only thing <code>flwr_datasets.FederatedDataset</code> did here was cut one CIFAR-10 IID shard. That single dependency capped <code>cryptography&lt;45.0.0</code> (the SE-22 residual, below the framework's own <code>&gt;=46.0.6</code> floor) and <code>protobuf&lt;5.0.0</code> (which made the FoT path uninstallable, since <code>fot_pb2.py</code> is 5.29.0 gencode). Dropping it cleared both: <code>backend/fl-platform-api/requirements.txt</code> now pins <code>cryptography==46.0.7</code> and <code>protobuf==5.29.5</code>.</p>
+<p>The shard is now implemented natively in this file:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">CNN_NUM_PARTITIONS</span> <span class="o">=</span> <span class="mi">10</span>       <span class="c1"># == client.py NUM_PARTITIONS; fixed, NOT num_clients</span>
+<span class="n">CNN_BATCH_SIZE</span>     <span class="o">=</span> <span class="mi">32</span>       <span class="c1"># == client.py BATCH_SIZE</span>
+<span class="n">CNN_SERVER_TEST_BATCH</span> <span class="o">=</span> <span class="mi">128</span>   <span class="c1"># == data.py CNN server test batch</span>
+<span class="n">CNN_SHUFFLE_SEED</span>   <span class="o">=</span> <span class="mi">42</span>       <span class="c1"># == the flwr FederatedDataset default it replaced</span>
+</code></pre></div>
+
+<p>Three determinism traps are pinned by <code>tests/test_recipe_cnn_data_parity.py</code>, and every one of them is a way a "harmless" edit silently reshuffles every partition:</p>
+<ol>
+<li><strong>The client partitioner is a fixed 10 shards, not <code>num_clients</code>.</strong> <code>num_clients</code> is accepted and explicitly <em>ignored</em> — the shard count inside <code>load_cnn_client_data</code> stays <code>CNN_NUM_PARTITIONS</code>.</li>
+<li><strong>The pipeline order is load-bearing</strong>: <code>shuffle(seed=42) → shard(num_shards=10, index=partition_id, contiguous=True) → train_test_split(test_size=0.2, seed=42)</code>. That sequence is precisely what <code>FederatedDataset</code> (shuffle-before-partition, <code>seed=42</code> default) plus <code>IidPartitioner.load_partition(i)</code> did; both facts were read off the installed <code>flwr-datasets</code> 0.5.0 source and then verified empirically per partition.</li>
+<li><strong>Source asymmetry, deliberately preserved</strong>: the <em>client</em> shard comes from the HuggingFace <code>cifar10</code> <strong>train</strong> split, while the <em>server</em> test loader uses <strong>torchvision</strong> <code>CIFAR10(train=False)</code> at batch 128, unshuffled. Two different dataset libraries, on purpose — that is what the legacy <code>client.py</code> / <code>data.py</code> pair did, and unifying them would change the numbers.</li>
+</ol>
+<p>The replacement was verified byte-identical per partition against the <code>flwr</code> implementation before the swap, so CIFAR-10 results recorded before and after remain comparable. <code>tests/test_requirements_security_floors.py</code> keeps <code>flwr</code> out of the lockfiles as a regression guard.</p>
+<blockquote>
+<p>Residual <code>flwr</code> <em>mentions</em> survive as comments (<code>client-docker/requirements.txt:23</code>) and as a <code>flwr_datasets</code> hidden-import in <code>client-docker/packaging/fedlearn-client.spec:37</code>. Those are stale strings, not dependencies — but see <a href="05_testing.html#known-staleness-around-this-layer">05</a>, because the spec one is not inert.</p>
+</blockquote>
+<hr />
+<h2 id="dataset-resolution-per-recipe">Dataset Resolution per Recipe<a class="headerlink" href="#dataset-resolution-per-recipe" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Recipe</th>
+<th>Where the data comes from</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CNN</code></td>
+<td>HuggingFace <code>cifar10</code> <strong>train</strong> split for the client shard; torchvision <code>CIFAR10(train=False)</code> for the server's eval loader, cached under <code>fl-runtime/data/</code> — the source asymmetry described above</td>
+</tr>
+<tr>
+<td><code>CIFAR_RESNET18</code></td>
+<td>The <strong>same</strong> CIFAR-10 shard as <code>CNN</code> — only the transform differs: ImageNet normalisation at <code>RESNET18_IMG_SIZE = 112</code> px, a resolution the pretrained backbone can actually use. Keeping the shard identical is what makes a <code>CNN</code> run and a <code>CIFAR_RESNET18</code> run comparable on data. Evaluating pretrained features through CIFAR's <code>[-1,1]</code> normalisation would silently degrade every feature and understate the arm, which is why the server has its own branch for this recipe's test loader</td>
+</tr>
+<tr>
+<td><code>PNEUMONIA_CNN</code></td>
+<td>First match wins: (1) <code>FEDLEARN_PNEUMONIA_DIR</code> — a local ImageFolder layout <code>&lt;dir&gt;/train/{NORMAL,PNEUMONIA}/</code> + <code>&lt;dir&gt;/test/…</code>, the zero-network path; (2) HuggingFace <code>datasets</code>, repo from <code>FEDLEARN_PNEUMONIA_DATASET</code> (default <code>keremberke/chest-xray-classification</code>), config from <code>FEDLEARN_PNEUMONIA_CONFIG</code> (default <code>full</code>). <code>FEDLEARN_PNEUMONIA_SUBSET=&lt;N&gt;</code> caps samples per split for fast demo rounds; <code>FEDLEARN_PNEUMONIA_ALPHA</code> (default 0.5) sets the Dirichlet concentration</td>
+</tr>
+<tr>
+<td><code>MLP</code></td>
+<td><code>fl-runtime/ecg_data/ecg.csv</code>, partitioned by <code>data_loaders/ecg_loader.py</code> with every hyperparameter sourced from <code>config.get_dataset_config("ecg")</code></td>
+</tr>
+<tr>
+<td><code>TRANSFORMER</code></td>
+<td>HuggingFace <code>super_glue/cb</code> or <code>glue/sst2</code>, tokenised with the opt-125m tokenizer</td>
+</tr>
+<tr>
+<td><code>LLM_LORA</code></td>
+<td>SST-2 for <code>SEQ_CLASSIFICATION</code>, Dolly for <code>CAUSAL_LM</code></td>
+</tr>
+<tr>
+<td><code>TINYNET_GOLDEN</code></td>
+<td>A committed golden fixture; the server skips eval entirely for this recipe (there is no golden eval dataset, and the default loader's image batches do not fit a 4-dim input)</td>
+</tr>
+<tr>
+<td><code>FROZEN_DEMO</code></td>
+<td>Self-contained synthetic vectors, deterministic per partition; no external dataset needed</td>
+</tr>
+<tr>
+<td><code>BLOOD_CNN</code></td>
+<td>MedMNIST auto-downloads BloodMNIST (~30 MB <code>.npz</code>) to <code>~/.medmnist</code> on first use</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>SE-19 — remote code execution is off by default.</strong> The <code>PNEUMONIA_CNN</code> HuggingFace fallback used to call <code>load_dataset(..., trust_remote_code=True)</code>, which downloads and <em>runs</em> the dataset repo's loader script on the host. The repo is unpinned, so a supply-chain compromise of it would be arbitrary code execution on the backend the moment a run started. <code>_hf_load_kwargs</code> now makes remote-code execution opt-in via an explicit operator flag (ideally alongside a pinned <code>revision</code>), and <code>tests/test_pneumonia_hf_load_kwargs.py</code> pins that.</p>
+</blockquote></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

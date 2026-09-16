@@ -66,6 +66,33 @@ public class WebSocketService {
         messagingTemplate.convertAndSend(destination, result);
     }
 
+    /** Broadcasts one generation token line ({"token":"…"}) to the project's inference topic. */
+    public void sendInferenceToken(UUID projectId, String tokenJson) {
+        if (projectId == null || tokenJson == null) return;
+        messagingTemplate.convertAndSend("/topic/inference/" + projectId.toString(), tokenJson);
+    }
+
+    @Autowired
+    private com.federated.fl_platform_api.repository.UserRepository userRepository;
+
+    /**
+     * Push a notification payload to a specific user's STOMP user-destination queue.
+     * Spring resolves the destination as /user/{username}/queue/notifications and
+     * delivers only to STOMP sessions authenticated as that user.
+     *
+     * The user's username is looked up by ID. If the user does not exist we drop
+     * the notification and log a WARN for observability — callers should not rely
+     * on best-effort delivery.
+     */
+    public void sendUserNotification(Long userId, com.federated.fl_platform_api.dto.NotificationDto payload) {
+        if (userId == null || payload == null) return;
+        userRepository.findById(userId).ifPresentOrElse(
+            u -> messagingTemplate.convertAndSendToUser(
+                    u.getUsername(), "/queue/notifications", payload),
+            () -> log.warn("sendUserNotification: no user found for id={}", userId)
+        );
+    }
+
     // ─── Private helpers ─────────────────────────────────────────────────────
 
     private void persistLog(UUID projectId, String rawLine) {

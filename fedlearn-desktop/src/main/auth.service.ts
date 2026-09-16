@@ -14,13 +14,26 @@
 
 import Store from 'electron-store';
 import { safeStorage } from 'electron';
-import axios, { AxiosError } from 'axios';
+import type { BrowserWindow } from 'electron';
+import { AxiosError } from 'axios';
 import log from 'electron-log';
+import { http, installUnauthorizedHandler } from './http';
+
+/** Renderer channel Main pushes to when a session goes from valid to invalid. */
+export const SESSION_EXPIRED_CHANNEL = 'auth:session-expired';
 
 interface AuthStore {
   encryptedJwt: string;
   expiresAt: number;
   username: string;
+}
+
+/** Keys persisted in the encrypted electron-store file (see constructor). */
+interface AuthStoreSchema {
+  serverUrl: string;
+  auth: AuthStore;
+  // "Save password" opt-in: a safeStorage-encrypted, base64 JSON {username,password} blob.
+  savedCredentials: string;
 }
 
 /** Held only in main-process memory when OS-level encryption is unavailable. */
@@ -33,13 +46,14 @@ interface SessionMemory {
 const SERVER_URL_KEY = 'serverUrl';
 
 const AUTH_STORE_KEY = 'auth';
+const CREDENTIALS_KEY = 'savedCredentials';
 const JWT_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours — matches backend's maxAge
 
 // Default backend URL matches the existing frontend's axiosConfig.ts pattern
 const DEFAULT_API_BASE_URL = 'http://localhost:8081/api';
 
 export class AuthService {
-  private store: any;
+  private store: Store<AuthStoreSchema>;
   private apiBaseUrl: string;
   /**
    * Holds the JWT in process memory when {@link safeStorage} cannot
@@ -53,12 +67,21 @@ export class AuthService {
    */
   private sessionMemory: SessionMemory | null = null;
 
-  constructor() {
+  /**
+   * The window to notify when a session goes from valid to invalid (DE-8).
+   * Optional so AuthService stays constructible in isolation (unit tests,
+   * or any future headless use) without a real BrowserWindow.
+   */
+  private readonly mainWindow: BrowserWindow | null;
+
+  constructor(mainWindow: BrowserWindow | null = null) {
+    this.mainWindow = mainWindow;
+
     // clearInvalidConfig recovers from unreadable state — e.g. a store file
     // written by an older build that used a different encryptionKey. Without
     // this, a SyntaxError here would propagate up through registerIpcHandlers
     // and prevent mainWindow.loadFile from running, leaving a black window.
-    this.store = new Store({
+    this.store = new Store<AuthStoreSchema>({
       name: 'fedlearn-auth',
       clearInvalidConfig: true,
     });
@@ -67,15 +90,32 @@ export class AuthService {
     const savedUrl = this.store.get(SERVER_URL_KEY) as string | undefined;
     this.apiBaseUrl = savedUrl || process.env.FEDLEARN_API_URL || DEFAULT_API_BASE_URL;
     log.info(`[AuthService] Initialized with API base URL: ${this.apiBaseUrl}`);
+
+    // DE-8: a 401 from any authenticated backend call (inference, client
+    // projects, generation, ...) means the session is no longer valid server
+    // side — the shared `http` instance carries the single active handler for
+    // the whole app, so every service gets this for free.
+    installUnauthorizedHandler(() => this.handleSessionExpired());
   }
 
   /**
    * Update the backend API URL and persist it for future launches.
    */
   setApiUrl(url: string): void {
+    const changed = url !== this.apiBaseUrl;
     this.apiBaseUrl = url;
     this.store.set(SERVER_URL_KEY, url);
     log.info(`[AuthService] API base URL updated to: ${url}`);
+    if (changed) {
+      // Security: a JWT (and the login credentials) are minted by ONE backend and must NEVER be sent to
+      // a different host. Repointing the server URL — whether a legitimate switch or a compromised
+      // renderer calling setServerUrl('https://attacker...') — invalidates the current session, so clear
+      // it here. Otherwise the very next authenticated call would ship the Bearer token to the newly-set
+      // host. handleSessionExpired() clears the store + in-memory session and signals the renderer to
+      // re-auth (guarded so it only signals when there actually was a session). Startup loads apiBaseUrl
+      // directly in the constructor, not via setApiUrl, so persisted sessions survive a normal relaunch.
+      this.handleSessionExpired();
+    }
   }
 
   /**
@@ -96,7 +136,7 @@ export class AuthService {
     try {
       log.info(`[AuthService] Attempting login for user: ${username}`);
 
-      const response = await axios.post(
+      const response = await http.post(
         `${this.apiBaseUrl}/auth/login`,
         { username, password },
         {
@@ -173,6 +213,53 @@ export class AuthService {
   }
 
   /**
+   * Persist the login credentials for the "Save password" opt-in, encrypted with
+   * {@link safeStorage} (OS keychain). When OS encryption is unavailable we refuse to
+   * persist — the same posture as the JWT: never write a reversible secret to disk.
+   *
+   * @returns true if the credentials were stored, false if encryption was unavailable.
+   */
+  saveCredentials(username: string, password: string): boolean {
+    if (!safeStorage.isEncryptionAvailable()) {
+      log.warn('[AuthService] safeStorage unavailable — refusing to persist saved credentials.');
+      this.store.delete(CREDENTIALS_KEY);
+      return false;
+    }
+    const encrypted = safeStorage.encryptString(JSON.stringify({ username, password }));
+    this.store.set(CREDENTIALS_KEY, encrypted.toString('base64'));
+    log.info('[AuthService] Saved credentials encrypted via safeStorage (OS keychain)');
+    return true;
+  }
+
+  /**
+   * Load the saved credentials for pre-filling the login form, decrypting via
+   * {@link safeStorage}. Returns null if none are stored or the blob can no longer be
+   * decrypted (e.g. the OS keychain key changed) — in which case the stale blob is scrubbed.
+   */
+  getSavedCredentials(): { username: string; password: string } | null {
+    try {
+      const blob = this.store.get(CREDENTIALS_KEY) as string | undefined;
+      if (!blob) return null;
+      const decrypted = safeStorage.decryptString(Buffer.from(blob, 'base64'));
+      const parsed = JSON.parse(decrypted) as { username?: unknown; password?: unknown };
+      if (typeof parsed.username === 'string' && typeof parsed.password === 'string') {
+        return { username: parsed.username, password: parsed.password };
+      }
+      this.store.delete(CREDENTIALS_KEY);
+      return null;
+    } catch {
+      log.warn('[AuthService] Could not decrypt saved credentials — scrubbing the stale blob.');
+      this.store.delete(CREDENTIALS_KEY);
+      return null;
+    }
+  }
+
+  /** Forget any saved credentials (unchecked "Save password"). */
+  clearSavedCredentials(): void {
+    this.store.delete(CREDENTIALS_KEY);
+  }
+
+  /**
    * Checks if a valid (non-expired) JWT is available — either from the
    * encrypted on-disk store (preferred) or from the in-memory session
    * fallback used when OS encryption is unavailable.
@@ -226,8 +313,12 @@ export class AuthService {
     try {
       // In-memory session takes priority — if present, on-disk is empty by design.
       if (this.sessionMemory) {
+        // DE-8: proactive expiry — a request is never armed with a token whose
+        // expiresAt has already passed. Treat it as an expired session (clear +
+        // signal the renderer to re-auth) instead of sending a doomed request
+        // that would just 401 downstream.
         if (Date.now() > this.sessionMemory.expiresAt) {
-          this.logout();
+          this.handleSessionExpired();
           return null;
         }
         return `Bearer ${this.sessionMemory.jwt}`;
@@ -240,7 +331,7 @@ export class AuthService {
       }
 
       if (Date.now() > authData.expiresAt) {
-        this.logout();
+        this.handleSessionExpired();
         return null;
       }
 
@@ -249,6 +340,43 @@ export class AuthService {
     } catch {
       log.warn('[AuthService] Failed to retrieve auth header');
       return null;
+    }
+  }
+
+  /**
+   * Single entry point for "the session just went from valid to invalid" —
+   * reached either from the shared `http` 401 interceptor (server said no) or
+   * from {@link getAuthHeader}'s proactive expiry check (we already know it's
+   * stale before asking). Clears the session like an explicit logout, then
+   * pushes a one-shot event so the renderer swaps the dashboard for the login
+   * screen instead of leaving the user looking at an opaque per-call error.
+   *
+   * Guarded on {@link hasStoredSession} so a burst of 401s / expiry checks in
+   * flight at once (several in-flight requests failing together) still clears
+   * once and signals exactly once, not once per caller.
+   */
+  private handleSessionExpired(): void {
+    const hadSession = this.hasStoredSession();
+    this.logout();
+    if (hadSession) {
+      log.info('[AuthService] Session expired — clearing JWT and signalling renderer to re-auth');
+      this.emitSessionExpired();
+    }
+  }
+
+  /** True when either storage backend currently holds a session to clear. */
+  private hasStoredSession(): boolean {
+    if (this.sessionMemory) {
+      return true;
+    }
+    const authData = this.store.get(AUTH_STORE_KEY) as AuthStore | undefined;
+    return !!(authData && authData.encryptedJwt);
+  }
+
+  /** Pushes the re-auth signal to the renderer, if a window is attached. */
+  private emitSessionExpired(): void {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send(SESSION_EXPIRED_CHANNEL);
     }
   }
 

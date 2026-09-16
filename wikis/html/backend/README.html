@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backend Architecture Wiki · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Backend</summary><ul>
+<li><a class="active" href="README.html">Backend Architecture Wiki</a></li>
+<li><a href="01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Backend</b> &nbsp;·&nbsp; Backend Architecture Wiki</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="backend-architecture-wiki">Backend Architecture Wiki<a class="headerlink" href="#backend-architecture-wiki" title="Permanent link">&para;</a></h1>
+<p>Welcome to the internal documentation for the <strong>FedLearn-Platform Backend</strong>.</p>
+<p>This section of the wiki covers the Spring Boot 3 API, the database interactions, security, WebSockets, and how the federated learning python processes are orchestrated as local OS processes on the host VM.</p>
+<blockquote class="callout warn"><p>⚠️ <strong>Orchestration reality (OP-14).</strong> The <strong>only</strong> supported deployed architecture is the <strong>hardened single-VM</strong>: the backend spawns each FL aggregation server as a local Python process (via the <code>FlServerProcessRunner</code> seam, DA-8) on a port in the <code>50000-50010</code> range. Managed cloud task orchestration on AWS ECS/Fargate <em>was</em> implemented once (<code>1239dda</code>) and later <strong>removed</strong> along with the AWS SDK (<code>9124b62</code>) — no ECS code and no AWS SDK dependency remain in the repo. The one surviving knob, <code>ecs.cluster-name</code> (blank default), exists <strong>solely to be rejected</strong>: <code>FlOrchestrationModeValidator</code> throws at boot in <strong>every</strong> profile if it is set to a non-blank value. The <code>production</code> profile is the single-VM profile, not an ECS profile. Managed-task orchestration is deferred to <strong>OP-12</strong>.</p>
+<p>✅ <strong>Branch reality.</strong> The backend runs on <strong>PostgreSQL</strong> for every profile (H2 has been retired) — <code>dev</code>/<code>ec2demo</code> against a local Postgres (<code>backend/fl-platform-api/docker-compose.yml</code> → <code>docker compose up -d</code>) and <code>test</code> against Testcontainers Postgres. The highest committed Flyway migration is <strong><code>V23</code></strong> (<code>V23__training_arm_ova_lp.sql</code>). The full <strong>identity / multi-tenancy / audit subsystem documented in page 06 IS present on this branch</strong>: the three-layer role model (<code>PlatformRole</code> platform role, <code>OrgRole</code> org role, <code>MembershipRole</code> project membership), organization-scoped isolation (<code>OrgScopeFilter</code>), <code>AuthorizationService</code>, the <code>@Auditable</code>/<code>AuditEvent</code> trail, and the <code>email/</code> + <code>bootstrap/</code> plumbing — backed by the <code>V4</code>–<code>V7</code> identity migrations. (The single coarse <code>users.role IN (USER, ADMIN)</code> column from <code>V2</code> was the <em>original</em> model; it has since been superseded by the layered <code>PlatformRole</code>.)</p>
+<p>The four migrations past <code>V19</code>, none of which older wiki text mentions:</p>
+<table>
+<thead>
+<tr>
+<th>Migration</th>
+<th>Adds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>V20__project_derivation.sql</code></strong></td>
+<td><code>projects.init_from_pretrained</code> (NOT NULL, default <code>FALSE</code>), <code>base_ref_sha256</code>, <code>derivation_spec</code> — the opt-in, nullable record of a project deriving from a frozen/pretrained base instead of training an architecture from scratch. <code>chk_projects_base_ref_sha256_hex</code> pins the ref to lowercase-hex sha256 (or NULL).</td>
+</tr>
+<tr>
+<td><strong><code>V21__base_ref_unique_index.sql</code></strong></td>
+<td>The partial unique index <code>uq_base_ref_org_model ON model_artifacts (org_id, base_model_ref) WHERE kind = 'BASE_REF'</code> — makes "one <code>BASE_REF</code> per (org, base model)" a database invariant and backs the <code>ON CONFLICT DO NOTHING</code> insert-if-absent that replaced a racy read-then-insert. See <a href="07_artifact_registry.html">07</a>.</td>
+</tr>
+<tr>
+<td><strong><code>V22__project_training_arm.sql</code></strong></td>
+<td><code>projects.training_arm VARCHAR(32) NOT NULL DEFAULT 'FULL'</code> plus <code>chk_projects_training_arm</code>. The training arm becomes a stored, queryable project property instead of something the Python client inferred from the recipe key.</td>
+</tr>
+<tr>
+<td><strong><code>V23__training_arm_ova_lp.sql</code></strong></td>
+<td>Widens <code>chk_projects_training_arm</code> to <code>('FULL','FROZEN_HEAD','OVA_LP')</code> for the OvA-LP arm.</td>
+</tr>
+</tbody>
+</table>
+<p>Note that <code>ls</code> sorts these lexicographically, so <code>V5</code>–<code>V9</code> list <em>after</em> <code>V21</code> — the last line of an <code>ls</code> is not the highest version.</p>
+</blockquote>
+<h2 id="documentation-index">Documentation Index<a class="headerlink" href="#documentation-index" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong><a href="01_architecture_overview.html">Architecture &amp; Core Concepts</a></strong>
+   Provides a high-level overview of the backend's directory structure, the technology stack, and the primary domain models (Projects, Results, Logs).</p>
+</li>
+<li>
+<p><strong><a href="02_security_and_auth.html">Security &amp; Authentication</a></strong>
+   Explains how stateless JWT validation works via filters, how WebSocket connections are secured during the HTTP upgrade handshake, and the internal API key mechanism used by FL servers.</p>
+</li>
+<li>
+<p><strong><a href="03_project_management.html">Project Management Lifecycle</a></strong>
+   Details the <code>ProjectService</code> and <code>ProjectController</code> logic: the full <code>ProjectController</code> route surface, how a project is persisted and its model asynchronously initialized (BA-1), how the <strong>training arm</strong> (<code>FULL</code> / <code>FROZEN_HEAD</code> / <code>OVA_LP</code>) is chosen at creation and enforced from the DTO down to the CHECK constraint, how a run is started, and why direct deletion is admin-only.</p>
+</li>
+<li>
+<p><strong><a href="04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></strong>
+   The most complex component. Documents how the Java API dynamically provisions the Python FL aggregation servers as local OS processes — port reservation in the <code>50000-50010</code> range, the <code>FlServerProcessRunner</code> seam that shells out to the <code>fl-runtime/</code> scripts, and the <code>ProcessHandle</code> tracking that makes <code>/stop</code> work. Also covers why the removed ECS/Fargate path is now fail-closed at boot (OP-14) and deferred to OP-12.</p>
+</li>
+<li>
+<p><strong><a href="05_websocket_logs_streaming.html">WebSocket Log Streaming</a></strong>
+   Explains the real-time observability pipeline. Shows how the backend captures standard output from the Python FL servers, routes it via STOMP topics to the React frontend, and persists it for export.</p>
+</li>
+<li>
+<p><strong><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy &amp; Audit</a></strong>
+   Documents the identity subsystem — <strong>present on this branch</strong>: the three-layer role model (platform / organization / project), organization-scoped multi-tenant isolation (<code>OrgScopeFilter</code>), the <code>@Auditable</code> audit trail, the email + first-run bootstrap plumbing, the <code>V4</code>–<code>V7</code> identity migrations, and the membership/admin/access-request REST endpoints.</p>
+</li>
+<li>
+<p><strong><a href="07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></strong>
+   Documents the registry that replaced the single overwritable <code>.npz</code> at <code>projects.model_path</code>: the <code>artifact_blobs</code> / <code>model_artifacts</code> / <code>artifact_lineage</code> data model, the <code>ArtifactBlobStore</code> write-once content store, <code>RegistryModelResolver</code>'s registry-first read path for inference and FL-server warm-start, the artifact/lineage/marketplace REST surface, and the <code>V12</code>/<code>V18</code> migrations.</p>
+</li>
+</ol></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

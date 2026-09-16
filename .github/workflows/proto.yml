@@ -1,0 +1,108 @@
+# Proto governance — the buf gate for the canonical gRPC contract (proto/fedlearn/v2/fedlearn.proto).
+#
+# This is what kills the v1 proto drift the audit found (a malformed SubmitModelUpdate RPC that
+# diverged across copies). It runs only when the contract or one of its in-tree mirrors changes:
+#   - buf lint      — STANDARD ruleset (see proto/buf.yaml for the documented excepts)
+#   - buf breaking  — fail a PR that breaks the wire contract, compared against main
+#   - buf generate  — regeneration must be a no-op (proves committed stubs, if any, are fresh)
+#   - mirror check  — the framework + mobile copies must stay byte-identical to canonical
+#
+# Make this a required check in branch protection (docs/v2/ci-and-branch-protection.md).
+name: proto
+
+on:
+  pull_request:
+    paths:
+      - 'proto/**'
+      - 'framework/**/protos/**'
+      - '.github/workflows/proto.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'proto/**'
+      - 'framework/**/protos/**'
+      - '.github/workflows/proto.yml'
+
+concurrency:
+  group: proto-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  buf:
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 — `buf breaking` below compares against origin/main, which a shallow
+      # (depth-1) checkout does not include.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # github_token authenticates the action's release lookup; unauthenticated, GitHub's API rate
+      # limit can fail setup before any buf step runs.
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ github.token }}
+
+      - name: buf lint
+        working-directory: proto
+        run: buf lint
+
+      # On a push to main this compares main against itself (a no-op); on a PR it compares the
+      # PR head against main and fails on any breaking change to the contract. The input is the
+      # repo-root .git (this step runs in proto/) at origin/main, because a PR checkout has no local
+      # main branch. Until main has a proto/ there is no contract to break, so the step says so.
+      - name: buf breaking (against main)
+        working-directory: proto
+        run: |
+          if git cat-file -e origin/main:proto/buf.yaml 2>/dev/null; then
+            buf breaking --against '../.git#branch=origin/main,subdir=proto'
+          else
+            echo "::notice::main has no proto/buf.yaml yet, so there is no contract to check for breaking changes."
+          fi
+
+      # NOTE ON WHAT THIS STEP DOES AND DOES NOT COVER.
+      # buf.gen.yaml writes every target into proto/gen/, which .gitignore:179 IGNORES — so
+      # `git status --porcelain` here is always clean and this step cannot detect a stale stub.
+      # It is still worth running: it proves the contract compiles under all five plugins.
+      # The stubs the Python framework actually imports live in
+      # framework/src/fedlearn/communication/generated/ and are gated by the step BELOW, which is
+      # the one that fails on rot. Before that step existed, fedlearn_pb2.py sat at gencode 4.25.1
+      # while fot_pb2.py had moved to 5.29.0 and the protobuf pins had been raised to match the
+      # latter — drift no gate was watching.
+      - name: buf generate — contract compiles under every plugin
+        working-directory: proto
+        run: |
+          buf generate
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "::error::buf generate produced changes — regenerated stubs are stale. Run 'buf generate' in proto/ and commit the result."
+            git status --porcelain
+            git diff
+            exit 1
+          fi
+          git diff --exit-code
+
+      # THE step that actually gates the committed Python stubs. Regeneration is reproducible only
+      # because scripts/regen_python_protos.sh captures BOTH post-processing steps that used to be
+      # done by hand (the relative-import rewrite, and — historically — stripping the protobuf
+      # runtime-version guard, now obsolete under the >=5.29.0 pins). It pins grpcio-tools, since
+      # different releases emit different gencode headers.
+      - name: python stubs — freshness (regeneration must be a no-op)
+        run: |
+          pip install "grpcio-tools==1.71.2" --quiet
+          bash scripts/regen_python_protos.sh
+          if [[ -n "$(git status --porcelain framework/src/fedlearn/communication/generated)" ]]; then
+            echo "::error::committed Python stubs are stale. Run scripts/regen_python_protos.sh and commit the result."
+            git --no-pager diff --stat framework/src/fedlearn/communication/generated
+            exit 1
+          fi
+
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The framework (Python) and mobile (C++) copies of the proto must stay byte-identical to
+      # the canonical proto/fedlearn/v2/fedlearn.proto. One stray edit to a mirror fails here.
+      - name: byte-check proto mirrors (framework + mobile)
+        run: bash scripts/check_proto_mirror.sh

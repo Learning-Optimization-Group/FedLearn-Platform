@@ -1,0 +1,76 @@
+{
+  "description": "ZerothOrderEstimator g-scalar + flat-param-filter golden reference (C++ mobile core).",
+  "torch_version": "2.12.0",
+  "architecture": "Linear(4,5)->ReLU->Linear(5,3); fc2 FROZEN (requires_grad=False)",
+  "model_file": "zo_model_tiny.pt",
+  "model_sha256": "5dfd5242f551900d213a4f5a13dcbffd184c7a166fec96458f6f9fd3558e0656",
+  "total_params": 43,
+  "trainable_params": 25,
+  "flat_dim": 25,
+  "mu": 0.001,
+  "method": "forward",
+  "loss": "cross_entropy",
+  "inputs_file": "zo_inputs.f32",
+  "inputs_shape": [
+    8,
+    4
+  ],
+  "targets_file": "zo_targets.i64",
+  "targets_shape": [
+    8
+  ],
+  "seeds": [
+    11,
+    22,
+    33,
+    4242
+  ],
+  "golden_g": [
+    0.36466118693351746,
+    -0.04482268914580345,
+    -0.6026029586791992,
+    0.5087852478027344
+  ],
+  "pte_file": "zo_model_tiny.pte",
+  "pte_sha256": "2eca3c02e2084383f038494d6ecf7c20a1e7e0a1dcc6d7ce2b6e11e7d82f1c56",
+  "flat_file": "zo_flat.f32",
+  "golden_loss": 1.0973092317581177,
+  "param_layout": [
+    {
+      "name": "fc1.weight",
+      "shape": [
+        5,
+        4
+      ],
+      "numel": 20
+    },
+    {
+      "name": "fc1.bias",
+      "shape": [
+        5
+      ],
+      "numel": 5
+    }
+  ],
+  "state_file": "zo_state.safetensors",
+  "state_sha256": "4b1016fca301c00ba84cdf10ee9402e6d226e1471c1b698129e7f9e8c1f98179",
+  "infer_file": "zo_model_tiny_infer.pte",
+  "infer_sha256": "cf8744b9579d78f14bbb82e2d4ce98dcaffc8d2c6ed2253349c39342de546746",
+  "golden_argmax": [
+    0,
+    0,
+    2,
+    0,
+    0,
+    0,
+    2,
+    2
+  ],
+  "golden_accuracy": 0.375,
+  "trainable_file": "tinynet_trainable.pte",
+  "trainable_sha256": "ff398410f7339172295386dfc6220c5f46f21eddfb8ea145daf54e6a15dae412",
+  "trainable_param_names": [
+    "base.fc1.weight",
+    "base.fc1.bias"
+  ]
+}

@@ -1,26 +1,24 @@
 accelerate==1.10.0
 aiohappyeyeballs==2.6.1
-aiohttp==3.12.15
+aiohttp>=3.14.0,<4.0  # SE-22: CVE-2026-34993/47265 (RCE) + DoS/smuggling fixes (was 3.12.15)
 aiohttp-cors==0.8.1
 aiosignal==1.4.0
 annotated-types==0.7.0
 attrs==25.3.0
 cachetools==5.5.2
 certifi==2025.8.3
-cffi==1.17.1
+cffi==2.0.0  # cryptography 46.0.7 requires cffi>=2.0.0
 charset-normalizer==3.4.3
-click==8.1.8
+click==8.3.3  # PYSEC-2026-2132 is fixed here; matches framework/requirements.txt
 colorama==0.4.6
 colorful==0.5.7
 contourpy==1.3.3
-cryptography==44.0.3
+cryptography==50.0.1  # tracks the framework floor (>=50.0.1,<51.0); 46.0.7 carried PYSEC-2026-3552/3553/3554 + GHSA-537c-gmf6-5ccf. Needs cffi>=2.0.0, pinned above.
 cycler==0.12.1
 datasets==3.1.0
 dill==0.3.8
 distlib==0.4.0
 filelock==3.13.1
-flwr==1.20.0
-flwr-datasets==0.5.0
 fonttools==4.59.1
 frozenlist==1.7.0
 fsspec==2024.6.1
@@ -52,18 +50,18 @@ opencensus==0.11.4
 opencensus-context==0.1.3
 opentelemetry-api==1.36.0
 opentelemetry-exporter-prometheus==0.57b0
-opentelemetry-proto==1.27.0
+opentelemetry-proto==1.36.0  # 1.27.0 required protobuf<5, contradicting protobuf==5.29.5 below
 opentelemetry-sdk==1.36.0
 opentelemetry-semantic-conventions==0.57b0
 packaging==25.0
 pandas==2.3.1
 pathspec==0.12.1
-pillow==11.0.0
+pillow>=12.2.0,<13.0  # SE-22: PYSEC-2026-165 + CVE-2026-40192/42309/42310/42311 (was 11.0.0)
 platformdirs==4.3.8
 prometheus_client==0.22.1
 propcache==0.3.2
 proto-plus==1.26.1
-protobuf==4.25.8
+protobuf==5.29.5  # P0-2b: the <5.0.0 cap came from flwr and made the FoT path UNINSTALLABLE here (fot_pb2.py is gencode 5.29.0; protobuf requires runtime >= gencode). Dropping flwr clears it. Matches framework/requirements.txt >=5.29.0,<6.0.0.
 psutil==7.0.0
 py-spy==0.4.1
 pyarrow==21.0.0
@@ -82,7 +80,7 @@ PyYAML==6.0.2
 ray==2.48.0
 referencing==0.36.2
 regex==2025.7.34
-requests==2.32.4
+requests>=2.33.0,<3.0  # SE-22: CVE-2026-25645 (was 2.32.4)
 rich==13.9.4
 rpds-py==0.27.0
 rsa==4.9.1

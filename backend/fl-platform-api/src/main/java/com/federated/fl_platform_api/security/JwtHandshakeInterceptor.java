@@ -42,11 +42,14 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
+    private final TokenRevocationService tokenRevocationService;
 
     public JwtHandshakeInterceptor(JwtTokenProvider jwtTokenProvider,
-                                   CustomUserDetailsService userDetailsService) {
+                                   CustomUserDetailsService userDetailsService,
+                                   TokenRevocationService tokenRevocationService) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userDetailsService = userDetailsService;
+        this.tokenRevocationService = tokenRevocationService;
     }
 
     @Override
@@ -71,6 +74,14 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
             if (!jwtTokenProvider.validateToken(token, userDetails)) {
                 log.info("STOMP handshake rejected: token validation failed");
+                reject(response);
+                return false;
+            }
+            // SE-8: honor the logout denylist here too. The HTTP path (JwtAuthenticationFilter) rejects a
+            // revoked jti; without this check a logged-out (but not-yet-expired) token could still open a
+            // live WebSocket, an inconsistency across the two authenticated surfaces.
+            if (tokenRevocationService.isRevoked(jwtTokenProvider.getJti(token))) {
+                log.info("STOMP handshake rejected: token revoked (logged out)");
                 reject(response);
                 return false;
             }

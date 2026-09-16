@@ -1,0 +1,6 @@
+# Attaches PerContextDatabaseIsolationCustomizer to every test context (aggregated with Spring's
+# built-in ContextCustomizerFactory SPI entries — this adds to them, does not replace them).
+# It gives each `test`-profile create-drop context its own database on a shared Postgres container
+# so a context's create-drop teardown can't drop a cached sibling's schema. See the customizer.
+org.springframework.test.context.ContextCustomizerFactory=\
+  com.federated.fl_platform_api.testsupport.PerContextDatabaseIsolationCustomizerFactory

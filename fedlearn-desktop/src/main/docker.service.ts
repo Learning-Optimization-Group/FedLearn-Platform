@@ -21,6 +21,7 @@
 import Docker from 'dockerode';
 import { app, BrowserWindow } from 'electron';
 import { ChildProcess, spawn } from 'child_process';
+import { CONTAINER_ROOT_CERT_PATH } from './grpcTls';
 import * as fs from 'fs';
 import * as path from 'path';
 import log from 'electron-log';
@@ -34,6 +35,96 @@ export interface TrainingConfig {
   partitionId: string;
   modelType: string;
   datasetPath: string;
+  // The active run's aggregation strategy (from GET /client/projects/{id}/connection). Forwarded to
+  // the client as --strategy so it picks the matching path (e.g. DeComFL) instead of defaulting to
+  // FedAvg; a non-MLP DeComFL project otherwise runs a FedAvg-path client that mismatches the server.
+  // Optional so the legacy flow (no strategy in the payload) still type-checks.
+  strategy?: string;
+  // The project's training arm (from GET /client/projects/{id}/connection). Forwarded to the client
+  // so it federates the same parameter subset the server expects; without it a FROZEN_HEAD project
+  // has the client upload the full state dict against a head-only server.
+  // Optional so a payload from a backend predating P1 still type-checks.
+  trainingArm?: string;
+  // Backend-minted FL connection token (from GET /client/projects/{id}/connection).
+  // Optional so the legacy no-auth flow still type-checks; required in practice once
+  // the FL server is fail-closed (app.fl.require-client-auth=true).
+  connectionToken?: string;
+  // Server trust (from the connection payload): whether the FL server serves TLS, and the host path of the
+  // certificate to verify it with, written by main from grpcServerCertPem. No path means the system roots.
+  grpcTls?: boolean;
+  grpcServerCertPath?: string;
+}
+
+/**
+ * Container env for the docker client path. The framework client reads
+ * FEDLEARN_CONNECTION_TOKEN straight from its process environment (see
+ * fedlearn/security/client_interceptor.maybe_wrap_channel), so the FL connection
+ * token travels as a container env var rather than a CLI arg. Omitted entirely
+ * when absent, so a gate-off server still accepts the legacy no-token flow.
+ */
+export function buildContainerEnv(config: TrainingConfig): string[] {
+  const env = [
+    `PROJECT_ID=${config.projectId}`,
+    `SERVER_ADDRESS=${config.serverAddress}`,
+    `PARTITION_ID=${config.partitionId}`,
+    `MODEL_TYPE=${config.modelType}`,
+    `DATASET_PATH=/data`,
+  ];
+  if (config.strategy) {
+    // entrypoint.sh forwards this to the client as --strategy (parity with the native path push).
+    env.push(`STRATEGY=${config.strategy}`);
+  }
+  if (config.trainingArm) {
+    // entrypoint.sh forwards this to the client as --training-arm (parity with the native path).
+    env.push(`TRAINING_ARM=${config.trainingArm}`);
+  }
+  if (config.connectionToken) {
+    env.push(`FEDLEARN_CONNECTION_TOKEN=${config.connectionToken}`);
+  }
+  if (config.grpcTls) {
+    env.push('FEDLEARN_GRPC_USE_TLS=1');
+    if (config.grpcServerCertPath) {
+      // The host file is mounted read-only at this path (buildContainerBinds).
+      env.push(`FEDLEARN_GRPC_ROOT_CERT=${CONTAINER_ROOT_CERT_PATH}`);
+    }
+  }
+  return env;
+}
+
+/**
+ * Injects the FL connection token into a spawn env for the native client path.
+ * Same rationale as buildContainerEnv — the framework reads it from the env.
+ * Returns the base env unchanged when no token is set.
+ */
+export function withConnectionTokenEnv(
+  base: NodeJS.ProcessEnv,
+  config: TrainingConfig,
+): NodeJS.ProcessEnv {
+  return config.connectionToken
+    ? { ...base, FEDLEARN_CONNECTION_TOKEN: config.connectionToken }
+    : base;
+}
+
+/**
+ * Adds server trust to a spawn env for the native client path: dial TLS, and verify the server against the
+ * certificate file when one was sent. Returns the base env unchanged on a plaintext deployment.
+ */
+export function withGrpcTlsEnv(base: NodeJS.ProcessEnv, config: TrainingConfig): NodeJS.ProcessEnv {
+  if (!config.grpcTls) {
+    return base;
+  }
+  return config.grpcServerCertPath
+    ? { ...base, FEDLEARN_GRPC_USE_TLS: '1', FEDLEARN_GRPC_ROOT_CERT: config.grpcServerCertPath }
+    : { ...base, FEDLEARN_GRPC_USE_TLS: '1' };
+}
+
+/** Container binds: the dataset, plus the server certificate, read-only, when the client verifies against it. */
+export function buildContainerBinds(config: TrainingConfig): string[] {
+  const binds = [`${config.datasetPath}:/data`];
+  if (config.grpcTls && config.grpcServerCertPath) {
+    binds.push(`${config.grpcServerCertPath}:${CONTAINER_ROOT_CERT_PATH}:ro`);
+  }
+  return binds;
 }
 
 // Full list of Jetson SoC device nodes required for GPU access inside containers.
@@ -70,17 +161,15 @@ export class DockerService {
         ? '//./pipe/docker_engine'
         : '/var/run/docker.sock';
 
+    // dockerode opens the socket lazily — constructing the client does NOT connect.
+    // We deliberately do NOT probe the daemon on startup. Docker is required ONLY for
+    // the Jetson training path, which probes on demand in startDockerTraining() and
+    // surfaces an actionable error at the moment it's needed. Probing eagerly on every
+    // launch produced a spurious "Docker is not running: connect ENOENT \\.\pipe\docker_engine"
+    // banner for the overwhelming majority of users (Windows/macOS on CPU/CUDA/MPS), who
+    // run the bundled native client and never touch Docker at all.
     this.docker = new Docker({ socketPath });
-    log.info(`[DockerService] Initialized with socket: ${socketPath}`);
-
-    // Non-blocking daemon probe. Only surfaced to the renderer if the user
-    // actually needs Docker (Jetson profile) — native-path users should not
-    // see a scary "Docker unavailable" banner when they never needed it.
-    this.docker.ping().then(() => {
-      log.info('[DockerService] Docker daemon is reachable');
-    }).catch((err: Error) => {
-      log.warn(`[DockerService] Docker daemon unreachable (only needed for Jetson profile): ${err.message}`);
-    });
+    log.info(`[DockerService] Initialized with socket: ${socketPath} (daemon probed lazily — Jetson path only)`);
   }
 
   /**
@@ -101,12 +190,33 @@ export class DockerService {
    */
   async stopTraining(): Promise<void> {
     if (this.nativeProcess) {
-      log.info('[DockerService] Stopping native process');
-      this.nativeProcess.kill('SIGTERM');
       const proc = this.nativeProcess;
-      setTimeout(() => {
-        if (proc && !proc.killed) proc.kill('SIGKILL');
-      }, 5000);
+      // Already exited? (exitCode set on normal exit; signalCode set when killed by a signal.)
+      // proc.killed is NOT an "exited" signal — it's true the instant .kill() delivers a signal —
+      // so we must not use it to detect liveness.
+      if (proc.exitCode !== null || proc.signalCode !== null) {
+        this.nativeProcess = null;
+        return; // nothing to wait for (avoids a spurious 5s grace on quit)
+      }
+      log.info('[DockerService] Stopping native process (SIGTERM, then SIGKILL after 5s grace)');
+      proc.kill('SIGTERM');
+      // WAIT for the child to actually exit (up to a 5s grace), then escalate to SIGKILL. Keep
+      // this.nativeProcess SET during the drain: clearing it early would let a concurrent
+      // docker:get-status poll observe `idle` and re-enable the Start button, allowing a second
+      // spawn onto the same partition (startNativeProcess's dedup guard also keys on nativeProcess).
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(() => {
+          // Gate the escalation on EXIT status, not proc.killed (which is already true from the
+          // SIGTERM above) — otherwise SIGKILL would never be sent to a SIGTERM-ignoring child.
+          if (proc.exitCode === null && proc.signalCode === null) {
+            log.warn('[DockerService] native process did not exit on SIGTERM; sending SIGKILL');
+            try { proc.kill('SIGKILL'); } catch { /* already gone */ }
+          }
+          resolve();
+        }, 5000);
+        proc.once('exit', () => { clearTimeout(timer); resolve(); });
+      });
+      this.nativeProcess = null; // clear only AFTER the drain completes
       return;
     }
 
@@ -162,7 +272,7 @@ export class DockerService {
    * bundle's entry-point binary directly — no python, no PYTHONPATH, no
    * external deps.
    *
-   * Dev mode: fall back to the system python3 + scripts/client.py so the
+   * Dev mode: fall back to the system python3 + fl-runtime/client.py so the
    * developer workflow keeps working without rebuilding the bundle after
    * every Python edit.
    *
@@ -192,7 +302,7 @@ export class DockerService {
 
     // Dev fallback: spawn python3 against the source tree.
     const repoRoot = path.resolve(__dirname, '..', '..', '..');
-    const clientScript = path.join(repoRoot, 'client-docker', 'scripts', 'client.py');
+    const clientScript = path.join(repoRoot, 'fl-runtime', 'client.py');
     const frameworkSrc = path.join(repoRoot, 'framework', 'src');
 
     if (!fs.existsSync(clientScript)) {
@@ -217,8 +327,13 @@ export class DockerService {
 
   private async startNativeProcess(config: TrainingConfig): Promise<void> {
     if (this.nativeProcess) {
-      this.nativeProcess.kill('SIGTERM');
-      this.nativeProcess = null;
+      // Fully drain the previous native client before respawning. stopTraining runs
+      // the SIGTERM → 5s grace → SIGKILL sequence and keeps this.nativeProcess SET
+      // until the old child actually exits. A fire-and-forget kill here would let the
+      // new client connect to the FL server on the same partition while the old one is
+      // still alive — a double-client race on one partition. Awaiting the drain
+      // guarantees at most one live native process per partition across a respawn.
+      await this.stopTraining();
     }
 
     const invocation = this.resolveNativeInvocation();
@@ -237,15 +352,45 @@ export class DockerService {
       '--partition-id', config.partitionId,
     ];
 
-    if (config.modelType === 'OPT-125M' || config.modelType === 'Transformer') {
-      args.push('--use-llm');
+    // Forward the recipe key so the client trains the right architecture. The
+    // value comes from the backend connection payload (the project's modelType),
+    // not a hardcoded dropdown. The client derives USE_LLM from --model-type
+    // TRANSFORMER itself, so --use-llm is no longer passed separately.
+    if (config.modelType) {
+      args.push('--model-type', config.modelType);
+    }
+
+    // Forward the active run's strategy so the client selects the matching path (DeComFL vs the
+    // default FedAvg-style path). Only DeComFL actually changes client behaviour — the other strategy
+    // strings (FedAvg/FedOpt/Robust/FedLoRA) all use the same first-order client path, so passing them
+    // is a safe no-op. Omitted when absent (the client then defaults to FedAvg, the legacy behaviour).
+    // Forward the training arm so the client freezes the same modules the server filtered its
+    // parameters to. Omitted when absent, which reproduces the pre-P1 behaviour (client defaults
+    // to FULL) rather than sending an empty value.
+    if (config.trainingArm) {
+      args.push('--training-arm', config.trainingArm);
+    }
+
+    if (config.strategy) {
+      args.push('--strategy', config.strategy);
+    }
+
+    // DE-2: forward the user-selected local dataset directory to the native
+    // client, mirroring the Jetson Docker path's `${datasetPath}:/data` bind.
+    // Only when non-empty — a blank field means "use the recipe's default data
+    // source", which the client already does when --dataset-path is absent.
+    // The renderer already trims this (HardwareSelector), but guard here too so
+    // a whitespace-only value never becomes a bogus path argument.
+    const datasetPath = config.datasetPath?.trim();
+    if (datasetPath) {
+      args.push('--dataset-path', datasetPath);
     }
 
     log.info(`[Native] Profile=${config.hardwareProfile} command=${invocation.command} args=${args.join(' ')}`);
     log.info(`[Native] cwd=${invocation.cwd}`);
 
     const child = spawn(invocation.command, args, {
-      env: invocation.env,
+      env: withGrpcTlsEnv(withConnectionTokenEnv(invocation.env, config), config),
       cwd: invocation.cwd,
     });
 
@@ -292,7 +437,7 @@ export class DockerService {
       // Principle of least privilege — never mount the host Docker socket
       // into the training container.
       AutoRemove: false,
-      Binds: [`${config.datasetPath}:/data`],
+      Binds: buildContainerBinds(config),
     };
 
     switch (config.hardwareProfile) {
@@ -303,25 +448,21 @@ export class DockerService {
         hostConfig.Devices = JETSON_DEVICE_MOUNTS;
         log.info('[Docker] Profile: Jetson SoC (direct device mounts)');
         break;
-      case 'discrete':
-        hostConfig.DeviceRequests = [{ Count: -1, Capabilities: [['gpu']] }];
-        log.info('[Docker] Profile: discrete GPU (DeviceRequests --gpus all)');
-        break;
-      case 'cpu':
-        log.info('[Docker] Profile: CPU only');
-        break;
       case 'mps':
-        // Shouldn't reach here — MPS is native-only. Guarded for completeness.
+        // MPS is native-only; it can never run under Docker.
         throw new Error('MPS profile cannot run under Docker');
+      default:
+        // Jetson is the ONLY profile that uses the Docker path — startTraining()
+        // routes every other profile (discrete/cpu/mps) to the bundled native
+        // client and never calls this method for them. Reaching here with a
+        // non-jetson profile means a routing regression, so fail loudly instead
+        // of silently building a Docker container for a native profile.
+        throw new Error(
+          `Profile '${config.hardwareProfile}' does not use the Docker path — only 'jetson' runs under Docker`,
+        );
     }
 
-    const env = [
-      `PROJECT_ID=${config.projectId}`,
-      `SERVER_ADDRESS=${config.serverAddress}`,
-      `PARTITION_ID=${config.partitionId}`,
-      `MODEL_TYPE=${config.modelType}`,
-      `DATASET_PATH=/data`,
-    ];
+    const env = buildContainerEnv(config);
 
     log.info(`[Docker] Creating container: image=${DOCKER_IMAGE}, project=${config.projectId}`);
 

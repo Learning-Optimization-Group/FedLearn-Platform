@@ -1,0 +1,33 @@
+# gitleaks config — extends the default ruleset and allowlists known-dummy
+# fixtures so the `security / secrets` CI job (free gitleaks CLI) stays green.
+#
+# Every allowlisted hit is either a PUBLIC test-only credential (e.g.
+# base64("dev-only-jwt-secret-do-not-use-in-prod!!"), "test-only-internal-key"),
+# used solely to boot the Spring `test`/`dev` profiles, or a non-secret
+# identifier that a heuristic rule misreads. No real secret is ever committed to
+# these paths by policy.
+title = "FedLearn-Platform gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Public test/dev-only fixture credentials (never used outside tests)"
+paths = [
+  '''.*/src/test/.*''',
+  '''.*/application-(test|dev)\.properties$''',
+  # Framework test fixtures — e.g. framework/tests/fixtures/golden_connection_token.json, a
+  # golden token signed with the dummy secret base64("fedlearn-golden-token-secret-32b") used
+  # by the cross-language connection-token parity tests. Test-only, never a real credential.
+  '''.*/tests/fixtures/.*''',
+]
+
+[[allowlists]]
+# fl-runtime/recipes.py names the CIFAR-10 ResNet-18 recipe "CIFAR_RESNET18" and compares self.key
+# against it; generic-api-key reads `key ... "CIFAR_RESNET18"` as an assigned secret (entropy 3.52).
+# Anchored to that exact value and that one rule, so it cannot hide anything else.
+description = "Recipe identifier misread as an API key"
+targetRules = ["generic-api-key"]
+regexes = [
+  '''^CIFAR_RESNET18$''',
+]

@@ -1,0 +1,303 @@
+# PR-time CI — the load-bearing gate the audit flagged as missing (Theme 4: "every other defect
+# compounds because nothing gates PRs"). Per-stack jobs run only when that stack changes
+# (dorny/paths-filter), so PRs get fast, relevant feedback. Make these required checks in branch
+# protection (see docs/v2/ci-and-branch-protection.md).
+#
+# VERIFY-BEFORE-USE: pinned tool versions + per-stack commands; confirm against each subproject.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      framework: ${{ steps.filter.outputs.framework }}
+      backend: ${{ steps.filter.outputs.backend }}
+      backend_scripts: ${{ steps.filter.outputs.backend_scripts }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      desktop: ${{ steps.filter.outputs.desktop }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+      client_docker: ${{ steps.filter.outputs.client_docker }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            framework:
+              - 'framework/**'
+            backend:
+              - 'backend/**'
+            backend_scripts:
+              - 'fl-runtime/**'
+              - 'backend/fl-platform-api/requirements.txt'
+            frontend:
+              - 'frontend/**'
+            desktop:
+              - 'fedlearn-desktop/**'
+            mobile:
+              - 'mobile_client/**'
+            client_docker:
+              - 'client-docker/**'
+
+  framework:
+    needs: changes
+    # SE-13 done-when #2: the FL-boundary security suite (token interceptor e2e, non-finite rejection,
+    # insecure-bind refusal, the Java->Python token golden) must run on BOTH framework/** and
+    # backend/** changes — a backend ConnectionTokenService/servicer-contract edit that breaks
+    # Java<->Python compat must trip this gate, not just a framework-side edit.
+    if: ${{ needs.changes.outputs.framework == 'true' || needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install (CPU torch + framework deps + pytest)
+        run: |
+          python -m pip install --upgrade pip
+          # CPU torch pinned to the golden-fixture version (framework/tests/fixtures/decomfl_golden);
+          # the perturbation version-gate compares the base version (2.12.0).
+          pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.12.0"
+          # torchvision from the same index (0.27.0 is torch 2.12.0's pairing): the frozen-vs-finetune
+          # benchmark tests build torchvision backbones, and a PyPI torchvision would not match this
+          # torch build (framework/requirements.txt explains why it is not listed there).
+          pip install --index-url https://download.pytorch.org/whl/cpu "torchvision==0.27.0"
+          # executorch pinned to the validated toolchain pairing (mobile_client/scripts/pte_export.py:
+          # torch 2.12.0 + executorch 1.3.1) so the PTE-export parity test RUNS here instead of
+          # silently skipping on importorskip — the exact false green TE-10 exists to catch.
+          # pytest-cov: framework/pytest.ini addopts enforce --cov=fedlearn --cov-fail-under (TE-11).
+          # timm: the timm-backbone benchmark tests would otherwise skip, which TE-10 fails. Its torch and
+          # torchvision requirements are unpinned, so the CPU builds installed above satisfy them. Two of
+          # those tests download resnet50_gn.a1h_in1k weights from the Hugging Face Hub.
+          pip install -r framework/requirements.txt pytest pytest-cov "executorch==1.3.1" "timm==1.0.29"
+          pip install -e framework
+      # TE-10: the skip-integrity guard in framework/tests/conftest.py fails this job if any test
+      # is SKIPPED for a non-allowlisted reason (`-m "not slow"` deselection is not a skip and
+      # stays fine). Env var set explicitly so the gate doesn't ride on the implicit CI=true.
+      - name: pytest
+        working-directory: framework
+        env:
+          FEDLEARN_FAIL_ON_UNEXPECTED_SKIP: '1'
+        run: PYTHONPATH=src python -m pytest -q
+
+  backend:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: 'Gradle test (test profile: Testcontainers Postgres, Flyway disabled)'
+        working-directory: backend/fl-platform-api
+        env:
+          SPRING_PROFILES_ACTIVE: test
+        # TE-11: jacocoTestCoverageVerification enforces the bundle line-coverage floor (0.70).
+        run: ./gradlew test jacocoTestCoverageVerification --no-daemon
+
+  # TE-4: the FL trainer scripts (recipes/client/init_model/fl_server/infer) ship a committed
+  # pytest suite that ran in no CI job. Gate it here so a script regression fails a PR. Runs only
+  # when the scripts (or their requirements) change — Java-only backend edits skip this job.
+  backend-scripts:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend_scripts == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install (CPU torch + FL-script deps + pytest)
+        run: |
+          python -m pip install --upgrade pip
+          # CPU wheels to avoid the CUDA download; versions pinned to requirements.txt so pip
+          # treats them as satisfied and does not re-resolve torch off the default index.
+          pip install --index-url https://download.pytorch.org/whl/cpu \
+            "torch==2.5.1" "torchvision==0.20.1" "torchaudio==2.5.1"
+          # peft + scikit-learn are NOT in requirements.txt (that freeze predates the LoRA work),
+          # but the non-slow suite needs both: client.py has a module-level `import sklearn` (any
+          # test that imports it fails at COLLECTION otherwise) and the LLM-LoRA / eval-card /
+          # perplexity tests import peft at runtime. The framework declares them as `peft>=0.11`
+          # and `scikit-learn` (framework/requirements.txt) — mirror that here. Without these the
+          # suite errors out during collection (5 collection errors), a false red the moment the
+          # scripts change. They resolve against the already-installed torch, so torch is untouched.
+          # PyJWT: the FL-server import chain (security/token_verify.py -> `import jwt`, pulled in by
+          # the connection-token interceptor) needs it; framework/requirements.txt declares it, but
+          # this job installs the backend lockfile + uses the framework via sys.path, so add it here
+          # (mirrors framework/requirements.txt's `PyJWT>=2.8,<3`), like peft/scikit-learn above.
+          pip install -r backend/fl-platform-api/requirements.txt pytest "peft>=0.11" scikit-learn "PyJWT>=2.8,<3"
+      # TE-10: the skip-integrity guard in tests/conftest.py fails this job if any test is
+      # SKIPPED (this suite allowlists no skip reasons; `-m "not slow"` deselection is not a skip).
+      - name: pytest (FL trainer scripts; pytest.ini deselects -m slow)
+        working-directory: fl-runtime
+        env:
+          FEDLEARN_FAIL_ON_UNEXPECTED_SKIP: '1'
+        run: python -m pytest -q
+
+  frontend:
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install + lint + typecheck + test + build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npx tsc --noEmit
+          npm run test:coverage   # TE-11: vitest --coverage; thresholds enforced from vitest.config.ts
+          # FE-7: the committed .env.production carries a placeholder API host and the prebuild guard
+          # refuses to bundle it. This job only proves the production bundle compiles - nothing is
+          # deployed from it - so a reserved, never-resolving https origin satisfies the guard. Set on
+          # the build command alone, so lint, typecheck and tests keep seeing the committed env files.
+          VITE_FEDLEARN_API_URL=https://api.ci.invalid/api VITE_SERVER_ROOT_URL=https://api.ci.invalid npm run build
+
+  design-tokens:
+    # The per-platform token outputs (frontend/desktop CSS, mobile TS) must stay byte-in-sync with
+    # design/tokens.json — the design-system analogue of proto-mirror. Fast + pure-node, so it runs
+    # unconditionally (no path filter): a hand-edit of a generated file, or a tokens.json change without
+    # regenerating, fails here instead of silently drifting.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Design tokens in sync with source of truth
+        run: bash scripts/check_design_tokens.sh
+
+  desktop:
+    needs: changes
+    if: ${{ needs.changes.outputs.desktop == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: fedlearn-desktop/package-lock.json
+      # TE-10: jest has no forbid-skip switch — statically reject .skip/.only/xit/fit &c. so a
+      # skipped test can't ride a green run.
+      - name: No skipped/focused jest tests
+        run: bash scripts/check_no_skipped_tests.sh fedlearn-desktop
+      - name: Install + lint + test
+        working-directory: fedlearn-desktop
+        run: |
+          npm ci
+          npm run lint
+          npm run test:coverage   # TE-11: jest --coverage; coverageThreshold enforced from jest.config.js
+
+  # TE-3: the mobile RN TypeScript app had ZERO CI gate — tsc + jest never ran anywhere. Gate them
+  # here (type-check + jest + lint). Fast JS-only job, kept separate from the heavy native Android
+  # (.so) build.
+  mobile-js:
+    needs: changes
+    if: ${{ needs.changes.outputs.mobile == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile_client/package-lock.json
+      # TE-10: jest has no forbid-skip switch — statically reject .skip/.only/xit/fit &c. so a
+      # skipped test can't ride a green run.
+      - name: No skipped/focused jest tests
+        run: bash scripts/check_no_skipped_tests.sh mobile_client
+      # TE-9: mobile now ships a real ESLint 9 flat config (eslint.config.mjs) — gate it same as
+      # every other JS/TS unit instead of silently no-op'ing.
+      - name: Install + lint + typecheck + jest
+        working-directory: mobile_client
+        run: |
+          npm ci
+          npm run lint
+          npx tsc --noEmit
+          npm run test:coverage   # TE-11: jest --coverage --ci; coverageThreshold enforced from package.json
+
+  # TE-6: client-docker is a full deployable unit (containerized FL client, a thin wrapper around
+  # framework/) that shipped with ZERO CI — a broken Dockerfile or requirements.txt went unnoticed
+  # until a user pulled the image. Build the image on PRs that touch it, then smoke-test that the
+  # entrypoint launches the client. Runs only when client-docker/ changes.
+  #
+  # amd64 ONLY. The Dockerfile's default BASE_IMAGE is x86 PyTorch/CUDA; GitHub-hosted runners are
+  # amd64 and have no GPU, but CUDA runtime libs load lazily so a CPU-only build + `--help` is fine.
+  # The Jetson lane (--build-arg BASE_IMAGE=nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3) is arm64
+  # and needs real CUDA hardware — it belongs on a separate self-hosted arm64 runner, NOT here.
+  client-docker:
+    needs: changes
+    if: ${{ needs.changes.outputs.client_docker == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      # Build context is the repo root: the Dockerfile COPYs both framework/ and client-docker/.
+      # gha layer cache keeps unchanged base/dep layers warm across runs.
+      - name: Build image (amd64 default BASE_IMAGE)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: client-docker/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: fedlearn-client:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      # Smoke: run through the real entrypoint. It requires the three env vars, then execs
+      # `client.py <flags> --help`; argparse prints help and exits 0 before any gRPC connect,
+      # so this proves the framework + client imports load and the entrypoint wiring is sound.
+      - name: Smoke-test entrypoint (client.py --help)
+        run: |
+          docker run --rm \
+            -e PROJECT_ID=smoke \
+            -e SERVER_ADDRESS=localhost:50000 \
+            -e PARTITION_ID=0 \
+            fedlearn-client:ci --help
+
+  # TE-14: the single required status check. Configure branch protection to require ONLY this job
+  # ("ci-gate"); it passes iff every unit job that actually RAN succeeded. A job
+  # skipped by the `changes` paths-filter reports 'skipped' and is fine (nothing changed there to
+  # gate); a 'failure'/'cancelled' fails the gate. One aggregator that tolerates the per-unit path
+  # filtering is what makes "all unit jobs are required" enforceable — a plain required-check list
+  # would wedge every PR on the jobs that legitimately skipped. Each unit job runs its TE-11 coverage
+  # floor on PRs, so a change that drops coverage below a unit's floor fails that job and thus this gate
+  # (the coverage-regression gate); a finer base-vs-PR coverage delta is a follow-up (needs a coverage
+  # service or a base re-run).
+  ci-gate:
+    needs: [framework, backend, backend-scripts, frontend, desktop, mobile-js, client-docker]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every unit job to have succeeded (or been skipped by the paths-filter)
+        run: |
+          results='${{ join(needs.*.result, ' ') }}'
+          echo "unit job results: ${results}"
+          for r in ${results}; do
+            case "${r}" in
+              success|skipped) ;;
+              *) echo "::error::a required unit job did not pass (result=${r})"; exit 1 ;;
+            esac
+          done
+          echo "All unit jobs passed or were skipped by the paths-filter."
