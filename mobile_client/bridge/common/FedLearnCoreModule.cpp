@@ -585,6 +585,17 @@ jsi::Value FedLearnCoreModule::runOnWorker(jsi::Runtime& rt, Work work, Build bu
       });
 }
 
+jsi::Value FedLearnCoreModule::getRuntimeCompatibility(jsi::Runtime& rt) {
+  return runOnWorker(
+      rt, []() { return true; },
+      [](jsi::Runtime& r, const bool&) {
+        jsi::Object result(r);
+        result.setProperty(r, "bridgeAbiVersion", kBridgeAbiVersion);
+        result.setProperty(r, "protocolVersion", kProtocolVersion);
+        return result;
+      });
+}
+
 jsi::Value FedLearnCoreModule::registerClient(jsi::Runtime& rt, jsi::String serverAddress,
                                               jsi::String runId, jsi::String clientId,
                                               jsi::String enrollmentToken, bool useTls,

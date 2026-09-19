@@ -9,6 +9,7 @@ export type {
   Strategy,
   GradEstimateMethod,
   RegisterResult,
+  RuntimeCompatibility,
   ServerStatus,
   RoundConfig,
   RoundResult,

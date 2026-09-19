@@ -52,6 +52,7 @@ namespace react = facebook::react;
 // The protocol version this client speaks (must equal the server's; RegisterClient rejects on
 // mismatch — E1 / 04 §10.1.2). Bump on any breaking contract change.
 inline constexpr int kProtocolVersion = 2;
+inline constexpr int kBridgeAbiVersion = 1;
 
 class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreModule> {
  public:
@@ -91,6 +92,7 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
   void applyModelManifest(const ModelManifest& manifest);
 
   // ---- JSI spec methods (signatures must match the generated CxxSpec; see header banner) ----
+  jsi::Value getRuntimeCompatibility(jsi::Runtime& rt);
   jsi::Value registerClient(jsi::Runtime& rt, jsi::String serverAddress, jsi::String runId,
                             jsi::String clientId, jsi::String enrollmentToken, bool useTls,
                             jsi::String serverCertPem);

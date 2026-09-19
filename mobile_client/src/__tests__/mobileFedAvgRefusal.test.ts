@@ -23,6 +23,7 @@ jest.mock('../lib/nativeCore', () => ({
     getServerStatus: jest.fn(),
     runDeComFLRound: jest.fn(),
     runFedAvgRound: jest.fn(),
+    getRuntimeCompatibility: jest.fn().mockResolvedValue({ bridgeAbiVersion: 1, protocolVersion: 2 }),
   },
 }));
 

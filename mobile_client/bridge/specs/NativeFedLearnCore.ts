@@ -24,6 +24,11 @@ export interface ServerStatus {
   roundDeadlineUnixMs: number;
 }
 
+export interface RuntimeCompatibility {
+  bridgeAbiVersion: number;
+  protocolVersion: number;
+}
+
 export interface RoundConfig {
   strategy: Strategy;
   learningRate: number; // eta
@@ -89,6 +94,7 @@ export interface ModelManifest {
 }
 
 export interface Spec extends TurboModule {
+  getRuntimeCompatibility(): Promise<RuntimeCompatibility>;
   // ---- gRPC lifecycle ----
   registerClient(
     serverAddress: string,
@@ -159,6 +165,7 @@ function unavailable(): Promise<never> {
 // Typed no-op core used when the native module is absent. Keeps the default-export type exactly `Spec`
 // so callers and tsc are unaffected; only actual training/gRPC calls fail (loudly, with the message).
 const fallbackCore: Spec = {
+  getRuntimeCompatibility: unavailable,
   registerClient: unavailable,
   getServerStatus: unavailable,
   stop: unavailable,

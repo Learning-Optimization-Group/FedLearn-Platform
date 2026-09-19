@@ -5,6 +5,7 @@
 import nativeCore, { type RoundConfig, type RoundResult } from './nativeCore';
 import { joinRun, type JoinedRun } from './runJoin';
 import { provisionTrainingBundle } from './modelProvisioning';
+import { assertNativeCompatibility } from './nativeCompatibility';
 
 // Server run states that mean "stop looping" (mirrors GetServerStatusResponse.ServerState names).
 const TERMINAL_STATES = new Set(['COMPLETED', 'FINISHED', 'FAILED', 'STOPPED', 'ABORTED']);
@@ -245,6 +246,7 @@ export async function runTrainingLoop(
     );
   }
 
+  await assertNativeCompatibility(nativeCore);
   hooks.onLog('Provisioning model + on-device data…');
   const bundle = await provisionTrainingBundle(joined.runId);
 
