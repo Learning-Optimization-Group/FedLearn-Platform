@@ -18,3 +18,19 @@ test('a failed attempt releases the gate for a later explicit retry', async () =
   await flight.run(next);
   expect(next).toHaveBeenCalledTimes(1);
 });
+
+test('a pending join excludes training and reports the rejected action', async () => {
+  const flight = new SingleFlight();
+  let finishJoin!: () => void;
+  const join = flight.run(() => new Promise<void>((resolve) => { finishJoin = resolve; }));
+  const training = jest.fn().mockResolvedValue(undefined);
+  const busy = jest.fn();
+
+  await flight.run(training, busy);
+  expect(training).not.toHaveBeenCalled();
+  expect(busy).toHaveBeenCalledTimes(1);
+  finishJoin();
+  await join;
+  await flight.run(training, busy);
+  expect(training).toHaveBeenCalledTimes(1);
+});

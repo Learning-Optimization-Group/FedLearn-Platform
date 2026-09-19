@@ -60,7 +60,7 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(trainingReducer, initialTrainingState);
   const stompRef = useRef<StompHandle | null>(null);
   const stopRef = useRef(false); // cooperative stop flag polled by the training loop
-  const trainingFlight = useRef(new SingleFlight());
+  const participationFlight = useRef(new SingleFlight());
   const joined = state.joined;
   const projectName = state.projectName;
 
@@ -116,24 +116,26 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
   }, [joined]);
 
   const join = useCallback(async (projectId: string, name?: string) => {
-    dispatch({ type: 'JOIN_START' });
-    try {
-      const result = await joinRun({ projectId });
-      dispatch({ type: 'JOIN_SUCCESS', joined: result, projectName: name });
-      void diagnosticJournal.append('join', 'registered for training').catch(() => {});
-    } catch (e) {
-      // MO-16: readError, not String(e) — an axios join failure otherwise renders as
-      // the meaningless "[object Object]".
-      dispatch({ type: 'JOIN_FAILURE', error: readError(e) });
-      void diagnosticJournal.append('join-error', readError(e)).catch(() => {});
-    }
+    return participationFlight.current.run(async () => {
+      dispatch({ type: 'JOIN_START' });
+      try {
+        const result = await joinRun({ projectId });
+        dispatch({ type: 'JOIN_SUCCESS', joined: result, projectName: name });
+        void diagnosticJournal.append('join', 'registered for training').catch(() => {});
+      } catch (e) {
+        // MO-16: readError, not String(e) — an axios join failure otherwise renders as
+        // the meaningless "[object Object]".
+        dispatch({ type: 'JOIN_FAILURE', error: readError(e) });
+        void diagnosticJournal.append('join-error', readError(e)).catch(() => {});
+      }
+    }, () => dispatch({ type: 'LOG_APPEND', body: 'Join or training is already active.', level: 'WARN' }));
   }, []);
 
   // Start the on-device training loop: stage the model + local data, then run rounds. All compute
   // is on-device; only seeds + gradient scalars are uploaded (raw data never leaves).
   const startTraining = useCallback(async () => {
     if (!joined) return;
-    return trainingFlight.current.run(async () => {
+    return participationFlight.current.run(async () => {
       const ledgerProjectName = projectName ?? joined.projectId;
       dispatch({ type: 'TRAINING_START' });
       stopRef.current = false;
@@ -179,7 +181,7 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
         foregroundService.stop();
         dispatch({ type: 'TRAINING_END' });
       }
-    });
+    }, () => dispatch({ type: 'LOG_APPEND', body: 'Join or training is already active.', level: 'WARN' }));
   }, [joined, projectName]);
 
   // Stop = abort the native gRPC/training path (sets the abort flag + joins threads), stop the

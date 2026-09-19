@@ -2,8 +2,11 @@
 export class SingleFlight {
   private active = false;
 
-  async run(task: () => Promise<void>): Promise<void> {
-    if (this.active) return;
+  async run(task: () => Promise<void>, onBusy?: () => void): Promise<void> {
+    if (this.active) {
+      onBusy?.();
+      return;
+    }
     this.active = true;
     try {
       await task();
