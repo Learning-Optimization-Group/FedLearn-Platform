@@ -49,6 +49,8 @@ USE_LLM_LORA = False          # federated LoRA SEQ_CLS recipe
 TRAINING_ARM = "FULL"
 MODEL_TYPE = None             # the selected recipe key, for arm resolution
 USE_DERIVED = False           # arm federates a trainable SUBSET (head-only / adapter-only)
+USE_WIRE_SUBSET = False       # the WIRE carries trainable_state only (arm subset OR recipe frozen by
+                              # construction); drives upload + load, never which params the arm trains
 LLM_LORA_AGGREGATION = "FFA_LORA"
 LLM_LORA_MODEL_NAME = "qwen2.5-0.5b"
 LLM_LORA_TASK_TYPE = "SEQ_CLASSIFICATION"
@@ -210,6 +212,12 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
             partition_id=partition_id, num_clients=num_clients, batch_size=BATCH_SIZE,
             model_name=LLM_LORA_MODEL_NAME, task_type=LLM_LORA_TASK_TYPE)
         return train, train   # reuse the shard as the (unused) eval loader, matching the CNN return shape
+    if MODEL_TYPE == "TINYNET_GOLDEN":
+        # The golden 4-dim task the phone trains on. It used to be wired only into the DeComFL
+        # branch of __main__, so a FedAvg client fell through to the default text dataset ("cb")
+        # and died on its first forward pass. Keyed on the recipe for the same reason as below.
+        loader = build_tinynet_golden_decomfl_loader(partition_id=partition_id)
+        return loader, loader
     if MODEL_TYPE == "FROZEN_DEMO":
         # DA-14 Ph3.3c: self-contained synthetic vector shard for the FROZEN_DEMO recipe.
         #
@@ -489,8 +497,9 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                 labels = labels.to(DEVICE)
                 outputs = net(features)
                 loss = criterion(outputs, labels)
-            elif MODEL_TYPE == "FROZEN_DEMO":
-                # FROZEN_DEMO's synthetic shard is a (features, labels) VECTOR tuple.
+            elif MODEL_TYPE in ("FROZEN_DEMO", "TINYNET_GOLDEN"):
+                # FROZEN_DEMO's synthetic shard and TINYNET_GOLDEN's golden fixture are both
+                # (features, labels) VECTOR tuples.
                 #
                 # Keyed on the recipe, not USE_DERIVED, for the same reason load_data is: the batch
                 # SHAPE is a property of the dataset, and the dataset follows the recipe. Branching
@@ -639,6 +648,28 @@ def _apply_proximal_gradient(net, global_params, mu: float) -> None:
 # ==============================================================================
 # --- Custom Client Class for FedLearn with Heartbeat Support ---
 # ==============================================================================
+def load_federated_state(net, parameters):
+    """Load a global model received over the wire.
+
+    Full-state wire: a strict load, exactly as before -- a missing key there is a malformed payload.
+    Subset wire (``USE_WIRE_SUBSET``): the frozen keys are legitimately absent, so load non-strictly,
+    but only after checking that every TRAINABLE key arrived and nothing unexpected did. A bare
+    ``strict=False`` would silently keep a stale trainable tensor if the payload were truncated.
+    """
+    if not USE_WIRE_SUBSET:
+        net.load_state_dict(parameters)
+        return
+    from fedlearn.estimators.params import trainable_state
+    expected = set(trainable_state(net).keys())
+    got = set(parameters.keys())
+    missing, unexpected = sorted(expected - got), sorted(got - expected)
+    if missing or unexpected:
+        raise RuntimeError(
+            f"Subset-wire global model does not match this model's trainable set: "
+            f"missing {missing}, unexpected {unexpected}")
+    net.load_state_dict(parameters, strict=False)
+
+
 class ZOSLClient(fl.Client):
     def __init__(self, partition_id: int, dataset_name: str = "sst2", dataset_path: str = None, num_clients: int = 10):
         self.partition_id = partition_id
@@ -716,7 +747,7 @@ class ZOSLClient(fl.Client):
             from peft import get_peft_model_state_dict
             full = get_peft_model_state_dict(self.net, save_embedding_layers=False)
             return OrderedDict((k, v) for k, v in full.items() if k in self._adapter_keys)
-        if USE_DERIVED:
+        if USE_DERIVED or USE_WIRE_SUBSET:
             # DA-14 Ph3.3b: federate ONLY the trainable subset (the head); the frozen backbone
             # never rides the wire. Mirrors the LLM_LORA adapter-only upload above.
             from fedlearn.estimators.params import trainable_state
@@ -790,7 +821,7 @@ class ZOSLClient(fl.Client):
             # (the wire carried only the head). Mirrors the LLM_LORA non-full-state load above.
             self.net.load_state_dict(parameters, strict=False)
         else:
-            self.net.load_state_dict(parameters)
+            load_federated_state(self.net, parameters)
 
         # RIGHT AFTER: self.net.load_state_dict(parameters)
 
@@ -1050,7 +1081,7 @@ def parse_args(argv=None):
 
 
 def main():
-    global USE_LLM, USE_MLP, USE_PNEUMONIA, USE_LLM_LORA, USE_DERIVED, TRAINING_ARM, MODEL_TYPE, LLM_LORA_AGGREGATION, LLM_LORA_MODEL_NAME, LLM_LORA_TASK_TYPE, DATASET_NAME, BATCH_SIZE, DEVICE
+    global USE_LLM, USE_MLP, USE_PNEUMONIA, USE_LLM_LORA, USE_DERIVED, USE_WIRE_SUBSET, TRAINING_ARM, MODEL_TYPE, LLM_LORA_AGGREGATION, LLM_LORA_MODEL_NAME, LLM_LORA_TASK_TYPE, DATASET_NAME, BATCH_SIZE, DEVICE
 
     print(f"\n{'='*60}")
     print(f"DEVICE DETECTION")
@@ -1087,6 +1118,9 @@ def main():
         # is the pattern behind three defects today (the dataset chosen from the arm, the arm
         # applied in one build branch, the payload built two ways).
         USE_DERIVED = _r.trainable_prefixes(mt, TRAINING_ARM) is not None
+        # Separate from USE_DERIVED on purpose: a recipe frozen by construction (TINYNET_GOLDEN)
+        # federates a subset on the FULL arm, but must NOT go through the arm-freezing path.
+        USE_WIRE_SUBSET = _r.federates_trainable_subset(mt, TRAINING_ARM)
     elif args.use_llm:
         USE_LLM = True
         USE_MLP = False

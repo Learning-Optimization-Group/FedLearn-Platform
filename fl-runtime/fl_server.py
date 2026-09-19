@@ -277,12 +277,12 @@ def evaluation_load_is_strict(model_type, training_arm, withheld=0):
         # BatchNorm models for FULL would immediately fail evaluation on the very keys the wire
         # was told not to carry.
         return False
-    if str(model_type).upper() == "TINYNET_GOLDEN":
-        # Syncs only its 25 trainable fc1 params; the frozen fc2 exists only in the fresh net.
-        return False
     try:
-        return recipes.trainable_prefixes(model_type, training_arm) is None
-    except ValueError:
+        # One definition shared with the client (recipes.federates_trainable_subset). It covers both
+        # a subset ARM and a recipe frozen by construction -- TINYNET_GOLDEN syncs only its 25
+        # trainable fc1 params, and the frozen fc2 exists only in the fresh net.
+        return not recipes.federates_trainable_subset(model_type, training_arm)
+    except (ValueError, KeyError):
         return True        # unknown recipe/arm: keep the stricter behaviour
 
 
