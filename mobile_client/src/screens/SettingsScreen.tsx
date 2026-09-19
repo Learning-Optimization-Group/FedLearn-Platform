@@ -27,6 +27,7 @@ export function SettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [diagnosticsNotice, setDiagnosticsNotice] = useState<string | null>(null);
   const [probe, setProbe] = useState<ProbeState>('idle');
   const [tier, setTier] = useState<ModelTier | null>(null);
   // The saved confirmation is a transient caption under the field (the button label never mutates).
@@ -194,6 +195,23 @@ export function SettingsScreen() {
           }}>
           <Text className="text-fg text-label font-sans">Share training diagnostics</Text>
         </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Clear training diagnostics"
+          className="flex-row items-center justify-center bg-surface-1 border border-hairline rounded-md py-3 mt-2 active:opacity-80"
+          onPress={async () => {
+            try {
+              await diagnosticJournal.clear();
+              setDiagnosticsNotice('Diagnostics cleared');
+            } catch (e) {
+              setError(`Could not clear diagnostics: ${String(e)}`);
+            }
+          }}>
+          <Text className="text-fg text-label font-sans">Clear training diagnostics</Text>
+        </Pressable>
+        {diagnosticsNotice ? (
+          <Text className="text-caption font-sans text-success mt-2">{diagnosticsNotice}</Text>
+        ) : null}
       </View>
 
       {/* Account (the app-version row moved into the This-device card above) */}

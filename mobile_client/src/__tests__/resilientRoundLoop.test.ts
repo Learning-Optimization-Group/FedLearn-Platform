@@ -56,16 +56,54 @@ function hooks() {
 
 function baseOps(over: Partial<RoundOps> = {}): RoundOps {
   return {
-    getServerStatus: jest.fn().mockResolvedValue({ serverState: 'TRAINING' }),
+    getServerStatus: jest.fn().mockResolvedValue({ serverState: 'TRAINING', currentRound: 1 }),
     runFedAvgRound: jest.fn().mockResolvedValue(round(1)),
     runDeComFLRound: jest.fn().mockResolvedValue(round(1)),
     rejoin: jest.fn().mockResolvedValue({ runId: 'run-rejoined' }),
     delay: jest.fn().mockResolvedValue(undefined),
+    loadSubmittedRound: jest.fn().mockResolvedValue(null),
+    saveSubmittedRound: jest.fn().mockResolvedValue(undefined),
     ...over,
   };
 }
 
 describe('runResilientRoundLoop (MO-8)', () => {
+  it('waits in pre-training and aggregation states even before the first upload', async () => {
+    const sequence: string[] = [];
+    const statuses = [
+      { serverState: 'WAITING_FOR_CLIENTS', currentRound: 1 },
+      { serverState: 'AGGREGATING', currentRound: 1 },
+      { serverState: 'TRAINING', currentRound: 1 },
+      { serverState: 'TRAINING_COMPLETE', currentRound: 1 },
+    ];
+    const ops = baseOps({
+      getServerStatus: jest.fn().mockImplementation(async () => {
+        const status = statuses.shift() ?? { serverState: 'TRAINING_COMPLETE', currentRound: 1 };
+        sequence.push(status.serverState);
+        return status;
+      }),
+      runFedAvgRound: jest.fn().mockImplementation(async () => {
+        sequence.push('native-round');
+        return round(1);
+      }),
+    });
+    await runResilientRoundLoop({ runId: 'r', isFedAvg: true, cfg: CFG }, ops, POLICY, hooks());
+    expect(ops.runFedAvgRound).toHaveBeenCalledTimes(1);
+    expect(ops.delay).toHaveBeenCalledTimes(2);
+    expect(sequence).toEqual(['WAITING_FOR_CLIENTS', 'AGGREGATING', 'TRAINING', 'native-round', 'TRAINING_COMPLETE']);
+  });
+
+  it('rejects an incomplete server status without starting native training', async () => {
+    const ops = baseOps({
+      getServerStatus: jest.fn().mockResolvedValue({ serverState: 'TRAINING' }),
+      runFedAvgRound: jest.fn().mockRejectedValue(new Error('unexpected native training')),
+    });
+    await expect(runResilientRoundLoop(
+      { runId: 'r', isFedAvg: true, cfg: CFG }, ops,
+      { ...POLICY, maxRoundRetries: 0, maxRejoins: 0 }, hooks(),
+    )).rejects.toThrow(/round number/i);
+    expect(ops.runFedAvgRound).not.toHaveBeenCalled();
+  });
   it('uploads once and waits for the server round to advance before training again', async () => {
     const statuses = [
       { serverState: 'TRAINING', currentRound: 1 },
@@ -118,7 +156,7 @@ describe('runResilientRoundLoop (MO-8)', () => {
     expect(ops.rejoin).not.toHaveBeenCalled();
   });
   it('ends cleanly (no retry) when the server state is terminal', async () => {
-    const ops = baseOps({ getServerStatus: jest.fn().mockResolvedValue({ serverState: 'COMPLETED' }) });
+    const ops = baseOps({ getServerStatus: jest.fn().mockResolvedValue({ serverState: 'COMPLETED', currentRound: 1 }) });
     await runResilientRoundLoop({ runId: 'r', isFedAvg: true, cfg: CFG }, ops, POLICY, hooks());
     expect(ops.runFedAvgRound).not.toHaveBeenCalled();
     expect(ops.rejoin).not.toHaveBeenCalled();
@@ -126,7 +164,7 @@ describe('runResilientRoundLoop (MO-8)', () => {
 
   it('ends cleanly on a STOP: round rejection without retrying or rejoining', async () => {
     const ops = baseOps({
-      getServerStatus: jest.fn().mockResolvedValue({ serverState: 'TRAINING' }),
+      getServerStatus: jest.fn().mockResolvedValue({ serverState: 'TRAINING', currentRound: 1 }),
       runFedAvgRound: jest.fn().mockRejectedValue(new Error('STOP: server ended participation')),
     });
     await runResilientRoundLoop({ runId: 'r', isFedAvg: true, cfg: CFG }, ops, POLICY, hooks());
@@ -152,9 +190,9 @@ describe('runResilientRoundLoop (MO-8)', () => {
     });
     const getServerStatus = jest
       .fn()
-      .mockResolvedValueOnce({ serverState: 'TRAINING' })
-      .mockResolvedValueOnce({ serverState: 'TRAINING' })
-      .mockResolvedValue({ serverState: 'COMPLETED' });
+      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 1 })
+      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 1 })
+      .mockResolvedValue({ serverState: 'COMPLETED', currentRound: 1 });
     const ops = baseOps({ runFedAvgRound, getServerStatus });
     const h = hooks();
 
@@ -180,11 +218,11 @@ describe('runResilientRoundLoop (MO-8)', () => {
     });
     const getServerStatus = jest
       .fn()
-      .mockResolvedValueOnce({ serverState: 'TRAINING' }) // pre-rejoin attempts
-      .mockResolvedValueOnce({ serverState: 'TRAINING' })
-      .mockResolvedValueOnce({ serverState: 'TRAINING' })
-      .mockResolvedValueOnce({ serverState: 'TRAINING' }) // post-rejoin
-      .mockResolvedValue({ serverState: 'COMPLETED' });
+      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 1 }) // pre-rejoin attempts
+      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 1 })
+      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 1 })
+      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 1 }) // post-rejoin
+      .mockResolvedValue({ serverState: 'COMPLETED', currentRound: 1 });
     const ops = baseOps({ runFedAvgRound, rejoin, getServerStatus });
     const h = hooks();
 
@@ -213,6 +251,7 @@ describe('runResilientRoundLoop (MO-8)', () => {
     // completes instead of throwing. Round outcomes come in bursts: 3 fails (→rejoin), then 3 good, repeat.
     let failsLeft = 3;
     let goods = 0;
+    let totalGoods = 0;
     const rejoin = jest.fn().mockResolvedValue({ runId: 'run-n' });
     const runFedAvgRound = jest.fn().mockImplementation(() => {
       if (failsLeft > 0) {
@@ -220,16 +259,17 @@ describe('runResilientRoundLoop (MO-8)', () => {
         return Promise.reject(new Error('blip'));
       }
       goods += 1;
-      const n = goods;
+      totalGoods += 1;
       if (goods >= 3) {
         goods = 0;
         failsLeft = 3; // after a stable streak, the next blip burst begins
       }
-      return Promise.resolve(round(n));
+      return Promise.resolve(round(totalGoods));
     });
     // End the run once we've observed the 3rd rejoin (impossible under a lifetime cap of 2).
     const getServerStatus = jest.fn().mockImplementation(() =>
-      Promise.resolve({ serverState: rejoin.mock.calls.length >= 3 ? 'COMPLETED' : 'TRAINING' }),
+      Promise.resolve({ serverState: rejoin.mock.calls.length >= 3 ? 'COMPLETED' : 'TRAINING',
+        currentRound: totalGoods + 1 }),
     );
     const ops = baseOps({ runFedAvgRound, rejoin, getServerStatus });
 
@@ -255,11 +295,11 @@ describe('runResilientRoundLoop (MO-8)', () => {
     });
     const getServerStatus = jest
       .fn()
-      .mockResolvedValueOnce({ serverState: 'TRAINING' })
-      .mockResolvedValueOnce({ serverState: 'TRAINING' })
-      .mockResolvedValueOnce({ serverState: 'TRAINING' })
-      .mockResolvedValueOnce({ serverState: 'TRAINING' })
-      .mockResolvedValue({ serverState: 'COMPLETED' });
+      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 1 })
+      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 1 })
+      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 2 })
+      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 2 })
+      .mockResolvedValue({ serverState: 'COMPLETED', currentRound: 2 });
     const ops = baseOps({ runFedAvgRound, getServerStatus });
     const h = hooks();
 

@@ -10,6 +10,7 @@ import { submittedRoundStore } from './submittedRoundStore';
 
 // Server run states that mean "stop looping" (mirrors GetServerStatusResponse.ServerState names).
 const TERMINAL_STATES = new Set(['TRAINING_COMPLETE', 'COMPLETED', 'FINISHED', 'FAILED', 'STOPPED', 'ABORTED']);
+const PENDING_STATES = new Set(['INITIALIZING', 'WAITING_FOR_CLIENTS', 'AGGREGATING']);
 const ROUND_PACING_MS = 1500; // brief pause between rounds so we don't hot-poll the server
 
 export interface TrainingHooks {
@@ -76,14 +77,14 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 /** The per-round operations the resilient loop drives — injectable so the state machine is unit-testable
  *  without the native module. */
 export interface RoundOps {
-  getServerStatus: (runId: string) => Promise<{ serverState: string; currentRound?: number }>;
+  getServerStatus: (runId: string) => Promise<{ serverState: string; currentRound: number }>;
   runFedAvgRound: (runId: string, cfg: RoundConfig) => Promise<RoundResult>;
   runDeComFLRound: (runId: string, cfg: RoundConfig) => Promise<RoundResult>;
   /** Re-establish the run connection (re-enroll + re-register). Returns the (possibly new) run id. */
   rejoin: () => Promise<{ runId: string }>;
   delay: (ms: number) => Promise<void>;
-  loadSubmittedRound?: (runId: string) => Promise<number | null>;
-  saveSubmittedRound?: (runId: string, round: number) => Promise<void>;
+  loadSubmittedRound: (runId: string) => Promise<number | null>;
+  saveSubmittedRound: (runId: string, round: number) => Promise<void>;
 }
 
 export interface ResiliencePolicy {
@@ -118,6 +119,8 @@ class RoundCheckpointError extends Error {
   }
 }
 
+class InvalidServerStatusError extends Error {}
+
 /**
  * Run rounds against the server until it ends (or `shouldStop`), surviving transient failures.
  *
@@ -142,7 +145,7 @@ export async function runResilientRoundLoop(
   let consecutiveFailures = 0;
   let consecutiveSuccesses = 0;
   let rejoinsUsed = 0;
-  let submittedRound = await ops.loadSubmittedRound?.(runId) ?? null;
+  let submittedRound = await ops.loadSubmittedRound(runId);
 
   for (;;) {
     if (hooks.shouldStop()) {
@@ -156,11 +159,21 @@ export async function runResilientRoundLoop(
         hooks.onLog(`Run ${status.serverState.toLowerCase()}.`);
         return;
       }
+      const currentRound = status.currentRound;
+      if (typeof currentRound !== 'number' || !Number.isSafeInteger(currentRound) || currentRound < 0) {
+        throw new InvalidServerStatusError('Server status is missing a valid round number.');
+      }
+      if (PENDING_STATES.has(status.serverState)) {
+        await ops.delay(policy.pacingMs || ROUND_PACING_MS);
+        continue;
+      }
+      if (status.serverState !== 'TRAINING') {
+        throw new InvalidServerStatusError(`Unknown server training state: ${status.serverState}`);
+      }
 
       // A successful native return means the update was sent, not that the server advanced.
       // Wait through AGGREGATING and reconnects without downloading/training the same round again.
-      if (submittedRound !== null && status.currentRound !== undefined &&
-          status.currentRound <= submittedRound) {
+      if (submittedRound !== null && currentRound <= submittedRound) {
         await ops.delay(policy.pacingMs || ROUND_PACING_MS);
         continue;
       }
@@ -170,7 +183,7 @@ export async function runResilientRoundLoop(
         : await ops.runDeComFLRound(runId, init.cfg);
       submittedRound = r.round;
       try {
-        await ops.saveSubmittedRound?.(runId, r.round);
+        await ops.saveSubmittedRound(runId, r.round);
       } catch (cause) {
         throw new RoundCheckpointError(cause);
       }
@@ -190,7 +203,7 @@ export async function runResilientRoundLoop(
       }
       if (policy.pacingMs > 0) await ops.delay(policy.pacingMs);
     } catch (e) {
-      if (e instanceof RoundCheckpointError) throw e;
+      if (e instanceof RoundCheckpointError || e instanceof InvalidServerStatusError) throw e;
       // The native layer rejects a clean stop with a "STOP:"-prefixed message (abort / server ended).
       if (isStopSignal(e)) {
         hooks.onLog('Server ended this client’s participation.');
@@ -214,7 +227,7 @@ export async function runResilientRoundLoop(
         hooks.onLog(`Reconnecting to the run (rejoin ${rejoinsUsed}/${policy.maxRejoins})…`);
         try {
           const rejoined = await ops.rejoin();
-          const resumedRound = await ops.loadSubmittedRound?.(rejoined.runId) ?? null;
+          const resumedRound = await ops.loadSubmittedRound(rejoined.runId);
           runId = rejoined.runId;
           submittedRound = resumedRound;
           consecutiveFailures = 0;

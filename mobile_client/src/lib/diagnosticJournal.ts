@@ -1,11 +1,13 @@
 import EncryptedStorage from 'react-native-encrypted-storage';
 
 const KEY = 'fedlearn.diagnostics.v1';
-const DEFAULT_MAX_EVENTS = 200;
+const DEFAULT_MAX_EVENTS = 500;
+const MAX_DETAIL_CHARS = 1000;
 
 interface Storage {
   getItem(key: string): Promise<string | null>;
   setItem(key: string, value: string): Promise<void>;
+  removeItem(key: string): Promise<void>;
 }
 
 interface Event {
@@ -16,12 +18,14 @@ interface Event {
 
 function scrub(value: string): string {
   return value
+    .replace(/-----BEGIN ([A-Z ]*(?:PRIVATE KEY|CERTIFICATE))-----[\s\S]*?-----END \1-----/g, '[credential]')
+    .replace(/\b[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\b/g, '[credential]')
     .replace(/Bearer\s+\S+/gi, '[credential]')
     .replace(/(?:https?|grpc):\/\/[^\s]+/gi, '[endpoint]')
     .replace(/\/(?:data|storage|Users|home|private|var)\/[^\s]+/gi, '[local path]')
     .replace(/\b(?:token|password|secret|api[_-]?key)\s*[:=]\s*[^\s,;]+/gi, '[credential]')
     .replace(/[\r\n]+/g, ' ')
-    .slice(0, 300);
+    .slice(0, MAX_DETAIL_CHARS);
 }
 
 export class DiagnosticJournal {
@@ -51,6 +55,12 @@ export class DiagnosticJournal {
     await this.tail;
     const events = await this.read();
     return ['FedLearn on-device diagnostics', ...events.map((e) => `${e.at} ${e.phase}: ${e.detail}`)].join('\n');
+  }
+
+  clear(): Promise<void> {
+    const task = this.tail.then(() => this.storage.removeItem(KEY));
+    this.tail = task.catch(() => undefined);
+    return task;
   }
 }
 
