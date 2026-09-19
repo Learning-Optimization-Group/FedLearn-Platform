@@ -36,6 +36,7 @@ add_executable(fedlearn_core_tests
   auth_metadata_test.cpp
   eval_metrics_test.cpp
   tls_trust_test.cpp
+  round_flight_test.cpp
 )
 # First-order FedAvg parity gtest — only when the training extension is built in (it links
 # TrainableExecutorchModel, which needs the ET training libs).

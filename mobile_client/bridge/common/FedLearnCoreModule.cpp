@@ -361,6 +361,7 @@ void FedLearnCoreModule::evalBatch(double& outLoss, double& outAccuracy) {
 }
 
 RoundResult FedLearnCoreModule::doRunDeComFLRound(const std::string& runId, const RoundConfig& cfg) {
+  auto flight = roundFlight_.acquire();
   std::lock_guard<std::mutex> lk(stateMutex_);
   requireReady();
   const auto t0 = std::chrono::steady_clock::now();
@@ -383,6 +384,7 @@ RoundResult FedLearnCoreModule::doRunDeComFLRound(const std::string& runId, cons
 }
 
 RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const RoundConfig& cfg) {
+  auto flight = roundFlight_.acquire();
   std::lock_guard<std::mutex> lk(stateMutex_);
   requireReady();
   const auto t0 = std::chrono::steady_clock::now();

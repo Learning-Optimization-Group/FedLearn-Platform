@@ -42,6 +42,7 @@
 #include "fedlearn/FedLearnClient.h"
 #include "fedlearn/FederatedLoop.h"
 #include "fedlearn/ModelManager.h"
+#include "fedlearn/RoundFlight.h"
 #include "fedlearn/Types.h"
 
 namespace fedlearn::bridge {
@@ -146,6 +147,7 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
   std::string dataDir_;
 
   std::mutex stateMutex_;  // the JS thread calls in; rounds run on a worker — guard shared state
+  fedlearn::RoundFlight roundFlight_;
   fedlearn::ModelManager mm_;
   std::unique_ptr<fedlearn::FedLearnClient> net_;
   std::unique_ptr<fedlearn::FederatedLoop> loop_;

@@ -37,6 +37,7 @@ import { ModelDeliveryUnavailableError } from '../lib/modelProvisioning';
 import { readError } from '../lib/errors';
 import { contributionLedger } from '../lib/contributionLedger';
 import { diagnosticJournal } from '../lib/diagnosticJournal';
+import { SingleFlight } from '../lib/singleFlight';
 import {
   initialTrainingState,
   trainingReducer,
@@ -59,6 +60,7 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(trainingReducer, initialTrainingState);
   const stompRef = useRef<StompHandle | null>(null);
   const stopRef = useRef(false); // cooperative stop flag polled by the training loop
+  const trainingFlight = useRef(new SingleFlight());
   const joined = state.joined;
   const projectName = state.projectName;
 
@@ -131,51 +133,53 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
   // is on-device; only seeds + gradient scalars are uploaded (raw data never leaves).
   const startTraining = useCallback(async () => {
     if (!joined) return;
-    const ledgerProjectName = projectName ?? joined.projectId;
-    dispatch({ type: 'TRAINING_START' });
-    stopRef.current = false;
-    foregroundService.start();
-    try {
-      await runTrainingLoop(joined, {
-        onLog: (line) => {
-          dispatch({ type: 'LOG_APPEND', body: line });
-          void diagnosticJournal.append('training', line).catch(() => {});
-        },
-        onRound: (r) => {
-          dispatch({ type: 'ROUND_RESULT', round: r });
-          void diagnosticJournal.append('upload', `round ${r.round}; bytes ${r.uplinkBytes}`).catch(() => {});
-          // Persist the completed round to the device-local contribution ledger. Best-effort:
-          // a storage failure must never interrupt the run.
-          void contributionLedger
-            .record({
-              projectId: joined.projectId,
-              projectName: ledgerProjectName,
-              round: r.round,
-              wallClockMs: r.computeMs,
-              bytesUp: r.uplinkBytes,
-              bytesDown: r.downlinkBytes,
-              at: new Date().toISOString(),
-            })
-            .catch(() => {});
-        },
-        shouldStop: () => stopRef.current,
-      });
-    } catch (e) {
-      void diagnosticJournal.append('training-error', readError(e)).catch(() => {});
-      if (
-        e instanceof ModelDeliveryUnavailableError ||
-        e instanceof MobileFedAvgUnsupportedError ||
-        e instanceof MobileSecureAggregationUnsupportedError
-      ) {
-        // Known "can't train here (yet)" refusals — informational, not a failure.
-        dispatch({ type: 'LOG_APPEND', body: e.message, level: 'INFO' });
-      } else {
-        dispatch({ type: 'TRAINING_ERROR', error: readError(e) });
+    return trainingFlight.current.run(async () => {
+      const ledgerProjectName = projectName ?? joined.projectId;
+      dispatch({ type: 'TRAINING_START' });
+      stopRef.current = false;
+      foregroundService.start();
+      try {
+        await runTrainingLoop(joined, {
+          onLog: (line) => {
+            dispatch({ type: 'LOG_APPEND', body: line });
+            void diagnosticJournal.append('training', line).catch(() => {});
+          },
+          onRound: (r) => {
+            dispatch({ type: 'ROUND_RESULT', round: r });
+            void diagnosticJournal.append('upload', `round ${r.round}; bytes ${r.uplinkBytes}`).catch(() => {});
+            // Persist the completed round to the device-local contribution ledger. Best-effort:
+            // a storage failure must never interrupt the run.
+            void contributionLedger
+              .record({
+                projectId: joined.projectId,
+                projectName: ledgerProjectName,
+                round: r.round,
+                wallClockMs: r.computeMs,
+                bytesUp: r.uplinkBytes,
+                bytesDown: r.downlinkBytes,
+                at: new Date().toISOString(),
+              })
+              .catch(() => {});
+          },
+          shouldStop: () => stopRef.current,
+        });
+      } catch (e) {
+        void diagnosticJournal.append('training-error', readError(e)).catch(() => {});
+        if (
+          e instanceof ModelDeliveryUnavailableError ||
+          e instanceof MobileFedAvgUnsupportedError ||
+          e instanceof MobileSecureAggregationUnsupportedError
+        ) {
+          // Known "can't train here (yet)" refusals — informational, not a failure.
+          dispatch({ type: 'LOG_APPEND', body: e.message, level: 'INFO' });
+        } else {
+          dispatch({ type: 'TRAINING_ERROR', error: readError(e) });
+        }
+      } finally {
+        foregroundService.stop();
+        dispatch({ type: 'TRAINING_END' });
       }
-    } finally {
-      foregroundService.stop();
-      dispatch({ type: 'TRAINING_END' });
-    }
+    });
   }, [joined, projectName]);
 
   // Stop = abort the native gRPC/training path (sets the abort flag + joins threads), stop the
