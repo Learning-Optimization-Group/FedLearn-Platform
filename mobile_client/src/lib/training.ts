@@ -6,9 +6,10 @@ import nativeCore, { type RoundConfig, type RoundResult } from './nativeCore';
 import { joinRun, type JoinedRun } from './runJoin';
 import { provisionTrainingBundle } from './modelProvisioning';
 import { assertNativeCompatibility } from './nativeCompatibility';
+import { submittedRoundStore } from './submittedRoundStore';
 
 // Server run states that mean "stop looping" (mirrors GetServerStatusResponse.ServerState names).
-const TERMINAL_STATES = new Set(['COMPLETED', 'FINISHED', 'FAILED', 'STOPPED', 'ABORTED']);
+const TERMINAL_STATES = new Set(['TRAINING_COMPLETE', 'COMPLETED', 'FINISHED', 'FAILED', 'STOPPED', 'ABORTED']);
 const ROUND_PACING_MS = 1500; // brief pause between rounds so we don't hot-poll the server
 
 export interface TrainingHooks {
@@ -73,14 +74,16 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 // ---------------------------------------------------------------------------
 
 /** The per-round operations the resilient loop drives — injectable so the state machine is unit-testable
- *  without the native module. `getServerStatus`'s ServerStatus is narrowed to the field the loop reads. */
+ *  without the native module. */
 export interface RoundOps {
-  getServerStatus: (runId: string) => Promise<{ serverState: string }>;
+  getServerStatus: (runId: string) => Promise<{ serverState: string; currentRound?: number }>;
   runFedAvgRound: (runId: string, cfg: RoundConfig) => Promise<RoundResult>;
   runDeComFLRound: (runId: string, cfg: RoundConfig) => Promise<RoundResult>;
   /** Re-establish the run connection (re-enroll + re-register). Returns the (possibly new) run id. */
   rejoin: () => Promise<{ runId: string }>;
   delay: (ms: number) => Promise<void>;
+  loadSubmittedRound?: (runId: string) => Promise<number | null>;
+  saveSubmittedRound?: (runId: string, round: number) => Promise<void>;
 }
 
 export interface ResiliencePolicy {
@@ -109,6 +112,12 @@ export const DEFAULT_RESILIENCE: ResiliencePolicy = {
 
 const isStopSignal = (e: unknown): boolean => String(e).includes('STOP:');
 
+class RoundCheckpointError extends Error {
+  constructor(cause: unknown) {
+    super(`Could not save the round checkpoint; training stopped to avoid a duplicate upload: ${String(cause)}`);
+  }
+}
+
 /**
  * Run rounds against the server until it ends (or `shouldStop`), surviving transient failures.
  *
@@ -133,6 +142,7 @@ export async function runResilientRoundLoop(
   let consecutiveFailures = 0;
   let consecutiveSuccesses = 0;
   let rejoinsUsed = 0;
+  let submittedRound = await ops.loadSubmittedRound?.(runId) ?? null;
 
   for (;;) {
     if (hooks.shouldStop()) {
@@ -147,9 +157,23 @@ export async function runResilientRoundLoop(
         return;
       }
 
+      // A successful native return means the update was sent, not that the server advanced.
+      // Wait through AGGREGATING and reconnects without downloading/training the same round again.
+      if (submittedRound !== null && status.currentRound !== undefined &&
+          status.currentRound <= submittedRound) {
+        await ops.delay(policy.pacingMs || ROUND_PACING_MS);
+        continue;
+      }
+
       const r = init.isFedAvg
         ? await ops.runFedAvgRound(runId, init.cfg)
         : await ops.runDeComFLRound(runId, init.cfg);
+      submittedRound = r.round;
+      try {
+        await ops.saveSubmittedRound?.(runId, r.round);
+      } catch (cause) {
+        throw new RoundCheckpointError(cause);
+      }
       hooks.onRound(r);
       hooks.onLog(
         `Round ${r.round}: loss ${r.loss.toFixed(4)} · ${r.scalarsTransmitted} scalars up · ${r.computeMs}ms`,
@@ -166,6 +190,7 @@ export async function runResilientRoundLoop(
       }
       if (policy.pacingMs > 0) await ops.delay(policy.pacingMs);
     } catch (e) {
+      if (e instanceof RoundCheckpointError) throw e;
       // The native layer rejects a clean stop with a "STOP:"-prefixed message (abort / server ended).
       if (isStopSignal(e)) {
         hooks.onLog('Server ended this client’s participation.');
@@ -189,7 +214,9 @@ export async function runResilientRoundLoop(
         hooks.onLog(`Reconnecting to the run (rejoin ${rejoinsUsed}/${policy.maxRejoins})…`);
         try {
           const rejoined = await ops.rejoin();
+          const resumedRound = await ops.loadSubmittedRound?.(rejoined.runId) ?? null;
           runId = rejoined.runId;
+          submittedRound = resumedRound;
           consecutiveFailures = 0;
           continue;
         } catch (rejoinErr) {
@@ -272,6 +299,8 @@ export async function runTrainingLoop(
       return { runId: re.runId };
     },
     delay,
+    loadSubmittedRound: (runId) => submittedRoundStore.load(runId),
+    saveSubmittedRound: (runId, round) => submittedRoundStore.save(runId, round),
     ...overrides?.ops,
   };
 

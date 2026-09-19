@@ -66,6 +66,57 @@ function baseOps(over: Partial<RoundOps> = {}): RoundOps {
 }
 
 describe('runResilientRoundLoop (MO-8)', () => {
+  it('uploads once and waits for the server round to advance before training again', async () => {
+    const statuses = [
+      { serverState: 'TRAINING', currentRound: 1 },
+      { serverState: 'AGGREGATING', currentRound: 1 },
+      { serverState: 'TRAINING', currentRound: 1 },
+      { serverState: 'TRAINING', currentRound: 2 },
+      { serverState: 'TRAINING_COMPLETE', currentRound: 2 },
+    ];
+    const getServerStatus = jest.fn().mockImplementation(async () => statuses.shift());
+    const runFedAvgRound = jest.fn().mockResolvedValueOnce(round(1)).mockResolvedValueOnce(round(2));
+    const ops = baseOps({ getServerStatus, runFedAvgRound });
+    const h = hooks();
+
+    await runResilientRoundLoop({ runId: 'r', isFedAvg: true, cfg: CFG }, ops, POLICY, h);
+
+    expect(runFedAvgRound).toHaveBeenCalledTimes(2);
+    expect(h.rounds.map((r) => r.round)).toEqual([1, 2]);
+    expect(ops.delay).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not train a previously submitted round after reconnecting', async () => {
+    const statuses = [
+      { serverState: 'TRAINING', currentRound: 3 },
+      { serverState: 'TRAINING', currentRound: 3 },
+      { serverState: 'TRAINING', currentRound: 4 },
+      { serverState: 'TRAINING_COMPLETE', currentRound: 4 },
+    ];
+    const ops = baseOps({
+      getServerStatus: jest.fn().mockImplementation(async () => statuses.shift()),
+      loadSubmittedRound: jest.fn().mockResolvedValue(3),
+      saveSubmittedRound: jest.fn().mockResolvedValue(undefined),
+      runFedAvgRound: jest.fn().mockResolvedValue(round(4)),
+    });
+
+    await runResilientRoundLoop({ runId: 'r', isFedAvg: true, cfg: CFG }, ops, POLICY, hooks());
+
+    expect(ops.runFedAvgRound).toHaveBeenCalledTimes(1);
+    expect(ops.saveSubmittedRound).toHaveBeenCalledWith('r', 4);
+  });
+
+  it('stops rather than retrying an upload when its durable checkpoint cannot be saved', async () => {
+    const ops = baseOps({
+      getServerStatus: jest.fn().mockResolvedValue({ serverState: 'TRAINING', currentRound: 1 }),
+      saveSubmittedRound: jest.fn().mockRejectedValue(new Error('storage unavailable')),
+    });
+    await expect(
+      runResilientRoundLoop({ runId: 'r', isFedAvg: true, cfg: CFG }, ops, POLICY, hooks()),
+    ).rejects.toThrow(/checkpoint/i);
+    expect(ops.runFedAvgRound).toHaveBeenCalledTimes(1);
+    expect(ops.rejoin).not.toHaveBeenCalled();
+  });
   it('ends cleanly (no retry) when the server state is terminal', async () => {
     const ops = baseOps({ getServerStatus: jest.fn().mockResolvedValue({ serverState: 'COMPLETED' }) });
     await runResilientRoundLoop({ runId: 'r', isFedAvg: true, cfg: CFG }, ops, POLICY, hooks());
