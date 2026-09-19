@@ -36,6 +36,7 @@ import { startServerStatusHeartbeat } from '../lib/statusHeartbeat';
 import { ModelDeliveryUnavailableError } from '../lib/modelProvisioning';
 import { readError } from '../lib/errors';
 import { contributionLedger } from '../lib/contributionLedger';
+import { diagnosticJournal } from '../lib/diagnosticJournal';
 import {
   initialTrainingState,
   trainingReducer,
@@ -117,10 +118,12 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await joinRun({ projectId });
       dispatch({ type: 'JOIN_SUCCESS', joined: result, projectName: name });
+      void diagnosticJournal.append('join', 'registered for training').catch(() => {});
     } catch (e) {
       // MO-16: readError, not String(e) — an axios join failure otherwise renders as
       // the meaningless "[object Object]".
       dispatch({ type: 'JOIN_FAILURE', error: readError(e) });
+      void diagnosticJournal.append('join-error', readError(e)).catch(() => {});
     }
   }, []);
 
@@ -134,9 +137,13 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
     foregroundService.start();
     try {
       await runTrainingLoop(joined, {
-        onLog: (line) => dispatch({ type: 'LOG_APPEND', body: line }),
+        onLog: (line) => {
+          dispatch({ type: 'LOG_APPEND', body: line });
+          void diagnosticJournal.append('training', line).catch(() => {});
+        },
         onRound: (r) => {
           dispatch({ type: 'ROUND_RESULT', round: r });
+          void diagnosticJournal.append('upload', `round ${r.round}; bytes ${r.uplinkBytes}`).catch(() => {});
           // Persist the completed round to the device-local contribution ledger. Best-effort:
           // a storage failure must never interrupt the run.
           void contributionLedger
@@ -154,6 +161,7 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
         shouldStop: () => stopRef.current,
       });
     } catch (e) {
+      void diagnosticJournal.append('training-error', readError(e)).catch(() => {});
       if (
         e instanceof ModelDeliveryUnavailableError ||
         e instanceof MobileFedAvgUnsupportedError ||

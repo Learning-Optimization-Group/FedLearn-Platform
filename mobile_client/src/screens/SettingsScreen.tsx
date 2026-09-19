@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DeviceInfo from 'react-native-device-info';
 import { LogOut, Server, Cpu, Smartphone } from 'lucide-react-native';
@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { StatusBadge } from '../components/StatusBadge';
 import { useThemeTokens } from '../theme/useThemeTokens';
+import { diagnosticJournal } from '../lib/diagnosticJournal';
 
 type ProbeState = 'idle' | 'probing' | 'reachable' | 'unreachable';
 
@@ -174,6 +175,25 @@ export function SettingsScreen() {
           The native core picks the on-device accelerator automatically — there is no GPU profile to
           choose as on desktop.
         </Text>
+      </View>
+
+      <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
+        <Text className="text-label font-sans font-semibold text-fg mb-2">Training diagnostics</Text>
+        <Text className="text-caption font-sans text-fg-muted mb-2">
+          A short on-device history of training steps and errors survives app restarts. Review the
+          shared text before sending it to anyone.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Share training diagnostics"
+          className="flex-row items-center justify-center bg-surface-1 border border-hairline rounded-md py-3 active:opacity-80"
+          onPress={() => {
+            void diagnosticJournal.exportText()
+              .then((message) => Share.share({ message }))
+              .catch((e) => setError(`Could not share diagnostics: ${String(e)}`));
+          }}>
+          <Text className="text-fg text-label font-sans">Share training diagnostics</Text>
+        </Pressable>
       </View>
 
       {/* Account (the app-version row moved into the This-device card above) */}
