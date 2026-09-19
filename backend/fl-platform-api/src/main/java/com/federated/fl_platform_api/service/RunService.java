@@ -198,6 +198,9 @@ public class RunService {
         }
         run.setStatus(status);
         run.setServerPort(null);
+        run.setServerPid(null);
+        run.setProcessStartedAt(null);
+        run.setInternalTokenHash(null);
         run.setEndedAt(Instant.now());
         runRepository.save(run);
     }

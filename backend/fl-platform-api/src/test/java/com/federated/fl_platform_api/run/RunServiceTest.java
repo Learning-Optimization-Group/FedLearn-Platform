@@ -93,6 +93,10 @@ class RunServiceTest {
         Run r = new Run();
         r.setId(rid);
         r.setStatus(RunStatus.STARTING);
+        r.setServerPort(50001);
+        r.setServerPid(1234L);
+        r.setProcessStartedAt(java.time.Instant.parse("2026-09-18T12:00:00Z"));
+        r.setInternalTokenHash("old-token-hash");
         when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
         when(runRepository.save(any(Run.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -100,6 +104,10 @@ class RunServiceTest {
 
         assertEquals(RunStatus.FAILED, r.getStatus());
         assertNotNull(r.getEndedAt());
+        assertNull(r.getServerPort());
+        assertNull(r.getServerPid());
+        assertNull(r.getProcessStartedAt());
+        assertNull(r.getInternalTokenHash());
     }
 
     @Test
