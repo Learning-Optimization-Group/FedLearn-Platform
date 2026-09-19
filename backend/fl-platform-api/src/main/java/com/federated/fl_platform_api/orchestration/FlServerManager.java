@@ -85,6 +85,9 @@ public class FlServerManager {
     private com.federated.fl_platform_api.repository.RunRepository runRepository;
 
     @Autowired
+    private com.federated.fl_platform_api.service.RunService runService;
+
+    @Autowired
     private com.federated.fl_platform_api.service.ModelRecipeService modelRecipeService;
 
     // BA-11: resolve a continued run's initial global weights from the content-addressed registry (the
@@ -329,7 +332,8 @@ public class FlServerManager {
             reservedPortByProject.put(project.getId(), freePort);
             final int heldPort = freePort;
             final UUID heldProject = project.getId();
-            trackedHandle.onExit().thenRun(() -> onChildExit(heldProject, trackedHandle, heldPort));
+            final UUID heldRun = project.getActiveRunId();
+            trackedHandle.onExit().thenRun(() -> onChildExit(heldProject, heldRun, trackedHandle, heldPort));
             captureStartup.set(false);   // startup done — stop growing startupOutput for the child's run
             started = true;   // the finally must NOT release the port now; the watcher/stop owns it
             log.info("Started FL server for project {} on port {}", project.getId(), freePort);
@@ -365,8 +369,8 @@ public class FlServerManager {
      * restart that already replaced them is not disturbed. Idempotent and safe to run concurrently with
      * {@link #stopServerForProject} (both release/evict the same port/entry).
      */
-    private void onChildExit(UUID projectId, ProcessHandle handle, int port) {
-        runningServers.remove(projectId, handle);
+    private void onChildExit(UUID projectId, UUID runId, ProcessHandle handle, int port) {
+        boolean unexpectedExit = runningServers.remove(projectId, handle);
         // Release the port ONLY if THIS project still holds THIS port. A prior stop (which already
         // released it) or a RESTART that re-reserved the same port under a new child must not have its
         // reservation freed by this old child's late-firing exit callback — releasePort is an
@@ -375,6 +379,16 @@ public class FlServerManager {
         if (reservedPortByProject.remove(projectId, Integer.valueOf(port))) {
             releasePort(port);
             log.debug("FL server child for project {} exited; released port {}", projectId, port);
+        }
+        // An unrequested exit after the short startup probe is still a failure. The run service's
+        // terminal guard preserves COMPLETED when the server already delivered its /finished callback.
+        // A deliberate stop removes the tracked handle before killing it, so its onExit is ignored.
+        if (unexpectedExit && runId != null) {
+            try {
+                runService.markFailed(runId);
+            } catch (RuntimeException e) {
+                log.error("Could not reconcile exited FL server for run {}", runId, e);
+            }
         }
     }
 
@@ -819,7 +833,7 @@ public class FlServerManager {
         if (heldPort != null) {
             releasePort(heldPort);
         }
-        ProcessHandle handle = runningServers.get(projectId);
+        ProcessHandle handle = runningServers.remove(projectId);
         if (handle != null && handle.isAlive()) {
             log.info("Stopping FL server for project {}", projectId);
             handle.destroyForcibly();
@@ -832,7 +846,6 @@ public class FlServerManager {
                 log.warn("FL server {} did not terminate within {}s of destroyForcibly: {}",
                         projectId, stopWaitSeconds(), e.getClass().getSimpleName());
             }
-            runningServers.remove(projectId);
             return true;
         }
         log.debug("No running FL server found for project {}", projectId);
@@ -853,6 +866,7 @@ public class FlServerManager {
         log.info("Shutdown: terminating {} running FL server process(es)", runningServers.size());
         runningServers.forEach((id, p) -> {
             try {
+                runningServers.remove(id, p);
                 if (p.isAlive()) {
                     p.destroyForcibly();
                     p.onExit().get(stopWaitSeconds(), TimeUnit.SECONDS);
