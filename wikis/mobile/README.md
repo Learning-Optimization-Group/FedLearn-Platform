@@ -8,6 +8,10 @@ The mobile client (`mobile_client/`) is an **on-device** federated-learning part
 
 The single product name is **FedLearn** (the v1 `FedMob` / `com.mobileclientnew` names are retired).
 
+The approved path from the current TinyNet-focused Android implementation to capability-negotiated
+algorithm and modality parity with laptop clients is documented in
+[Android Federated-Learning Parity Design](02-android-federated-learning-parity-design.md).
+
 > **Design system: Ledger, not Ember.** `src/theme/tokens.generated.ts` and `src/theme/global.css` are **generated** by `design/build-tokens.mjs` from `design/tokens.json` and both carry the Ledger palette (canvas `#F6F3EE`, surface `#FFFFFF`, ink `#191A1C`, muted `#6B6760`, navy accent `#1C314D` / hover `#14243A`; dark family `#0B1622` / `#4F8AC9`). Ledger landed in `2c50672` and rolled onto mobile in `3d54484`, superseding **Ember**, which had superseded *Instrument*. `src/theme/tokens.ts` is now a thin re-export kept only so older import paths resolve — do not hand-edit either generated file; CI's "Design tokens in sync with source of truth" step (`scripts/check_design_tokens.sh`, unconditional in `ci.yml`) fails on drift. The shipped brand fonts are **Hanken Grotesk** (sans *and* display) + **JetBrains Mono** (`src/assets/fonts/`); Bricolage Grotesque was Ember-era and is gone.
 
 ---
