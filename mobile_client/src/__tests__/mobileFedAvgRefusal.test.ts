@@ -87,13 +87,47 @@ describe('runTrainingLoop — MO-4 capability-gated FedAvg', () => {
     expect(provisionTrainingBundle).toHaveBeenCalledWith('run-1');
   });
 
-  test.each(['FedProx', 'FedOpt', 'Robust'])(
+  test('DeComFL uses scalar training even when a trainable graph is staged', async () => {
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce({
+      manifest: {}, lossPtePath: 'loss.pte', lossSha256: 'hash',
+      inputsF32Path: 'inputs.f32', inputShape: [8, 4], targetsI64Path: 'targets.i64',
+    });
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    const getServerStatus = jest.fn()
+      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 1 })
+      .mockResolvedValueOnce({ serverState: 'TRAINING_COMPLETE', currentRound: 1 });
+    const runDeComFLRound = jest.fn().mockResolvedValue({
+      round: 1, loss: 1, accuracy: 0, scalarsTransmitted: 1,
+      uplinkBytes: 8, downlinkBytes: 0, computeMs: 1, reverted: true,
+    });
+    const runFedAvgRound = jest.fn().mockRejectedValue(new Error('wrong weight-upload path'));
+
+    await runTrainingLoop(joinedRun('DeComFL', /*firstOrderSupported=*/ true), hooks, {
+      policy: { maxRoundRetries: 0, maxRejoins: 0, baseBackoffMs: 1, pacingMs: 0, rejoinRecoveryRounds: 1 },
+      ops: {
+        getServerStatus, runDeComFLRound, runFedAvgRound,
+        loadSubmittedRound: async () => null,
+        saveSubmittedRound: async () => {},
+      },
+    });
+
+    expect(runDeComFLRound).toHaveBeenCalledTimes(1);
+    expect(runFedAvgRound).not.toHaveBeenCalled();
+  });
+
+  test('FedProx refuses before provisioning because native training has no proximal term', async () => {
+    (provisionTrainingBundle as jest.Mock).mockRejectedValueOnce(new Error('SENTINEL_PAST_GUARD'));
+    await expect(
+      runTrainingLoop(joinedRun('FedProx', /*firstOrderSupported=*/ true), hooks),
+    ).rejects.toThrow(/proximal term/i);
+    expect(provisionTrainingBundle).not.toHaveBeenCalled();
+  });
+
+  test.each(['FedOpt', 'Robust'])(
     'a %s run WITH first-order support proceeds into first-order (no DeComFL fallback, no refusal)',
     async (strategy) => {
-      // CAPABILITY: any firstOrderSupported run uploads a WEIGHT blob regardless of server strategy —
-      // the server aggregates per its own strategy. So a non-FedAvg strategy with a provisioned bundle
-      // is NOT refused and does NOT fall back to the zeroth-order DeComFL wire; it enters the same
-      // provision->load->first-order-round flow as a supported FedAvg run. Sentinel-reject at
+      // FedOpt and Robust use the same first-order upload as FedAvg; FedProx cannot join until its
+      // client-side proximal term is implemented. Sentinel-reject at
       // provisioning proves it got past the guard on the first-order path.
       (provisionTrainingBundle as jest.Mock).mockRejectedValueOnce(new Error('SENTINEL_PAST_GUARD'));
       await expect(
