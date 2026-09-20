@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-18
 
-**Status:** Approved umbrella architecture; Stage 1 is ready for implementation planning
+**Status:** Approved umbrella architecture; Stage 1 mixed-device TinyNet stabilization validated, Stage 2 subdesign proposed
 
 This document defines the target architecture, boundaries, delivery order, and acceptance criteria. It is not a single implementation specification. Stages that introduce a wire contract, artifact format, dataset format, generic native training, tokenization/LoRA, accelerator qualification, or cryptography require the focused subdesigns listed under **Implementation Readiness** before their implementation plans are written.
 
@@ -287,7 +287,7 @@ Android already samples the platform thermal status. The round coordinator turns
 
 Stage 1 can proceed from this document because it changes existing, understood flows. Later work is intentionally decomposed. Before its implementation plan is approved, each workstream must have a focused design with concrete schemas or interfaces, ownership, migration behavior, failure handling, test fixtures, and acceptance gates:
 
-1. **Execution contract v1:** canonical schema, generated bindings, validation, legacy compatibility window, and removal criteria.
+1. **Execution contract v1:** canonical schema, generated bindings, validation, legacy compatibility window, and removal criteria. See [the focused Stage 2 design](03-android-execution-contract-v1-design.md).
 2. **Artifact export and delivery:** exporter command/API, CI promotion workflow, manifest structure, tokenizer package, authenticated streaming interface, cache layout, and cleanup policy.
 3. **Local dataset store:** package schema, CSV/JSONL/image normalization rules, snapshot metadata, Kotlin/native batch boundary, quotas, and deletion lifecycle.
 4. **Generic native training:** model-state interface, objective interface, optimizer schemas, FedProx anchor, checkpoints, parameter ordering, and safetensors contract.
