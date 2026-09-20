@@ -1,6 +1,9 @@
 #include "fedlearn/FederatedLoop.h"
 
+#include <cctype>
+#include <cmath>
 #include <cstdint>
+#include <stdexcept>
 #include <vector>
 
 #include "fedlearn/DeComFLClient.h"
@@ -8,6 +11,44 @@
 #include "fedlearn/RandnEngine.h"
 
 namespace fedlearn {
+namespace {
+
+bool hasEdgeWhitespace(const std::string& raw) {
+  return raw.empty() || std::isspace(static_cast<unsigned char>(raw.front())) ||
+         std::isspace(static_cast<unsigned char>(raw.back()));
+}
+
+double parseFiniteSetting(const std::string& raw, const char* name, bool allowZero = false) {
+  if (hasEdgeWhitespace(raw)) throw std::runtime_error(std::string("invalid first-order ") + name);
+  size_t consumed = 0;
+  double value;
+  try {
+    value = std::stod(raw, &consumed);
+  } catch (const std::exception&) {
+    throw std::runtime_error(std::string("invalid first-order ") + name);
+  }
+  if (consumed != raw.size() || !std::isfinite(value) || value < 0 || (!allowZero && value == 0)) {
+    throw std::runtime_error(std::string("invalid first-order ") + name);
+  }
+  return value;
+}
+
+int parseLocalEpochs(const std::string& raw) {
+  if (hasEdgeWhitespace(raw)) throw std::runtime_error("invalid first-order local_epochs");
+  size_t consumed = 0;
+  long long value;
+  try {
+    value = std::stoll(raw, &consumed);
+  } catch (const std::exception&) {
+    throw std::runtime_error("invalid first-order local_epochs");
+  }
+  if (consumed != raw.size() || value <= 0 || value > 100000) {
+    throw std::runtime_error("invalid first-order local_epochs");
+  }
+  return static_cast<int>(value);
+}
+
+}  // namespace
 
 FederatedLoop::FederatedLoop(IFedLearnClient& net, ModelManager& mm) : net_(net), mm_(mm) {}
 
@@ -162,7 +203,8 @@ RoundOutcome FederatedLoop::fedAvgRound(ExecutorchModel& model, const std::strin
 // LocalTrainer.fit golden (fedavg_firstorder_round_test.cpp).
 RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, const std::string& runId,
                                             const std::string& clientId, const DataBatch& batch,
-                                            int numLocalSteps, double learningRate) {
+                                            int numLocalSteps, double learningRate,
+                                            bool requireServerConfig) {
   RoundOutcome out;
   if (net_.shouldStop()) {
     out.shouldStop = true;
@@ -171,8 +213,33 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
   }
 
   int currentRound = 0;
-  const std::string blob = net_.getGlobalModelStream(runId, clientId, &currentRound);
+  std::map<std::string, std::string> serverConfig;
+  const std::string blob = net_.getGlobalModelStream(runId, clientId, &currentRound, &serverConfig);
   out.round = currentRound;
+  const auto rate = serverConfig.find("learning_rate");
+  const auto epochs = serverConfig.find("local_epochs");
+  if (requireServerConfig && (rate == serverConfig.end() || epochs == serverConfig.end())) {
+    throw std::runtime_error("first-order strategy requires server learning_rate and local_epochs");
+  }
+  if ((rate == serverConfig.end()) != (epochs == serverConfig.end())) {
+    throw std::runtime_error("incomplete first-order server settings");
+  }
+  if (rate != serverConfig.end()) {
+    learningRate = parseFiniteSetting(rate->second, "learning_rate");
+    numLocalSteps = parseLocalEpochs(epochs->second);
+  } else {
+    if (!std::isfinite(learningRate) || learningRate <= 0) {
+      throw std::runtime_error("invalid first-order learning_rate");
+    }
+    if (numLocalSteps <= 0 || numLocalSteps > 100000) {
+      throw std::runtime_error("invalid first-order local_epochs");
+    }
+  }
+  const auto proximal = serverConfig.find("proximal_mu");
+  if (proximal != serverConfig.end() &&
+      parseFiniteSetting(proximal->second, "proximal_mu", true) != 0.0) {
+    throw std::runtime_error("FedProx proximal term is not supported by native first-order training");
+  }
   mm_.loadStateDict(blob);                    // codec-validated + sha-checked by the stream layer
   model.setFlatParams(mm_.getFlatParams());   // load the fresh global weights into the trainable model
 

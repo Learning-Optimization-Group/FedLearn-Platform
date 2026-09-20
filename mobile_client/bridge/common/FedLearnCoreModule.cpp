@@ -391,9 +391,10 @@ RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const
 #ifdef FEDLEARN_HAS_TRAINING
   if (trainableModel_) {
     // TRUE first-order (MO-4 lift): real backprop (firstOrderRound) + a WEIGHT-blob upload via
-    // SubmitModelUpdateStream — what a FedAvg-strategy server aggregates. K/eta are server-authoritative.
+    // SubmitModelUpdateStream — what first-order servers aggregate. FedOpt requires server K/eta.
     fedlearn::RoundOutcome outcome = loop_->firstOrderRound(
-        *trainableModel_, runId, clientId_, trainingBatch_, cfg.numLocalSteps, cfg.learningRate);
+        *trainableModel_, runId, clientId_, trainingBatch_, cfg.numLocalSteps, cfg.learningRate,
+        cfg.strategy == "FedOpt");
     const auto t1 = std::chrono::steady_clock::now();
     if (outcome.shouldStop) throw std::runtime_error("STOP: " + outcome.note);
     RoundResult r;

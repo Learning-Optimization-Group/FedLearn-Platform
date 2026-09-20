@@ -5,7 +5,7 @@
 import type { TurboModule } from 'react-native';
 import { TurboModuleRegistry } from 'react-native';
 
-export type Strategy = 'DeComFL' | 'FedAvg';
+export type Strategy = 'DeComFL' | 'FedAvg' | 'FedOpt' | 'Robust';
 export type GradEstimateMethod = 'forward' | 'central';
 
 export interface RegisterResult {

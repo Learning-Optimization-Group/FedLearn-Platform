@@ -115,11 +115,45 @@ describe('runTrainingLoop — MO-4 capability-gated FedAvg', () => {
     expect(runFedAvgRound).not.toHaveBeenCalled();
   });
 
+  test('FedOpt reaches native training with its actual strategy identity', async () => {
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce({
+      manifest: {}, lossPtePath: 'loss.pte', lossSha256: 'hash',
+      inputsF32Path: 'inputs.f32', inputShape: [8, 4], targetsI64Path: 'targets.i64',
+    });
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    const getServerStatus = jest.fn()
+      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 1 })
+      .mockResolvedValueOnce({ serverState: 'TRAINING_COMPLETE', currentRound: 1 });
+    const runFedAvgRound = jest.fn().mockResolvedValue({
+      round: 1, loss: 1, accuracy: 0, scalarsTransmitted: 0,
+      uplinkBytes: 100, downlinkBytes: 100, computeMs: 1, reverted: false,
+    });
+
+    await runTrainingLoop(joinedRun('FedOpt', /*firstOrderSupported=*/ true), hooks, {
+      policy: { maxRoundRetries: 0, maxRejoins: 0, baseBackoffMs: 1, pacingMs: 0, rejoinRecoveryRounds: 1 },
+      ops: {
+        getServerStatus, runFedAvgRound,
+        loadSubmittedRound: async () => null,
+        saveSubmittedRound: async () => {},
+      },
+    });
+
+    expect(runFedAvgRound).toHaveBeenCalledWith('run-1', expect.objectContaining({ strategy: 'FedOpt' }));
+  });
+
   test('FedProx refuses before provisioning because native training has no proximal term', async () => {
     (provisionTrainingBundle as jest.Mock).mockRejectedValueOnce(new Error('SENTINEL_PAST_GUARD'));
     await expect(
       runTrainingLoop(joinedRun('FedProx', /*firstOrderSupported=*/ true), hooks),
     ).rejects.toThrow(/proximal term/i);
+    expect(provisionTrainingBundle).not.toHaveBeenCalled();
+  });
+
+  test('unknown strategies refuse before provisioning instead of uploading weights', async () => {
+    (provisionTrainingBundle as jest.Mock).mockRejectedValueOnce(new Error('SENTINEL_PAST_GUARD'));
+    await expect(
+      runTrainingLoop(joinedRun('FutureStrategy', /*firstOrderSupported=*/ true), hooks),
+    ).rejects.toThrow(/unsupported strategy/i);
     expect(provisionTrainingBundle).not.toHaveBeenCalled();
   });
 

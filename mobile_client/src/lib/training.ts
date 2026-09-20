@@ -1,8 +1,8 @@
 // On-device federated training loop. After the client has joined + registered (runJoin.ts), this stages
 // the model + local data and runs rounds against the server run until it ends. All training compute
-// (forward passes, DeComFL zeroth-order perturbations) happens natively ON THE DEVICE; per round only
-// perturbation seeds + gradient scalars are uploaded (DLG-resistant) — raw features/labels never leave.
-import nativeCore, { type RoundConfig, type RoundResult } from './nativeCore';
+// (forward passes, DeComFL perturbations, first-order updates) happens natively ON THE DEVICE;
+// DeComFL uploads scalars and first-order strategies upload trainable weights; training batches are not uploaded.
+import nativeCore, { type RoundConfig, type RoundResult, type Strategy } from './nativeCore';
 import { joinRun, type JoinedRun } from './runJoin';
 import { provisionTrainingBundle } from './modelProvisioning';
 import { assertNativeCompatibility } from './nativeCompatibility';
@@ -44,6 +44,13 @@ export class MobileFedProxUnsupportedError extends MobileFedAvgUnsupportedError 
   }
 }
 
+function supportedStrategy(value: string): Strategy {
+  if (value === 'DeComFL' || value === 'FedAvg' || value === 'FedOpt' || value === 'Robust') {
+    return value;
+  }
+  throw new MobileFedAvgUnsupportedError(`Unsupported strategy on this device: ${value}.`);
+}
+
 /**
  * Raised when a phone joins a run that uses secure aggregation (manifest.secureAggregation). Such a server
  * accepts only masked gradient scalars and refuses unmasked ones, and the phone has no key agreement, share
@@ -57,13 +64,14 @@ export class MobileSecureAggregationUnsupportedError extends Error {
   }
 }
 
-// The client proposes a config; the server is authoritative on K/P (applied inside the native round).
-function roundConfigFor(joined: JoinedRun): RoundConfig {
+// DeComFL gets K/P from the server. First-order runs use per-round server settings when supplied;
+// the TinyNet FedAvg/Robust fallback remains until execution contract v1 replaces it.
+function roundConfigFor(joined: JoinedRun, strategy: Strategy): RoundConfig {
   const m = joined.manifest;
   return {
     // FedAvg/FedOpt/Robust upload weights; DeComFL uploads scalars even if a trainable graph exists.
     // FedProx is refused before this configuration is used.
-    strategy: m.strategy === 'DeComFL' ? 'DeComFL' : 'FedAvg',
+    strategy,
     learningRate: 0.001,
     mu: 0.001,
     numPerturbations: 1,
@@ -275,10 +283,11 @@ export async function runTrainingLoop(
   if (joined.manifest.strategy === 'FedProx') {
     throw new MobileFedProxUnsupportedError();
   }
+  const strategy = supportedStrategy(joined.manifest.strategy);
 
   // The strategy decides the wire: DeComFL always submits scalars, even if a first-order graph is
   // staged for the same recipe. FedAvg/FedOpt/Robust require both a trainable graph and weight upload.
-  const isFirstOrder = joined.manifest.strategy !== 'DeComFL' &&
+  const isFirstOrder = strategy !== 'DeComFL' &&
     joined.manifest.firstOrderSupported === true;
 
   // MO-4 (capability-gated, generalized): without a first-order bundle the only on-device path is the
@@ -325,7 +334,7 @@ export async function runTrainingLoop(
   };
 
   await runResilientRoundLoop(
-    { runId: joined.runId, isFedAvg: isFirstOrder, cfg: roundConfigFor(joined) },
+    { runId: joined.runId, isFedAvg: isFirstOrder, cfg: roundConfigFor(joined, strategy) },
     ops,
     overrides?.policy ?? DEFAULT_RESILIENCE,
     hooks,

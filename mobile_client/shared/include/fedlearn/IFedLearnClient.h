@@ -1,12 +1,14 @@
 #pragma once
+
 //
 // IFedLearnClient.h — the gRPC-free seam FederatedLoop depends on.
 //
 // FederatedLoop must be unit-testable without gRPC/proto (the libtorch-free, gRPC-free ET test
 // suite). So it depends on THIS abstract interface returning CORE types (no v2::*, no grpcpp),
 // not on the concrete FedLearnClient. The real FedLearnClient implements it (proto<->core
-// marshaling); unit tests supply a mock. This header must include ONLY Types.h + <string>.
+// marshaling); unit tests supply a mock. This header uses only core types and standard headers.
 //
+#include <map>
 #include <string>
 
 #include "fedlearn/Types.h"
@@ -36,9 +38,10 @@ class IFedLearnClient {
   virtual void submitGradientScalars(const std::string& runId, const std::string& clientId,
                                      int trainedOnRound, const Seeds2D& seeds,
                                      const GradientScalars2D& gradients, int64_t numExamples) = 0;
-  // FedAvg global-model download: returns the verified safetensors blob; sets *outCurrentRound.
+  // Global-model download: returns the verified safetensors blob and the first chunk's round/config.
   virtual std::string getGlobalModelStream(const std::string& runId, const std::string& clientId,
-                                           int* outCurrentRound) = 0;
+                                           int* outCurrentRound,
+                                           std::map<std::string, std::string>* outConfig = nullptr) = 0;
   // FedAvg (first-order) weight-update upload: the client trained locally with real gradients and
   // uploads the resulting model weight blob (safetensors, ModelManager::serializeStateDict) for
   // server-side aggregation — the model-blob analogue of submitGradientScalars. Proto-free; the

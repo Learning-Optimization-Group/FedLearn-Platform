@@ -80,8 +80,10 @@ class MockFedLearnClient : public fedlearn::IFedLearnClient {
   }
 
   std::string getGlobalModelStream(const std::string&, const std::string&,
-                                   int* outCurrentRound) override {
+                                   int* outCurrentRound,
+                                   std::map<std::string, std::string>* outConfig = nullptr) override {
     if (outCurrentRound) *outCurrentRound = globalRound;
+    if (outConfig) outConfig->clear();
     return globalBlob;
   }
 };

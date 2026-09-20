@@ -51,10 +51,12 @@ class FederatedLoop {
   // One TRUE first-order (FedAvg) round via real backprop (Phase B M2): GetGlobalModelStream ->
   // load the global weights into `model` -> K local SGD steps (execute_forward_backward + SGD in
   // TrainableExecutorchModel::trainStep) -> serialize the updated weights -> submitModelUpdate (the
-  // weight-blob wire, NOT the ZO scalar wire). K (numLocalSteps) + learningRate are server-authoritative.
+  // weight-blob wire, NOT the ZO scalar wire). Per-round server settings override the legacy
+  // TinyNet fallback; FedOpt requires those settings.
   RoundOutcome firstOrderRound(TrainableExecutorchModel& model, const std::string& runId,
                                const std::string& clientId, const DataBatch& batch,
-                               int numLocalSteps, double learningRate);
+                               int numLocalSteps, double learningRate,
+                               bool requireServerConfig = false);
 #endif
 
  private:

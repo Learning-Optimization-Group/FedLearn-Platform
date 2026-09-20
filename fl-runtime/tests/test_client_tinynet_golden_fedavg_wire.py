@@ -156,3 +156,32 @@ def test_tinynet_optimizer_matches_one_step_native_sgd(monkeypatch):
     for name, reference_param in expected.named_parameters():
         observed = dict(actual.named_parameters())[name]
         torch.testing.assert_close(observed, reference_param, rtol=0, atol=1e-6)
+
+
+def test_tinynet_fit_uses_server_learning_rate(monkeypatch):
+    """FedOpt's per-round learning rate must reach the real desktop training step."""
+    import copy
+    import torch
+    from torch.utils.data import DataLoader
+    import client  # noqa: E402
+
+    _as_fedavg_tinynet_client(monkeypatch, client)
+    monkeypatch.setattr(client, "DEVICE", torch.device("cpu"), raising=False)
+    participant = client.ZOSLClient(partition_id=1, dataset_name="cb", num_clients=4)
+    participant.trainloader = DataLoader(participant.trainloader.dataset, batch_size=8, shuffle=False)
+    expected = copy.deepcopy(participant.net)
+    inputs, targets = next(iter(participant.trainloader))
+    reference_optimizer = torch.optim.SGD(
+        (p for p in expected.parameters() if p.requires_grad), lr=0.02,
+    )
+    reference_optimizer.zero_grad()
+    torch.nn.functional.cross_entropy(expected(inputs), targets).backward()
+    reference_optimizer.step()
+
+    uploaded, count = participant.fit(participant.get_parameters(), {
+        "learning_rate": "0.02", "local_epochs": "1", "proximal_mu": "0.0",
+    })
+
+    assert count == 8
+    torch.testing.assert_close(uploaded["fc1.weight"], expected.fc1.weight, rtol=0, atol=1e-6)
+    torch.testing.assert_close(uploaded["fc1.bias"], expected.fc1.bias, rtol=0, atol=1e-6)

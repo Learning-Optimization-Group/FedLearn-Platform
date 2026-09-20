@@ -347,7 +347,7 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
 
 
 def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=None,
-          proximal_mu: float = 0.0, global_params=None):
+          proximal_mu: float = 0.0, global_params=None, learning_rate_override=None):
     """
     Train the model with dataset-specific hyperparameters.
 
@@ -368,6 +368,9 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
         learning_rate = config.learning_rate
     else:
         learning_rate = CNN_LEARNING_RATE
+
+    if learning_rate_override is not None:
+        learning_rate = learning_rate_override
 
     print(f"\n{'='*60}")
     print(f"TRAINING DEBUG INFO")
@@ -620,6 +623,21 @@ def _coerce_local_epochs(config: dict, default) -> int:
         raise ValueError(f"invalid local_epochs in server config: {raw!r} (expected an integer)")
 
 
+def _coerce_learning_rate(config: dict):
+    """Return a positive finite server learning rate, or None when it was not supplied."""
+    if "learning_rate" not in config:
+        return None
+    import math
+    raw = config["learning_rate"]
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        raise ValueError(f"invalid learning_rate in server config: {raw!r}")
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"invalid learning_rate in server config: {raw!r}")
+    return value
+
+
 def _coerce_proximal_mu(config: dict) -> float:
     """Return ``proximal_mu`` as a float — the gRPC config is ``map<string,string>``, so it arrives as
     a string (e.g. ``'0.01'``). 0.0 when absent. FedAvg/FedOpt/Robust ship no positive mu; FedProx
@@ -783,6 +801,9 @@ class ZOSLClient(fl.Client):
         # FR-32: FedProx's proximal_mu is now HONORED (the proximal term is applied in train() from the
         # round-start snapshot below), so there is no longer a config this first-order client refuses.
         proximal_mu = _coerce_proximal_mu(config)
+        # TinyNet's on-device SGD path consumes this same per-round value. Other recipes retain
+        # their dataset-specific rates until their execution contracts resolve those policies.
+        learning_rate_override = _coerce_learning_rate(config) if MODEL_TYPE == "TINYNET_GOLDEN" else None
 
         if server_round == 1:
             print(f"\n{'='*60}")
@@ -891,6 +912,7 @@ class ZOSLClient(fl.Client):
             progress_callback=progress_callback,
             proximal_mu=proximal_mu,
             global_params=global_params,
+            learning_rate_override=learning_rate_override,
         )
 
         # DEBUG: Check if parameters changed (skip for LLM_LORA — adapter key namespaces

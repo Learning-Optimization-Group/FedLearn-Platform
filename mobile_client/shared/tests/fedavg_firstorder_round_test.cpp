@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -33,13 +34,16 @@ class RoundMock : public fedlearn::IFedLearnClient {
   bool submitCalled = false;
   std::string lastModelBlob;
   int64_t lastNumExamples = -1;
+  std::map<std::string, std::string> globalConfig;
 
   bool shouldStop() const override { return false; }
   fedlearn::DeComFLConfig getDeComFLConfig(const std::string&, const std::string&) override { return {}; }
   void submitGradientScalars(const std::string&, const std::string&, int, const fedlearn::Seeds2D&,
                              const fedlearn::GradientScalars2D&, int64_t) override {}
-  std::string getGlobalModelStream(const std::string&, const std::string&, int* outCurrentRound) override {
+  std::string getGlobalModelStream(const std::string&, const std::string&, int* outCurrentRound,
+                                   std::map<std::string, std::string>* outConfig = nullptr) override {
     if (outCurrentRound) *outCurrentRound = globalRound;
+    if (outConfig) *outConfig = globalConfig;
     return globalBlob;
   }
   void submitModelUpdate(const std::string&, const std::string&, int, const std::string& modelBlob,
@@ -95,4 +99,62 @@ TEST(FedAvgFirstOrderRound, EndpointMatchesFrameworkGoldenAndUploadsWeightBlob) 
   for (size_t i = 0; i < golden.size(); ++i)
     EXPECT_NEAR(got[i], golden[i], kEndpointAtol)
         << "first-order round endpoint (uploaded blob) diverged from the framework golden at " << i;
+}
+
+TEST(FedAvgFirstOrderRound, FedOptUsesServerLearningRateAndLocalEpochs) {
+  const auto init = fedtest::readF32(fedtest::goldenPath("zo_flat.f32"));
+  RoundMock mock;
+  mock.globalBlob = blobFromFlat(init);
+  mock.globalConfig = {{"learning_rate", "0.1"}, {"local_epochs", "5"}, {"proximal_mu", "0.0"}};
+  fedlearn::TrainableExecutorchModel model(
+      fedtest::goldenPath(kTrainablePte), kTrainablePteSha, kParamNames);
+  fedlearn::ModelManager mm = fedtest::makeManager();
+  fedlearn::FederatedLoop loop(mock, mm);
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  fedlearn::DataBatch batch{x.data(), {8, 4}, y.data(), 8};
+
+  const auto out = loop.firstOrderRound(model, "run", "client", batch,
+                                        /*fallbackSteps=*/1, /*fallbackRate=*/0.001,
+                                        /*requireServerConfig=*/true);
+
+  ASSERT_TRUE(out.ranTraining);
+  ASSERT_TRUE(mock.submitCalled);
+  fedlearn::ModelManager uploaded = fedtest::makeManager();
+  uploaded.loadStateDict(mock.lastModelBlob);
+  const auto golden = fedtest::readF32(fedtest::goldenPath("fedavg_local_final.f32"));
+  for (size_t i = 0; i < golden.size(); ++i) {
+    EXPECT_NEAR(uploaded.getFlatParams()[i], golden[i], kEndpointAtol) << "parameter " << i;
+  }
+}
+
+TEST(FedAvgFirstOrderRound, FedOptRejectsMissingServerSettingsBeforeUpload) {
+  RoundMock mock;
+  mock.globalBlob = blobFromFlat(fedtest::readF32(fedtest::goldenPath("zo_flat.f32")));
+  fedlearn::TrainableExecutorchModel model(
+      fedtest::goldenPath(kTrainablePte), kTrainablePteSha, kParamNames);
+  fedlearn::ModelManager mm = fedtest::makeManager();
+  fedlearn::FederatedLoop loop(mock, mm);
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  fedlearn::DataBatch batch{x.data(), {8, 4}, y.data(), 8};
+
+  EXPECT_THROW(loop.firstOrderRound(model, "run", "client", batch, 1, 0.001, true), std::runtime_error);
+  EXPECT_FALSE(mock.submitCalled);
+}
+
+TEST(FedAvgFirstOrderRound, FedOptRejectsMalformedServerSettingsBeforeUpload) {
+  RoundMock mock;
+  mock.globalBlob = blobFromFlat(fedtest::readF32(fedtest::goldenPath("zo_flat.f32")));
+  mock.globalConfig = {{"learning_rate", " 0.1"}, {"local_epochs", "5"}};
+  fedlearn::TrainableExecutorchModel model(
+      fedtest::goldenPath(kTrainablePte), kTrainablePteSha, kParamNames);
+  fedlearn::ModelManager mm = fedtest::makeManager();
+  fedlearn::FederatedLoop loop(mock, mm);
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  fedlearn::DataBatch batch{x.data(), {8, 4}, y.data(), 8};
+
+  EXPECT_THROW(loop.firstOrderRound(model, "run", "client", batch, 1, 0.001, true), std::runtime_error);
+  EXPECT_FALSE(mock.submitCalled);
 }
