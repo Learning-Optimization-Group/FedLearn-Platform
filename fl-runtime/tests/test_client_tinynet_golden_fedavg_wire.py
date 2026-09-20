@@ -127,3 +127,32 @@ def test_fedavg_client_trains_a_full_round_on_the_golden_data(monkeypatch):
     assert not torch.equal(new_params["fc1.weight"].cpu(), initial["fc1.weight"].cpu()), \
         "fc1 should have trained"
     assert torch.equal(c.net.fc2.weight, fc2_before), "the frozen layer must not move"
+
+
+def test_tinynet_optimizer_matches_one_step_native_sgd(monkeypatch):
+    """Catch Adam or a different learning rate on the desktop TinyNet path."""
+    import copy
+    import torch
+    from torch.utils.data import DataLoader
+    import client  # noqa: E402
+
+    _as_fedavg_tinynet_client(monkeypatch, client)
+    monkeypatch.setattr(client, "DEVICE", torch.device("cpu"), raising=False)
+    actual = recipes.get_recipe("TINYNET_GOLDEN").build_model("cpu")
+    expected = copy.deepcopy(actual)
+    golden = client.build_tinynet_golden_decomfl_loader(partition_id=0)
+    loader = DataLoader(golden.dataset, batch_size=8, shuffle=False)
+    inputs, targets = next(iter(loader))
+
+    reference_optimizer = torch.optim.SGD(
+        (p for p in expected.parameters() if p.requires_grad), lr=0.001,
+    )
+    reference_optimizer.zero_grad()
+    torch.nn.functional.cross_entropy(expected(inputs), targets).backward()
+    reference_optimizer.step()
+
+    client.train(actual, loader, epochs=1, dataset_name="cb")
+
+    for name, reference_param in expected.named_parameters():
+        observed = dict(actual.named_parameters())[name]
+        torch.testing.assert_close(observed, reference_param, rtol=0, atol=1e-6)

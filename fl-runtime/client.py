@@ -383,7 +383,12 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
     print(f"{'='*60}\n")
 
     # Setup optimizer based on model type
-    if USE_LLM:
+    if MODEL_TYPE == "TINYNET_GOLDEN":
+        optimizer = torch.optim.SGD(
+            (p for p in net.parameters() if p.requires_grad), lr=learning_rate,
+        )
+        print("  Optimizer: SGD (trainable TinyNet parameters only)")
+    elif USE_LLM:
         # Use regular Adam on CPU for better numerical stability
         if DEVICE == "cpu":
             optimizer = torch.optim.AdamW(
