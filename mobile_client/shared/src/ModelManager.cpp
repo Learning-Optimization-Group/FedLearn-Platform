@@ -1,6 +1,7 @@
 #include "fedlearn/ModelManager.h"
 
 #include <stdexcept>
+#include <unordered_map>
 
 #include "fedlearn/Safetensors.h"
 
@@ -78,19 +79,26 @@ void ModelManager::loadStateDict(const std::string& blob) {
   if (tensors.size() != layout_.size()) {
     throw std::runtime_error("ModelManager::loadStateDict: tensor count != layout size");
   }
+  std::unordered_map<std::string, const NamedTensor*> byName;
+  byName.reserve(tensors.size());
+  for (const auto& tensor : tensors) {
+    if (!byName.emplace(tensor.name, &tensor).second) {
+      throw std::runtime_error("ModelManager::loadStateDict: duplicate tensor '" + tensor.name + "'");
+    }
+  }
   std::vector<float> next;
   next.reserve(params_.size());
-  for (size_t i = 0; i < layout_.size(); ++i) {
-    if (tensors[i].name != layout_[i].name) {
-      throw std::runtime_error("ModelManager::loadStateDict: name mismatch at index " +
-                               std::to_string(i) + " ('" + tensors[i].name + "' != '" +
-                               layout_[i].name + "')");
+  for (const auto& spec : layout_) {
+    const auto it = byName.find(spec.name);
+    if (it == byName.end()) {
+      throw std::runtime_error("ModelManager::loadStateDict: missing tensor '" + spec.name + "'");
     }
-    if (tensors[i].data.size() != static_cast<size_t>(numelOf(layout_[i]))) {
+    const auto& tensor = *it->second;
+    if (tensor.data.size() != static_cast<size_t>(numelOf(spec))) {
       throw std::runtime_error("ModelManager::loadStateDict: size mismatch for '" +
-                               layout_[i].name + "'");
+                               spec.name + "'");
     }
-    next.insert(next.end(), tensors[i].data.begin(), tensors[i].data.end());
+    next.insert(next.end(), tensor.data.begin(), tensor.data.end());
   }
   if (next.size() != params_.size()) {
     throw std::runtime_error("ModelManager::loadStateDict: total size mismatch");
