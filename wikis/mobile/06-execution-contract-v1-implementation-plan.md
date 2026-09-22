@@ -2,7 +2,7 @@
 
 **Goal:** Implement [Execution Contract v1](03-android-execution-contract-v1-design.md) as a sequence of independently tested commits, ending with a mixed-device TinyNet FedAvg run in which the laptop and Android clients both execute the same published contract.
 
-**Status:** Implementation authorized 2026-09-21. Stage 2A (schema, generated readers, shared validation) is complete; later slices are pending.
+**Status:** Stages 2A–2H are complete (2026-09-22). Stage 2I, the mixed-device live run, is the remaining slice. Android now depends on execution contract v1 — see "Android is v1-dependent" below for what that costs.
 
 ## Rules for every slice
 
@@ -30,6 +30,63 @@ Each reader was also checked by deliberately breaking individual rules; the corp
 - **Approved matrix.** Only TinyNet / FedAvg / FULL / vector classification / cross-entropy / trainable-state F32 is publishable. FedOpt and Robust, validated live in Stage 1, are added only with their own conformance tests.
 - **Parsing.** ProtoJSON readers ignore unknown fields (a compatible addition must not break older readers), and an unknown enum name therefore reads as 0 and is refused. Java's `JsonFormat` and Python's `json_format` were each more permissive than the specification (a bare `NaN` literal, and a top-level array, respectively); both readers pre-check the document, and the corpus pins the behavior.
 - **C++.** The design routes only a validated, typed projection to C++, and the host C++ build links no protobuf runtime. There is therefore no C++ generated reader; the design's C++ round-trip gate is met instead by projection conformance in slice 2H.
+
+## Stages 2B–2H — what landed
+
+Each slice was committed only after its own tests passed. The stage sections below are the plan as
+written and are kept for the detail; this table is what actually shipped.
+
+| Stage | Commits | Verified by |
+| --- | --- | --- |
+| 2B — immutable run intent | `89d68dd`, `a07d5d3` | `V27`/`V29` migration tests in the `V*MigrationTest` shape; a project edit after start changes neither the snapshot nor the spawned server |
+| 2C — publication lifecycle and storage | `b7543a6`, `5a3689f` | `V28` migration test; concurrent publication yields one `READY` row (`INSERT … ON CONFLICT DO NOTHING`); a PostgreSQL trigger forbids `UPDATE`, so a `READY` contract cannot change |
+| 2D — Python resolved training plan | `b344a7d`, `c5794d3` | `fl-runtime/tests/test_execution_plan.py`: the resolved plan equals what `client.py` constructs; canonical state digests; unsupported recipes raise `NotRepresentable` |
+| 2E — publisher | `5e2f180`, `c450eb9`, `8c4baad`, `6708f5a` | staging-outcome and publisher tests for `PENDING`, `READY` and each `UNAVAILABLE` reason |
+| 2F — dual-emitted manifest and equivalence | `c9cb0c1` | legacy-vs-contract equivalence blocks publication on disagreement; no partial contract is ever returned |
+| 2G — laptop client | `5d8a6f0`, `030e46e`, `99885c3` | `client.py --execution-contract` refuses any difference from its own plan before data loading; desktop launcher and `client-docker` entrypoint tests |
+| 2H — Android decision, refusal and projection | `a3e1618`, `6597e65`, `c1697cb`, `f2446a4` | Jest refusal tests before any provisioning call; one shared projection fixture consumed by the TypeScript projection test **and** the native C++ round test; C++ suite 63 passed |
+
+The backend pipeline was also exercised once end to end against a throwaway PostgreSQL and a real
+backend: the contract published `READY`, was served on the manifest, validated by the Python reader with
+zero issues, and carried digests matching the phone's golden state.
+
+### Android is v1-dependent
+
+The design left open what Android should do for a run v1 does not cover. Decision (2026-09-22, Anurag):
+**strict.** The phone refuses every run without a `READY` v1 contract it can execute exactly, and never
+approximates. Each refusal names its reason (`CONTRACT_MISSING`, `CONTRACT_LEGACY_ONLY`,
+`CONTRACT_UNAVAILABLE`, `CONTRACT_INVALID`, `UNSUPPORTED_STRATEGY`, `UNSUPPORTED_UPDATE_PROTOCOL`,
+`UNSUPPORTED_SECURITY`, `UNSUPPORTED_OPTIMIZER`, `UNSUPPORTED_BATCHING`, `MISSING_CPU_ARTIFACT`).
+
+**This is a deliberate capability regression and must not be described as anything else.** The approved v1
+matrix is TinyNet / FedAvg / FULL only, so **DeComFL, FedOpt and Robust no longer run on the phone** even
+though Stage 1 validated them live. They return when their contracts exist: FedOpt and Robust need
+conformance tests and a wider matrix; DeComFL needs a schema extension for the zeroth-order path.
+Restoring them is follow-up work, not a defect in the gate.
+
+### Findings from 2H worth carrying into the paper
+
+Recorded in `research/notes/on-device/2026-09-22-contract-endpoint-replay-and-tolerance-trap.md`, measured
+in `research/results/on-device/contract_endpoint_replay.json`.
+
+- **A tolerance inherited across configurations can exceed the signal.** The existing FedAvg endpoint
+  golden (lr 0.1, 5 epochs) carries `endpoint_atol = 2e-3`. The contract states lr 1e-3 for one epoch,
+  which moves the parameters by at most 1.44e-4 — 13.9x *smaller* than that tolerance. Reusing it would
+  have produced a test that passes whether or not the trainer trains. The contract endpoint therefore has
+  its own golden at 1e-6, the generator refuses to write a golden whose movement is within its own
+  tolerance, and the test also asserts the parameters moved at all.
+- **A fixture that tests complete before asserting cannot detect drift.** The golden contract was found to
+  state training `fl-runtime` never resolves, so `check_contract` refused it — the published fixture was a
+  contract no client would train under. It survived because every test overwrote its plan fields with the
+  resolved plan before asserting. `test_the_golden_contract_is_one_this_client_accepts_unmodified` now
+  asserts the production predicate on the fixture as published (`c1697cb`).
+
+### Outstanding within 2H
+
+- The plan's on-device check — exercising the protobuf-es runtime under Hermes, since Jest does not prove
+  Hermes behavior — **has not been done**. It is folded into Stage 2I, which installs a fresh APK.
+- The native launcher passes `--dataset-path`, which `client.py`'s parser does not define. Unrelated to the
+  contract work, noticed while testing, left untouched.
 
 ## Stage 2B — immutable run intent
 
