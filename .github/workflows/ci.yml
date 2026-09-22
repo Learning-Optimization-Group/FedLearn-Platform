@@ -39,6 +39,10 @@ jobs:
               - 'framework/**'
             backend:
               - 'backend/**'
+              # The backend compiles the execution contract from its canonical proto and runs the
+              # shared conformance corpus, so either changing re-runs the Java reader.
+              - 'proto/fedlearn/contract/**'
+              - 'framework/tests/fixtures/execution_contract_v1/**'
             backend_scripts:
               - 'fl-runtime/**'
               - 'backend/fl-platform-api/requirements.txt'
