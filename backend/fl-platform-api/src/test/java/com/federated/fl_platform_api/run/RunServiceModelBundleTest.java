@@ -44,6 +44,7 @@ class RunServiceModelBundleTest {
     @Mock AuthorizationService authz;
     @Mock OrgScope orgScope;
     @Mock ConnectionTokenService tokenService;
+    @Mock com.federated.fl_platform_api.contract.ExecutionContractStore contractStore;
     @InjectMocks RunService runService;
 
     @TempDir Path modelsDir;
@@ -54,6 +55,10 @@ class RunServiceModelBundleTest {
         ReflectionTestUtils.setField(runService, "modelBundleDir", modelsDir.toString());
         ReflectionTestUtils.setField(runService, "bundleDeliveryEnabled", true);
         ReflectionTestUtils.setField(runService, "grpcHost", "localhost");
+        org.mockito.Mockito.lenient().when(contractStore.read(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new com.federated.fl_platform_api.contract.ContractView(
+                        com.federated.fl_platform_api.contract.ContractState.LEGACY_ONLY, null, null, null, null,
+                        null));
     }
 
     private static String sha256(byte[] b) throws Exception {

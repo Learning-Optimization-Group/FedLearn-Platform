@@ -7,6 +7,7 @@ import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.repository.RunRepository;
 import com.federated.fl_platform_api.service.ModelBundleStagingListener;
 import com.federated.fl_platform_api.service.RegistryModelResolver;
+import com.federated.fl_platform_api.service.RunService;
 import com.fedlearn.contract.v1.ExecutionContract;
 import com.fedlearn.contract.v1.ModelTraining;
 import org.slf4j.Logger;
@@ -18,6 +19,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -26,8 +28,8 @@ import java.util.UUID;
  *
  * <p>When a run with an intent snapshot is staged, the publisher reads the staged bundle, resolves the plan for the
  * initial model file the FL server loaded (the registry head on a continued run, otherwise the project's model file),
- * assembles the contract and stores it, where it is validated. The first source that fails or disagrees decides the
- * run UNAVAILABLE with its reason instead. Runs without an intent snapshot are legacy and are left alone.</p>
+ * assembles the contract, checks it against the legacy manifest fields, and stores it, where it is validated. The
+ * first source that fails or disagrees decides the run UNAVAILABLE with its reason instead. Runs without an intent snapshot are legacy and are left alone.</p>
  */
 @Component
 public class ExecutionContractPublisher implements ModelBundleStagingListener {
@@ -40,6 +42,7 @@ public class ExecutionContractPublisher implements ModelBundleStagingListener {
     private final StagedBundleReader bundles;
     private final ExecutionPlanResolver plans;
     private final ExecutionContractStore store;
+    private final RunService runService;
 
     @Value("${app.contract.max-transient-retries:3}")
     private int maxTransientRetries;
@@ -49,13 +52,14 @@ public class ExecutionContractPublisher implements ModelBundleStagingListener {
 
     public ExecutionContractPublisher(RunRepository runs, ProjectRepository projects, RegistryModelResolver registry,
                                       StagedBundleReader bundles, ExecutionPlanResolver plans,
-                                      ExecutionContractStore store) {
+                                      ExecutionContractStore store, RunService runService) {
         this.runs = runs;
         this.projects = projects;
         this.registry = registry;
         this.bundles = bundles;
         this.plans = plans;
         this.store = store;
+        this.runService = runService;
     }
 
     @Override
@@ -94,6 +98,15 @@ public class ExecutionContractPublisher implements ModelBundleStagingListener {
                     initialModel);
             ExecutionContract contract = ExecutionContractAssembler.assemble(run, plan, bundle, new ExecutionContractAssembler.Policy(
                     ExecutionContractStore.SERVER_PROTOCOL_VERSION, maxTransientRetries, retryBackoffMs));
+            // Old clients act on the legacy manifest fields and updated clients on the contract, so the two must
+            // describe the same run before the contract is published.
+            List<String> disagreements = LegacyManifestEquivalence.disagreements(runService.legacyManifest(run),
+                    contract);
+            if (!disagreements.isEmpty()) {
+                decide(run, ContractUnavailableReason.INVALID_CONTRACT,
+                        "the contract disagrees with the legacy manifest on " + disagreements);
+                return;
+            }
             PublicationOutcome outcome = store.publish(run, contract);
             log.info("execution contract for run {}: {}", runId, outcome);
         } catch (NotRepresentableException e) {

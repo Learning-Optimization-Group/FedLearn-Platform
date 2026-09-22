@@ -52,6 +52,8 @@ class ExecutionContractPublisherTest {
     private final StagedBundleReader reader = mock(StagedBundleReader.class);
     private final ExecutionPlanResolver resolver = mock(ExecutionPlanResolver.class);
     private final ExecutionContractStore store = mock(ExecutionContractStore.class);
+    private final com.federated.fl_platform_api.service.RunService runService =
+            mock(com.federated.fl_platform_api.service.RunService.class);
     private ExecutionContractPublisher publisher;
     private Run run;
     private Project project;
@@ -59,7 +61,7 @@ class ExecutionContractPublisherTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        publisher = new ExecutionContractPublisher(runs, projects, registry, reader, resolver, store);
+        publisher = new ExecutionContractPublisher(runs, projects, registry, reader, resolver, store, runService);
         ReflectionTestUtils.setField(publisher, "maxTransientRetries", 3);
         ReflectionTestUtils.setField(publisher, "retryBackoffMs", 1_000L);
 
@@ -88,6 +90,22 @@ class ExecutionContractPublisherTest {
         when(registry.resolveModelPath(project)).thenReturn(Optional.empty());
         when(reader.read(run.getId())).thenReturn(bundle());
         when(resolver.resolve(eq("TINYNET_GOLDEN"), eq("FedAvg"), eq("FULL"), any())).thenReturn(plan());
+        when(runService.legacyManifest(run)).thenReturn(legacyManifest());
+    }
+
+    /** The legacy manifest the backend emits for this run: it agrees with the contract being published. */
+    private com.federated.fl_platform_api.dto.RunManifestDto legacyManifest() {
+        var m = new com.federated.fl_platform_api.dto.RunManifestDto();
+        m.setRunId(run.getId());
+        m.setProjectId(run.getProjectId());
+        m.setRecipeKey(run.getRecipeKey());
+        m.setStrategy(run.getStrategy());
+        m.setNumRounds(run.getNumRounds());
+        m.setClientsPerRound(run.getClientsPerRound());
+        m.setPartitioningMode(run.getPartitioningMode().name());
+        m.setSeed(run.getSeed());
+        m.setFirstOrderSupported(true);
+        return m;
     }
 
     private static ModelTraining plan() throws Exception {
@@ -197,6 +215,19 @@ class ExecutionContractPublisherTest {
         publisher.onStaged(run.getId());
 
         verify(store).markUnavailable(eq(run), eq(ContractUnavailableReason.NOT_REPRESENTABLE), contains("layout"));
+    }
+
+    @Test
+    void aContractThatDisagreesWithTheLegacyManifestIsNotPublished() throws Exception {
+        var legacy = legacyManifest();
+        legacy.setFirstOrderSupported(false);
+        when(runService.legacyManifest(run)).thenReturn(legacy);
+
+        publisher.onStaged(run.getId());
+
+        verify(store).markUnavailable(eq(run), eq(ContractUnavailableReason.INVALID_CONTRACT),
+                contains("updateProtocol"));
+        verify(store, never()).publish(any(), any());
     }
 
     @Test

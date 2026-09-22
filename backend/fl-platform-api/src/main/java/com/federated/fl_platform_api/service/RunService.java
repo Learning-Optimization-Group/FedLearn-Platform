@@ -1,5 +1,9 @@
 package com.federated.fl_platform_api.service;
 
+import com.federated.fl_platform_api.contract.ContractState;
+import com.federated.fl_platform_api.contract.ContractView;
+import com.federated.fl_platform_api.contract.ExecutionContractStore;
+import com.google.protobuf.util.JsonFormat;
 import com.federated.fl_platform_api.model.RobustAggregationSettings;
 import com.federated.fl_platform_api.model.RobustMethod;
 
@@ -69,6 +73,7 @@ public class RunService {
     private boolean preferCgnat;
 
     @Autowired private Environment environment;
+    @Autowired private ExecutionContractStore contractStore;
 
     // V27: the effective client-auth setting recorded in each run's intent; the same property the FL-server spawn
     // enforces. TLS comes from serverCert, which reads app.fl.require-tls.
@@ -110,6 +115,9 @@ public class RunService {
             Set.of("loss.pte", "infer.pte", "inputs.f32", "targets.i64", "trainable.pte");
 
     private static final SecureRandom RANDOM = new SecureRandom();
+
+    // Reads the ProtoJSON the protobuf printer emits into a tree, so it nests in the manifest verbatim.
+    private static final ObjectMapper PROTO_JSON = new ObjectMapper();
 
     public Run createForStart(Project project, String strategy, int numRounds,
                               int minClients, int clientsPerRound) {
@@ -244,7 +252,26 @@ public class RunService {
         return toManifest(run);
     }
 
+    /** The run's manifest: the legacy fields and, beside them, its execution contract state (Stage 2F). */
     RunManifestDto toManifest(Run run) {
+        RunManifestDto m = legacyManifest(run);
+        ContractView contract = contractStore.read(run);
+        m.setContractState(contract.state().name());
+        if (contract.state() == ContractState.READY) {
+            m.setContractId(contract.contractId());
+            try {
+                m.setExecutionContract(PROTO_JSON.readTree(JsonFormat.printer().print(contract.contract())));
+            } catch (IOException e) {
+                throw new IllegalStateException("could not render the execution contract of run " + run.getId(), e);
+            }
+        } else if (contract.state() == ContractState.UNAVAILABLE) {
+            m.setContractUnavailableReason(contract.unavailableReason().name());
+        }
+        return m;
+    }
+
+    /** The manifest fields old clients read, which a published execution contract must agree with. */
+    public RunManifestDto legacyManifest(Run run) {
         RunManifestDto m = new RunManifestDto();
         m.setRunId(run.getId());
         m.setProjectId(run.getProjectId());

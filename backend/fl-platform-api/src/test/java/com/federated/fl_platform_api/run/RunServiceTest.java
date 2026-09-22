@@ -36,11 +36,20 @@ class RunServiceTest {
     @Mock FlClientCertificateAuthority clientCa;
     @Mock com.federated.fl_platform_api.security.FlServerCertificate serverCert;
 
+    @Mock com.federated.fl_platform_api.contract.ExecutionContractStore contractStore;
+
     @InjectMocks RunService runService;
 
     @BeforeEach
     void injectValues() {
         ReflectionTestUtils.setField(runService, "grpcHost", "localhost");
+        lenient().when(contractStore.read(any())).thenReturn(contractView(
+                com.federated.fl_platform_api.contract.ContractState.LEGACY_ONLY));
+    }
+
+    private static com.federated.fl_platform_api.contract.ContractView contractView(
+            com.federated.fl_platform_api.contract.ContractState state) {
+        return new com.federated.fl_platform_api.contract.ContractView(state, null, null, null, null, null);
     }
 
     private Project project(UUID id) {
@@ -291,6 +300,79 @@ class RunServiceTest {
         assertEquals(42L, dto.getSeed());
         assertEquals(rid, dto.getRunId());
         assertEquals(pid, dto.getProjectId());
+    }
+
+    // ─── execution contract v1 in the manifest ─────────────────────────────────
+
+    private com.federated.fl_platform_api.dto.RunManifestDto manifestWith(
+            com.federated.fl_platform_api.contract.ContractView view) {
+        UUID rid = UUID.randomUUID();
+        UUID pid = UUID.randomUUID();
+        Run r = new Run();
+        r.setId(rid); r.setProjectId(pid);
+        r.setStatus(RunStatus.RUNNING);
+        r.setRecipeKey("TINYNET_GOLDEN");
+        r.setStrategy("FedAvg");
+        r.setNumRounds(3);
+        r.setClientsPerRound(4);
+        r.setPartitioningMode(PartitioningMode.SHARDED);
+        Project p = project(pid);
+        User u = new User(); u.setId(7L);
+        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 7L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+        when(contractStore.read(r)).thenReturn(view);
+        return runService.getManifest(rid);
+    }
+
+    @Test
+    void manifest_carriesAReadyContractAsProtoJsonWithItsId() throws Exception {
+        java.nio.file.Path fixtures = java.nio.file.Path.of("..", "..", "framework", "tests", "fixtures",
+                "execution_contract_v1");
+        byte[] bytes = java.nio.file.Files.readAllBytes(fixtures.resolve("golden_tinynet_fedavg.binpb"));
+        var contract = com.fedlearn.contract.v1.ExecutionContract.parseFrom(bytes);
+
+        var dto = manifestWith(new com.federated.fl_platform_api.contract.ContractView(
+                com.federated.fl_platform_api.contract.ContractState.READY, contract, bytes, "a".repeat(64),
+                null, null));
+
+        assertEquals("READY", dto.getContractState());
+        assertEquals("a".repeat(64), dto.getContractId());
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertEquals(json.readTree(java.nio.file.Files.readString(fixtures.resolve("golden_tinynet_fedavg.json"))),
+                dto.getExecutionContract());
+        assertNull(dto.getContractUnavailableReason());
+        assertEquals("TINYNET_GOLDEN", dto.getRecipeKey(), "legacy fields are still emitted");
+    }
+
+    @Test
+    void manifest_reportsAPendingContractWithoutOne() {
+        var dto = manifestWith(contractView(com.federated.fl_platform_api.contract.ContractState.PENDING));
+        assertEquals("PENDING", dto.getContractState());
+        assertNull(dto.getContractId());
+        assertNull(dto.getExecutionContract());
+    }
+
+    @Test
+    void manifest_reportsWhyNoContractIsAvailableButNotTheServerSideDetail() {
+        var dto = manifestWith(new com.federated.fl_platform_api.contract.ContractView(
+                com.federated.fl_platform_api.contract.ContractState.UNAVAILABLE, null, null, null,
+                com.federated.fl_platform_api.contract.ContractUnavailableReason.STAGING_FAILED,
+                "/var/models/run/loss.pte is missing"));
+        assertEquals("UNAVAILABLE", dto.getContractState());
+        assertEquals("STAGING_FAILED", dto.getContractUnavailableReason());
+        assertNull(dto.getExecutionContract());
+        assertFalse(new com.fasterxml.jackson.databind.ObjectMapper().valueToTree(dto).toString()
+                .contains("/var/models"), "the server-side detail never reaches a client");
+    }
+
+    @Test
+    void manifest_reportsALegacyRunAsLegacyOnly() {
+        var dto = manifestWith(contractView(com.federated.fl_platform_api.contract.ContractState.LEGACY_ONLY));
+        assertEquals("LEGACY_ONLY", dto.getContractState());
+        assertNull(dto.getExecutionContract());
     }
 
     // ─── enroll tests ──────────────────────────────────────────────────────────
