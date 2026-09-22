@@ -128,6 +128,15 @@ public class ClientApiService {
         dto.setGrpcTls(enrollment.isGrpcTls());
         dto.setGrpcServerCertPem(enrollment.getGrpcServerCertPem());
         dto.setGrpcServerCertFingerprint(enrollment.getCaFingerprint());
+        // Execution contract v1, exactly as the run manifest reports it.
+        dto.setRunId(project.getActiveRunId());
+        com.federated.fl_platform_api.dto.RunManifestDto manifest = enrollment.getManifest();
+        if (manifest != null) {
+            dto.setContractState(manifest.getContractState());
+            dto.setContractId(manifest.getContractId());
+            dto.setExecutionContract(manifest.getExecutionContract());
+            dto.setContractUnavailableReason(manifest.getContractUnavailableReason());
+        }
         // P1-5: the arm the FL server was spawned with, so the client federates the same parameter
         // subset. Always stated (never null) — the client must not have to read FULL out of silence.
         dto.setTrainingArm(project.getTrainingArm() != null
@@ -136,8 +145,11 @@ public class ClientApiService {
         // The active run's strategy, so the desktop can pass --strategy to the client and pick the
         // matching path (e.g. DeComFL) rather than always defaulting to FedAvg (finding B: a non-MLP
         // DeComFL project otherwise runs a FedAvg-path client that silently mismatches the server).
-        runRepository.findById(project.getActiveRunId())
-            .ifPresent(r -> dto.setStrategy(r.getStrategy()));
+        runRepository.findById(project.getActiveRunId()).ifPresent(r -> {
+            dto.setStrategy(r.getStrategy());
+            // The arm the run recorded when it started (V27) is what its server was spawned with.
+            r.getIntent().ifPresent(intent -> dto.setTrainingArm(intent.trainingArm().name()));
+        });
         return dto;
     }
 
