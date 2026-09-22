@@ -312,3 +312,97 @@ def test_the_backend_wrapper_runs_the_resolver_with_the_backends_argv(tmp_path):
     out = json.loads(done.stdout.strip().splitlines()[-1])
     assert out["representable"] is True
     assert out["modelTraining"]["initialStateSha256"] == _canonical_digest(_tinynet_trainable_state().items())
+
+
+# --- the laptop client checks a published contract against what it executes ----------------------------
+
+def _contract_for_this_client():
+    """A published-style contract whose Python-owned part is this client's own plan."""
+    with open(GOLDEN_CONTRACT, "rb") as fh:
+        contract = parse_contract_binary(fh.read())
+    plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL")
+    training = contract.model_training
+    for field in ("model_id", "arm", "task", "objective", "update_protocol", "frozen_state_sha256"):
+        setattr(training, field, getattr(plan, field))
+    training.ClearField("trainable")
+    training.trainable.extend(plan.trainable)
+    training.local_training.CopyFrom(plan.local_training)
+    training.data.CopyFrom(plan.data)
+    return contract
+
+
+def _check(contract, **kwargs):
+    kwargs.setdefault("project_id", contract.project_id)
+    return execution_plan.check_contract(contract, "TINYNET_GOLDEN", "FedAvg", "FULL", **kwargs)
+
+
+def test_a_contract_matching_this_clients_execution_is_accepted():
+    assert _check(_contract_for_this_client()) == []
+
+
+def test_a_contract_for_different_training_is_refused():
+    contract = _contract_for_this_client()
+    contract.model_training.local_training.sgd.learning_rate = 0.02
+    assert _check(contract) == ["modelTraining.localTraining differs from what this client executes"]
+
+
+def test_a_contract_with_a_different_layout_is_refused():
+    contract = _contract_for_this_client()
+    first, second = list(contract.model_training.trainable)
+    contract.model_training.ClearField("trainable")
+    contract.model_training.trainable.extend([second, first])
+    assert _check(contract) == ["modelTraining.trainable differs from what this client executes"]
+
+
+def test_a_contract_for_a_different_frozen_backbone_is_refused():
+    contract = _contract_for_this_client()
+    contract.model_training.frozen_state_sha256 = "0" * 64
+    assert _check(contract) == ["modelTraining.frozenStateSha256 differs from what this client executes"]
+
+
+def test_a_contract_for_another_recipe_or_strategy_is_refused():
+    assert execution_plan.check_contract(_contract_for_this_client(), "CNN", "FedAvg", "FULL",
+                                         project_id=_contract_for_this_client().project_id)
+    problems = execution_plan.check_contract(_contract_for_this_client(), "TINYNET_GOLDEN", "FedOpt", "FULL",
+                                             project_id=_contract_for_this_client().project_id)
+    assert problems == ["strategy STRATEGY_FEDAVG is not this client's FedOpt"]
+
+
+def test_an_invalid_contract_is_refused_with_its_issues():
+    contract = _contract_for_this_client()
+    contract.num_rounds = 0
+    assert _check(contract) == ["ISSUE_OUT_OF_RANGE at numRounds"]
+
+
+def test_a_contract_for_another_project_is_refused():
+    contract = _contract_for_this_client()
+    assert _check(contract, project_id="00000000-0000-4000-8000-000000000001") == [
+        "ISSUE_IDENTITY_MISMATCH at projectId"]
+
+
+def test_the_client_refuses_before_training_when_its_contract_disagrees(tmp_path, monkeypatch):
+    import client
+    from google.protobuf import json_format
+    contract = _contract_for_this_client()
+    contract.model_training.local_training.batch_size = 4
+    path = tmp_path / "contract.json"
+    path.write_text(json_format.MessageToJson(contract))
+    args = client.parse_args(["--project-id", contract.project_id, "--server-address", "localhost:50000",
+                              "--partition-id", "0", "--model-type", "TINYNET_GOLDEN", "--strategy", "FedAvg",
+                              "--execution-contract", str(path)])
+    with pytest.raises(SystemExit) as refused:
+        client.enforce_execution_contract(args, "TINYNET_GOLDEN", "FULL")
+    assert "localTraining" in str(refused.value)
+
+
+def test_the_client_accepts_its_own_contract_and_ignores_its_absence(tmp_path):
+    import client
+    from google.protobuf import json_format
+    contract = _contract_for_this_client()
+    path = tmp_path / "contract.json"
+    path.write_text(json_format.MessageToJson(contract))
+    base = ["--project-id", contract.project_id, "--server-address", "localhost:50000", "--partition-id", "0",
+            "--model-type", "TINYNET_GOLDEN", "--strategy", "FedAvg"]
+    assert client.enforce_execution_contract(
+        client.parse_args(base + ["--execution-contract", str(path)]), "TINYNET_GOLDEN", "FULL") == contract
+    assert client.enforce_execution_contract(client.parse_args(base), "TINYNET_GOLDEN", "FULL") is None

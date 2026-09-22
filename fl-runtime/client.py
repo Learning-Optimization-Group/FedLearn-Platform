@@ -1093,6 +1093,12 @@ def build_arg_parser():
                         help="Training arm: FULL (default) or FROZEN_HEAD. Must be one the "
                              "recipe declares in supported_arms; rejected at startup otherwise. "
                              "Omitted means FULL, so existing invocations are unchanged.")
+    parser.add_argument("--execution-contract", type=str, default=None,
+                        help="Path to the run's published execution contract (ProtoJSON). When given, the "
+                             "client refuses to train unless the contract is valid for this project and states "
+                             "exactly what this client executes.")
+    parser.add_argument("--run-id", type=str, default=None,
+                        help="The run the execution contract must belong to, when known.")
     parser.add_argument("--use-llm", action="store_true", help="Use LLM (deprecated, use --model-type TRANSFORMER)")
     parser.add_argument("--device", default=os.environ.get("FEDLEARN_DEVICE", "auto"),
                         choices=["auto", "cpu", "cuda", "mps"],
@@ -1105,6 +1111,30 @@ def build_arg_parser():
 def parse_args(argv=None):
     """Parse client arguments. ``argv=None`` reads sys.argv, as argparse does."""
     return build_arg_parser().parse_args(argv)
+
+
+def enforce_execution_contract(args, model_type, training_arm):
+    """Refuse to train under a published execution contract this client would not execute exactly.
+
+    Returns the accepted contract, or None when none was given (a legacy run). Exits before any data or model is
+    loaded when the contract is invalid, belongs to another run or project, or states different training.
+    """
+    if not getattr(args, "execution_contract", None):
+        return None
+    import execution_plan
+    from fedlearn.contract import MalformedContractError, parse_contract_json
+
+    try:
+        with open(args.execution_contract, encoding="utf-8") as fh:
+            contract = parse_contract_json(fh.read())
+    except (OSError, MalformedContractError) as exc:
+        raise SystemExit(f"Refusing to train: the execution contract could not be read ({exc})")
+    problems = execution_plan.check_contract(contract, model_type, args.strategy, training_arm,
+                                             project_id=args.project_id, run_id=args.run_id)
+    if problems:
+        raise SystemExit("Refusing to train under this execution contract: " + "; ".join(problems))
+    print(f"[contract] execution contract accepted for run {contract.run_id}")
+    return contract
 
 
 def main():
@@ -1158,6 +1188,13 @@ def main():
         USE_MLP = False
         USE_PNEUMONIA = False
         USE_LLM_LORA = False
+
+    # Execution contract v1: when the run published one, it must state exactly what this client executes. Checked
+    # before any data or model is loaded.
+    if args.model_type:
+        enforce_execution_contract(args, MODEL_TYPE, TRAINING_ARM)
+    elif getattr(args, "execution_contract", None):
+        raise SystemExit("Refusing to train: an execution contract requires --model-type")
 
     if USE_LLM_LORA:
         LLM_LORA_AGGREGATION = args.aggregation

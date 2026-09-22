@@ -28,6 +28,17 @@ import recipes
 from fedlearn.communication.generated import execution_contract_pb2 as pb
 
 _OBJECTIVES = {"cross_entropy": pb.OBJECTIVE_CROSS_ENTROPY, "one_vs_all": pb.OBJECTIVE_ONE_VS_ALL}
+_STRATEGIES = {"DeComFL": pb.STRATEGY_DECOMFL, "FedAvg": pb.STRATEGY_FEDAVG, "FedProx": pb.STRATEGY_FEDPROX,
+               "FedOpt": pb.STRATEGY_FEDOPT, "Robust": pb.STRATEGY_ROBUST}
+
+# The fedlearn.v2 control/round protocol this client speaks.
+CLIENT_PROTOCOL_VERSION = 2
+
+# The contract fields the plan states: a client refuses a contract that differs in any of them from its own plan.
+_PLAN_FIELDS = (("model_id", "modelId"), ("arm", "arm"), ("task", "task"), ("objective", "objective"),
+                ("update_protocol", "updateProtocol"), ("trainable", "trainable"),
+                ("frozen_state_sha256", "frozenStateSha256"), ("local_training", "localTraining"),
+                ("data", "data"))
 
 
 class NotRepresentable(Exception):
@@ -169,6 +180,35 @@ def resolve_model_training(recipe_key: str, strategy: str, training_arm: str,
             f"no execution contract v1 plan for recipe {recipe_key} with strategy {strategy} on arm "
             f"{training_arm}")
     return build(initial_state_path)
+
+
+def check_contract(contract: pb.ExecutionContract, recipe_key: str, strategy: str, training_arm: str, *,
+                   project_id: str | None = None, run_id: str | None = None) -> list[str]:
+    """Why this client must refuse ``contract``; empty when it may train under it.
+
+    The contract must be valid for this client and this run, must name the client's recipe and strategy, and
+    must state exactly the plan the client executes -- training, layout, frozen state and data.
+    """
+    from fedlearn.contract import validate_contract
+
+    issues = validate_contract(contract, reader_protocol_version=CLIENT_PROTOCOL_VERSION,
+                               expected_run_id=run_id, expected_project_id=project_id)
+    if issues:
+        return sorted(f"{pb.ContractIssueCode.Name(i.code)} at {i.path or 'the root'}" for i in issues)
+    problems = []
+    if pb.Recipe.Name(contract.recipe) != "RECIPE_" + recipe_key:
+        problems.append(f"recipe {pb.Recipe.Name(contract.recipe)} is not this client's {recipe_key}")
+    if _STRATEGIES.get(strategy) != contract.strategy:
+        problems.append(f"strategy {pb.Strategy.Name(contract.strategy)} is not this client's {strategy}")
+    if problems:
+        return problems
+    try:
+        plan = resolve_model_training(recipe_key, strategy, training_arm)
+    except NotRepresentable as exc:
+        return [str(exc)]
+    return [f"modelTraining.{json_name} differs from what this client executes"
+            for field, json_name in _PLAN_FIELDS
+            if getattr(contract.model_training, field) != getattr(plan, field)]
 
 
 def main(argv=None) -> int:
