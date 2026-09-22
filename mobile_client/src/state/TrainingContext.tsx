@@ -23,12 +23,13 @@ import React, {
   useRef,
 } from 'react';
 
-import { joinRun } from '../lib/runJoin';
+import { fetchRunManifest, joinRun } from '../lib/runJoin';
 import nativeCore from '../lib/nativeCore';
 import { connectStomp, type StompHandle } from '../lib/stompClient';
 import { foregroundService } from '../lib/foregroundService';
 import {
   runTrainingLoop,
+  ExecutionContractRefusedError,
   MobileFedAvgUnsupportedError,
   MobileSecureAggregationUnsupportedError,
 } from '../lib/training';
@@ -164,13 +165,17 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
               .catch(() => {});
           },
           shouldStop: () => stopRef.current,
+        }, {
+          // A run's contract is published while its bundle stages, so wait for it rather than refusing at once.
+          contract: { fetchManifest: fetchRunManifest },
         });
       } catch (e) {
         void diagnosticJournal.append('training-error', readError(e)).catch(() => {});
         if (
           e instanceof ModelDeliveryUnavailableError ||
           e instanceof MobileFedAvgUnsupportedError ||
-          e instanceof MobileSecureAggregationUnsupportedError
+          e instanceof MobileSecureAggregationUnsupportedError ||
+          e instanceof ExecutionContractRefusedError
         ) {
           // Known "can't train here (yet)" refusals — informational, not a failure.
           dispatch({ type: 'LOG_APPEND', body: e.message, level: 'INFO' });

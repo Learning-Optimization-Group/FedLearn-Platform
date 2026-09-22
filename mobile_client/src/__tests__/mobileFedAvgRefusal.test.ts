@@ -1,10 +1,10 @@
-// MO-4 (capability-gated): a phone runs a FedAvg round on-device ONLY when the backend provisioned a
-// first-order-capable bundle (manifest.firstOrderSupported) — then FederatedLoop::firstOrderRound does
-// real backprop and uploads a WEIGHT blob a FedAvg server aggregates (SubmitModelUpdateStream). WITHOUT
-// it, the only on-device path is the ZO-scalar fedAvgRound the server can't consume, so runTrainingLoop
-// refuses fail-closed before provisioning. These tests pin both sides of that gate (refuse without the
-// capability; proceed with it), plus the DeComFL path is unaffected.
-import { runTrainingLoop, MobileFedAvgUnsupportedError } from '../lib/training';
+// The phone trains only what a run's published execution contract states. A run whose manifest carries no READY
+// contract is refused before any provisioning or native work, whatever its legacy fields say — that is why every
+// run here is refused, including the DeComFL and FedOpt runs an earlier build trained on the legacy fields alone.
+// Execution contract v1 covers TinyNet FedAvg; runs it does not cover yet are refused rather than approximated.
+// Two guards still run first because they name the obstacle better: secure aggregation, and FedProx's proximal
+// term, which the native trainer does not implement.
+import { runTrainingLoop, MobileFedProxUnsupportedError, ExecutionContractRefusedError } from '../lib/training';
 import type { JoinedRun } from '../lib/runJoin';
 import { provisionTrainingBundle } from '../lib/modelProvisioning';
 import nativeCore from '../lib/nativeCore';
@@ -54,130 +54,50 @@ const hooks = { onLog: jest.fn(), onRound: jest.fn(), shouldStop: () => false };
 
 beforeEach(() => jest.clearAllMocks());
 
-describe('runTrainingLoop — MO-4 capability-gated FedAvg', () => {
-  test('refuses a FedAvg run WITHOUT first-order support, fail-closed before any provisioning', async () => {
-    // firstOrderSupported defaults false => the only on-device path is the ZO-scalar fedAvgRound a
-    // FedAvg server can't aggregate => refuse before touching the device (unchanged MO-4 behavior).
+describe('runTrainingLoop — execution contract gated', () => {
+  test('refuses a FedAvg run without execution contract, fail-closed before provisioning', async () => {
     const p = runTrainingLoop(joinedRun('FedAvg'), hooks);
-    await expect(p).rejects.toBeInstanceOf(MobileFedAvgUnsupportedError);
-    await expect(runTrainingLoop(joinedRun('FedAvg'), hooks)).rejects.toThrow(/FedAvg/i);
-    // Fail-closed = no wasted work: no fetch/stage, no native load.
+    await expect(p).rejects.toBeInstanceOf(ExecutionContractRefusedError);
+    await expect(runTrainingLoop(joinedRun('FedAvg'), hooks)).rejects.toThrow(/contract/i);
     expect(provisionTrainingBundle).not.toHaveBeenCalled();
     expect(nativeCore.loadModel).not.toHaveBeenCalled();
     expect(nativeCore.setTrainingDataFromFiles).not.toHaveBeenCalled();
   });
 
-  test('a FedAvg run WITH first-order support proceeds past the guard into provisioning', async () => {
-    // firstOrderSupported=true (backend provisioned a trainable-.pte bundle) => FedAvg is no longer
-    // refused; it enters the same provision->load->round flow as DeComFL. Sentinel-reject at
-    // provisioning proves the guard let it through, without standing up the whole native round.
-    (provisionTrainingBundle as jest.Mock).mockRejectedValueOnce(new Error('SENTINEL_PAST_GUARD'));
-    await expect(
-      runTrainingLoop(joinedRun('FedAvg', /*firstOrderSupported=*/ true), hooks),
-    ).rejects.toThrow('SENTINEL_PAST_GUARD');
-    expect(provisionTrainingBundle).toHaveBeenCalledWith('run-1');
-  });
-
-  test('does NOT refuse a DeComFL run — it proceeds past the guard into provisioning', async () => {
-    // Prove the guard is FedAvg-specific: a DeComFL run reaches provisionTrainingBundle. We make that
-    // fetch reject with a sentinel so the loop unwinds there (not at the guard), which is enough to show
-    // the guard let DeComFL through — without standing up the whole native round.
-    (provisionTrainingBundle as jest.Mock).mockRejectedValueOnce(new Error('SENTINEL_PAST_GUARD'));
-    await expect(runTrainingLoop(joinedRun('DeComFL'), hooks)).rejects.toThrow('SENTINEL_PAST_GUARD');
-    expect(provisionTrainingBundle).toHaveBeenCalledWith('run-1');
-  });
-
-  test('DeComFL uses scalar training even when a trainable graph is staged', async () => {
-    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce({
-      manifest: {}, lossPtePath: 'loss.pte', lossSha256: 'hash',
-      inputsF32Path: 'inputs.f32', inputShape: [8, 4], targetsI64Path: 'targets.i64',
-    });
-    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
-    const getServerStatus = jest.fn()
-      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 1 })
-      .mockResolvedValueOnce({ serverState: 'TRAINING_COMPLETE', currentRound: 1 });
-    const runDeComFLRound = jest.fn().mockResolvedValue({
-      round: 1, loss: 1, accuracy: 0, scalarsTransmitted: 1,
-      uplinkBytes: 8, downlinkBytes: 0, computeMs: 1, reverted: true,
-    });
-    const runFedAvgRound = jest.fn().mockRejectedValue(new Error('wrong weight-upload path'));
-
-    await runTrainingLoop(joinedRun('DeComFL', /*firstOrderSupported=*/ true), hooks, {
-      policy: { maxRoundRetries: 0, maxRejoins: 0, baseBackoffMs: 1, pacingMs: 0, rejoinRecoveryRounds: 1 },
-      ops: {
-        getServerStatus, runDeComFLRound, runFedAvgRound,
-        loadSubmittedRound: async () => null,
-        saveSubmittedRound: async () => {},
-      },
-    });
-
-    expect(runDeComFLRound).toHaveBeenCalledTimes(1);
-    expect(runFedAvgRound).not.toHaveBeenCalled();
-  });
-
-  test('FedOpt reaches native training with its actual strategy identity', async () => {
-    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce({
-      manifest: {}, lossPtePath: 'loss.pte', lossSha256: 'hash',
-      inputsF32Path: 'inputs.f32', inputShape: [8, 4], targetsI64Path: 'targets.i64',
-    });
-    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
-    const getServerStatus = jest.fn()
-      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 1 })
-      .mockResolvedValueOnce({ serverState: 'TRAINING_COMPLETE', currentRound: 1 });
-    const runFedAvgRound = jest.fn().mockResolvedValue({
-      round: 1, loss: 1, accuracy: 0, scalarsTransmitted: 0,
-      uplinkBytes: 100, downlinkBytes: 100, computeMs: 1, reverted: false,
-    });
-
-    await runTrainingLoop(joinedRun('FedOpt', /*firstOrderSupported=*/ true), hooks, {
-      policy: { maxRoundRetries: 0, maxRejoins: 0, baseBackoffMs: 1, pacingMs: 0, rejoinRecoveryRounds: 1 },
-      ops: {
-        getServerStatus, runFedAvgRound,
-        loadSubmittedRound: async () => null,
-        saveSubmittedRound: async () => {},
-      },
-    });
-
-    expect(runFedAvgRound).toHaveBeenCalledWith('run-1', expect.objectContaining({ strategy: 'FedOpt' }));
-  });
-
-  test('FedProx refuses before provisioning because native training has no proximal term', async () => {
-    (provisionTrainingBundle as jest.Mock).mockRejectedValueOnce(new Error('SENTINEL_PAST_GUARD'));
-    await expect(
-      runTrainingLoop(joinedRun('FedProx', /*firstOrderSupported=*/ true), hooks),
-    ).rejects.toThrow(/proximal term/i);
+  test('refuses a FedAvg run with first-order support but no execution contract', async () => {
+    const p = runTrainingLoop(joinedRun('FedAvg', /*firstOrderSupported=*/ true), hooks);
+    await expect(p).rejects.toBeInstanceOf(ExecutionContractRefusedError);
     expect(provisionTrainingBundle).not.toHaveBeenCalled();
   });
 
-  test('unknown strategies refuse before provisioning instead of uploading weights', async () => {
-    (provisionTrainingBundle as jest.Mock).mockRejectedValueOnce(new Error('SENTINEL_PAST_GUARD'));
-    await expect(
-      runTrainingLoop(joinedRun('FutureStrategy', /*firstOrderSupported=*/ true), hooks),
-    ).rejects.toThrow(/unsupported strategy/i);
+  test('refuses a DeComFL run without execution contract, fail-closed before provisioning', async () => {
+    const p = runTrainingLoop(joinedRun('DeComFL'), hooks);
+    await expect(p).rejects.toBeInstanceOf(ExecutionContractRefusedError);
     expect(provisionTrainingBundle).not.toHaveBeenCalled();
   });
 
-  test.each(['FedOpt', 'Robust'])(
-    'a %s run WITH first-order support proceeds into first-order (no DeComFL fallback, no refusal)',
-    async (strategy) => {
-      // FedOpt and Robust use the same first-order upload as FedAvg; FedProx cannot join until its
-      // client-side proximal term is implemented. Sentinel-reject at
-      // provisioning proves it got past the guard on the first-order path.
-      (provisionTrainingBundle as jest.Mock).mockRejectedValueOnce(new Error('SENTINEL_PAST_GUARD'));
-      await expect(
-        runTrainingLoop(joinedRun(strategy, /*firstOrderSupported=*/ true), hooks),
-      ).rejects.toThrow('SENTINEL_PAST_GUARD');
-      expect(provisionTrainingBundle).toHaveBeenCalledWith('run-1');
-    },
-  );
+  test('refuses a FedOpt run without execution contract, fail-closed before provisioning', async () => {
+    const p = runTrainingLoop(joinedRun('FedOpt', /*firstOrderSupported=*/ true), hooks);
+    await expect(p).rejects.toBeInstanceOf(ExecutionContractRefusedError);
+    expect(provisionTrainingBundle).not.toHaveBeenCalled();
+  });
 
-  test.each(['FedProx', 'FedOpt', 'Robust'])(
-    'a %s run WITHOUT first-order support is still refused (no on-device path against a non-DeComFL server)',
-    async (strategy) => {
-      await expect(runTrainingLoop(joinedRun(strategy), hooks)).rejects.toBeInstanceOf(
-        MobileFedAvgUnsupportedError,
-      );
-      expect(provisionTrainingBundle).not.toHaveBeenCalled();
-    },
-  );
+  test('refuses a Robust run without execution contract, fail-closed before provisioning', async () => {
+    const p = runTrainingLoop(joinedRun('Robust', /*firstOrderSupported=*/ true), hooks);
+    await expect(p).rejects.toBeInstanceOf(ExecutionContractRefusedError);
+    expect(provisionTrainingBundle).not.toHaveBeenCalled();
+  });
+
+  test('refuses FedProx for its missing proximal term, before the contract is even read', async () => {
+    const p = runTrainingLoop(joinedRun('FedProx', /*firstOrderSupported=*/ true), hooks);
+    await expect(p).rejects.toBeInstanceOf(MobileFedProxUnsupportedError);
+    expect(provisionTrainingBundle).not.toHaveBeenCalled();
+  });
+
+  test('refuses a FutureStrategy run without execution contract, fail-closed before provisioning', async () => {
+    const p = runTrainingLoop(joinedRun('FutureStrategy', /*firstOrderSupported=*/ true), hooks);
+    await expect(p).rejects.toBeInstanceOf(ExecutionContractRefusedError);
+    expect(provisionTrainingBundle).not.toHaveBeenCalled();
+  });
+
 });

@@ -3,9 +3,16 @@
 // (forward passes, DeComFL perturbations, first-order updates) happens natively ON THE DEVICE;
 // DeComFL uploads scalars and first-order strategies upload trainable weights; training batches are not uploaded.
 import nativeCore, { type RoundConfig, type RoundResult, type Strategy } from './nativeCore';
-import { joinRun, type JoinedRun } from './runJoin';
+import { joinRun, type JoinedRun, type RunManifest } from './runJoin';
 import { provisionTrainingBundle } from './modelProvisioning';
 import { assertNativeCompatibility } from './nativeCompatibility';
+import type { ExecutionContract } from '../gen/fedlearn/contract/v1/execution_contract_pb';
+import {
+  checkBundleAgainstContract,
+  decideOnContract,
+  type ContractProjection,
+  type ContractRefusalCode,
+} from './executionContractGate';
 import { submittedRoundStore } from './submittedRoundStore';
 
 // Server run states that mean "stop looping" (mirrors GetServerStatusResponse.ServerState names).
@@ -66,16 +73,70 @@ export class MobileSecureAggregationUnsupportedError extends Error {
 
 // DeComFL gets K/P from the server. First-order runs use per-round server settings when supplied;
 // the TinyNet FedAvg/Robust fallback remains until execution contract v1 replaces it.
-function roundConfigFor(joined: JoinedRun, strategy: Strategy): RoundConfig {
+/**
+ * Raised when this device may not train a run under its published execution contract: no contract, one that is not
+ * ready, one this app does not accept, or one it would not execute exactly. The phone never falls back to training
+ * on the legacy run fields, so a refusal here means the run is not for this device. Caught by the training UI and
+ * shown as information, like the refusals above.
+ */
+export class ExecutionContractRefusedError extends Error {
+  constructor(readonly code: ContractRefusalCode | 'CONTRACT_TIMEOUT' | 'BUNDLE_MISMATCH', message: string) {
+    super(message);
+    this.name = 'ExecutionContractRefusedError';
+  }
+}
+
+/** How long to wait for a run's contract to be published, and how often to look. */
+export interface ContractWaitOps {
+  fetchManifest: (runId: string) => Promise<RunManifest>;
+  delay?: (ms: number) => Promise<void>;
+  timeoutMs?: number;
+  intervalMs?: number;
+}
+
+const CONTRACT_WAIT_TIMEOUT_MS = 60_000;
+const CONTRACT_WAIT_INTERVAL_MS = 3_000;
+
+/**
+ * The contract this device may train under, waiting while the server is still publishing it. Staging a run's
+ * artifacts takes a moment, so a PENDING contract is polled rather than refused; anything else is decided at once.
+ */
+async function resolveContract(
+  joined: JoinedRun,
+  ops?: ContractWaitOps,
+): Promise<{ contract: ExecutionContract; projection: ContractProjection }> {
+  const expected = { runId: joined.runId, projectId: joined.projectId };
+  const timeoutMs = ops?.timeoutMs ?? CONTRACT_WAIT_TIMEOUT_MS;
+  const intervalMs = ops?.intervalMs ?? CONTRACT_WAIT_INTERVAL_MS;
+  const wait = ops?.delay ?? delay;
+  let manifest = joined.manifest;
+  for (let waited = 0; ; waited += intervalMs) {
+    const decision = decideOnContract(manifest, expected);
+    if (decision.kind === 'refuse') {
+      throw new ExecutionContractRefusedError(decision.code, decision.message);
+    }
+    if (decision.kind === 'train') {
+      return { contract: decision.contract, projection: decision.projection };
+    }
+    if (!ops?.fetchManifest || waited >= timeoutMs) {
+      throw new ExecutionContractRefusedError('CONTRACT_TIMEOUT',
+        'This run is still preparing its execution contract. Try joining again in a moment.');
+    }
+    await wait(intervalMs);
+    manifest = await ops.fetchManifest(joined.runId);
+  }
+}
+
+/** The native round's settings: the contract's training, and the run identity the native core needs. */
+function roundConfigFor(joined: JoinedRun, strategy: Strategy, projection: ContractProjection): RoundConfig {
   const m = joined.manifest;
   return {
-    // FedAvg/FedOpt/Robust upload weights; DeComFL uploads scalars even if a trainable graph exists.
-    // FedProx is refused before this configuration is used.
+    // The contract states the strategy and the first-order training; nothing here is a default any more.
     strategy,
-    learningRate: 0.001,
+    learningRate: projection.learningRate,
     mu: 0.001,
     numPerturbations: 1,
-    numLocalSteps: 1,
+    numLocalSteps: projection.numLocalSteps,
     gradEstimateMethod: 'forward',
     seed: typeof m.seed === 'number' ? m.seed : 0,
     torchVersion: m.torchVersion ?? '',
@@ -269,42 +330,44 @@ export async function runResilientRoundLoop(
 export async function runTrainingLoop(
   joined: JoinedRun,
   hooks: TrainingHooks,
-  overrides?: { policy?: ResiliencePolicy; ops?: Partial<RoundOps> },
+  overrides?: { policy?: ResiliencePolicy; ops?: Partial<RoundOps>; contract?: ContractWaitOps },
 ): Promise<void> {
-  // Secure aggregation rules out every on-device path, so it is checked first: the first-order path's weight
-  // upload is not masked either.
+  // Two legacy refusals stay ahead of the contract, because they name the real obstacle better than a missing
+  // contract would: a secure-aggregation run the phone cannot mask for, and FedProx, whose proximal term the
+  // native trainer does not implement.
   if (joined.manifest.secureAggregation === true) {
     throw new MobileSecureAggregationUnsupportedError(
       'This run uses secure aggregation, which this device cannot take part in yet: the phone cannot mask ' +
         'its update, and the server refuses unmasked ones. Join this run from the desktop app instead.',
     );
   }
-
   if (joined.manifest.strategy === 'FedProx') {
     throw new MobileFedProxUnsupportedError();
   }
-  const strategy = supportedStrategy(joined.manifest.strategy);
 
-  // The strategy decides the wire: DeComFL always submits scalars, even if a first-order graph is
-  // staged for the same recipe. FedAvg/FedOpt/Robust require both a trainable graph and weight upload.
-  const isFirstOrder = strategy !== 'DeComFL' &&
-    joined.manifest.firstOrderSupported === true;
-
-  // MO-4 (capability-gated, generalized): without a first-order bundle the only on-device path is the
-  // ZO-scalar DeComFL round, which a NON-DeComFL server can't consume — refuse fail-closed before any
-  // provisioning/native work rather than submit into a void. (A DeComFL server + no bundle is the
-  // supported zeroth-order path and is allowed.)
-  if (!isFirstOrder && joined.manifest.strategy !== 'DeComFL') {
-    throw new MobileFedAvgUnsupportedError(
-      `This run uses the ${joined.manifest.strategy} strategy but is not provisioned for on-device ` +
-        'training yet: first-order (weight-update) support is not enabled. Join a first-order-provisioned ' +
-        'or DeComFL project to train on this device.',
-    );
-  }
+  // The run's published execution contract decides everything about this round: whether this device may train it
+  // at all, and with what. It is resolved before any provisioning or native work, so a run this device cannot
+  // execute costs nothing. There is no fallback to the legacy run fields.
+  const { contract, projection } = await resolveContract(joined, overrides?.contract);
+  const strategy = supportedStrategy(projection.strategy);
+  const isFirstOrder = true;   // the contract's update protocol is the float32 trainable state
 
   await assertNativeCompatibility(nativeCore);
+  hooks.onLog(`Execution contract ${projection.contractId.slice(0, 12)}… accepted.`);
   hooks.onLog('Provisioning model + on-device data…');
   const bundle = await provisionTrainingBundle(joined.runId);
+
+  // The staged bundle must be the one the contract binds: same programs, same trainable layout.
+  const unbound = checkBundleAgainstContract(contract, {
+    lossSha256: bundle.lossSha256,
+    inferSha256: bundle.manifest.inferSha256,
+    trainableSha256: bundle.manifest.trainableSha256,
+    paramLayout: bundle.manifest.paramLayout,
+  });
+  if (unbound.length > 0) {
+    throw new ExecutionContractRefusedError('BUNDLE_MISMATCH',
+      `This run's staged model is not the one its execution contract binds (${unbound.join(', ')}).`);
+  }
 
   await nativeCore.setModelManifest(bundle.manifest);
   const info = await nativeCore.loadModel(bundle.lossPtePath, bundle.lossSha256);
@@ -334,7 +397,7 @@ export async function runTrainingLoop(
   };
 
   await runResilientRoundLoop(
-    { runId: joined.runId, isFedAvg: isFirstOrder, cfg: roundConfigFor(joined, strategy) },
+    { runId: joined.runId, isFedAvg: isFirstOrder, cfg: roundConfigFor(joined, strategy, projection) },
     ops,
     overrides?.policy ?? DEFAULT_RESILIENCE,
     hooks,
