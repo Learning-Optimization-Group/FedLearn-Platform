@@ -298,3 +298,17 @@ def test_the_golden_contract_carries_tinynets_canonical_state_digests(tmp_path):
 
     assert golden.frozen_state_sha256 == plan.frozen_state_sha256
     assert golden.initial_state_sha256 == plan.initial_state_sha256
+
+
+def test_the_backend_wrapper_runs_the_resolver_with_the_backends_argv(tmp_path):
+    """ScriptExecutionPlanResolver runs this wrapper and reads the last line it prints."""
+    path = tmp_path / "model.npz"
+    _save_like_init_model(path, _tinynet_trainable_state())
+    wrapper = os.path.join(os.path.dirname(__file__), "..", "run_execution_plan.sh")
+    env = dict(os.environ, FEDLEARN_PYTHON=sys.executable)
+    done = subprocess.run(["bash", wrapper, "--recipe", "TINYNET_GOLDEN", "--strategy", "FedAvg",
+                           "--training-arm", "FULL", f"--initial-state={path}"],
+                          capture_output=True, text=True, check=True, env=env)
+    out = json.loads(done.stdout.strip().splitlines()[-1])
+    assert out["representable"] is True
+    assert out["modelTraining"]["initialStateSha256"] == _canonical_digest(_tinynet_trainable_state().items())
