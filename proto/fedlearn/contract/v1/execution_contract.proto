@@ -1,0 +1,352 @@
+syntax = "proto3";
+
+// Execution contract v1: what a participant must execute for one run.
+//
+// Specification: wikis/mobile/03-android-execution-contract-v1-design.md. The contract is immutable
+// once published and describes the run, not a device: a participant still needs a compatible
+// artifact, a local dataset and a passing qualification before it trains.
+//
+// Rules shared by every reader:
+// - A successful parse is not acceptance. Readers apply the v1 validation rules
+//   (framework/tests/fixtures/execution_contract_v1/README.md) before downloading a model or
+//   opening local data.
+// - Enum value 0 and numeric values this schema does not define are never accepted.
+// - Fields declared `optional` carry explicit presence. Where such a field is required, absence is
+//   invalid even when zero or false would be a legal value; nothing behavioral is defaulted.
+// - Unknown fields are ignored. Adding mandatory behavior requires a new contract_version.
+// - There is no protobuf map and no Any: order-sensitive data is carried by repeated fields.
+package fedlearn.contract.v1;
+
+option java_multiple_files = true;
+option java_outer_classname = "ExecutionContractProto";
+option java_package = "com.fedlearn.contract.v1";
+
+message ExecutionContract {
+  // Exactly 1. A reader never interprets another version as v1.
+  uint32 contract_version = 1;
+  // Minimum control/round protocol a client must speak (fedlearn.v2 RegisterClient
+  // protocol_version).
+  uint32 min_client_protocol_version = 2;
+  // Canonical lowercase UUIDs; they must match the enrollment that delivered the contract.
+  string run_id = 3;
+  string project_id = 4;
+  Recipe recipe = 5;
+  Strategy strategy = 6;
+  uint32 num_rounds = 7;
+  uint32 clients_per_round = 8;
+  Partitioning partitioning = 9;
+  // Absent when the run has no seed.
+  optional uint64 seed = 10;
+  RoundPolicy round = 11;
+  SecurityPolicy security = 12;
+  oneof workload {
+    ModelTraining model_training = 13;
+    // A Federation-over-Text workload needs its own reviewed schema; it is not a model update.
+  }
+}
+
+// Registry identifiers. A value here is not a claim that v1 can execute it: only the combinations
+// in the approved v1 matrix are publishable.
+enum Recipe {
+  RECIPE_UNSPECIFIED = 0;
+  RECIPE_TINYNET_GOLDEN = 1;
+  RECIPE_MLP = 2;
+  RECIPE_CNN = 3;
+  RECIPE_PNEUMONIA_CNN = 4;
+  RECIPE_CIFAR_RESNET18 = 5;
+  RECIPE_TRANSFORMER = 6;
+  RECIPE_LLM_LORA = 7;
+}
+
+enum Strategy {
+  STRATEGY_UNSPECIFIED = 0;
+  STRATEGY_DECOMFL = 1;
+  STRATEGY_FEDAVG = 2;
+  STRATEGY_FEDPROX = 3;
+  STRATEGY_FEDOPT = 4;
+  STRATEGY_ROBUST = 5;
+}
+
+enum Partitioning {
+  PARTITIONING_UNSPECIFIED = 0;
+  // The server assigns each participant a partition of a known dataset.
+  PARTITIONING_SHARDED = 1;
+  // Each participant trains on data it selected locally.
+  PARTITIONING_LOCAL = 2;
+}
+
+enum Arm {
+  ARM_UNSPECIFIED = 0;
+  ARM_FULL = 1;
+  ARM_FROZEN_HEAD = 2;
+  ARM_OVA_LP = 3;
+}
+
+enum Task {
+  TASK_UNSPECIFIED = 0;
+  TASK_VECTOR_CLASSIFICATION = 1;
+  TASK_IMAGE_CLASSIFICATION = 2;
+  TASK_SEQUENCE_CLASSIFICATION = 3;
+  TASK_CAUSAL_LM = 4;
+}
+
+enum Objective {
+  OBJECTIVE_UNSPECIFIED = 0;
+  // Softmax cross-entropy over class logits, mean-reduced over the batch.
+  OBJECTIVE_CROSS_ENTROPY = 1;
+  OBJECTIVE_ONE_VS_ALL = 2;
+  OBJECTIVE_CAUSAL_LM = 3;
+}
+
+enum UpdateProtocol {
+  UPDATE_UNSPECIFIED = 0;
+  // DeComFL seeds and gradient scalars; no weights leave the device.
+  UPDATE_DECOMFL_SCALAR = 1;
+  // The trainable state in `ModelTraining.trainable` order, float32 safetensors.
+  UPDATE_TRAINABLE_STATE_F32 = 2;
+}
+
+enum Transport {
+  TRANSPORT_UNSPECIFIED = 0;
+  TRANSPORT_TLS_REQUIRED = 1;
+  TRANSPORT_PLAINTEXT_DEV = 2;
+}
+
+enum ClientAuth {
+  CLIENT_AUTH_UNSPECIFIED = 0;
+  CLIENT_AUTH_CONNECTION_TOKEN = 1;
+  CLIENT_AUTH_DISABLED_DEV = 2;
+}
+
+enum SecureAggregation {
+  SECAGG_UNSPECIFIED = 0;
+  SECAGG_NONE = 1;
+  // LightSecAgg over DeComFL gradient scalars. Weight updates have no secure aggregation.
+  SECAGG_LIGHTSECAGG_SCALAR = 2;
+}
+
+enum ArtifactBackend {
+  BACKEND_UNSPECIFIED = 0;
+  BACKEND_EXECUTORCH_CPU = 1;
+  BACKEND_EXECUTORCH_GPU = 2;
+  BACKEND_EXECUTORCH_VENDOR = 3;
+}
+
+enum DType {
+  DTYPE_UNSPECIFIED = 0;
+  DTYPE_F32 = 1;
+}
+
+enum BatchOrder {
+  BATCH_ORDER_UNSPECIFIED = 0;
+  // Examples are visited in dataset order every epoch.
+  BATCH_ORDER_SEQUENTIAL = 1;
+  // Examples are reshuffled at the start of every epoch. The permutation is local to the
+  // participant and is not reproducible across runtimes.
+  BATCH_ORDER_SHUFFLED_EACH_EPOCH = 2;
+}
+
+message RoundPolicy {
+  // Duration. The live absolute deadline comes from server status and always takes precedence.
+  uint64 timeout_ms = 1;
+  // Must be true in v1: the server accepts at most one update per participant per round.
+  bool one_accepted_update_per_round = 2;
+  // Retries of transient failures only; never a retrain or re-upload after acceptance.
+  optional uint32 max_transient_retries = 3;
+  uint64 retry_backoff_ms = 4;
+}
+
+message SecurityPolicy {
+  // The effective deployment settings of the run, not a project's requested settings.
+  Transport transport = 1;
+  ClientAuth client_auth = 2;
+  SecureAggregation secure_aggregation = 3;
+  // Present exactly when secure_aggregation is SECAGG_LIGHTSECAGG_SCALAR.
+  optional uint32 secure_agg_threshold = 4;
+  // Present exactly when the server applies central differential privacy.
+  CentralDp central_dp = 5;
+}
+
+// Server-side clipping, noise and accounting on the aggregate. It does not hide an individual
+// update from the server and implies no local differential privacy.
+message CentralDp {
+  double target_epsilon = 1;
+  double delta = 2;
+  double clip_norm = 3;
+}
+
+message ModelTraining {
+  // Stable model identifier and immutable revision; never a mutable project name.
+  string model_id = 1;
+  string model_revision = 2;
+  Arm arm = 3;
+  Task task = 4;
+  Objective objective = 5;
+  UpdateProtocol update_protocol = 6;
+  // Canonical order: the Python model's named_parameters() filtered to requires_grad. Readers
+  // match tensors by name, shape and dtype, never by the order a transport happens to use.
+  repeated TensorSpec trainable = 7;
+  // SHA-256 of the canonical frozen-state artifact and of the initial federated-state artifact.
+  string frozen_state_sha256 = 8;
+  string initial_state_sha256 = 9;
+  LocalTraining local_training = 10;
+  DataRequirement data = 11;
+  repeated ArtifactVariant artifacts = 12;
+  // Present exactly when the strategy is STRATEGY_FEDPROX.
+  optional double fedprox_mu = 13;
+}
+
+message TensorSpec {
+  string name = 1;
+  // At least one dimension. A zero-dimensional parameter is declared as [1], matching the wire.
+  repeated uint64 shape = 2;
+  DType dtype = 3;
+}
+
+message LocalTraining {
+  uint32 local_epochs = 1;
+  // Absent means every batch of every epoch is trained.
+  optional uint32 max_local_steps = 2;
+  // Absent means no gradient clipping.
+  optional double gradient_clip_norm = 3;
+  oneof optimizer {
+    Sgd sgd = 4;
+    Adam adam = 5;
+    AdamW adamw = 6;
+    Rmsprop rmsprop = 7;
+  }
+  // Whether optimizer state starts fresh every server round.
+  optional bool reset_optimizer_each_round = 8;
+  // Examples per optimizer step.
+  uint32 batch_size = 9;
+  // Whether an incomplete final batch is skipped rather than trained.
+  optional bool drop_last = 10;
+  BatchOrder batch_order = 11;
+}
+
+// torch.optim.SGD semantics.
+message Sgd {
+  double learning_rate = 1;
+  optional double momentum = 2;
+  optional double dampening = 3;
+  optional double weight_decay = 4;
+  optional bool nesterov = 5;
+}
+
+// torch.optim.Adam semantics.
+message Adam {
+  double learning_rate = 1;
+  double beta1 = 2;
+  double beta2 = 3;
+  double epsilon = 4;
+  optional double weight_decay = 5;
+  optional bool amsgrad = 6;
+}
+
+// torch.optim.AdamW semantics (decoupled weight decay).
+message AdamW {
+  double learning_rate = 1;
+  double beta1 = 2;
+  double beta2 = 3;
+  double epsilon = 4;
+  optional double weight_decay = 5;
+  optional bool amsgrad = 6;
+}
+
+// torch.optim.RMSprop semantics.
+message Rmsprop {
+  double learning_rate = 1;
+  double alpha = 2;
+  double epsilon = 3;
+  optional double weight_decay = 4;
+  optional double momentum = 5;
+  optional bool centered = 6;
+}
+
+message DataRequirement {
+  Task task = 1;
+  // Shape of one sample, without a batch dimension.
+  repeated uint64 input_shape = 2;
+  DType input_dtype = 3;
+  // Classification tasks only; zero for causal language modelling.
+  uint32 class_count = 4;
+  // Immutable, hash-bound schema identifier.
+  string label_schema_id = 5;
+  // Applied in order. Declarative only: no executable payload is ever accepted.
+  repeated Transform transforms = 6;
+  // Present exactly for text tasks.
+  ArtifactRef tokenizer = 7;
+}
+
+// Closed v1 vocabulary. A new operation requires its own specification and a version review; an
+// existing operation is never reinterpreted.
+message Transform {
+  oneof operation {
+    IdentityVector identity_vector = 1;
+  }
+}
+
+// The sample is already a float vector of exactly `width` elements.
+message IdentityVector {
+  uint32 width = 1;
+}
+
+message ArtifactRef {
+  // Relative, normalized and traversal-free; unique within its variant.
+  string relative_path = 1;
+  string sha256 = 2;
+  uint64 byte_size = 3;
+}
+
+message ArtifactVariant {
+  string variant_id = 1;
+  ArtifactBackend backend = 2;
+  string abi = 3;
+  repeated ArtifactRef files = 4;
+  // Exact runtime operator identifiers, never a wildcard.
+  repeated string required_operators = 5;
+  uint64 declared_peak_memory_bytes = 6;
+  uint64 declared_storage_bytes = 7;
+  uint64 declared_probe_ms = 8;
+  uint64 declared_train_ms = 9;
+}
+
+// Why a reader refused a contract. Every v1 reader reports the same codes for the same input.
+enum ContractIssueCode {
+  ISSUE_UNSPECIFIED = 0;
+  // The bytes or ProtoJSON do not parse as an ExecutionContract.
+  ISSUE_MALFORMED = 1;
+  // contract_version is not 1. No other rule is evaluated.
+  ISSUE_UNSUPPORTED_CONTRACT_VERSION = 2;
+  // min_client_protocol_version is zero or newer than the reader.
+  ISSUE_UNSUPPORTED_CLIENT_PROTOCOL = 3;
+  // An enum is unspecified or has a value this reader does not define.
+  ISSUE_UNKNOWN_ENUM = 4;
+  // A required message, oneof or explicit-presence value is absent.
+  ISSUE_MISSING_FIELD = 5;
+  // A number is outside its v1 bounds or is not finite.
+  ISSUE_OUT_OF_RANGE = 6;
+  // An identifier is not in its canonical form.
+  ISSUE_INVALID_IDENTIFIER = 7;
+  // run_id or project_id differs from the enrollment that delivered the contract.
+  ISSUE_IDENTITY_MISMATCH = 8;
+  ISSUE_INVALID_HASH = 9;
+  ISSUE_INVALID_PATH = 10;
+  // Trainable tensor names, shapes, dtypes or counts are malformed.
+  ISSUE_MALFORMED_LAYOUT = 11;
+  // The recipe, arm, task, objective, update protocol and strategy are not an approved v1
+  // combination.
+  ISSUE_UNSUPPORTED_COMBINATION = 12;
+  // Optimizer settings contradict each other.
+  ISSUE_INVALID_OPTIMIZER = 13;
+  // Security settings contradict each other or the update protocol.
+  ISSUE_INVALID_SECURITY = 14;
+  // A strategy-specific setting is present for the wrong strategy.
+  ISSUE_INVALID_STRATEGY_SETTINGS = 15;
+  // No artifact, no portable CPU artifact, or a variant without files.
+  ISSUE_MISSING_ARTIFACT = 16;
+  // Artifact metadata is duplicated, inconsistent or unbounded.
+  ISSUE_INVALID_ARTIFACT = 17;
+  // The data requirement disagrees with the task or with itself.
+  ISSUE_INVALID_DATA_REQUIREMENT = 18;
+}

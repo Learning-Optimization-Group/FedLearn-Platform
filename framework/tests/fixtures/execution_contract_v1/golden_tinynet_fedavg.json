@@ -1,0 +1,135 @@
+{
+  "contractVersion": 1,
+  "minClientProtocolVersion": 2,
+  "runId": "4f2c8a1e-7b3d-4c59-9e21-6a0d5b8f3c17",
+  "projectId": "9b1e6d3a-2c47-4f85-a0d9-3e7c1b5a8f64",
+  "recipe": "RECIPE_TINYNET_GOLDEN",
+  "strategy": "STRATEGY_FEDAVG",
+  "numRounds": 3,
+  "clientsPerRound": 4,
+  "partitioning": "PARTITIONING_SHARDED",
+  "seed": "42",
+  "round": {
+    "timeoutMs": "900000",
+    "oneAcceptedUpdatePerRound": true,
+    "maxTransientRetries": 3,
+    "retryBackoffMs": "1000"
+  },
+  "security": {
+    "transport": "TRANSPORT_TLS_REQUIRED",
+    "clientAuth": "CLIENT_AUTH_CONNECTION_TOKEN",
+    "secureAggregation": "SECAGG_NONE"
+  },
+  "modelTraining": {
+    "modelId": "tinynet_golden",
+    "modelRevision": "sha256:5dfd5242f551900d213a4f5a13dcbffd184c7a166fec96458f6f9fd3558e0656",
+    "arm": "ARM_FULL",
+    "task": "TASK_VECTOR_CLASSIFICATION",
+    "objective": "OBJECTIVE_CROSS_ENTROPY",
+    "updateProtocol": "UPDATE_TRAINABLE_STATE_F32",
+    "trainable": [
+      {
+        "name": "fc1.weight",
+        "shape": [
+          "5",
+          "4"
+        ],
+        "dtype": "DTYPE_F32"
+      },
+      {
+        "name": "fc1.bias",
+        "shape": [
+          "5"
+        ],
+        "dtype": "DTYPE_F32"
+      }
+    ],
+    "frozenStateSha256": "b2ec481237a21ff2edeeb26c62c3d8cd85cb26ca2d40e79452837559e1564c32",
+    "initialStateSha256": "4b1016fca301c00ba84cdf10ee9402e6d226e1471c1b698129e7f9e8c1f98179",
+    "localTraining": {
+      "localEpochs": 5,
+      "sgd": {
+        "learningRate": 0.001,
+        "momentum": 0.0,
+        "dampening": 0.0,
+        "weightDecay": 0.0,
+        "nesterov": false
+      },
+      "resetOptimizerEachRound": true,
+      "batchSize": 8,
+      "dropLast": false,
+      "batchOrder": "BATCH_ORDER_SHUFFLED_EACH_EPOCH"
+    },
+    "data": {
+      "task": "TASK_VECTOR_CLASSIFICATION",
+      "inputShape": [
+        "4"
+      ],
+      "inputDtype": "DTYPE_F32",
+      "classCount": 3,
+      "labelSchemaId": "tinynet_golden.labels.v1",
+      "transforms": [
+        {
+          "identityVector": {
+            "width": 4
+          }
+        }
+      ]
+    },
+    "artifacts": [
+      {
+        "variantId": "executorch-cpu-arm64-v8a",
+        "backend": "BACKEND_EXECUTORCH_CPU",
+        "abi": "arm64-v8a",
+        "files": [
+          {
+            "relativePath": "zo_model_tiny.pte",
+            "sha256": "2eca3c02e2084383f038494d6ecf7c20a1e7e0a1dcc6d7ce2b6e11e7d82f1c56",
+            "byteSize": "5836"
+          },
+          {
+            "relativePath": "zo_model_tiny_infer.pte",
+            "sha256": "cf8744b9579d78f14bbb82e2d4ce98dcaffc8d2c6ed2253349c39342de546746",
+            "byteSize": "2892"
+          },
+          {
+            "relativePath": "tinynet_trainable.pte",
+            "sha256": "ff398410f7339172295386dfc6220c5f46f21eddfb8ea145daf54e6a15dae412",
+            "byteSize": "12004"
+          }
+        ],
+        "requiredOperators": [
+          "aten::_log_softmax.out",
+          "aten::addmm.out",
+          "aten::alias_copy.out",
+          "aten::argmax.out",
+          "aten::div.out",
+          "aten::exp.out",
+          "aten::full_like.out",
+          "aten::gather.out",
+          "aten::le.Scalar_out",
+          "aten::mm.out",
+          "aten::mul.out",
+          "aten::ne.Scalar_out",
+          "aten::neg.out",
+          "aten::permute_copy.out",
+          "aten::relu.out",
+          "aten::scalar_tensor.out",
+          "aten::scatter.value_out",
+          "aten::slice_copy.Tensor_out",
+          "aten::squeeze_copy.dims_out",
+          "aten::sub.out",
+          "aten::sum.IntList_out",
+          "aten::unsqueeze_copy.out",
+          "aten::view_copy.out",
+          "aten::where.self_out",
+          "dim_order_ops::_to_dim_order_copy.out"
+        ],
+        "declaredPeakMemoryBytes": "8388608",
+        "declaredStorageBytes": "65536",
+        "declaredProbeMs": "1000",
+        "declaredTrainMs": "5000"
+      }
+    ]
+  }
+}
