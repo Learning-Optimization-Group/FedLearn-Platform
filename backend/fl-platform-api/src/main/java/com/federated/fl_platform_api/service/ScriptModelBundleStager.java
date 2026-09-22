@@ -17,6 +17,7 @@ import java.util.concurrent.TimeoutException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -79,6 +80,14 @@ public class ScriptModelBundleStager implements ModelBundleStager {
 
     private ProcessInvoker invoker = ScriptModelBundleStager::runLocalProcess;
 
+    // Hear every staging outcome, so nothing waiting on a run's bundle is left pending by a silent path.
+    private List<ModelBundleStagingListener> listeners = List.of();
+
+    @Autowired(required = false)
+    void setListeners(List<ModelBundleStagingListener> listeners) {
+        this.listeners = listeners == null ? List.of() : List.copyOf(listeners);
+    }
+
     // Staging runs here, NOT on the request thread — one bounded daemon worker so a slow/hung export can
     // never delay a start or hold the start lock. A full backlog (rapid starts) drops extra tasks
     // (best-effort: the phone 404s, an operator can re-stage). Overridable in tests with a same-thread executor.
@@ -127,13 +136,39 @@ public class ScriptModelBundleStager implements ModelBundleStager {
     @Override
     public void stageForRun(UUID runId, String recipeKey) {
         if (!enabled) {
-            return;  // feature off — no-op, don't even schedule
+            // Feature off — don't even schedule, but say so: nothing will ever stage this run's bundle.
+            failed(runId, false, "model-bundle auto-staging is disabled");
+            return;
         }
         try {
             executor.execute(() -> doStage(runId, recipeKey));
         } catch (RejectedExecutionException e) {
             // Scheduling itself failed (shutting down); still never fail the caller's start.
             log.warn("model-bundle auto-stage not scheduled for run {} (rejected): {}", runId, e.toString());
+            failed(runId, false, "staging was not scheduled: " + e.getMessage());
+        }
+    }
+
+    private void staged(UUID runId) {
+        for (ModelBundleStagingListener listener : listeners) {
+            try {
+                listener.onStaged(runId);
+            } catch (RuntimeException e) {
+                log.warn("model-bundle staging listener failed for run {}: {}", runId, e.toString());
+            }
+        }
+    }
+
+    private void failed(UUID runId, boolean timedOut, String detail) {
+        if (runId == null) {
+            return;
+        }
+        for (ModelBundleStagingListener listener : listeners) {
+            try {
+                listener.onStagingFailed(runId, timedOut, detail);
+            } catch (RuntimeException e) {
+                log.warn("model-bundle staging listener failed for run {}: {}", runId, e.toString());
+            }
         }
     }
 
@@ -143,11 +178,13 @@ public class ScriptModelBundleStager implements ModelBundleStager {
             if (runId == null || recipeKey == null || recipeKey.isBlank()) {
                 log.warn("model-bundle auto-stage skipped: missing runId or recipeKey (runId={}, recipe={})",
                         runId, recipeKey);
+                failed(runId, false, "no recipe to stage");
                 return;
             }
             Path runDir = Path.of(modelBundleDir, runId.toString());
             if (Files.exists(runDir.resolve("manifest.json"))) {
                 log.debug("model-bundle already staged for run {} — skipping auto-stage", runId);
+                staged(runId);
                 return;
             }
             // Recipe-aware: a fixture-backed recipe stages via the stdlib-only fixture-copy script (no
@@ -168,9 +205,11 @@ public class ScriptModelBundleStager implements ModelBundleStager {
             if (exit == 0) {
                 log.info("auto-staged model bundle for run {} via the {} path (recipe {})",
                         runId, path, recipeKey);
+                staged(runId);
             } else {
                 log.warn("model-bundle auto-stage for run {} exited {} ({} path, recipe {}); a mobile "
                         + "client will get 404 until it is staged", runId, exit, path, recipeKey);
+                failed(runId, false, "the " + path + " staging script exited " + exit);
             }
         } catch (Exception e) {
             // Never propagate (best-effort): a missing bundle is a graceful 404, not a failure. Restore the
@@ -180,6 +219,7 @@ public class ScriptModelBundleStager implements ModelBundleStager {
             }
             log.warn("model-bundle auto-stage failed for run {} ({} path, recipe {}): {}",
                     runId, isFixtureBacked(recipeKey) ? "fixture" : "export", recipeKey, e.toString());
+            failed(runId, e instanceof TimeoutException, e.toString());
         }
     }
 
