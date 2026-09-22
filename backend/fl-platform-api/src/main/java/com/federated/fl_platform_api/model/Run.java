@@ -2,6 +2,7 @@ package com.federated.fl_platform_api.model;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Entity
@@ -103,6 +104,38 @@ public class Run {
     @Column(name = "secure_agg_threshold")
     private Integer secureAggThreshold;
 
+    // V27: the intent the run was started with (see RunIntent). All null on a run that predates the snapshot.
+    @Column(name = "intent_version")
+    private Short intentVersion;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "intent_training_arm", length = 32)
+    private TrainingArm intentTrainingArm;
+
+    @Column(name = "intent_model_name")
+    private String intentModelName;
+
+    @Column(name = "intent_task_type", length = 64)
+    private String intentTaskType;
+
+    @Column(name = "intent_dp_enabled")
+    private Boolean intentDpEnabled;
+
+    @Column(name = "intent_dp_target_epsilon")
+    private Double intentDpTargetEpsilon;
+
+    @Column(name = "intent_dp_delta")
+    private Double intentDpDelta;
+
+    @Column(name = "intent_dp_clip_norm")
+    private Double intentDpClipNorm;
+
+    @Column(name = "intent_tls_required")
+    private Boolean intentTlsRequired;
+
+    @Column(name = "intent_client_auth_required")
+    private Boolean intentClientAuthRequired;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getProjectId() { return projectId; }
@@ -160,4 +193,27 @@ public class Run {
     public void setSecureAggregation(boolean secureAggregation) { this.secureAggregation = secureAggregation; }
     public Integer getSecureAggThreshold() { return secureAggThreshold; }
     public void setSecureAggThreshold(Integer secureAggThreshold) { this.secureAggThreshold = secureAggThreshold; }
+
+    /** The recorded start intent; empty for a run that predates the snapshot. */
+    public Optional<RunIntent> getIntent() {
+        if (intentVersion == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new RunIntent(intentTrainingArm, intentModelName, intentTaskType,
+                Boolean.TRUE.equals(intentDpEnabled), intentDpTargetEpsilon, intentDpDelta, intentDpClipNorm,
+                Boolean.TRUE.equals(intentTlsRequired), Boolean.TRUE.equals(intentClientAuthRequired)));
+    }
+
+    public void setIntent(RunIntent intent) {
+        intentVersion = (short) RunIntent.VERSION;
+        intentTrainingArm = intent.trainingArm();
+        intentModelName = intent.modelName();
+        intentTaskType = intent.taskType();
+        intentDpEnabled = intent.dpEnabled();
+        intentDpTargetEpsilon = intent.dpTargetEpsilon();
+        intentDpDelta = intent.dpDelta();
+        intentDpClipNorm = intent.dpClipNorm();
+        intentTlsRequired = intent.tlsRequired();
+        intentClientAuthRequired = intent.clientAuthRequired();
+    }
 }

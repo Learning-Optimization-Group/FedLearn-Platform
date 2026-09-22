@@ -70,6 +70,11 @@ public class RunService {
 
     @Autowired private Environment environment;
 
+    // V27: the effective client-auth setting recorded in each run's intent; the same property the FL-server spawn
+    // enforces. TLS comes from serverCert, which reads app.fl.require-tls.
+    @Value("${app.fl.require-client-auth:false}")
+    private boolean clientAuthRequired;
+
     // OP-15 / BA-16: the host actually ADVERTISED to clients. In dev, a default 'localhost' is upgraded to
     // the detected client-reachable IP (Tailscale/CGNAT-preferred, then site-local LAN) so a remote client
     // (a phone on the tailnet) can reach the FL server; an explicit FL_SERVER_GRPC_HOST and every non-dev
@@ -133,6 +138,7 @@ public class RunService {
         applyRobustSettings(run, strategy, robust);
         run.setSecureAggregation(secureAggThreshold != null);
         run.setSecureAggThreshold(secureAggThreshold);
+        run.setIntent(RunIntent.capture(project, serverCert.tlsRequired(), clientAuthRequired));
         return runRepository.save(run);
     }
 

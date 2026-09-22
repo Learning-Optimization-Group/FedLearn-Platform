@@ -5,6 +5,8 @@ import com.federated.fl_platform_api.model.RobustAggregationSettings;
 import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.Run;
+import com.federated.fl_platform_api.model.RunIntent;
 import com.federated.fl_platform_api.model.TrainingArm;
 import com.federated.fl_platform_api.service.WebSocketService;
 import jakarta.annotation.PreDestroy;
@@ -173,7 +175,8 @@ public class FlServerManager {
     public Optional<Integer> startServerForProject(Project project, String strategy, Integer numRounds,
                                                    Integer minClients, RobustAggregationSettings robust,
                                                    Integer secureAggThreshold, Integer clientsPerRound) {
-        requireDpPolicySatisfied(project);   // SE-11: gate every start path, before any spawn
+        RunIntent intent = intentFor(project);
+        requireDpPolicySatisfied(project, intent);   // SE-11: gate every start path, before any spawn
         requireModelTypeInCatalog(project, strategy);   // SE-10: unknown modelType -> 400 before spawn
         if (!isBlank(ecsClusterName)) {
             // The ECS/Fargate production path is not implemented (OP-14 decision: hardened single-VM
@@ -190,11 +193,28 @@ public class FlServerManager {
                             + "(tasks cannot be tracked or stopped). "
                             + "Unset ecs.cluster-name to run FL servers as local processes.");
         }
-        return startLocalServer(project, strategy, numRounds, minClients, robust, secureAggThreshold,
+        return startLocalServer(project, intent, strategy, numRounds, minClients, robust, secureAggThreshold,
                 clientsPerRound);
     }
 
-    private Optional<Integer> startLocalServer(Project project, String strategy,
+    /**
+     * The intent the server is spawned from: the active run's recorded intent (V27). A run without one is refused
+     * rather than spawned from the project as it reads now. Without an active run there is nothing recorded, and the
+     * intent is captured from the project at spawn.
+     */
+    RunIntent intentFor(Project project) {
+        UUID runId = project.getActiveRunId();
+        if (runId != null) {
+            Optional<Run> run = runRepository.findById(runId);
+            if (run.isPresent()) {
+                return run.get().getIntent().orElseThrow(() -> new IllegalStateException(
+                        "Run " + runId + " has no recorded intent and cannot be spawned from it"));
+            }
+        }
+        return RunIntent.capture(project, requireTls, requireClientAuth);
+    }
+
+    private Optional<Integer> startLocalServer(Project project, RunIntent intent, String strategy,
                                                Integer numRounds, Integer minClients,
                                                RobustAggregationSettings robust, Integer secureAggThreshold,
                                                Integer clientsPerRound) {
@@ -218,7 +238,7 @@ public class FlServerManager {
             // null on a first run / LoRA → fl_server.py reads the .npz (--model-path) as before.
             String initModelPath = registryModelResolver.resolveModelPath(project).orElse(null);
             List<String> command = buildServerCommand(
-                    project, strategy, numRounds, minClients, freePort, absoluteScriptPath, isWindows,
+                    project, intent, strategy, numRounds, minClients, freePort, absoluteScriptPath, isWindows,
                     initModelPath, robust, secureAggThreshold, clientsPerRound);
 
             // SE-7: mint a random per-run internal token scoped to (projectId, runId) and hand ONLY
@@ -435,17 +455,17 @@ public class FlServerManager {
      * the message intact via {@code GlobalExceptionHandler}) because the project's stored config,
      * not this request, is what blocks the start.
      */
-    private static void requireDpPolicySatisfied(Project project) {
+    private static void requireDpPolicySatisfied(Project project, RunIntent intent) {
         if (!project.isRegulated()) {
             return;
         }
-        if (!project.isDpEnabled()) {
+        if (!intent.dpEnabled()) {
             throw new ProjectStateException(
                     "Cannot start regulated project " + project.getId()
                             + ": differential privacy must be enabled (dpEnabled=true) before a "
                             + "regulated project may train.");
         }
-        if (!project.hasCompleteDpConfig()) {
+        if (!Project.isCompleteDpConfig(intent.dpTargetEpsilon(), intent.dpDelta(), intent.dpClipNorm())) {
             throw new ProjectStateException(
                     "Cannot start regulated project " + project.getId()
                             + ": incomplete DP config — requires dpTargetEpsilon > 0 (guidance: "
@@ -548,6 +568,21 @@ public class FlServerManager {
                                            boolean isWindows, String initModelPath,
                                            RobustAggregationSettings robust, Integer secureAggThreshold,
                                            Integer clientsPerRound) {
+        // The deployment settings in an intent do not reach the argv, so they are irrelevant here.
+        return buildServerCommand(project, RunIntent.capture(project, false, false), strategy, numRounds,
+                minClients, freePort, absoluteScriptPath, isWindows, initModelPath, robust, secureAggThreshold,
+                clientsPerRound);
+    }
+
+    /**
+     * As above, with the run's recorded intent (V27) supplying the training arm, model name, task type and
+     * central-DP settings. The project supplies only its identity, model path and recipe key.
+     */
+    static List<String> buildServerCommand(Project project, RunIntent intent, String strategy, Integer numRounds,
+                                           Integer minClients, int freePort, String absoluteScriptPath,
+                                           boolean isWindows, String initModelPath,
+                                           RobustAggregationSettings robust, Integer secureAggThreshold,
+                                           Integer clientsPerRound) {
         // Robust settings mean something only to the Robust strategy. Anywhere else fl_server.py would ignore
         // them, and the run record would name a rule that never ran.
         if (robust != null && !"Robust".equals(strategy)) {
@@ -571,13 +606,13 @@ public class FlServerManager {
         if (largerRound && isFoT) {
             throw new IllegalArgumentException("clientsPerRound does not apply to FoT text-federation runs");
         }
-        if (largerRound && project.isDpEnabled()) {
+        if (largerRound && intent.dpEnabled()) {
             throw new IllegalArgumentException(
                     "clientsPerRound must equal minClients on a differentially private project");
         }
         // SE-11: the FoT text-federation server has no DP flag contract; spawning it for a
         // DP-enabled project would silently train without DP. Fail closed.
-        if (isFoT && project.isDpEnabled()) {
+        if (isFoT && intent.dpEnabled()) {
             throw new IllegalArgumentException(
                     "DP is not supported for FoT text-federation runs; disable dpEnabled or use a "
                             + "gradient strategy.");
@@ -590,9 +625,9 @@ public class FlServerManager {
             if (initModelPath != null) {
                 requireSafePath("init-model-path", initModelPath); // SE-10: allowlist the resolved path too
             }
-            requireSafeModelRef("model-name", project.getModelName());
+            requireSafeModelRef("model-name", intent.modelName());
             requireSafeToken("model-type", project.getModelType());
-            String taskType = project.getTaskType();
+            String taskType = intent.taskType();
             if (taskType != null && !taskType.isBlank()) {
                 requireSafeToken("task-type", taskType);
             }
@@ -628,7 +663,7 @@ public class FlServerManager {
             command.add("--model-type");
             command.add(project.getModelType());
             command.add("--model-name");
-            command.add(project.getModelName());
+            command.add(intent.modelName());
             command.add("--min-clients");
             command.add(String.valueOf(minClients));
             if (largerRound) {
@@ -642,7 +677,7 @@ public class FlServerManager {
             // and client.py both resolve an omitted arm to FULL. Whether the RECIPE supports the
             // arm is validated in recipes.validate_arm() on the Python side (the catalog is the
             // authority); the enum and the V22 CHECK bound the vocabulary on this side.
-            TrainingArm arm = project.getTrainingArm();
+            TrainingArm arm = intent.trainingArm();
             if (arm != null && arm != TrainingArm.FULL) {
                 command.add("--training-arm");
                 command.add(arm.name());
@@ -650,18 +685,18 @@ public class FlServerManager {
             if ("LLM_LORA".equalsIgnoreCase(project.getModelType())) {
                 command.add("--aggregation");
                 command.add("FFA_LORA");
-                String tt = project.getTaskType();
+                String tt = intent.taskType();
                 command.add("--task-type");
                 command.add(tt == null || tt.isBlank() ? "SEQ_CLASSIFICATION" : tt);
             }
-            if (project.isDpEnabled()) {
+            if (intent.dpEnabled()) {
                 // SE-11: the --dp-* flag names are a pinned contract with fl_server.py's argparse —
                 // do not rename. Creation validates completeness, but the spawn seam re-checks so a
                 // null knob can never reach the argv as the string "null" (SE-10 fail-closed). All
                 // values are typed numbers formatted via String.valueOf, never raw strings.
-                Double epsilon = project.getDpTargetEpsilon();
-                Double delta = project.getDpDelta();
-                Double clipNorm = project.getDpClipNorm();
+                Double epsilon = intent.dpTargetEpsilon();
+                Double delta = intent.dpDelta();
+                Double clipNorm = intent.dpClipNorm();
                 if (!Project.isCompleteDpConfig(epsilon, delta, clipNorm)) {
                     throw new IllegalArgumentException(
                             "Incomplete DP config for FL-server spawn: requires dpTargetEpsilon > 0 "

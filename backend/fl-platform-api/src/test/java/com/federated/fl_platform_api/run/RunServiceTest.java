@@ -47,7 +47,21 @@ class RunServiceTest {
         Project p = new Project();
         p.setId(id);
         p.setModelType("CNN");
+        p.setModelName("net");
         return p;
+    }
+
+    @Test
+    void createForStart_recordsTheIntentFromTheProjectAndTheEffectiveDeploymentSettings() {
+        when(runRepository.save(any(Run.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(serverCert.tlsRequired()).thenReturn(true);
+        ReflectionTestUtils.setField(runService, "clientAuthRequired", true);
+        Project p = project(UUID.randomUUID());
+
+        Run run = runService.createForStart(p, "FedAvg", 5, 2, 2);
+
+        assertEquals(java.util.Optional.of(com.federated.fl_platform_api.model.RunIntent.capture(p, true, true)),
+                run.getIntent());
     }
 
     @Test
