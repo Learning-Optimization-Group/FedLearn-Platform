@@ -1,7 +1,7 @@
 # Execution Contract v1 — Focused Design
 
 **Date:** 2026-09-19
-**Status:** Proposed for review; no implementation authorized by this document
+**Status:** Implementation authorized 2026-09-21. The schema, generated Python/Java/TypeScript readers and shared validation rules are implemented and verified (Stage 2A); publication, client consumption and live conformance are pending. Progress: [implementation plan](06-execution-contract-v1-implementation-plan.md).
 
 This is the Stage 2 subdesign for the [Android parity architecture](02-android-federated-learning-parity-design.md). It defines what a participant must execute, not whether a particular phone can execute it. A device still needs an artifact, local dataset, and successful qualification before joining a training round.
 
@@ -14,6 +14,8 @@ The canonical schema will live at `proto/fedlearn/contract/v1/execution_contract
 The existing `/api/runs/{runId}/manifest` and enrollment response remain available during the compatibility window. `RunManifestDto` gains a `contractState` and, only when ready, an `executionContract` ProtoJSON object and opaque `contractId`. Generated ProtoJSON serializers/parsers are used at this boundary. `EnrollmentDto.manifest` remains the enclosing location; tokens and partition assignments stay outside the run-level contract.
 
 ## Normative v1 schema
+
+The canonical schema is now `proto/fedlearn/contract/v1/execution_contract.proto`, and it supersedes the listing below. It differs in four ways: behavioral scalars whose zero is legal carry explicit presence; `LocalTraining` adds `batch_size`, `drop_last` and `batch_order`; a `ContractIssueCode` enum names refusals; and the exact rules and limits are specified with the shared conformance fixtures (`framework/tests/fixtures/execution_contract_v1/`). The listing is kept as the reviewed proposal.
 
 The following is the proposed proto surface, with field numbers fixed when the schema is implemented. All enums reserve zero for `UNSPECIFIED`. The contract has no protobuf `map` and no arbitrary JSON/`Any` field: order-sensitive data stays in repeated fields. ProtoJSON's lowerCamelCase names are the REST names. Int64 values in ProtoJSON use the protobuf JSON string representation; clients must use generated parsing rather than JavaScript `number` coercion.
 
