@@ -46,6 +46,9 @@ jobs:
             backend_scripts:
               - 'fl-runtime/**'
               - 'backend/fl-platform-api/requirements.txt'
+              # execution_plan.py builds and validates contracts with the framework's contract reader.
+              - 'framework/src/fedlearn/contract/**'
+              - 'framework/tests/fixtures/execution_contract_v1/**'
             frontend:
               - 'frontend/**'
             desktop:
