@@ -11,8 +11,8 @@ every reader must report; see ``README.md``). The framework tests fail if the co
 from this script's output.
 
 The golden is a schema fixture for a TinyNet FedAvg run, not a published contract. Values that name
-real committed artifacts are real: the three ``.pte`` paths, sizes and SHA-256 digests come from
-``../decomfl_golden/``, ``required_operators`` is the union of those programs' operator tables, and the
+real committed artifacts are real: the three programs' sizes and SHA-256 digests come from ``../decomfl_golden/``
+(named as a staged bundle serves them), ``required_operators`` is the union of those programs' operator tables, and the
 frozen and initial state digests are TinyNet's canonical state digests (see README.md), which
 ``fl-runtime/tests/test_execution_plan.py`` recomputes from the recipe's model. The run and project IDs,
 the local-training values and the declared resource envelope are fixture values.
@@ -108,15 +108,15 @@ def build_golden() -> pb.ExecutionContract:
                     abi="arm64-v8a",
                     files=[
                         pb.ArtifactRef(
-                            relative_path="zo_model_tiny.pte",
+                            relative_path="loss.pte",
                             sha256="2eca3c02e2084383f038494d6ecf7c20a1e7e0a1dcc6d7ce2b6e11e7d82f1c56",
                             byte_size=5836),
                         pb.ArtifactRef(
-                            relative_path="zo_model_tiny_infer.pte",
+                            relative_path="infer.pte",
                             sha256="cf8744b9579d78f14bbb82e2d4ce98dcaffc8d2c6ed2253349c39342de546746",
                             byte_size=2892),
                         pb.ArtifactRef(
-                            relative_path="tinynet_trainable.pte",
+                            relative_path="trainable.pte",
                             sha256="ff398410f7339172295386dfc6220c5f46f21eddfb8ea145daf54e6a15dae412",
                             byte_size=12004),
                     ],
@@ -249,7 +249,7 @@ def build_conformance() -> dict:
                                                        "gradientClipNorm": 1.0})),
         _json("nested_artifact_path_valid", "A nested relative artifact path.",
               lambda d: d[MT]["artifacts"][0]["files"][0].update(
-                  {"relativePath": "graphs/cpu/zo_model_tiny.pte"})),
+                  {"relativePath": "graphs/cpu/loss.pte"})),
         # --- parse failures -----------------------------------------------------------------------
         _case("json_not_object", "ProtoJSON must be an object.", [("MALFORMED", "")],
               json_text="[]"),
@@ -610,26 +610,26 @@ def build_conformance() -> dict:
               ("INVALID_ARTIFACT", ART + "[0].files")),
         _json("artifact_path_traversal", "A parent-directory segment.",
               lambda d: d[MT]["artifacts"][0]["files"][0].update(
-                  {"relativePath": "../zo_model_tiny.pte"}),
+                  {"relativePath": "../loss.pte"}),
               ("INVALID_PATH", ART + "[0].files[0].relativePath")),
         _json("artifact_path_absolute", "An absolute path.",
               lambda d: d[MT]["artifacts"][0]["files"][0].update(
-                  {"relativePath": "/data/zo_model_tiny.pte"}),
+                  {"relativePath": "/data/loss.pte"}),
               ("INVALID_PATH", ART + "[0].files[0].relativePath")),
         _json("artifact_path_backslash", "A backslash separator.",
               lambda d: d[MT]["artifacts"][0]["files"][0].update(
-                  {"relativePath": "graphs\\zo_model_tiny.pte"}),
+                  {"relativePath": "graphs\\loss.pte"}),
               ("INVALID_PATH", ART + "[0].files[0].relativePath")),
         _json("artifact_path_hidden", "A segment starting with a dot.",
               lambda d: d[MT]["artifacts"][0]["files"][0].update({"relativePath": ".pte"}),
               ("INVALID_PATH", ART + "[0].files[0].relativePath")),
         _json("artifact_path_empty_segment", "A doubled separator.",
               lambda d: d[MT]["artifacts"][0]["files"][0].update(
-                  {"relativePath": "graphs//zo_model_tiny.pte"}),
+                  {"relativePath": "graphs//loss.pte"}),
               ("INVALID_PATH", ART + "[0].files[0].relativePath")),
         _json("artifact_path_duplicate_ignoring_case", "Paths collide on case-insensitive storage.",
               lambda d: d[MT]["artifacts"][0]["files"][1].update(
-                  {"relativePath": "ZO_MODEL_TINY.PTE"}),
+                  {"relativePath": "LOSS.PTE"}),
               ("INVALID_PATH", ART + "[0].files[1].relativePath")),
         _json("artifact_path_empty", "An empty path.",
               lambda d: d[MT]["artifacts"][0]["files"][0].pop("relativePath"),

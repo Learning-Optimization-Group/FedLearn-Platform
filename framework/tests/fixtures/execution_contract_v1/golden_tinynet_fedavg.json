@@ -83,17 +83,17 @@
         "abi": "arm64-v8a",
         "files": [
           {
-            "relativePath": "zo_model_tiny.pte",
+            "relativePath": "loss.pte",
             "sha256": "2eca3c02e2084383f038494d6ecf7c20a1e7e0a1dcc6d7ce2b6e11e7d82f1c56",
             "byteSize": "5836"
           },
           {
-            "relativePath": "zo_model_tiny_infer.pte",
+            "relativePath": "infer.pte",
             "sha256": "cf8744b9579d78f14bbb82e2d4ce98dcaffc8d2c6ed2253349c39342de546746",
             "byteSize": "2892"
           },
           {
-            "relativePath": "tinynet_trainable.pte",
+            "relativePath": "trainable.pte",
             "sha256": "ff398410f7339172295386dfc6220c5f46f21eddfb8ea145daf54e6a15dae412",
             "byteSize": "12004"
           }
