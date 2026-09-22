@@ -76,6 +76,28 @@ class RunIntentTest {
     }
 
     @Test
+    void theRoundTimeoutIsCapturedAndRoundTrips() {
+        RunIntent intent = RunIntent.capture(project(), true, false, 900_000L);
+        assertThat(intent.roundTimeoutMs()).isEqualTo(900_000L);
+        Run run = new Run();
+        run.setIntent(intent);
+        assertThat(run.getIntent()).contains(intent);
+    }
+
+    @Test
+    void aSnapshotWithoutARoundTimeoutRoundTripsWithoutOne() {
+        Run run = new Run();
+        run.setIntent(RunIntent.capture(project(), true, false));
+        assertThat(run.getIntent()).hasValueSatisfying(i -> assertThat(i.roundTimeoutMs()).isNull());
+    }
+
+    @Test
+    void aRoundTimeoutMustBePositive() {
+        assertThatThrownBy(() -> RunIntent.capture(project(), true, false, 0L))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void anIntentNeedsAnArmAndAModelName() {
         assertThatThrownBy(() -> new RunIntent(null, "m", null, false, null, null, null, false, false))
                 .isInstanceOf(NullPointerException.class);

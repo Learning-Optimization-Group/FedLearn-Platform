@@ -57,6 +57,11 @@ public class FlServerManager {
     @Value("${app.fl.require-tls:false}")
     private boolean requireTls;
 
+    // The per-round deadline the FL server is given (FEDLEARN_ROUND_TIMEOUT_S), recorded in each run's intent.
+    // Defaults to the value the server would otherwise inherit from this process's environment.
+    @Value("${app.fl.round-timeout-seconds:${FEDLEARN_ROUND_TIMEOUT_S:120}}")
+    private double roundTimeoutSeconds = 120;   // the FL server's own default, when not injected
+
     @Value("${python.script.fl-server.path:../../fl-runtime/run_fl_server.sh}")
     private String flServerWrapperPath;
 
@@ -211,7 +216,19 @@ public class FlServerManager {
                         "Run " + runId + " has no recorded intent and cannot be spawned from it"));
             }
         }
-        return RunIntent.capture(project, requireTls, requireClientAuth);
+        return RunIntent.capture(project, requireTls, requireClientAuth,
+                RunIntent.roundTimeoutMs(roundTimeoutSeconds));
+    }
+
+    /**
+     * Gives the FL server the round timeout its run recorded, replacing any inherited value. A version-1 snapshot
+     * recorded none, and its server keeps the setting it inherits.
+     */
+    static void applyRoundTimeout(Map<String, String> env, RunIntent intent) {
+        if (intent.roundTimeoutMs() != null) {
+            env.put("FEDLEARN_ROUND_TIMEOUT_S",
+                    java.math.BigDecimal.valueOf(intent.roundTimeoutMs(), 3).stripTrailingZeros().toPlainString());
+        }
     }
 
     private Optional<Integer> startLocalServer(Project project, RunIntent intent, String strategy,
@@ -257,8 +274,11 @@ public class FlServerManager {
             // secret scrub + per-run token) runs inside the runner as it configures the child env, so
             // the security contract is unchanged — only the ProcessBuilder mechanics moved.
             process = processRunner.start(command,
-                    env -> configureChildEnv(env, internalApiKey, backendInternalUrl,
-                            flTokenSecret, requireClientAuth, runIdArg, requireTls, internalRunToken),
+                    env -> {
+                        configureChildEnv(env, internalApiKey, backendInternalUrl,
+                                flTokenSecret, requireClientAuth, runIdArg, requireTls, internalRunToken);
+                        applyRoundTimeout(env, intent);
+                    },
                     new File("."));
             runningServers.put(project.getId(), process.toHandle());
             try {

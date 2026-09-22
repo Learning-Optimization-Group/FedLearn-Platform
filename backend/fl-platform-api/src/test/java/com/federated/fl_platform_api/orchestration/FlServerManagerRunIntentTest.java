@@ -8,7 +8,9 @@ import com.federated.fl_platform_api.repository.RunRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -98,6 +100,25 @@ class FlServerManagerRunIntentTest {
     @Test
     void withoutAnActiveRunTheIntentIsCapturedAtSpawn() {
         Project p = project();
-        assertThat(manager(mock(RunRepository.class)).intentFor(p)).isEqualTo(RunIntent.capture(p, false, true));
+        FlServerManager manager = manager(mock(RunRepository.class));
+        ReflectionTestUtils.setField(manager, "roundTimeoutSeconds", 120.0);
+        assertThat(manager.intentFor(p)).isEqualTo(RunIntent.capture(p, false, true, 120_000L));
+    }
+
+    @Test
+    void theServerIsGivenTheRecordedRoundTimeout() {
+        Map<String, String> env = new HashMap<>(Map.of("FEDLEARN_ROUND_TIMEOUT_S", "7"));
+        FlServerManager.applyRoundTimeout(env, RunIntent.capture(project(), false, false, 900_000L));
+        assertThat(env).containsEntry("FEDLEARN_ROUND_TIMEOUT_S", "900");
+
+        FlServerManager.applyRoundTimeout(env, RunIntent.capture(project(), false, false, 1_500L));
+        assertThat(env).containsEntry("FEDLEARN_ROUND_TIMEOUT_S", "1.5");
+    }
+
+    @Test
+    void aSnapshotWithoutARoundTimeoutLeavesTheInheritedSetting() {
+        Map<String, String> env = new HashMap<>(Map.of("FEDLEARN_ROUND_TIMEOUT_S", "7"));
+        FlServerManager.applyRoundTimeout(env, RunIntent.capture(project(), false, false));
+        assertThat(env).containsEntry("FEDLEARN_ROUND_TIMEOUT_S", "7");
     }
 }

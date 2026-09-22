@@ -56,11 +56,13 @@ class RunServiceTest {
         when(runRepository.save(any(Run.class))).thenAnswer(inv -> inv.getArgument(0));
         when(serverCert.tlsRequired()).thenReturn(true);
         ReflectionTestUtils.setField(runService, "clientAuthRequired", true);
+        ReflectionTestUtils.setField(runService, "roundTimeoutSeconds", 900.0);
         Project p = project(UUID.randomUUID());
 
         Run run = runService.createForStart(p, "FedAvg", 5, 2, 2);
 
-        assertEquals(java.util.Optional.of(com.federated.fl_platform_api.model.RunIntent.capture(p, true, true)),
+        assertEquals(java.util.Optional.of(
+                        com.federated.fl_platform_api.model.RunIntent.capture(p, true, true, 900_000L)),
                 run.getIntent());
     }
 

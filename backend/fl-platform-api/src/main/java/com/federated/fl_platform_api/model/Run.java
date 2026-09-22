@@ -136,6 +136,10 @@ public class Run {
     @Column(name = "intent_client_auth_required")
     private Boolean intentClientAuthRequired;
 
+    // V29: the round timeout the FL server was given; recorded from intent version 2.
+    @Column(name = "intent_round_timeout_ms")
+    private Long intentRoundTimeoutMs;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getProjectId() { return projectId; }
@@ -201,11 +205,13 @@ public class Run {
         }
         return Optional.of(new RunIntent(intentTrainingArm, intentModelName, intentTaskType,
                 Boolean.TRUE.equals(intentDpEnabled), intentDpTargetEpsilon, intentDpDelta, intentDpClipNorm,
-                Boolean.TRUE.equals(intentTlsRequired), Boolean.TRUE.equals(intentClientAuthRequired)));
+                Boolean.TRUE.equals(intentTlsRequired), Boolean.TRUE.equals(intentClientAuthRequired),
+                intentRoundTimeoutMs));
     }
 
     public void setIntent(RunIntent intent) {
-        intentVersion = (short) RunIntent.VERSION;
+        intentVersion = (short) (intent.roundTimeoutMs() != null
+                ? RunIntent.VERSION : RunIntent.VERSION_WITHOUT_ROUND_TIMEOUT);
         intentTrainingArm = intent.trainingArm();
         intentModelName = intent.modelName();
         intentTaskType = intent.taskType();
@@ -215,5 +221,6 @@ public class Run {
         intentDpClipNorm = intent.dpClipNorm();
         intentTlsRequired = intent.tlsRequired();
         intentClientAuthRequired = intent.clientAuthRequired();
+        intentRoundTimeoutMs = intent.roundTimeoutMs();
     }
 }
