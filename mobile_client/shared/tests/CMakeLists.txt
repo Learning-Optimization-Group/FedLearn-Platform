@@ -16,6 +16,8 @@ FetchContent_MakeAvailable(googletest)
 # The Python golden fixture lives in the sibling framework/ tree (source of truth).
 # CMAKE_SOURCE_DIR is the mobile_client/ top project dir; framework/ is its sibling.
 set(FEDLEARN_GOLDEN_DIR "${CMAKE_SOURCE_DIR}/../framework/tests/fixtures/decomfl_golden")
+# Execution contract v1 fixtures, shared with the Python, Java and TypeScript readers.
+set(FEDLEARN_CONTRACT_DIR "${CMAKE_SOURCE_DIR}/../framework/tests/fixtures/execution_contract_v1")
 
 add_executable(fedlearn_core_tests
   randn_parity_test.cpp
@@ -43,6 +45,7 @@ add_executable(fedlearn_core_tests
 if(FEDLEARN_BUILD_TRAINING)
   target_sources(fedlearn_core_tests PRIVATE
     fedavg_parity_test.cpp
+    execution_contract_projection_test.cpp
     fedavg_firstorder_round_test.cpp
   )
 endif()
@@ -53,6 +56,7 @@ target_link_libraries(fedlearn_core_tests PRIVATE
 )
 target_compile_definitions(fedlearn_core_tests PRIVATE
   GOLDEN_DIR="${FEDLEARN_GOLDEN_DIR}"
+  CONTRACT_DIR="${FEDLEARN_CONTRACT_DIR}"
 )
 
 # Plain registration: gtest_discover_tests' build-time discovery run is unreliable here (the

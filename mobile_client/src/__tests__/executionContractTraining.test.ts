@@ -122,8 +122,13 @@ describe('runTrainingLoop — the execution contract decides', () => {
 
     expect(runFedAvgRound).toHaveBeenCalledTimes(1);
     const cfg = runFedAvgRound.mock.calls[0][1];
-    // The golden contract states SGD at 0.001 for five local epochs over one batch of eight.
-    expect(cfg).toMatchObject({ strategy: 'FedAvg', learningRate: 0.001, numLocalSteps: 5 });
+    // The training the golden contract states, from the shared projection fixture the native C++ round test
+    // also trains with — so one chain is pinned: contract -> projection -> the numbers that reach the trainer.
+    const shared = JSON.parse(fs.readFileSync(
+      `${__dirname}/../../../framework/tests/fixtures/execution_contract_v1/projection_tinynet_fedavg.json`,
+      'utf8')) as { learningRate: number; numLocalSteps: number };
+    expect(cfg).toMatchObject({
+      strategy: 'FedAvg', learningRate: shared.learningRate, numLocalSteps: shared.numLocalSteps });
   });
 
   test('refuses a run with no published contract before touching the device', async () => {

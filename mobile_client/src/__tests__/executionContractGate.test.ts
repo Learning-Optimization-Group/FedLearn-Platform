@@ -52,12 +52,17 @@ describe('the phone decides from the contract state', () => {
     const decision = decide(golden());
     expect(decision.kind).toBe('train');
     if (decision.kind !== 'train') throw new Error('expected to train');
+    // The projection is the shared fixture the native C++ round test trains with, so one chain is checked:
+    // contract -> projection -> the numbers the native golden replays.
+    const shared = JSON.parse(fs.readFileSync(
+      `${__dirname}/../../../framework/tests/fixtures/execution_contract_v1/projection_tinynet_fedavg.json`,
+      'utf8')) as { learningRate: number; numLocalSteps: number; batchSize: number };
     expect(decision.projection).toEqual({
       contractId: 'a'.repeat(64),
       strategy: 'FedAvg',
-      learningRate: 0.001,
-      numLocalSteps: 5,
-      batchSize: 8,
+      learningRate: shared.learningRate,
+      numLocalSteps: shared.numLocalSteps,
+      batchSize: shared.batchSize,
     });
   });
 

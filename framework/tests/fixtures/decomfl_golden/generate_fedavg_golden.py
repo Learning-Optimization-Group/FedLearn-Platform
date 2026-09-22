@@ -86,6 +86,66 @@ def compute_fedavg_endpoint(*, lr: float = LR, local_epochs: int = LOCAL_EPOCHS)
     return flat_params(net).detach().cpu().numpy().astype("<f4")
 
 
+# Endpoint tolerance for the contract-numbers replay. The contract's single step at lr=1e-3 moves the
+# parameters by only ~1.4e-4, so the 2e-3 family above would pass on a trainer that did nothing at all;
+# this is set from the measured ET-vs-torch deviation instead, and the C++ test also asserts the step
+# actually moved the parameters.
+CONTRACT_ENDPOINT_ATOL = 1e-6
+
+
+def contract_training() -> tuple[float, int]:
+    """The lr and step count the execution contract v1 golden states, read from its projection fixture.
+
+    Single source: ../execution_contract_v1/generate.py emits that projection from the contract itself, so
+    this golden cannot be generated for training the contract does not state. Run that generator first.
+    """
+    path = os.path.join(HERE, "..", "execution_contract_v1", "projection_tinynet_fedavg.json")
+    with open(path) as fh:
+        projection = json.load(fh)
+    return float(projection["learningRate"]), int(projection["numLocalSteps"])
+
+
+def write_contract_endpoint(layout) -> None:
+    """The same real framework update, run at the numbers the execution contract states.
+
+    The C++ execution-contract test replays the contract's own training and must land here, which pins the
+    chain contract -> projection -> trained endpoint across the reader, the projection and the native trainer.
+    """
+    lr, local_epochs = contract_training()
+    final_flat = compute_fedavg_endpoint(lr=lr, local_epochs=local_epochs)
+    final_flat.tofile(os.path.join(HERE, "contract_local_final.f32"))
+    initial = np.fromfile(os.path.join(HERE, "zo_flat.f32"), dtype="<f4")
+    moved = float(np.abs(final_flat - initial).max())
+    if moved <= CONTRACT_ENDPOINT_ATOL:
+        raise SystemExit(
+            f"the contract's training moves the parameters by {moved:g}, at or below the endpoint "
+            f"tolerance {CONTRACT_ENDPOINT_ATOL:g} — this golden could not tell training from a no-op")
+    manifest = {
+        "description": "FedAvg local-update golden at the numbers execution contract v1 states for this run "
+                       "(see ../execution_contract_v1/projection_tinynet_fedavg.json). Same real "
+                       "LocalTrainer.fit(mu=0) as fedavg_local_manifest.json, different training.",
+        "torch_version": torch.__version__.split("+")[0],
+        "platform_machine": platform.machine(),
+        "learning_rate": lr,
+        "local_epochs": local_epochs,
+        "flat_dim": int(final_flat.shape[0]),
+        "initial_flat_file": "zo_flat.f32",
+        "inputs_file": "zo_inputs.f32",
+        "targets_file": "zo_targets.i64",
+        "param_layout": [[name, list(shape), k] for name, shape, k in layout],
+        "final_flat_file": "contract_local_final.f32",
+        "final_flat_sha256": hashlib.sha256(final_flat.tobytes()).hexdigest(),
+        "endpoint_atol": CONTRACT_ENDPOINT_ATOL,
+        # How far this training moves the parameters. The tolerance must stay well under it, or the test
+        # cannot distinguish the contract's training from no training.
+        "max_param_movement": moved,
+    }
+    with open(os.path.join(HERE, "contract_local_manifest.json"), "w") as fh:
+        json.dump(manifest, fh, indent=2)
+        fh.write("\n")
+    print(f"contract endpoint: lr={lr} local_epochs={local_epochs} moved={moved:g}")
+
+
 def main() -> None:
     from fedlearn.communication.safetensors_codec import save_safetensors
 
@@ -140,6 +200,8 @@ def main() -> None:
     with open(os.path.join(HERE, "fedavg_local_manifest.json"), "w") as fh:
         json.dump(manifest, fh, indent=2)
         fh.write("\n")
+
+    write_contract_endpoint(layout)
 
     print(f"lr={LR} local_epochs={LOCAL_EPOCHS} d={d} torch={torch.__version__}")
     print("final_flat[:5] =", final_flat[:5].tolist())
