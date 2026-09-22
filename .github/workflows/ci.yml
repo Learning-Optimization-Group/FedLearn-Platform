@@ -52,6 +52,10 @@ jobs:
               - 'fedlearn-desktop/**'
             mobile:
               - 'mobile_client/**'
+              # The mobile app commits a reader generated from the canonical contract proto and runs
+              # the shared conformance corpus.
+              - 'proto/fedlearn/contract/**'
+              - 'framework/tests/fixtures/execution_contract_v1/**'
             client_docker:
               - 'client-docker/**'
 
@@ -237,6 +241,14 @@ jobs:
         working-directory: mobile_client
         run: |
           npm ci
+          # The committed execution-contract reader must be exactly what the pinned generator emits
+          # from the canonical proto.
+          npm run proto:contract
+          if [[ -n "$(git status --porcelain -- src/gen)" ]]; then
+            echo "::error::src/gen is stale. Run 'npm run proto:contract' in mobile_client and commit the result."
+            git status --porcelain -- src/gen
+            exit 1
+          fi
           npm run lint
           npx tsc --noEmit
           npm run test:coverage   # TE-11: jest --coverage --ci; coverageThreshold enforced from package.json

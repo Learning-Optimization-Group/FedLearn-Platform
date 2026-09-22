@@ -19,6 +19,7 @@ export default tseslint.config(
       'build', // native CMake build dir (shared/, scripts/pte_export.py etc.), not JS output
       'scratch',
       'coverage',
+      'src/gen', // generated from proto/ by `npm run proto:contract`; CI checks it is current
     ],
   },
   {
