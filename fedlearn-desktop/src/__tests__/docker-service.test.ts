@@ -821,3 +821,67 @@ describe('DockerService native start argv + env (TE-13)', () => {
     expect(send).toHaveBeenCalledWith('docker:training-log', expect.stringContaining('[System]'));
   });
 });
+
+// Execution contract v1: a READY contract written by the launcher reaches the native client as
+// --execution-contract/--run-id, so the client can refuse training it would not execute exactly.
+describe('DockerService native execution-contract forwarding', () => {
+  const fakeWindow = {
+    isDestroyed: () => false,
+    webContents: { send: jest.fn(), isDestroyed: () => false, isLoading: () => false },
+  } as never;
+
+  const baseConfig = {
+    hardwareProfile: 'cpu' as const,
+    projectId: 'p1',
+    serverAddress: 'localhost:50000',
+    partitionId: '0',
+    modelType: 'TINYNET_GOLDEN',
+    datasetPath: '',
+  };
+
+  function makeService(): { service: DockerService; spawnMock: jest.Mock } {
+    const spawnMock = spawn as unknown as jest.Mock;
+    spawnMock.mockReset();
+    spawnMock.mockImplementation(() => {
+      const emitter = new EventEmitter() as EventEmitter & {
+        stdout: { on: jest.Mock }; stderr: { on: jest.Mock }; exitCode: number | null; pid: number; kill: jest.Mock;
+      };
+      emitter.stdout = { on: jest.fn() };
+      emitter.stderr = { on: jest.fn() };
+      emitter.exitCode = null;
+      emitter.pid = 4243;
+      emitter.kill = jest.fn(() => true);
+      return emitter;
+    });
+    (Docker as unknown as jest.Mock).mockImplementation(() => ({
+      ping: jest.fn().mockResolvedValue(undefined),
+      getContainer: jest.fn(),
+    }));
+    const service = new DockerService(fakeWindow);
+    jest
+      .spyOn(service as unknown as { resolveNativeInvocation: () => unknown }, 'resolveNativeInvocation')
+      .mockReturnValue({ command: 'python3', baseArgs: [], cwd: '/tmp', env: {} });
+    return { service, spawnMock };
+  }
+
+  it('passes the contract file and its run to the client', async () => {
+    const { service, spawnMock } = makeService();
+    const runId = '4f2c8a1e-7b3d-4c59-9e21-6a0d5b8f3c17';
+
+    await service.startTraining({ ...baseConfig, executionContractPath: '/u/contracts/c.json', runId } as never);
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args[args.indexOf('--execution-contract') + 1]).toBe('/u/contracts/c.json');
+    expect(args[args.indexOf('--run-id') + 1]).toBe(runId);
+  });
+
+  it('passes neither on a legacy launch', async () => {
+    const { service, spawnMock } = makeService();
+
+    await service.startTraining(baseConfig as never);
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).not.toContain('--execution-contract');
+    expect(args).not.toContain('--run-id');
+  });
+});

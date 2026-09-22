@@ -38,6 +38,10 @@ export interface StartTrainingConfig {
   // Server trust from the connection; main writes the certificate to a file the client trusts.
   grpcTls?: boolean;
   grpcServerCertPem?: string;
+  // Execution contract v1: main writes a READY contract to a file the client checks itself against.
+  runId?: string;
+  contractState?: string;
+  executionContract?: Record<string, unknown>;
 }
 
 /** Layout phase for the Train section. */

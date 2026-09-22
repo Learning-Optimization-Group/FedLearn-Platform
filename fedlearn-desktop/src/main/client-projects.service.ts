@@ -43,6 +43,10 @@ export interface ProjectConnection {
   // certificate to verify it with; null when there is none to send.
   grpcTls?: boolean;
   grpcServerCertPem?: string | null;
+  // Execution contract v1 (ClientConnectionDto.runId / contractState / executionContract).
+  runId?: string | null;
+  contractState?: string | null;
+  executionContract?: Record<string, unknown> | null;
 }
 
 export class ClientProjectService {

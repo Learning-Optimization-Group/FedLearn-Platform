@@ -21,6 +21,7 @@ import {
 } from './validators';
 import { recordConsentedDatasetPath, isDatasetPathConsented } from './dataset-consent';
 import * as path from 'path';
+import { resolveExecutionContract } from './executionContract';
 import { resolveServerTrust } from './grpcTls';
 import { AuthService } from './auth.service';
 import { InferenceService, InferencePayload } from './inference.service';
@@ -202,6 +203,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       // throws, and the start fails with its message.
       const serverTrust = resolveServerTrust(cfg, path.join(app.getPath('userData'), 'certs'));
 
+      // Execution contract v1: a READY contract is written under userData and handed to the client, which refuses
+      // to train unless it would execute it exactly. Other states keep the legacy launch; a malformed one throws.
+      const contract = resolveExecutionContract(cfg, path.join(app.getPath('userData'), 'contracts'));
+
       const validConfig: TrainingConfig = {
         hardwareProfile: cfg.hardwareProfile as HardwareProfile,
         projectId: cfg.projectId as string,
@@ -215,6 +220,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         trainingArm,
         grpcTls: serverTrust.grpcTls,
         grpcServerCertPath: serverTrust.grpcServerCertPath,
+        executionContractPath: contract.executionContractPath,
+        runId: contract.runId,
       };
 
       log.info(`[IPC:docker:start-training] Starting training with profile=${validConfig.hardwareProfile}, project=${validConfig.projectId}, model=${validConfig.modelType}`);

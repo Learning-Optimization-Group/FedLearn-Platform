@@ -55,6 +55,8 @@ jobs:
               - 'frontend/**'
             desktop:
               - 'fedlearn-desktop/**'
+              # Driven by fedlearn-desktop/src/__tests__/executionContractLaunch.test.ts.
+              - 'client-docker/entrypoint.sh'
             mobile:
               - 'mobile_client/**'
               # The mobile app commits a reader generated from the canonical contract proto and runs

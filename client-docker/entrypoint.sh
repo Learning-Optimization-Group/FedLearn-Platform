@@ -38,6 +38,13 @@ if [ -n "$TRAINING_ARM" ]; then
     EXTRA_ARGS+=(--training-arm "$TRAINING_ARM")
 fi
 
+if [ -n "$EXECUTION_CONTRACT" ] && [ -n "$RUN_ID" ]; then
+    # The run's published execution contract, mounted read-only by the launcher. The client refuses to train
+    # unless it would execute exactly what the contract states.
+    echo "[entrypoint] EXECUTION_CONTRACT=$EXECUTION_CONTRACT RUN_ID=$RUN_ID"
+    EXTRA_ARGS+=(--execution-contract "$EXECUTION_CONTRACT" --run-id "$RUN_ID")
+fi
+
 echo "[entrypoint] Launching python3 client.py ..."
 exec python3 -u client.py \
     --project-id "$PROJECT_ID" \
