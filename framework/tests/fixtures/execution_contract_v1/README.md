@@ -70,6 +70,19 @@ Every pattern must match the whole string (no partial or multiline match).
 A shape is **valid** when it has 1 to `MAX_RANK` extents, each in `[1, MAX_ELEMENTS]`, and their
 product is at most `MAX_ELEMENTS`.
 
+## State digests
+
+`frozenStateSha256` and `initialStateSha256` identify model state, and every runtime computes them the
+same way: SHA-256 of the canonical float32 safetensors encoding (the wire codec, with no `__metadata__`)
+of an ordered list of named tensors.
+
+- **Initial state:** the trainable tensors of the initial global model the FL server loads, in the
+  contract's `trainable` order. A client can therefore check the first global model it receives.
+- **Frozen state:** every other float32 tensor of the recipe's model, in `state_dict` order. A v1
+  contract cannot describe a model whose frozen state has another dtype.
+
+`fl-runtime/execution_plan.py` computes both for a run.
+
 ## Approved v1 matrix
 
 Only this combination of (recipe, strategy, arm, task, objective, update protocol) is publishable:

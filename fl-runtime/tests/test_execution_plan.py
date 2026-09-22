@@ -191,3 +191,110 @@ def test_the_cli_reports_an_unrepresentable_run_without_failing():
     out = _cli("--recipe", "CNN", "--strategy", "FedAvg", "--training-arm", "FULL")
     assert out["representable"] is False
     assert "CNN" in out["reason"]
+
+
+# --- state digests ------------------------------------------------------------------------------------
+
+ZO_STATE = os.path.join(os.path.dirname(__file__), "..", "..", "framework", "tests", "fixtures",
+                        "decomfl_golden", "zo_state.safetensors")
+
+
+def _canonical_digest(pairs):
+    from fedlearn.communication.safetensors_codec import save_safetensors
+    return hashlib.sha256(save_safetensors(list(pairs))).hexdigest()
+
+
+def _save_like_init_model(path, state):
+    """The .npz format init_model.py writes and fl_server.py loads its initial model from."""
+    import numpy as np
+    np.savez(path, **{k.replace(".", "__DOT__"): v for k, v in state.items()})
+
+
+def _tinynet_trainable_state():
+    from fedlearn.estimators.params import trainable_state
+    model = recipes.get_recipe("TINYNET_GOLDEN").build_model("cpu")
+    return {k: v.detach().numpy() for k, v in trainable_state(model).items()}
+
+
+def test_the_frozen_state_digest_covers_the_recipe_models_frozen_tensors():
+    plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL")
+    model = recipes.get_recipe("TINYNET_GOLDEN").build_model("cpu")
+    trainable = {t.name for t in plan.trainable}
+    frozen = [(n, t.detach().numpy()) for n, t in model.state_dict().items() if n not in trainable]
+
+    assert [n for n, _ in frozen] == ["fc2.weight", "fc2.bias"]
+    assert plan.frozen_state_sha256 == _canonical_digest(frozen)
+
+
+def test_the_initial_state_digest_covers_the_servers_initial_model_in_contract_order(tmp_path):
+    path = tmp_path / "model.npz"
+    state = _tinynet_trainable_state()
+    _save_like_init_model(path, dict(reversed(list(state.items()))))   # file order must not matter
+
+    plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL", initial_state_path=str(path))
+
+    assert plan.initial_state_sha256 == _canonical_digest(state.items())
+
+
+def test_the_phones_golden_state_is_the_servers_initial_state(tmp_path):
+    from fedlearn.communication.safetensors_codec import load_safetensors
+    with open(ZO_STATE, "rb") as fh:
+        golden, _metadata = load_safetensors(fh.read())
+    path = tmp_path / "model.npz"
+    _save_like_init_model(path, _tinynet_trainable_state())
+
+    plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL", initial_state_path=str(path))
+
+    assert plan.initial_state_sha256 == _canonical_digest(golden)
+
+
+@pytest.mark.parametrize("change", ["missing", "reshaped", "extra_float", "renamed"])
+def test_an_initial_model_that_disagrees_with_the_layout_is_not_representable(tmp_path, change):
+    import numpy as np
+    state = _tinynet_trainable_state()
+    if change == "missing":
+        del state["fc1.bias"]
+    elif change == "reshaped":
+        state["fc1.bias"] = np.zeros((6,), dtype=np.float32)
+    elif change == "extra_float":
+        state["fc2.weight"] = np.zeros((3, 5), dtype=np.float32)
+    else:
+        state["fc1.b"] = state.pop("fc1.bias")
+    path = tmp_path / "model.npz"
+    _save_like_init_model(path, state)
+
+    with pytest.raises(execution_plan.NotRepresentable):
+        execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL", initial_state_path=str(path))
+
+
+def test_a_non_float_tensor_the_server_withholds_is_ignored(tmp_path):
+    import numpy as np
+    state = _tinynet_trainable_state()
+    expected = _canonical_digest(state.items())
+    state["num_batches_tracked"] = np.array(3, dtype=np.int64)
+    path = tmp_path / "model.npz"
+    _save_like_init_model(path, state)
+
+    plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL", initial_state_path=str(path))
+
+    assert plan.initial_state_sha256 == expected
+
+
+def test_the_cli_adds_the_initial_state_digest(tmp_path):
+    path = tmp_path / "model.npz"
+    _save_like_init_model(path, _tinynet_trainable_state())
+    out = _cli("--recipe", "TINYNET_GOLDEN", "--strategy", "FedAvg", "--training-arm", "FULL",
+               "--initial-state", str(path))
+    assert out["modelTraining"]["initialStateSha256"] == _canonical_digest(_tinynet_trainable_state().items())
+
+
+def test_the_golden_contract_carries_tinynets_canonical_state_digests(tmp_path):
+    with open(GOLDEN_CONTRACT, "rb") as fh:
+        golden = parse_contract_binary(fh.read()).model_training
+    path = tmp_path / "model.npz"
+    _save_like_init_model(path, _tinynet_trainable_state())
+
+    plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL", initial_state_path=str(path))
+
+    assert golden.frozen_state_sha256 == plan.frozen_state_sha256
+    assert golden.initial_state_sha256 == plan.initial_state_sha256

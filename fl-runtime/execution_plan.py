@@ -3,13 +3,14 @@
 The backend builds a run's execution contract (``proto/fedlearn/contract/v1``) from its recorded intent, its
 staged artifacts and this plan: the part Python owns because Python runs it -- objective, update protocol,
 the ordered trainable layout, local training (optimizer, every hyperparameter, step budget and batching) and
-the data requirement. The plan states what ``client.py`` actually executes; ``tests/test_execution_plan.py``
+the data requirement, plus the canonical frozen- and initial-state digests. The plan states what ``client.py`` actually executes; ``tests/test_execution_plan.py``
 compares it with the objects the client builds, so a change to either fails the tests instead of drifting.
 
 A run is representable only when a plan for its recipe, strategy and arm is written below; anything else
 raises NotRepresentable rather than being guessed.
 
-    python execution_plan.py --recipe TINYNET_GOLDEN --strategy FedAvg --training-arm FULL
+    python execution_plan.py --recipe TINYNET_GOLDEN --strategy FedAvg --training-arm FULL \
+        [--initial-state <model file the FL server loads>]
 
 prints ``{"representable": true, "modelTraining": <ProtoJSON ModelTraining>}``, or
 ``{"representable": false, "reason": "..."}`` for a run that has no v1 plan.
@@ -39,6 +40,58 @@ def label_schema_id(classes) -> str:
     return "labels-sha256:" + hashlib.sha256(canonical).hexdigest()
 
 
+def state_sha256(tensors) -> str:
+    """The canonical digest of an ordered state: SHA-256 of its float32 safetensors encoding, no metadata."""
+    from fedlearn.communication.safetensors_codec import save_safetensors
+    return hashlib.sha256(save_safetensors(list(tensors))).hexdigest()
+
+
+def _frozen_state_sha256(model, layout) -> str:
+    """Digest of every state tensor outside the trainable layout, in state_dict order."""
+    import torch
+    trainable = {spec.name for spec in layout}
+    frozen = []
+    for name, tensor in model.state_dict().items():
+        if name in trainable:
+            continue
+        if tensor.dtype != torch.float32:
+            raise NotRepresentable(f"frozen tensor {name} is {tensor.dtype}; v1 describes float32 state only")
+        frozen.append((name, tensor.detach().cpu().numpy()))
+    return state_sha256(frozen)
+
+
+def _initial_state_sha256(path, recipe_key, training_arm, layout) -> str:
+    """Digest of the initial federated state the FL server loads from ``path``, in contract order.
+
+    The server loads the .npz that init_model.py wrote (or the registry head on a continued run), keeps its
+    float32 tensors and the arm's prefixes, and federates the rest of the file as the global model. That set
+    must be exactly the trainable layout with the same shapes, or the contract would describe a different
+    model than the server distributes.
+    """
+    from collections import OrderedDict
+
+    import numpy as np
+    import torch
+    from fedlearn.estimators.params import federable_state
+
+    with np.load(path, allow_pickle=False) as npz:
+        loaded = OrderedDict((key.replace("__DOT__", "."), torch.from_numpy(npz[key])) for key in npz.files)
+    federated = federable_state(loaded)
+    prefixes = recipes.trainable_prefixes(recipe_key, training_arm)
+    if prefixes is not None:
+        federated = OrderedDict((k, v) for k, v in federated.items() if k.startswith(tuple(prefixes)))
+    expected = [spec.name for spec in layout]
+    if set(federated) != set(expected):
+        raise NotRepresentable(
+            f"the server's initial model federates {sorted(federated)}, but the trainable layout is {expected}")
+    for spec in layout:
+        if list(federated[spec.name].shape) != list(spec.shape):
+            raise NotRepresentable(
+                f"initial tensor {spec.name} has shape {list(federated[spec.name].shape)}, "
+                f"not {list(spec.shape)}")
+    return state_sha256((spec.name, federated[spec.name].numpy()) for spec in layout)
+
+
 def _trainable_layout(model):
     layout = []
     for name, param in model.named_parameters():
@@ -50,7 +103,7 @@ def _trainable_layout(model):
     return layout
 
 
-def _tinynet_fedavg_full() -> pb.ModelTraining:
+def _tinynet_fedavg_full(initial_state_path=None) -> pb.ModelTraining:
     """TINYNET_GOLDEN under FedAvg on the FULL arm, as client.py runs it.
 
     - Optimizer: client.train() builds torch.optim.SGD over the trainable parameters with
@@ -58,20 +111,23 @@ def _tinynet_fedavg_full() -> pb.ModelTraining:
     - Step budget: the FedAvg server sends no local_epochs, so ZOSLClient.fit() trains one epoch.
     - Batching: build_tinynet_golden_decomfl_loader() yields batches of 8, reshuffled every epoch, and
       keeps an incomplete final batch.
-    - Layout: the recipe's model, which freezes fc2 by construction.
+    - Layout: the recipe's model, which freezes fc2 by construction. Its seeded build is also the frozen
+      state every peer rebuilds, so the frozen digest comes from it.
     """
     recipe = recipes.get_recipe("TINYNET_GOLDEN")
     model = recipe.build_model("cpu")
     width = model.fc1.in_features
     if model.fc2.out_features != len(recipe.classes):
         raise NotRepresentable("TINYNET_GOLDEN's output width disagrees with its class list")
-    return pb.ModelTraining(
+    layout = _trainable_layout(model)
+    plan = pb.ModelTraining(
         model_id=recipe.base_models[0],
         arm=pb.ARM_FULL,
         task=pb.TASK_VECTOR_CLASSIFICATION,
         objective=_OBJECTIVES[recipes.ARM_OBJECTIVES["FULL"]],
         update_protocol=pb.UPDATE_TRAINABLE_STATE_F32,
-        trainable=_trainable_layout(model),
+        trainable=layout,
+        frozen_state_sha256=_frozen_state_sha256(model, layout),
         local_training=pb.LocalTraining(
             local_epochs=1,
             sgd=pb.Sgd(learning_rate=0.001, momentum=0.0, dampening=0.0, weight_decay=0.0, nesterov=False),
@@ -89,6 +145,9 @@ def _tinynet_fedavg_full() -> pb.ModelTraining:
             transforms=[pb.Transform(identity_vector=pb.IdentityVector(width=width))],
         ),
     )
+    if initial_state_path is not None:
+        plan.initial_state_sha256 = _initial_state_sha256(initial_state_path, "TINYNET_GOLDEN", "FULL", layout)
+    return plan
 
 
 _PLANS = {
@@ -96,18 +155,20 @@ _PLANS = {
 }
 
 
-def resolve_model_training(recipe_key: str, strategy: str, training_arm: str) -> pb.ModelTraining:
+def resolve_model_training(recipe_key: str, strategy: str, training_arm: str,
+                           initial_state_path: str | None = None) -> pb.ModelTraining:
     """The contract's ModelTraining fields that Python owns, for one run configuration.
 
-    Model revision, state digests, artifacts and strategy settings are added by the publisher from the
-    staged bundle and the run record.
+    ``initial_state_path`` is the model file the FL server loads its initial global model from; when given,
+    its digest is included. Model revision, artifacts and strategy settings are added by the publisher from
+    the staged bundle and the run record.
     """
     build = _PLANS.get((recipe_key, strategy, training_arm))
     if build is None:
         raise NotRepresentable(
             f"no execution contract v1 plan for recipe {recipe_key} with strategy {strategy} on arm "
             f"{training_arm}")
-    return build()
+    return build(initial_state_path)
 
 
 def main(argv=None) -> int:
@@ -115,9 +176,10 @@ def main(argv=None) -> int:
     parser.add_argument("--recipe", required=True)
     parser.add_argument("--strategy", required=True)
     parser.add_argument("--training-arm", required=True)
+    parser.add_argument("--initial-state", help="the model file the FL server loads its initial model from")
     args = parser.parse_args(argv)
     try:
-        plan = resolve_model_training(args.recipe, args.strategy, args.training_arm)
+        plan = resolve_model_training(args.recipe, args.strategy, args.training_arm, args.initial_state)
     except NotRepresentable as exc:
         print(json.dumps({"representable": False, "reason": str(exc)}))
         return 0

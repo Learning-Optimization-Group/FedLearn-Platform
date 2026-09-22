@@ -44,8 +44,8 @@
         "dtype": "DTYPE_F32"
       }
     ],
-    "frozenStateSha256": "b2ec481237a21ff2edeeb26c62c3d8cd85cb26ca2d40e79452837559e1564c32",
-    "initialStateSha256": "4b1016fca301c00ba84cdf10ee9402e6d226e1471c1b698129e7f9e8c1f98179",
+    "frozenStateSha256": "b3876a953bc00035a5b0154dd549eb323bb27baec2ddc58c58bb66b6aca501b1",
+    "initialStateSha256": "1122ba73e49f6df981861bb76d3dcff46666abb5f41e3a6a4d510db9fddd965c",
     "localTraining": {
       "localEpochs": 5,
       "sgd": {

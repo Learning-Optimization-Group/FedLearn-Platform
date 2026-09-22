@@ -12,17 +12,15 @@ from this script's output.
 
 The golden is a schema fixture for a TinyNet FedAvg run, not a published contract. Values that name
 real committed artifacts are real: the three ``.pte`` paths, sizes and SHA-256 digests come from
-``../decomfl_golden/``, ``required_operators`` is the union of those programs' operator tables, and
-``initial_state_sha256`` is the digest of ``zo_state.safetensors``. Values for artifacts that do not
-exist yet are fixture values: ``frozen_state_sha256`` is the SHA-256 of the text
-``FROZEN_STATE_FIXTURE``, and the declared resource envelope is illustrative. The publication slices
-replace both with measured, staged values.
+``../decomfl_golden/``, ``required_operators`` is the union of those programs' operator tables, and the
+frozen and initial state digests are TinyNet's canonical state digests (see README.md), which
+``fl-runtime/tests/test_execution_plan.py`` recomputes from the recipe's model. The run and project IDs,
+the local-training values and the declared resource envelope are fixture values.
 """
 from __future__ import annotations
 
 import base64
 import copy
-import hashlib
 import json
 import os
 
@@ -31,7 +29,10 @@ from google.protobuf import json_format
 from fedlearn.communication.generated import execution_contract_pb2 as pb
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FROZEN_STATE_FIXTURE = hashlib.sha256(b"FROZEN_STATE_FIXTURE").hexdigest()
+# TinyNet's canonical state digests: the seeded recipe model's frozen fc2, and its initial trainable fc1
+# (identical to decomfl_golden/zo_state.safetensors without its metadata).
+TINYNET_FROZEN_STATE_SHA256 = "b3876a953bc00035a5b0154dd549eb323bb27baec2ddc58c58bb66b6aca501b1"
+TINYNET_INITIAL_STATE_SHA256 = "1122ba73e49f6df981861bb76d3dcff46666abb5f41e3a6a4d510db9fddd965c"
 
 # Extracted with executorch.exir._serialize._program.deserialize_pte_binary from the three programs
 # below; sorted, duplicates removed.
@@ -81,8 +82,8 @@ def build_golden() -> pb.ExecutionContract:
                 pb.TensorSpec(name="fc1.weight", shape=[5, 4], dtype=pb.DTYPE_F32),
                 pb.TensorSpec(name="fc1.bias", shape=[5], dtype=pb.DTYPE_F32),
             ],
-            frozen_state_sha256=FROZEN_STATE_FIXTURE,
-            initial_state_sha256="4b1016fca301c00ba84cdf10ee9402e6d226e1471c1b698129e7f9e8c1f98179",
+            frozen_state_sha256=TINYNET_FROZEN_STATE_SHA256,
+            initial_state_sha256=TINYNET_INITIAL_STATE_SHA256,
             local_training=pb.LocalTraining(
                 local_epochs=5,
                 sgd=pb.Sgd(learning_rate=0.001, momentum=0.0, dampening=0.0,
