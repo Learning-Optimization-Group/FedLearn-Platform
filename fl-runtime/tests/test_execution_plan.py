@@ -406,3 +406,17 @@ def test_the_client_accepts_its_own_contract_and_ignores_its_absence(tmp_path):
     assert client.enforce_execution_contract(
         client.parse_args(base + ["--execution-contract", str(path)]), "TINYNET_GOLDEN", "FULL") == contract
     assert client.enforce_execution_contract(client.parse_args(base), "TINYNET_GOLDEN", "FULL") is None
+
+
+def test_the_golden_contract_is_one_this_client_accepts_unmodified():
+    """The published fixture must be a contract a real client trains under, not a template.
+
+    The other golden-contract tests overwrite its plan fields with the resolved plan before checking it, so
+    they pass whatever the fixture states. Every client now decides from the contract as published -- the
+    phone projects it into the settings it trains with -- so the fixture itself has to be acceptable.
+    """
+    with open(GOLDEN_CONTRACT, "rb") as fh:
+        contract = parse_contract_binary(fh.read())
+    assert execution_plan.check_contract(
+        contract, "TINYNET_GOLDEN", "FedAvg", "FULL",
+        project_id=contract.project_id, run_id=contract.run_id) == []

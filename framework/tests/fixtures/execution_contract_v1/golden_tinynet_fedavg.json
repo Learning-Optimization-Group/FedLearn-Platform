@@ -47,7 +47,7 @@
     "frozenStateSha256": "b3876a953bc00035a5b0154dd549eb323bb27baec2ddc58c58bb66b6aca501b1",
     "initialStateSha256": "1122ba73e49f6df981861bb76d3dcff46666abb5f41e3a6a4d510db9fddd965c",
     "localTraining": {
-      "localEpochs": 5,
+      "localEpochs": 1,
       "sgd": {
         "learningRate": 0.001,
         "momentum": 0.0,
@@ -67,7 +67,7 @@
       ],
       "inputDtype": "DTYPE_F32",
       "classCount": 3,
-      "labelSchemaId": "tinynet_golden.labels.v1",
+      "labelSchemaId": "labels-sha256:4817507d9942bf24635535b19b1588bb44e00d2b51314536926f3580c7f5d896",
       "transforms": [
         {
           "identityVector": {
