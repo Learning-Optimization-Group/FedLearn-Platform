@@ -37,6 +37,8 @@ jobs:
           filters: |
             framework:
               - 'framework/**'
+              # Tested by framework/tests/test_stage_model_bundle.py against the programs it stages.
+              - 'scripts/stage_model_bundle.py'
             backend:
               - 'backend/**'
               # The backend compiles the execution contract from its canonical proto and runs the

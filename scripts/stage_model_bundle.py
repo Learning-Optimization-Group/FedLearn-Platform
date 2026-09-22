@@ -79,6 +79,28 @@ def stage_bundle(run_id: str, out_root: Path, fixture: Path = DEFAULT_FIXTURE) -
             "trainableParamNames": src.get("trainable_param_names", []),
         }
 
+    # What the execution contract needs from the bundle: each model program's digest and size, the runtime
+    # operators they require, and the declared resource envelope. Recorded only when the source carries the
+    # committed operator metadata; without it the backend cannot publish a contract for the run.
+    model_files = [name for name in ("loss.pte", "infer.pte", "trainable.pte") if (dest / name).exists()]
+    contract_fields = {}
+    metadata_path = fixture / "artifact_metadata.json"
+    if metadata_path.exists():
+        metadata = json.loads(metadata_path.read_text())
+        envelope = metadata["resourceEnvelope"]
+        contract_fields = {
+            "modelFiles": [{"file": name, "sha256": sha256(dest / name), "byteSize": (dest / name).stat().st_size}
+                           for name in model_files],
+            "requiredOperators": sorted(metadata["requiredOperators"]),
+            "resourceEnvelope": {
+                "peakMemoryBytes": envelope["peakMemoryBytes"],
+                "storageBytes": sum((dest / name).stat().st_size for name in model_files),
+                "probeMs": envelope["probeMs"],
+                "trainMs": envelope["trainMs"],
+                "basis": envelope["basis"],
+            },
+        }
+
     manifest = {
         "runId": run_id,
         # Mirrors the mobile ModelManifest (bridge/specs/NativeFedLearnCore.ts): paramLayout order is the
@@ -109,6 +131,7 @@ def stage_bundle(run_id: str, out_root: Path, fixture: Path = DEFAULT_FIXTURE) -
             "goldenLoss": src["golden_loss"],
             "goldenAccuracy": src["golden_accuracy"],
         },
+        **contract_fields,
     }
     atomic_write_text(dest / "manifest.json", json.dumps(manifest, indent=2) + "\n")
     return dest
