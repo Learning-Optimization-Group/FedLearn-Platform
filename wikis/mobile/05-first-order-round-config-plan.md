@@ -1,5 +1,9 @@
 # Android First-Order Round Settings Plan
 
+> **Superseded in part by [07](07-fedopt-robust-contract-plan.md) (2026-09-24).** Server-sent `learning_rate` and
+> `local_epochs` no longer override what the phone trains. The run's execution contract states them, and a server value
+> that disagrees refuses the round before upload. FedOpt still requires the server to send them, now as a cross-check.
+
 **Goal:** Consume the first-order settings already sent with each global-model download, so FedOpt uses its server-selected learning rate and local epochs; reject unsupported proximal training instead of treating it as FedAvg.
 
 **Architecture:** The FL server puts `learning_rate`, `local_epochs`, and `proximal_mu` into the first `ModelChunk.config` when a strategy supplies them. The Android gRPC client currently drops the map. Carry it through the existing transport seam to `FederatedLoop::firstOrderRound`, validate numeric values before training, and use them in place of JavaScript defaults. FedAvg/Robust retain their current defaults only when the server sends no values; execution contract v1 will replace that fallback.

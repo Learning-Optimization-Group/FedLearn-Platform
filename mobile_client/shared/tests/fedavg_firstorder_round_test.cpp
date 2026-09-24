@@ -101,7 +101,9 @@ TEST(FedAvgFirstOrderRound, EndpointMatchesFrameworkGoldenAndUploadsWeightBlob) 
         << "first-order round endpoint (uploaded blob) diverged from the framework golden at " << i;
 }
 
-TEST(FedAvgFirstOrderRound, FedOptUsesServerLearningRateAndLocalEpochs) {
+// The contract states the round's training; a FedOpt server confirms it by sending the same values. (These used
+// to override the phone's own values, so the server rather than the run's contract decided what it trained.)
+TEST(FedAvgFirstOrderRound, FedOptTrainsTheContractsSettingsWhenTheServerConfirmsThem) {
   const auto init = fedtest::readF32(fedtest::goldenPath("zo_flat.f32"));
   RoundMock mock;
   mock.globalBlob = blobFromFlat(init);
@@ -115,7 +117,7 @@ TEST(FedAvgFirstOrderRound, FedOptUsesServerLearningRateAndLocalEpochs) {
   fedlearn::DataBatch batch{x.data(), {8, 4}, y.data(), 8};
 
   const auto out = loop.firstOrderRound(model, "run", "client", batch,
-                                        /*fallbackSteps=*/1, /*fallbackRate=*/0.001,
+                                        /*numLocalSteps=*/kLocalEpochs, /*learningRate=*/0.1,
                                         /*requireServerConfig=*/true);
 
   ASSERT_TRUE(out.ranTraining);
@@ -127,6 +129,43 @@ TEST(FedAvgFirstOrderRound, FedOptUsesServerLearningRateAndLocalEpochs) {
     EXPECT_NEAR(uploaded.getFlatParams()[i], golden[i], kEndpointAtol) << "parameter " << i;
   }
 }
+
+struct Disagreement {
+  const char* name;
+  const char* rate;
+  const char* epochs;
+  bool requireServerConfig;
+};
+
+class ServerDisagreesWithContract : public ::testing::TestWithParam<Disagreement> {};
+
+// The phone was given the contract's 0.001 x 1. A server asking for anything else refuses the round before any
+// upload -- on a FedOpt round that requires the server's values, and on a FedAvg or Robust round that does not.
+TEST_P(ServerDisagreesWithContract, RefusesTheRoundBeforeUpload) {
+  const auto& p = GetParam();
+  RoundMock mock;
+  mock.globalBlob = blobFromFlat(fedtest::readF32(fedtest::goldenPath("zo_flat.f32")));
+  mock.globalConfig = {{"learning_rate", p.rate}, {"local_epochs", p.epochs}, {"proximal_mu", "0.0"}};
+  fedlearn::TrainableExecutorchModel model(
+      fedtest::goldenPath(kTrainablePte), kTrainablePteSha, kParamNames);
+  fedlearn::ModelManager mm = fedtest::makeManager();
+  fedlearn::FederatedLoop loop(mock, mm);
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  fedlearn::DataBatch batch{x.data(), {8, 4}, y.data(), 8};
+
+  EXPECT_THROW(loop.firstOrderRound(model, "run", "client", batch, 1, 0.001, p.requireServerConfig),
+               std::runtime_error);
+  EXPECT_FALSE(mock.submitCalled);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    FedAvgFirstOrderRound, ServerDisagreesWithContract,
+    ::testing::Values(Disagreement{"FedOptOtherRate", "0.1", "1", true},
+                      Disagreement{"FedOptOtherEpochs", "0.001", "5", true},
+                      Disagreement{"FedOptBoth", "0.1", "5", true},
+                      Disagreement{"FedAvgServerSendsARate", "0.1", "1", false}),
+    [](const ::testing::TestParamInfo<Disagreement>& info) { return std::string(info.param.name); });
 
 TEST(FedAvgFirstOrderRound, FedOptRejectsMissingServerSettingsBeforeUpload) {
   RoundMock mock;

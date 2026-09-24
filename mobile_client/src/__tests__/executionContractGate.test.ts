@@ -110,6 +110,30 @@ describe('the phone decides from the contract state', () => {
   });
 });
 
+describe('the phone trains the first-order strategies v1 approves', () => {
+  // FedOpt and Robust are first-order client training; the server adapts or aggregates robustly. The phone runs
+  // each with the contract's own training and tells the native round which strategy it is, because a FedOpt round
+  // also requires the server to confirm the contract's rate.
+  it.each([
+    ['FedOpt', Strategy.FEDOPT, 0.01],
+    ['Robust', Strategy.ROBUST, 0.001],
+  ] as const)('trains a %s contract with its own strategy and rate', (name, strategy, rate) => {
+    const contract = golden();
+    contract.strategy = strategy;
+    local(contract).optimizer = { case: 'sgd', value: { ...sgd(contract), learningRate: rate } };
+    const decision = decide(contract);
+    expect(decision).toMatchObject({ kind: 'train', projection: { strategy: name, learningRate: rate } });
+  });
+});
+
+function sgd(contract: ExecutionContract) {
+  const optimizer = local(contract).optimizer;
+  if (optimizer.case !== 'sgd') {
+    throw new Error('the golden contract uses SGD');
+  }
+  return optimizer.value;
+}
+
 describe('the phone refuses what it cannot execute', () => {
   // A DeComFL or secure-aggregation run is refused as soon as it is published outside the approved v1 matrix, so
   // these drive the capability layer directly: it is what refuses them once the matrix widens to those runs.

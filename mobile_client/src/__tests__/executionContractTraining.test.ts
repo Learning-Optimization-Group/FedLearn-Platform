@@ -131,6 +131,22 @@ describe('runTrainingLoop — the execution contract decides', () => {
       strategy: 'FedAvg', learningRate: shared.learningRate, numLocalSteps: shared.numLocalSteps });
   });
 
+  test('runs a FedOpt contract as FedOpt, at the rate the contract states', async () => {
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce(STAGED_BUNDLE);
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    const { getServerStatus, runFedAvgRound } = oneRound();
+    const contract = contractJson() as { strategy: string; modelTraining: { localTraining: { sgd: Record<string, unknown> } } };
+    contract.strategy = 'STRATEGY_FEDOPT';
+    contract.modelTraining.localTraining.sgd.learningRate = 0.01;
+
+    await runTrainingLoop(joined({ strategy: 'FedOpt', executionContract: contract }), hooks, {
+      policy: POLICY,
+      ops: { getServerStatus, runFedAvgRound, loadSubmittedRound: async () => null, saveSubmittedRound: async () => {} },
+    });
+
+    expect(runFedAvgRound.mock.calls[0][1]).toMatchObject({ strategy: 'FedOpt', learningRate: 0.01 });
+  });
+
   test('refuses a run with no published contract before touching the device', async () => {
     await expect(runTrainingLoop(joined({ contractState: undefined, executionContract: undefined }), hooks))
       .rejects.toBeInstanceOf(ExecutionContractRefusedError);

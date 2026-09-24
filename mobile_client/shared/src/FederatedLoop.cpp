@@ -224,15 +224,22 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
   if ((rate == serverConfig.end()) != (epochs == serverConfig.end())) {
     throw std::runtime_error("incomplete first-order server settings");
   }
+  // learningRate and numLocalSteps are the run's execution contract. Server-sent values are a cross-check, never an
+  // override: a server asking for other training refuses the round before anything is uploaded.
+  if (!std::isfinite(learningRate) || learningRate <= 0) {
+    throw std::runtime_error("invalid first-order learning_rate");
+  }
+  if (numLocalSteps <= 0 || numLocalSteps > 100000) {
+    throw std::runtime_error("invalid first-order local_epochs");
+  }
   if (rate != serverConfig.end()) {
-    learningRate = parseFiniteSetting(rate->second, "learning_rate");
-    numLocalSteps = parseLocalEpochs(epochs->second);
-  } else {
-    if (!std::isfinite(learningRate) || learningRate <= 0) {
-      throw std::runtime_error("invalid first-order learning_rate");
+    if (parseFiniteSetting(rate->second, "learning_rate") != learningRate) {
+      throw std::runtime_error("the server's learning_rate " + rate->second +
+                               " disagrees with the execution contract");
     }
-    if (numLocalSteps <= 0 || numLocalSteps > 100000) {
-      throw std::runtime_error("invalid first-order local_epochs");
+    if (parseLocalEpochs(epochs->second) != numLocalSteps) {
+      throw std::runtime_error("the server's local_epochs " + epochs->second +
+                               " disagrees with the execution contract");
     }
   }
   const auto proximal = serverConfig.find("proximal_mu");

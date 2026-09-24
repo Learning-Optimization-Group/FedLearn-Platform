@@ -1,8 +1,8 @@
 // Execution contract v1 on Android. Before the phone downloads a model or opens local data, it decides from the
 // run's published contract whether it may train at all, and projects the contract into the settings the native
 // trainer runs with. Android is v1-dependent: a run without a READY contract it can execute exactly is refused
-// with a precise reason, never approximated. Runs v1 does not cover yet — DeComFL, and first-order strategies
-// outside the approved matrix — are therefore refused until their contracts exist.
+// with a precise reason, never approximated. Runs v1 does not cover yet — DeComFL and FedProx — are therefore
+// refused until their contracts exist.
 import { ArtifactBackend, ContractIssueCodeSchema, SecureAggregation, Strategy, UpdateProtocol,
   type ArtifactVariant, type ExecutionContract, type LocalTraining } from '../gen/fedlearn/contract/v1/execution_contract_pb';
 import { MalformedContractError, parseContractJson, validateContract } from './executionContract';
@@ -28,10 +28,19 @@ export type ContractRefusalCode =
   | 'UNSUPPORTED_BATCHING'
   | 'MISSING_CPU_ARTIFACT';
 
+/** The first-order strategies v1 approves: ordinary client training, with the strategy's own work on the server. */
+export type FirstOrderStrategy = 'FedAvg' | 'FedOpt' | 'Robust';
+
+const FIRST_ORDER_STRATEGIES: ReadonlyMap<Strategy, FirstOrderStrategy> = new Map([
+  [Strategy.FEDAVG, 'FedAvg'],
+  [Strategy.FEDOPT, 'FedOpt'],
+  [Strategy.ROBUST, 'Robust'],
+]);
+
 /** What the native trainer needs from the contract for one round. */
 export interface ContractProjection {
   contractId: string;
-  strategy: 'FedAvg';
+  strategy: FirstOrderStrategy;
   learningRate: number;
   numLocalSteps: number;
   batchSize: number;
@@ -115,9 +124,11 @@ export function projectContract(contract: ExecutionContract, contractId: string)
     return refuse('CONTRACT_INVALID', 'This run\'s execution contract describes no model training.');
   }
   const training = contract.workload.value;
-  if (contract.strategy !== Strategy.FEDAVG) {
+  const strategy = FIRST_ORDER_STRATEGIES.get(contract.strategy);
+  if (!strategy) {
     return refuse('UNSUPPORTED_STRATEGY',
-      'This app trains only the first-order weight path published for FedAvg runs; this run uses another strategy.');
+      'This app trains only the first-order weight path published for FedAvg, FedOpt and Robust runs; this run '
+      + 'uses another strategy.');
   }
   if (training.updateProtocol !== UpdateProtocol.UPDATE_TRAINABLE_STATE_F32) {
     return refuse('UNSUPPORTED_UPDATE_PROTOCOL', 'This run expects an update this app does not produce.');
@@ -149,7 +160,7 @@ export function projectContract(contract: ExecutionContract, contractId: string)
     contract,
     projection: {
       contractId,
-      strategy: 'FedAvg',
+      strategy,
       learningRate: sgd!.learningRate,
       numLocalSteps: local.localEpochs,
       batchSize: local.batchSize,
