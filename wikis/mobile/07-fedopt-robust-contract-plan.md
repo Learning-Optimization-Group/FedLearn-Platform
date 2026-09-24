@@ -91,5 +91,9 @@ Worth knowing:
   bit-identical. Only the phone's own losses show what it trained.
 - **A laptop trained a round that does not exist.** After Robust's round 3 aggregated, one laptop fetched the
   model, trained "round 4" and submitted it. The servicer logged it as accepted, but it was never aggregated and
-  the final model is unaffected. The race is not fixed.
+  the final model is unaffected. **Fixed afterwards** (`3ab3321`, `20cd3e4`): once the last round aggregates, the
+  coordinator hands out no further round, reports the run complete, and refuses late updates, on both the
+  first-order and DeComFL paths. The servicer logs "accepted" only for counted updates. A related masking bug
+  is fixed too (`e385791`): clients at the end of a run were told INTERNAL instead of "Training complete". Runs
+  now end with no error lines, confirmed live with the phone.
 - The server-disagrees-with-contract refusal is covered by unit tests on both clients. It was not provoked live.
