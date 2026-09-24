@@ -43,6 +43,11 @@ public class FlServerManager {
     @Value("${app.backend.internal-url:}")
     private String backendInternalUrl;
 
+    // Read at spawn time, not injected as a value: local.server.port is only published once the web server
+    // has started, after this bean is built.
+    @Autowired(required = false)
+    private org.springframework.core.env.Environment environment;
+
     // SE-1/SE-7: the FL connection-token verify secret handed to the spawned FL server, and whether
     // it enforces client auth. Kept OFF by default — activating locks out clients whose launcher
     // does not yet pass FEDLEARN_CONNECTION_TOKEN.
@@ -275,7 +280,7 @@ public class FlServerManager {
             // the security contract is unchanged — only the ProcessBuilder mechanics moved.
             process = processRunner.start(command,
                     env -> {
-                        configureChildEnv(env, internalApiKey, backendInternalUrl,
+                        configureChildEnv(env, internalApiKey, effectiveBackendUrl(),
                                 flTokenSecret, requireClientAuth, runIdArg, requireTls, internalRunToken);
                         applyRoundTimeout(env, intent);
                     },
@@ -803,6 +808,24 @@ public class FlServerManager {
             }
         }
         return false;
+    }
+
+    /**
+     * Where the spawned FL server sends its /api/internal/** callbacks: the configured internal URL, else this
+     * backend on loopback at the port it actually listens on. The FL server is a local child process, so
+     * loopback reaches this backend and nothing else; left unset, the child would fall back to :8081 and
+     * deliver the run's results -- and its internal token -- to whichever process owns that port. Null when
+     * this backend's port is not known (no web server), which keeps the child's own default.
+     */
+    private String effectiveBackendUrl() {
+        if (!isBlank(backendInternalUrl)) {
+            return backendInternalUrl;
+        }
+        String port = environment == null ? null : environment.getProperty("local.server.port");
+        if (isBlank(port) || !port.chars().allMatch(Character::isDigit)) {
+            return null;
+        }
+        return "http://localhost:" + port;
     }
 
     /**
