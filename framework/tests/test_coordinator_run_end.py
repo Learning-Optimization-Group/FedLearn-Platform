@@ -110,3 +110,55 @@ def test_the_server_builds_its_coordinator_with_the_runs_length():
 
     assert coordinator.num_rounds == 5
     assert (coordinator.min_clients, coordinator.clients_per_round) == (2, 3)
+
+
+def test_status_reports_completion_as_soon_as_the_last_round_aggregated():
+    """Clients decide whether to fetch another round from the status. In the moment before the server loop marks
+    completion, it must already say the run is over, or a client asks for a round the download then refuses."""
+    c = _coordinator(num_rounds=1)
+    c.submit_client_update("c1", _params(0.5), 8, trained_on_round=1)
+
+    assert c.get_server_status()["training_complete"] is True
+
+
+def test_an_update_for_the_round_after_the_last_is_not_counted_even_before_completion_is_marked():
+    c = _coordinator(num_rounds=1)
+    c.submit_client_update("c1", _params(0.5), 8, trained_on_round=1)
+
+    assert c.submit_client_update("c1", _params(0.5), 8, trained_on_round=c.current_round) is False
+    assert c._client_updates_received == []
+
+
+# --- the DeComFL path has the same window --------------------------------------------------------------------
+
+def test_the_decomfl_config_is_not_handed_out_for_a_round_past_the_run(monkeypatch):
+    from fedlearn.server.decomfl_strategy import DeComFL
+    coordinator = MagicMock()
+    coordinator.strategy = MagicMock(spec=DeComFL)
+    coordinator.stop_requested = False
+    coordinator.run_is_over.return_value = True
+    servicer = FederatedLearningServiceServicer(coordinator)
+
+    response = servicer.GetDeComFLConfig(pb.GetDeComFLConfigRequest(client_id="c"), _Context())
+
+    assert response.current_round == -1
+
+
+def test_run_is_over_once_the_last_round_aggregated_or_the_run_stopped():
+    c = _coordinator(num_rounds=1)
+    assert c.run_is_over() is False
+    c.submit_client_update("c1", _params(0.5), 8, trained_on_round=1)
+    assert c.run_is_over() is True
+
+    stopped = _coordinator(num_rounds=3)
+    stopped.signal_stop()
+    assert stopped.run_is_over() is True
+
+
+def test_a_decomfl_update_after_the_run_is_not_counted():
+    c = _coordinator(num_rounds=3, clients=2)
+    c.mark_training_complete()
+
+    c.submit_decomfl_update("c1", [[0.1]], 8, trained_on_round=c.current_round)
+
+    assert c._client_updates_received == []

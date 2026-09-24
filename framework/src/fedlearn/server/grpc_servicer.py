@@ -501,8 +501,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             strategy = self.coordinator.strategy
             current_round = self.coordinator.current_round
 
-            # Check if training is complete
-            if self.coordinator.stop_requested:
+            # The run is over once stopped, and also as soon as its last round has aggregated: the server loop
+            # marks completion a moment later, and a client asking in between used to get a round that never ran.
+            if self.coordinator.run_is_over():
                 return fedlearn_pb2.GetDeComFLConfigResponse(current_round=-1)
 
             logging.info(f"[Server] DeComFL config request from {client_id} for round {current_round}")

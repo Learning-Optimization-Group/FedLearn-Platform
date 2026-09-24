@@ -371,12 +371,26 @@ class FLCoordinator:
         self.stop_requested = True
         self._round_complete_event.set()
 
+    def _past_last_round(self) -> bool:
+        """The run's last round has aggregated (only knowable when the coordinator was told the run's length).
+
+        The server loop marks completion a moment later; everything that decides whether the run is over -- the
+        download sentinel, the status clients poll, and whether an update counts -- treats this as over already.
+        Call with the lock held.
+        """
+        return self.num_rounds is not None and self.current_round > self.num_rounds
+
+    def run_is_over(self) -> bool:
+        """Whether no further round will be trained: the run stopped, or its last round has aggregated."""
+        with self._lock:
+            return self.stop_requested or self._past_last_round()
+
     def get_global_model_for_client(self) -> Tuple[Optional[OrderedDict[str, torch.Tensor]], int, dict]:
         with self._lock:
             # -1 is the terminal sentinel. The run is over once stopped, and also as soon as its last round has
             # aggregated: the server loop marks completion a moment later, and a client that fetched in between
             # used to be handed a round that would never aggregate.
-            if self.stop_requested or (self.num_rounds is not None and self.current_round > self.num_rounds):
+            if self.stop_requested or self._past_last_round():
                 return None, -1, {}
             return self._global_model_params, self.current_round, self._strategy_client_config()
 
@@ -407,7 +421,7 @@ class FLCoordinator:
         accepted.
         """
         with self._lock:
-            if self.training_complete or self.stop_requested:
+            if self.training_complete or self.stop_requested or self._past_last_round():
                 return False  # the run is over: a late update belongs to no round that will aggregate
             if trained_on_round < self.current_round:
                 return False  # Ignore stale updates
@@ -736,7 +750,7 @@ class FLCoordinator:
         """Get current server status."""
         with self._lock:
             return {
-                "training_complete": self.training_complete,
+                "training_complete": self.training_complete or self._past_last_round(),
                 "current_round": self.current_round,
                 "required_clients_for_round": self.min_clients,
                 "received_updates_this_round": len(self._client_updates_received)
@@ -761,6 +775,9 @@ class FLCoordinator:
             trained_on_round: Round number client trained on
         """
         with self._lock:
+            if self.training_complete or self.stop_requested or self._past_last_round():
+                log.info("Ignoring DeComFL update from %s: the run is over", client_id)
+                return  # a late update belongs to no round that will aggregate
             if trained_on_round < self.current_round:
                 # Stale submission from a slow client; expected during dropout/rejoin.
                 log.debug(
