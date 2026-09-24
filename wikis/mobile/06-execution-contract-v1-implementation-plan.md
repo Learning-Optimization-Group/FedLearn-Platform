@@ -58,11 +58,11 @@ approximates. Each refusal names its reason (`CONTRACT_MISSING`, `CONTRACT_LEGAC
 `CONTRACT_UNAVAILABLE`, `CONTRACT_INVALID`, `UNSUPPORTED_STRATEGY`, `UNSUPPORTED_UPDATE_PROTOCOL`,
 `UNSUPPORTED_SECURITY`, `UNSUPPORTED_OPTIMIZER`, `UNSUPPORTED_BATCHING`, `MISSING_CPU_ARTIFACT`).
 
-**This is a deliberate capability regression and must not be described as anything else.** The approved v1
-matrix is TinyNet / FedAvg / FULL only, so **DeComFL, FedOpt and Robust no longer run on the phone** even
-though Stage 1 validated them live. They return when their contracts exist: FedOpt and Robust need
-conformance tests and a wider matrix; DeComFL needs a schema extension for the zeroth-order path.
-Restoring them is follow-up work, not a defect in the gate.
+**This was a deliberate capability regression and must not be described as anything else.** At first the approved v1
+matrix was TinyNet / FedAvg / FULL only, so DeComFL, FedOpt and Robust stopped running on the phone even though
+Stage 1 validated them live. **FedOpt and Robust are restored** (2026-09-24,
+[07](07-fedopt-robust-contract-plan.md)): they are in the matrix and completed live on the phone. **DeComFL is still
+refused**; it needs a schema extension for the zeroth-order path.
 
 ### Findings from 2H worth carrying into the paper
 
