@@ -55,8 +55,10 @@ _PATH_SEGMENT = re.compile(r"[A-Za-z0-9_-][A-Za-z0-9._-]*")
 _OPERATOR = re.compile(r"[A-Za-z_][A-Za-z0-9_]*::[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?")
 
 APPROVED_MATRIX = frozenset({
-    (pb.RECIPE_TINYNET_GOLDEN, pb.STRATEGY_FEDAVG, pb.ARM_FULL, pb.TASK_VECTOR_CLASSIFICATION,
-     pb.OBJECTIVE_CROSS_ENTROPY, pb.UPDATE_TRAINABLE_STATE_F32),
+    (pb.RECIPE_TINYNET_GOLDEN, strategy, pb.ARM_FULL, pb.TASK_VECTOR_CLASSIFICATION,
+     pb.OBJECTIVE_CROSS_ENTROPY, pb.UPDATE_TRAINABLE_STATE_F32)
+    # FedOpt and Robust are first-order client training too; their server-side work is not client behavior.
+    for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_FEDOPT, pb.STRATEGY_ROBUST)
 })
 
 _CLASSIFICATION_TASKS = frozenset({pb.TASK_VECTOR_CLASSIFICATION, pb.TASK_IMAGE_CLASSIFICATION,

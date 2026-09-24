@@ -106,10 +106,17 @@ public final class ExecutionContractValidator {
             "[A-Za-z_][A-Za-z0-9_]*::[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)?");
 
     /** The approved v1 matrix: (recipe, strategy, arm, task, objective, update protocol). */
-    private static final Set<List<Integer>> APPROVED_MATRIX = Set.of(List.of(
-            Recipe.RECIPE_TINYNET_GOLDEN_VALUE, Strategy.STRATEGY_FEDAVG_VALUE, Arm.ARM_FULL_VALUE,
-            Task.TASK_VECTOR_CLASSIFICATION_VALUE, Objective.OBJECTIVE_CROSS_ENTROPY_VALUE,
-            UpdateProtocol.UPDATE_TRAINABLE_STATE_F32_VALUE));
+    // FedOpt and Robust are first-order client training too; their server-side work is not client behavior.
+    private static final Set<List<Integer>> APPROVED_MATRIX = Set.of(
+            tinyNetFirstOrder(Strategy.STRATEGY_FEDAVG_VALUE),
+            tinyNetFirstOrder(Strategy.STRATEGY_FEDOPT_VALUE),
+            tinyNetFirstOrder(Strategy.STRATEGY_ROBUST_VALUE));
+
+    private static List<Integer> tinyNetFirstOrder(int strategy) {
+        return List.of(Recipe.RECIPE_TINYNET_GOLDEN_VALUE, strategy, Arm.ARM_FULL_VALUE,
+                Task.TASK_VECTOR_CLASSIFICATION_VALUE, Objective.OBJECTIVE_CROSS_ENTROPY_VALUE,
+                UpdateProtocol.UPDATE_TRAINABLE_STATE_F32_VALUE);
+    }
 
     private static final Set<Integer> CLASSIFICATION_TASKS = Set.of(
             Task.TASK_VECTOR_CLASSIFICATION_VALUE, Task.TASK_IMAGE_CLASSIFICATION_VALUE,

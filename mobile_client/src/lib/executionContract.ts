@@ -77,16 +77,19 @@ const PATH_SEGMENT = /^[A-Za-z0-9_-][A-Za-z0-9._-]*$/;
 const OPERATOR = /^[A-Za-z_][A-Za-z0-9_]*::[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$/;
 
 /** The approved v1 matrix: recipe, strategy, arm, task, objective, update protocol. */
-const APPROVED_MATRIX: ReadonlySet<string> = new Set([
-  [
-    Recipe.TINYNET_GOLDEN,
-    Strategy.FEDAVG,
-    Arm.FULL,
-    Task.VECTOR_CLASSIFICATION,
-    Objective.CROSS_ENTROPY,
-    UpdateProtocol.UPDATE_TRAINABLE_STATE_F32,
-  ].join(','),
-]);
+// FedOpt and Robust are first-order client training too; their server-side work is not client behavior.
+const APPROVED_MATRIX: ReadonlySet<string> = new Set(
+  [Strategy.FEDAVG, Strategy.FEDOPT, Strategy.ROBUST].map((strategy) =>
+    [
+      Recipe.TINYNET_GOLDEN,
+      strategy,
+      Arm.FULL,
+      Task.VECTOR_CLASSIFICATION,
+      Objective.CROSS_ENTROPY,
+      UpdateProtocol.UPDATE_TRAINABLE_STATE_F32,
+    ].join(','),
+  ),
+);
 
 const CLASSIFICATION_TASKS: ReadonlySet<number> = new Set([
   Task.VECTOR_CLASSIFICATION,

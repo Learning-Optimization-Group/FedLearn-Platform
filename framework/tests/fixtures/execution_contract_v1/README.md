@@ -85,11 +85,17 @@ of an ordered list of named tensors.
 
 ## Approved v1 matrix
 
-Only this combination of (recipe, strategy, arm, task, objective, update protocol) is publishable:
+Only these combinations of (recipe, strategy, arm, task, objective, update protocol) are publishable:
 
 | Recipe | Strategy | Arm | Task | Objective | Update protocol |
 | --- | --- | --- | --- | --- | --- |
 | `RECIPE_TINYNET_GOLDEN` | `STRATEGY_FEDAVG` | `ARM_FULL` | `TASK_VECTOR_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_TRAINABLE_STATE_F32` |
+| `RECIPE_TINYNET_GOLDEN` | `STRATEGY_FEDOPT` | `ARM_FULL` | `TASK_VECTOR_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_TRAINABLE_STATE_F32` |
+| `RECIPE_TINYNET_GOLDEN` | `STRATEGY_ROBUST` | `ARM_FULL` | `TASK_VECTOR_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_TRAINABLE_STATE_F32` |
+
+FedOpt and Robust are first-order client training: server-side adaptation and robust aggregation are not
+client behavior, so their rows add no fields. A FedOpt contract's `localTraining` states the client rate and
+epochs its server sends (`fl-runtime/strategy_client_settings.py`).
 
 Adding a row requires its runtime behavior to be implemented and tested on every participant type.
 
