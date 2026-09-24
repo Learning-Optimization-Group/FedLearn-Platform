@@ -3,6 +3,9 @@
 **Goal:** Put FedOpt and Robust back on the phone by adding them to the approved v1 matrix, so a TinyNet FedOpt
 or Robust run publishes a contract that the laptop and Android clients both execute exactly.
 
+**Status:** Done (2026-09-24). All seven slices landed, and a vivo 1805 and three laptop clients completed one live
+FedOpt run and one live Robust run on published contracts. See [Result](#result).
+
 **Why now:** Android refuses every run without a READY v1 contract (the strict decision recorded in
 [06](06-execution-contract-v1-implementation-plan.md)). Stage 1 validated FedOpt and Robust live on the phone,
 and the strict gate took them away. This restores them without weakening the gate.
@@ -58,3 +61,35 @@ the configured FedOpt.
 
 DeComFL (needs a schema extension for the zeroth-order path), FedProx (needs a native proximal term), any
 recipe other than TinyNet, and describing server-side aggregation settings in the contract.
+
+## Result
+
+| Slice | Commit |
+| --- | --- |
+| 1–2. One source for FedOpt's client training; resolver plans | `4663382` (+ `176f0a1`: the frozen client now bundles the resolver) |
+| 3. Matrix in all three readers | `705c875`: 160-case corpus; each reader fails the 4 new cases with its matrix reverted |
+| 4. Backend publication | `e538c88`: no backend code change was needed; the publisher test pins it |
+| 5. Laptop guard | `1cd3070` |
+| 6. Phone | `164e764` |
+
+Live, from a fresh APK built at `164e764`:
+
+| | FedOpt run `f59ecffc…` | Robust run `3b96d6d7…` |
+| --- | --- | --- |
+| Contract | `bdb02f7979c6…` — lr 0.01 × 1 | `aaa928a47075…` — lr 0.001 × 1 |
+| Terminal state | COMPLETED | COMPLETED |
+| One accepted update per participant, rounds 1–3 | yes | yes |
+| Phone shows the contract accepted | yes | yes |
+| Replay of the phone's training against the contract | its losses and the final model match exactly | its losses match; the final model cannot discriminate (below) |
+
+Both completed with `app.backend.internal-url` unset, confirming the callback fix (`ca18c08`) live.
+
+Worth knowing:
+
+- **Under Robust, the aggregate says nothing about one client's training.** With three identical laptops, the
+  coordinate-wise median out-votes a deviant phone: a replayed phone at lr 0.1 × 5 leaves the final model
+  bit-identical. Only the phone's own losses show what it trained.
+- **A laptop trained a round that does not exist.** After Robust's round 3 aggregated, one laptop fetched the
+  model, trained "round 4" and submitted it. The servicer logged it as accepted, but it was never aggregated and
+  the final model is unaffected. The race is not fixed.
+- The server-disagrees-with-contract refusal is covered by unit tests on both clients. It was not provoked live.
