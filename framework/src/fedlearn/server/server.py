@@ -59,6 +59,17 @@ class ServerConfig:
     secure_agg_threshold: int = 2
 
 
+def build_coordinator(strategy, config: ServerConfig) -> FLCoordinator:
+    """The run's coordinator. It is told the run's length so that, once the last round has aggregated, no client
+    is handed a further round to train in the moment before the loop below marks the run complete."""
+    return FLCoordinator(
+        strategy=strategy,
+        min_clients_for_aggregation=strategy.min_fit_clients,
+        clients_per_round=strategy.clients_per_round,
+        num_rounds=config.num_rounds,
+    )
+
+
 def build_servicer(coordinator, config: "ServerConfig"):
     """Construct the gRPC servicer for a run, validating the secure-aggregation configuration.
 
@@ -115,11 +126,7 @@ def start_server(
     logging.info(f"Starting FedLearn server on {server_address}")
 
     # Create coordinator
-    coordinator = FLCoordinator(
-        strategy=strategy,
-        min_clients_for_aggregation=strategy.min_fit_clients,
-        clients_per_round=strategy.clients_per_round,
-    )
+    coordinator = build_coordinator(strategy, config)
 
     coordinator.set_initial_parameters(strategy.initial_parameters)
     # Create gRPC server with proper options

@@ -57,7 +57,8 @@ class FLCoordinator:
     def __init__(self, strategy: Strategy, min_clients_for_aggregation: int, clients_per_round: int,
                  round_timeout_s: Optional[float] = None,
                  grad_clip_threshold: Optional[float] = 1000.0,
-                 client_update_l2_clip: Optional[float] = None):
+                 client_update_l2_clip: Optional[float] = None,
+                 num_rounds: Optional[int] = None):
         self.strategy = strategy
         self.min_clients = min_clients_for_aggregation
         self.clients_per_round = clients_per_round
@@ -99,6 +100,9 @@ class FLCoordinator:
         self._partition_to_client: dict[int, str] = {}
         self._client_to_partition: dict[str, int] = {}
         self.current_round = 1  # Start at round 1
+        # The run's length, when the server knows it: no round beyond it is ever handed out. None keeps the
+        # historical open-ended behaviour for callers that drive rounds themselves.
+        self.num_rounds = num_rounds
         self.stop_requested = False
         # True only after all configured rounds finished successfully (distinct
         # from stop_requested, which also covers user-stop / error teardown).
@@ -369,7 +373,10 @@ class FLCoordinator:
 
     def get_global_model_for_client(self) -> Tuple[Optional[OrderedDict[str, torch.Tensor]], int, dict]:
         with self._lock:
-            if self.stop_requested:
+            # -1 is the terminal sentinel. The run is over once stopped, and also as soon as its last round has
+            # aggregated: the server loop marks completion a moment later, and a client that fetched in between
+            # used to be handed a round that would never aggregate.
+            if self.stop_requested or (self.num_rounds is not None and self.current_round > self.num_rounds):
                 return None, -1, {}
             return self._global_model_params, self.current_round, self._strategy_client_config()
 
@@ -392,14 +399,22 @@ class FLCoordinator:
     MAX_NUM_EXAMPLES = 100_000
 
     def submit_client_update(self, client_id: str, params: OrderedDict[str, torch.Tensor], num_examples: int,
-                             trained_on_round: int):
+                             trained_on_round: int) -> bool:
+        """Count one client's update toward the current round. Returns whether it was counted.
+
+        An update is not counted when the run has ended, when it was trained on another round, when the client
+        already reported this round, or when it claims no examples. Callers must not report an uncounted update as
+        accepted.
+        """
         with self._lock:
+            if self.training_complete or self.stop_requested:
+                return False  # the run is over: a late update belongs to no round that will aggregate
             if trained_on_round < self.current_round:
-                return  # Ignore stale updates
+                return False  # Ignore stale updates
 
             if trained_on_round > self.current_round:
                 # Client is ahead, something is wrong. Ignore.
-                return
+                return False
 
             # FR-5: dedup. A retried FedAvg submit (ABORTED/UNAVAILABLE/DEADLINE_EXCEEDED are
             # client-retryable, so the server can see the same client's update twice in a round)
@@ -413,7 +428,7 @@ class FLCoordinator:
                     "Ignoring duplicate update from %s in round %d (already counted)",
                     client_id, self.current_round,
                 )
-                return
+                return False
 
             # Sanitize num_examples to prevent model poisoning
             if num_examples <= 0:
@@ -422,7 +437,7 @@ class FLCoordinator:
                     "Invalid num_examples (%s) from client %s; skipping update",
                     num_examples, client_id,
                 )
-                return
+                return False
             num_examples = min(num_examples, self.MAX_NUM_EXAMPLES)
 
             # An empty update carries no parameters — never a legitimate training result. In a
@@ -482,6 +497,7 @@ class FLCoordinator:
                     self.clients_per_round, self.current_round,
                 )
                 self._trigger_aggregation_and_evaluation()
+            return True
 
     @staticmethod
     def _tensor_is_finite(t: "torch.Tensor") -> bool:

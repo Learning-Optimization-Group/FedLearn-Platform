@@ -262,8 +262,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
             # Step 2: Submit to coordinator
             logging.info(f"[Server] Step 2: Submitting to coordinator...")
-            self.coordinator.submit_client_update(client_id, params, num_examples, trained_on_round)
-            logging.info(f"[Server] Coordinator accepted update")
+            if self.coordinator.submit_client_update(client_id, params, num_examples, trained_on_round):
+                logging.info(f"[Server] Coordinator accepted update")
+            else:
+                logging.info(f"[Server] Update from {client_id} for round {trained_on_round} was not counted "
+                             f"(the run ended, another round is current, or it already reported)")
 
             logging.info(f"[Server] SubmitModelUpdate SUCCESS")
             logging.info(f"=" * 60)
@@ -385,7 +388,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             logging.info(f"[Server] Model reconstructed successfully. Submitting to coordinator...")
 
             # Submit to coordinator
-            self.coordinator.submit_client_update(client_id, parameters, num_examples, round_num)
+            if not self.coordinator.submit_client_update(client_id, parameters, num_examples, round_num):
+                logging.info(f"[Server] Streamed update from {client_id} for round {round_num} was not counted "
+                             f"(the run ended, another round is current, or it already reported)")
 
             return fedlearn_pb2.SubmitModelUpdateResponse(received=True)
 
