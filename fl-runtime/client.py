@@ -95,6 +95,9 @@ LLM_WEIGHT_DECAY = 0.01
 LLM_MAX_GRAD_NORM = 1.0  # Standard value for transformers
 LLM_WARMUP_RATIO = 0.1  # 10% of steps for warmup
 CNN_LEARNING_RATE = 1e-3
+
+# The run's execution contract once enforce_execution_contract accepts it; None for a legacy launch.
+EXECUTION_CONTRACT = None
 MLP_LEARNING_RATE = 1e-3  # Higher LR for zeroth-order optimization
 
 # Global dataset selection (will be set via argparse)
@@ -623,6 +626,25 @@ def _coerce_local_epochs(config: dict, default) -> int:
         raise ValueError(f"invalid local_epochs in server config: {raw!r} (expected an integer)")
 
 
+def _refuse_round_outside_contract(config: dict) -> None:
+    """Under an execution contract, the server's per-round training settings are a cross-check, not an override.
+
+    Without a contract they replace this client's own (FedOpt ships its client rate this way). With one, the
+    contract states the training; a server asking for a different rate or epoch count refuses the round before
+    training, rather than silently training something the run never published.
+    """
+    if EXECUTION_CONTRACT is None:
+        return
+    local = EXECUTION_CONTRACT.model_training.local_training
+    rate = _coerce_learning_rate(config)
+    if rate is not None and rate != local.sgd.learning_rate:
+        raise ValueError(f"the server asked for learning_rate {rate!r}; the execution contract states "
+                         f"{local.sgd.learning_rate!r}")
+    if "local_epochs" in config and _coerce_local_epochs(config, None) != local.local_epochs:
+        raise ValueError(f"the server asked for local_epochs {config['local_epochs']!r}; the execution contract "
+                         f"states {local.local_epochs}")
+
+
 def _coerce_learning_rate(config: dict):
     """Return a positive finite server learning rate, or None when it was not supplied."""
     if "learning_rate" not in config:
@@ -804,6 +826,7 @@ class ZOSLClient(fl.Client):
         # TinyNet's on-device SGD path consumes this same per-round value. Other recipes retain
         # their dataset-specific rates until their execution contracts resolve those policies.
         learning_rate_override = _coerce_learning_rate(config) if MODEL_TYPE == "TINYNET_GOLDEN" else None
+        _refuse_round_outside_contract(config)
 
         if server_round == 1:
             print(f"\n{'='*60}")
@@ -1116,9 +1139,12 @@ def parse_args(argv=None):
 def enforce_execution_contract(args, model_type, training_arm):
     """Refuse to train under a published execution contract this client would not execute exactly.
 
-    Returns the accepted contract, or None when none was given (a legacy run). Exits before any data or model is
-    loaded when the contract is invalid, belongs to another run or project, or states different training.
+    Returns the accepted contract, or None when none was given (a legacy run), and keeps it in EXECUTION_CONTRACT so
+    every round is held to it. Exits before any data or model is loaded when the contract is invalid, belongs to
+    another run or project, or states different training.
     """
+    global EXECUTION_CONTRACT
+    EXECUTION_CONTRACT = None
     if not getattr(args, "execution_contract", None):
         return None
     import execution_plan
@@ -1134,6 +1160,7 @@ def enforce_execution_contract(args, model_type, training_arm):
     if problems:
         raise SystemExit("Refusing to train under this execution contract: " + "; ".join(problems))
     print(f"[contract] execution contract accepted for run {contract.run_id}")
+    EXECUTION_CONTRACT = contract
     return contract
 
 

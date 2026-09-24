@@ -476,3 +476,78 @@ def test_the_golden_contract_is_one_this_client_accepts_unmodified():
     assert execution_plan.check_contract(
         contract, "TINYNET_GOLDEN", "FedAvg", "FULL",
         project_id=contract.project_id, run_id=contract.run_id) == []
+
+
+# --- a contracted client trains only what its contract states, round by round -----------------------------
+
+def _contract_for(strategy_name, pb_strategy):
+    contract = _contract_for_this_client()
+    contract.strategy = pb_strategy
+    contract.model_training.local_training.CopyFrom(
+        execution_plan.resolve_model_training("TINYNET_GOLDEN", strategy_name, "FULL").local_training)
+    return contract
+
+
+@pytest.mark.parametrize("config", [
+    {"learning_rate": "0.02", "local_epochs": "1", "proximal_mu": "0.0"},
+    {"learning_rate": "0.01", "local_epochs": "2", "proximal_mu": "0.0"},
+], ids=["other_rate", "other_epochs"])
+def test_a_contracted_client_refuses_a_round_the_contract_does_not_state(monkeypatch, config):
+    """The server's per-round settings used to override the client's own. Under a contract they are a cross-check:
+    a server asking for different training refuses the round before any optimizer exists."""
+    import client
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", _contract_for("FedOpt", pb.STRATEGY_FEDOPT))
+    participant = _tinynet_fedavg_client(monkeypatch)
+    created = _recording_sgd(monkeypatch)
+
+    with pytest.raises(ValueError, match="execution contract"):
+        participant.fit(participant.get_parameters(), config)
+    assert created == []
+
+
+def test_a_contracted_client_trains_when_the_server_confirms_its_contract(monkeypatch):
+    import client
+    contract = _contract_for("FedOpt", pb.STRATEGY_FEDOPT)
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", contract)
+    participant = _tinynet_fedavg_client(monkeypatch)
+    created = _recording_sgd(monkeypatch)
+
+    participant.fit(participant.get_parameters(), _config_the_server_sends("fedopt"))
+
+    assert created[0].param_groups[0]["lr"] == contract.model_training.local_training.sgd.learning_rate
+
+
+def test_a_contracted_fedavg_client_refuses_a_server_that_sends_another_rate(monkeypatch):
+    import client
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", _contract_for("FedAvg", pb.STRATEGY_FEDAVG))
+    participant = _tinynet_fedavg_client(monkeypatch)
+
+    with pytest.raises(ValueError, match="execution contract"):
+        participant.fit(participant.get_parameters(), _config_the_server_sends("fedopt"))
+
+
+def test_without_a_contract_the_server_rate_still_applies(monkeypatch):
+    import client
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", None)
+    participant = _tinynet_fedavg_client(monkeypatch)
+    created = _recording_sgd(monkeypatch)
+
+    participant.fit(participant.get_parameters(), {"learning_rate": "0.02", "local_epochs": "1"})
+
+    assert created[0].param_groups[0]["lr"] == 0.02
+
+
+def test_accepting_a_contract_keeps_it_for_every_round(tmp_path, monkeypatch):
+    import client
+    from google.protobuf import json_format
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", None)
+    contract = _contract_for_this_client()
+    path = tmp_path / "contract.json"
+    path.write_text(json_format.MessageToJson(contract))
+    args = client.parse_args(["--project-id", contract.project_id, "--server-address", "localhost:50000",
+                              "--partition-id", "0", "--model-type", "TINYNET_GOLDEN", "--strategy", "FedAvg",
+                              "--execution-contract", str(path)])
+
+    client.enforce_execution_contract(args, "TINYNET_GOLDEN", "FULL")
+
+    assert client.EXECUTION_CONTRACT == contract
