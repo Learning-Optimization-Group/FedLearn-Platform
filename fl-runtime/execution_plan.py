@@ -25,6 +25,7 @@ import sys
 from google.protobuf import json_format
 
 import recipes
+import strategy_client_settings
 from fedlearn.communication.generated import execution_contract_pb2 as pb
 
 _OBJECTIVES = {"cross_entropy": pb.OBJECTIVE_CROSS_ENTROPY, "one_vs_all": pb.OBJECTIVE_ONE_VS_ALL}
@@ -114,12 +115,20 @@ def _trainable_layout(model):
     return layout
 
 
-def _tinynet_fedavg_full(initial_state_path=None) -> pb.ModelTraining:
-    """TINYNET_GOLDEN under FedAvg on the FULL arm, as client.py runs it.
+def _tinynet_first_order_full(learning_rate: float, local_epochs: int):
+    """TINYNET_GOLDEN on the FULL arm under a first-order strategy whose client trains ``local_epochs`` epochs
+    of SGD at ``learning_rate``: the client default for FedAvg and Robust, whose servers send no training
+    settings, and the server's settings for FedOpt."""
+    return lambda initial_state_path=None: _tinynet_first_order(learning_rate, local_epochs, initial_state_path)
 
-    - Optimizer: client.train() builds torch.optim.SGD over the trainable parameters with
-      CNN_LEARNING_RATE and PyTorch's defaults for everything else, anew on every call.
-    - Step budget: the FedAvg server sends no local_epochs, so ZOSLClient.fit() trains one epoch.
+
+def _tinynet_first_order(learning_rate: float, local_epochs: int, initial_state_path=None) -> pb.ModelTraining:
+    """TINYNET_GOLDEN under a first-order strategy on the FULL arm, as client.py runs it.
+
+    - Optimizer: client.train() builds torch.optim.SGD over the trainable parameters, anew on every call, with
+      PyTorch's defaults for everything but the rate: CNN_LEARNING_RATE unless the server sends a
+      learning_rate, which then overrides it.
+    - Step budget: ZOSLClient.fit() trains the server's local_epochs, or one epoch when none is sent.
     - Batching: build_tinynet_golden_decomfl_loader() yields batches of 8, reshuffled every epoch, and
       keeps an incomplete final batch.
     - Layout: the recipe's model, which freezes fc2 by construction. Its seeded build is also the frozen
@@ -140,8 +149,9 @@ def _tinynet_fedavg_full(initial_state_path=None) -> pb.ModelTraining:
         trainable=layout,
         frozen_state_sha256=_frozen_state_sha256(model, layout),
         local_training=pb.LocalTraining(
-            local_epochs=1,
-            sgd=pb.Sgd(learning_rate=0.001, momentum=0.0, dampening=0.0, weight_decay=0.0, nesterov=False),
+            local_epochs=local_epochs,
+            sgd=pb.Sgd(learning_rate=learning_rate, momentum=0.0, dampening=0.0, weight_decay=0.0,
+                       nesterov=False),
             reset_optimizer_each_round=True,
             batch_size=8,
             drop_last=False,
@@ -161,8 +171,15 @@ def _tinynet_fedavg_full(initial_state_path=None) -> pb.ModelTraining:
     return plan
 
 
+# client.py's CNN_LEARNING_RATE and one epoch: what a client trains when its server sends no settings.
+_CLIENT_DEFAULT_RATE, _CLIENT_DEFAULT_EPOCHS = 0.001, 1
+
 _PLANS = {
-    ("TINYNET_GOLDEN", "FedAvg", "FULL"): _tinynet_fedavg_full,
+    ("TINYNET_GOLDEN", "FedAvg", "FULL"): _tinynet_first_order_full(_CLIENT_DEFAULT_RATE, _CLIENT_DEFAULT_EPOCHS),
+    # Robust aggregates on the server and sends clients nothing, so they train exactly as under FedAvg.
+    ("TINYNET_GOLDEN", "Robust", "FULL"): _tinynet_first_order_full(_CLIENT_DEFAULT_RATE, _CLIENT_DEFAULT_EPOCHS),
+    ("TINYNET_GOLDEN", "FedOpt", "FULL"): _tinynet_first_order_full(
+        strategy_client_settings.FEDOPT_CLIENT_LEARNING_RATE, strategy_client_settings.FEDOPT_CLIENT_LOCAL_EPOCHS),
 }
 
 

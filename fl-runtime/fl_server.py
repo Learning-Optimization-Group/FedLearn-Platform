@@ -33,6 +33,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 import fedlearn as fl
 from fedlearn.server import DeComFL, FedLoRA, FedProx, FedOpt, RobustAggregator  # Import strategies from framework
+import strategy_client_settings
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from init_model import get_model
@@ -445,6 +446,9 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             beta2=beta2,
             tau=tau,
             variant=fedopt_variant,
+            # The client training the execution contract publishes for FedOpt runs; one source for both.
+            learning_rate=strategy_client_settings.FEDOPT_CLIENT_LEARNING_RATE,
+            local_epochs=strategy_client_settings.FEDOPT_CLIENT_LOCAL_EPOCHS,
         )
     elif args.strategy.lower() == 'robust':
         # FR-12: Byzantine-robust aggregation. The METHOD is selectable -- median and

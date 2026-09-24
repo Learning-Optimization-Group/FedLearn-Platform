@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 import pytest
+from collections import OrderedDict
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import execution_plan  # noqa: E402
@@ -77,6 +78,62 @@ def test_tinynet_fedavg_optimizer_is_the_one_the_client_builds(monkeypatch):
     assert group["maximize"] is False
     assert created[0].steps == local.local_epochs * len(participant.trainloader)
     assert not local.HasField("max_local_steps")
+
+
+def _config_the_server_sends(strategy_name):
+    """The per-round client config the real FL server ships for ``strategy_name`` on TinyNet.
+
+    Built by fl_server.select_strategy exactly as a spawned server builds it, and read through the
+    coordinator's own _strategy_client_config, so the test sees what a client receives on the wire.
+    """
+    import types
+    from argparse import Namespace
+    import fl_server
+    from fedlearn.server.coordinator import FLCoordinator
+    initial = OrderedDict((name, p.detach().clone())
+                          for name, p in recipes.get_recipe("TINYNET_GOLDEN").build_model("cpu").named_parameters()
+                          if p.requires_grad)
+    strategy = fl_server.select_strategy(
+        Namespace(strategy=strategy_name, min_clients=4, clients_per_round=4, dataset="cb",
+                  aggregation="FFA_LORA"),
+        initial, None)
+    return FLCoordinator._strategy_client_config(types.SimpleNamespace(strategy=strategy))
+
+
+@pytest.mark.parametrize("strategy, server_name", [("FedAvg", "fedavg"), ("FedOpt", "fedopt"),
+                                                   ("Robust", "robust")])
+def test_tinynet_first_order_plan_is_what_the_client_trains_under_its_servers_config(
+        monkeypatch, strategy, server_name):
+    """For each first-order strategy: the server's per-round config -> what client.py builds from it -> the
+    plan. FedOpt ships its own client rate and epochs; FedAvg and Robust ship nothing."""
+    plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", strategy, "FULL")
+    config = _config_the_server_sends(server_name)
+    participant = _tinynet_fedavg_client(monkeypatch)
+    created = _recording_sgd(monkeypatch)
+
+    participant.fit(participant.get_parameters(), config)
+
+    local = plan.local_training
+    assert len(created) == 1
+    group = created[0].param_groups[0]
+    assert group["lr"] == local.sgd.learning_rate
+    assert (group["momentum"], group["dampening"], group["weight_decay"], group["nesterov"]) == (
+        local.sgd.momentum, local.sgd.dampening, local.sgd.weight_decay, local.sgd.nesterov)
+    assert created[0].steps == local.local_epochs * len(participant.trainloader)
+
+
+def test_robust_changes_nothing_a_client_executes():
+    fedavg = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL")
+    robust = execution_plan.resolve_model_training("TINYNET_GOLDEN", "Robust", "FULL")
+    assert robust == fedavg
+
+
+def test_fedopt_trains_at_a_different_rate_than_fedavg():
+    """Guards the parametrized test above against passing vacuously: FedOpt's server really does move the
+    client rate, so the FedOpt plan must follow it rather than copy FedAvg's."""
+    fedavg = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL")
+    fedopt = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedOpt", "FULL")
+    assert fedopt.local_training.sgd.learning_rate != fedavg.local_training.sgd.learning_rate
 
 
 def test_tinynet_fedavg_optimizer_state_starts_fresh_every_round(monkeypatch):
@@ -164,7 +221,6 @@ def test_the_plan_completes_a_valid_contract():
 
 @pytest.mark.parametrize("recipe, strategy, arm", [
     ("CNN", "FedAvg", "FULL"),
-    ("TINYNET_GOLDEN", "FedOpt", "FULL"),
     ("TINYNET_GOLDEN", "DeComFL", "FULL"),
     ("TINYNET_GOLDEN", "FedProx", "FULL"),
 ])
