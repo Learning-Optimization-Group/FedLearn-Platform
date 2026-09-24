@@ -141,6 +141,23 @@ class ExecutionContractPublisherTest {
         verify(resolver).resolve("TINYNET_GOLDEN", "FedAvg", "FULL", initialModel);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"FedOpt, STRATEGY_FEDOPT", "Robust, STRATEGY_ROBUST"})
+    void aTinyNetFedOptOrRobustRunIsPublished(String strategy, com.fedlearn.contract.v1.Strategy expected)
+            throws Exception {
+        run.setStrategy(strategy);
+        when(resolver.resolve(eq("TINYNET_GOLDEN"), eq(strategy), eq("FULL"), any())).thenReturn(plan());
+        when(runService.legacyManifest(run)).thenReturn(legacyManifest());
+
+        publisher.onStaged(run.getId());
+
+        ArgumentCaptor<ExecutionContract> contract = ArgumentCaptor.forClass(ExecutionContract.class);
+        verify(store).publish(eq(run), contract.capture());
+        assertThat(contract.getValue().getStrategy()).isEqualTo(expected);
+        assertThat(ExecutionContractValidator.validate(contract.getValue(), ExecutionContractStore.SERVER_PROTOCOL_VERSION,
+                run.getId().toString(), project.getId().toString())).isEmpty();
+    }
+
     @Test
     void aContinuedRunDigestsTheRegistryModelTheServerLoads() throws Exception {
         Path head = Files.writeString(dir.resolve("head.npz"), "registry head");
