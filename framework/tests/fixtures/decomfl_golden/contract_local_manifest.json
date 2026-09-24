@@ -1,6 +1,6 @@
 {
   "description": "FedAvg local-update golden at the numbers execution contract v1 states for this run (see ../execution_contract_v1/projection_tinynet_fedavg.json). Same real LocalTrainer.fit(mu=0) as fedavg_local_manifest.json, different training.",
-  "torch_version": "2.9.1",
+  "torch_version": "2.12.0",
   "platform_machine": "arm64",
   "learning_rate": 0.001,
   "local_epochs": 1,
