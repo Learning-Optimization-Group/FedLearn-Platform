@@ -2,7 +2,7 @@
 
 **Goal:** Implement [Execution Contract v1](03-android-execution-contract-v1-design.md) as a sequence of independently tested commits, ending with a mixed-device TinyNet FedAvg run in which the laptop and Android clients both execute the same published contract.
 
-**Status:** Stages 2A–2H are complete (2026-09-22). Stage 2I, the mixed-device live run, is the remaining slice. Android now depends on execution contract v1 — see "Android is v1-dependent" below for what that costs.
+**Status:** Stage 2 is complete (2A–2I, 2026-09-24). A vivo 1805 and three laptop clients trained one published contract to COMPLETED, and the phone's training was checked numerically against the contract. Android depends on execution contract v1 — see "Android is v1-dependent" below for what that costs.
 
 ## Rules for every slice
 
@@ -83,8 +83,7 @@ in `research/results/on-device/contract_endpoint_replay.json`.
 
 ### Outstanding within 2H
 
-- The plan's on-device check — exercising the protobuf-es runtime under Hermes, since Jest does not prove
-  Hermes behavior — **has not been done**. It is folded into Stage 2I, which installs a fresh APK.
+- ~~The on-device Hermes check~~ — done in Stage 2I (2026-09-24): the phone's activity log shows the contract accepted.
 - The native launcher passes `--dataset-path`, which `client.py`'s parser does not define. Unrelated to the
   contract work, noticed while testing, left untouched.
 
@@ -132,3 +131,25 @@ in `research/results/on-device/contract_endpoint_replay.json`.
 - Build and install a fresh APK, then run three TinyNet FedAvg rounds with the vivo and three desktop clients on one published contract.
 - Record the run ID, contract ID, client and partition assignments, accepted contributions, byte counts and terminal state under `research/results/multiplatform/`, and update the mobile status documentation.
 - Acceptance: one accepted update per participant per round; both client types report the same contract ID; the laptop and Android local plans match the contract. This does not certify other recipes, DeComFL security or GPU training.
+
+### Stage 2I — result (2026-09-24)
+
+Run `50d14f0a…` on contract `de3d4610f0f8…`, from a fresh debug APK built at `5452658` (vivo 1805, Android 10,
+arm64-v8a) plus three laptop CLI clients, reached **COMPLETED**.
+
+| Criterion | Outcome |
+| --- | --- |
+| One accepted update per participant per round | Pass. `All 4 clients reported` in rounds 1–3; 12 accepted updates (9 laptop, 3 phone); no duplicates. The coordinator counts distinct client IDs. |
+| Both client types report the same contract ID | Pass. The phone's activity log shows `Execution contract de3d4610f0f8… accepted.`; the contract served to the laptops hashes to the full contract ID. |
+| Laptop and Android local plans match the contract | Pass. Laptops: `check_contract` accepts the contract as served. Phone: a replay under "every client runs lr 1e-3 × 1" matches all six of the phone's reported losses, the digest the backend recorded for the aggregated model, and the saved final model (max abs diff 0.0). The retired lr 0.1 × 5 fails all three. |
+| Hermes runtime check (carried over from 2H) | Pass. The accepted line can only appear after protobuf-es parsing, validation and projection have run under Hermes on the device. |
+
+The first attempt (run `6e43e025…`) trained all three rounds but was marked FAILED. The FL server's callback URL
+defaults to `http://localhost:8081` whatever port the backend really uses. The test backend ran on :8084, so the
+callbacks, carrying the run's internal token, went to an unrelated backend on :8081 and were rejected. Setting
+`app.backend.internal-url` fixed it for the second run. The platform default itself is **not fixed**: it should
+derive from the backend's own `server.port`.
+
+Not shown by this run: laptop clients on separate hardware, the phone on a real network rather than USB port
+forwarding, the Electron launcher path, any learning signal (TinyNet has no evaluation set), and anything outside
+TinyNet / FedAvg / FULL.
