@@ -33,6 +33,20 @@ _DEFAULT_MAX_UPLOAD_CHUNKS = 100_000
 _DEFAULT_MAX_UPLOAD_SECONDS = 600.0         # 10 min of active streaming
 
 
+class _Refusal(Exception):
+    """An answer a handler means to give, raised inside its try and turned into context.abort() by its own clause.
+
+    gRPC's context.abort() works by raising a bare Exception. Called inside a handler's broad try, it was caught by
+    `except Exception`, logged as "RPC failed" and replaced by INTERNAL, so a client at the end of a run was told
+    "An internal server error occurred" instead of "Training complete". Same idea as _StreamLimitExceeded below.
+    """
+
+    def __init__(self, code, details):
+        super().__init__(details)
+        self.code = code
+        self.details = details
+
+
 class _StreamLimitExceeded(Exception):
     """SE-18: a streamed upload exceeded a resource cap (bytes/chunks -> RESOURCE_EXHAUSTED, or the
     wall-clock deadline -> DEADLINE_EXCEEDED). Carries the gRPC status code to abort with.
@@ -148,7 +162,7 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
             if params is None:
                 # If the server has not been initialized with a model yet
-                context.abort(grpc.StatusCode.UNAVAILABLE, "Server is not yet initialized with a model. Please wait.")
+                raise _Refusal(grpc.StatusCode.UNAVAILABLE, "Server is not yet initialized with a model. Please wait.")
 
             total_params = sum(p.numel() for p in params.values())
             size_mb = (total_params * 4) / (1024 * 1024)
@@ -164,10 +178,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                 )
             except MemoryError:
                 logging.info(f"[Server] MemoryError serializing {size_mb:.2f} MB model")
-                context.abort(grpc.StatusCode.RESOURCE_EXHAUSTED,
-                              f"Model too large ({size_mb:.2f} MB) for unary transfer. Client should use streaming.")
+                raise _Refusal(grpc.StatusCode.RESOURCE_EXHAUSTED,
+                               f"Model too large ({size_mb:.2f} MB) for unary transfer. Client should use streaming.")
 
-
+        except _Refusal as refusal:
+            context.abort(refusal.code, refusal.details)
         except Exception as e:
             logging.error(f"RPC failed for client {request.client_id}", exc_info=True)
             context.abort(grpc.StatusCode.INTERNAL, "An internal server error occurred.")
@@ -178,10 +193,10 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             params, current_round, config = self.coordinator.get_global_model_for_client()
 
             if current_round == -1:
-                context.abort(grpc.StatusCode.UNAVAILABLE, "Training complete")
+                raise _Refusal(grpc.StatusCode.UNAVAILABLE, "Training complete")
 
             if params is None:
-                context.abort(grpc.StatusCode.UNAVAILABLE, "Server not initialized")
+                raise _Refusal(grpc.StatusCode.UNAVAILABLE, "Server not initialized")
 
             logging.info(f"[Server] Streaming global model to {request.client_id} for round {current_round}")
 
@@ -235,6 +250,8 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
             logging.info(f"[Server] Model stream complete")
 
+        except _Refusal as refusal:
+            context.abort(refusal.code, refusal.details)
         except Exception as e:
             logging.error(f"RPC failed for client {request.client_id}", exc_info=True)
             context.abort(grpc.StatusCode.INTERNAL, "An internal server error occurred.")
