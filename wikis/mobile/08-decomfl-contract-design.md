@@ -1,6 +1,6 @@
 # DeComFL in Execution Contract v1 — Focused Design
 
-**Status:** Approved (2026-09-25). Being implemented in the slices below.
+**Status:** Done (2026-09-25). All slices landed, and a vivo 1805 and three laptop clients completed a live DeComFL run on a published contract. See [Result](#result).
 
 **Goal:** Put DeComFL back on the phone. It is the last strategy the strict v1 gate refuses (see
 [06](06-execution-contract-v1-implementation-plan.md), "Android is v1-dependent"). Unlike FedOpt and Robust
@@ -104,3 +104,35 @@ enum PerturbationRng { RNG_UNSPECIFIED = 0; RNG_TORCH_CPU_RANDN_F32 = 1; }
 The central estimator on the phone (it runs forward only, so a contract stating central is refused there),
 LightSecAgg on the phone, recipes other than TinyNet, and the rebuild-history protocol for clients that miss rounds
 (unchanged).
+
+## Result
+
+| Slice | Commits |
+| --- | --- |
+| 1. Schema | `2084e7c` |
+| 2. Rules, corpus, three readers | `4ab4c6c`: 175 cases; each reader fails exactly the 19 new or changed ones with its change reverted |
+| 3. Resolver plan | `db5f24f`, backend publication pinned in `f84df71` |
+| 4. Laptop guard | `d17015b` (framework round check, estimator passthrough), `c2eefd3` |
+| 5. Phone | `6af4264`, `f0b98d6`, `bb065c8` |
+| Found by the live run | `426b8e8`: phone DeComFL started from an all-zero model |
+
+**Two phone bugs the live run exposed**, both fixed:
+
+1. **Wrong config keys.** The native client read the server's DeComFL rate and smoothing under `lr` / `mu`, which
+   the server never sends (`learning_rate` / `smoothing_param`), so it always trained on its 0.001 defaults
+   (`6af4264`).
+2. **The phone computed every DeComFL scalar at an all-zero model.** The DeComFL path never downloaded the global
+   model, and the ModelManager zero-initialises its parameters. The first live run showed a constant phone loss
+   of 1.1221, exactly TinyNet's loss with its trainable parameters zeroed. The phone now downloads the round-1
+   model, proves it is the contract's `initialStateSha256`, refuses to join after round 1, and reports loss on the
+   model it trains from (`426b8e8`).
+
+   A replay attributes 1.6×10⁻⁴ of error in the buggy run's final model to it, about 18% of the run's total
+   parameter movement. This affected every phone DeComFL run before the fix.
+
+Live, after the fix (run `b3162471…`, contract `1c3fa059…`): COMPLETED, with 4 of 4 clients reporting in each of
+3 rounds and no errors. The phone's losses were 1.0973 → 1.0972 → 1.0970. A replay through the real server strategy
+matches all three and the saved final model to 7×10⁻⁸. Records are in `research/results/multiplatform/decomfl_*`.
+
+Not exercised live: a server config that disagrees with the contract (unit-tested on both clients), a phone
+joining after round 1 (refused), and LightSecAgg (refused on the phone).

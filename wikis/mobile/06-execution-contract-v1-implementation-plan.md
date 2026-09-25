@@ -61,8 +61,9 @@ approximates. Each refusal names its reason (`CONTRACT_MISSING`, `CONTRACT_LEGAC
 **This was a deliberate capability regression and must not be described as anything else.** At first the approved v1
 matrix was TinyNet / FedAvg / FULL only, so DeComFL, FedOpt and Robust stopped running on the phone even though
 Stage 1 validated them live. **FedOpt and Robust are restored** (2026-09-24,
-[07](07-fedopt-robust-contract-plan.md)): they are in the matrix and completed live on the phone. **DeComFL is still
-refused**; it needs a schema extension for the zeroth-order path.
+[07](07-fedopt-robust-contract-plan.md)): they are in the matrix and completed live on the phone. **DeComFL is restored
+too** (2026-09-25, [08](08-decomfl-contract-design.md)), after a schema extension for zeroth-order training. Only
+FedProx is still refused; it needs a native proximal term.
 
 ### Findings from 2H worth carrying into the paper
 
