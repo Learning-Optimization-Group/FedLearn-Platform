@@ -5,9 +5,12 @@ import { create, toJson } from '@bufbuild/protobuf';
 import {
   ArtifactBackend,
   ExecutionContractSchema,
+  GradientEstimator,
+  PerturbationRng,
   SecureAggregation,
   Strategy,
   UpdateProtocol,
+  ZerothOrderSgdSchema,
   type ExecutionContract,
 } from '@/gen/fedlearn/contract/v1/execution_contract_pb';
 import {
@@ -134,15 +137,82 @@ function sgd(contract: ExecutionContract) {
   return optimizer.value;
 }
 
+/** The golden contract made a valid TinyNet DeComFL contract: zeroth-order training, scalar updates. */
+function decomfl(): ExecutionContract {
+  const contract = golden();
+  contract.strategy = Strategy.DECOMFL;
+  if (contract.workload.case !== 'modelTraining' || !contract.workload.value.localTraining) {
+    throw new Error('the golden contract trains a model');
+  }
+  contract.workload.value.updateProtocol = UpdateProtocol.UPDATE_DECOMFL_SCALAR;
+  const lt = contract.workload.value.localTraining;
+  lt.localEpochs = 0;
+  lt.optimizer = {
+    case: 'zerothOrderSgd',
+    value: create(ZerothOrderSgdSchema, {
+      learningRate: 0.001, smoothing: 0.002, numLocalSteps: 1, numPerturbations: 10,
+      estimator: GradientEstimator.ESTIMATOR_FORWARD, rng: PerturbationRng.RNG_TORCH_CPU_RANDN_F32,
+    }),
+  };
+  return contract;
+}
+
+function zeroth(contract: ExecutionContract) {
+  const optimizer = local(contract).optimizer;
+  if (optimizer.case !== 'zerothOrderSgd') {
+    throw new Error('a DeComFL contract trains zeroth-order');
+  }
+  return optimizer.value;
+}
+
+describe('the phone trains DeComFL from its contract', () => {
+  it('projects the zeroth-order training the contract states', () => {
+    expect(decide(decomfl())).toMatchObject({
+      kind: 'train',
+      projection: {
+        strategy: 'DeComFL', learningRate: 0.001, numLocalSteps: 1, batchSize: 8,
+        zerothOrder: { smoothing: 0.002, numPerturbations: 10 },
+      },
+    });
+  });
+
+  it('refuses the central estimator, which it does not implement', () => {
+    const contract = decomfl();
+    zeroth(contract).estimator = GradientEstimator.ESTIMATOR_CENTRAL;
+    expect(decide(contract)).toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_OPTIMIZER' });
+  });
+
+  it('refuses secure aggregation it cannot perform', () => {
+    const contract = decomfl();
+    if (contract.security) {
+      contract.security.secureAggregation = SecureAggregation.SECAGG_LIGHTSECAGG_SCALAR;
+      contract.security.secureAggThreshold = 2;
+    }
+    expect(decide(contract)).toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_SECURITY' });
+  });
+
+  it('refuses batching its whole-batch trainer cannot reproduce', () => {
+    const contract = decomfl();
+    local(contract).dropLast = true;
+    expect(decide(contract)).toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_BATCHING' });
+  });
+
+  it('refuses a DeComFL contract whose update is not gradient scalars', () => {
+    const contract = decomfl();
+    if (contract.workload.case === 'modelTraining') {
+      contract.workload.value.updateProtocol = UpdateProtocol.UPDATE_TRAINABLE_STATE_F32;
+    }
+    expect(projectContract(contract, 'a'.repeat(64)))
+      .toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_UPDATE_PROTOCOL' });
+  });
+});
+
 describe('the phone refuses what it cannot execute', () => {
   // A DeComFL or secure-aggregation run is refused as soon as it is published outside the approved v1 matrix, so
   // these drive the capability layer directly: it is what refuses them once the matrix widens to those runs.
   it('refuses a strategy it has no contract path for', () => {
     const contract = golden();
-    contract.strategy = Strategy.DECOMFL;
-    if (contract.workload.case === 'modelTraining') {
-      contract.workload.value.updateProtocol = UpdateProtocol.UPDATE_DECOMFL_SCALAR;
-    }
+    contract.strategy = Strategy.FEDPROX;   // the native trainer has no proximal term
     expect(projectContract(contract, 'a'.repeat(64)))
       .toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_STRATEGY' });
   });

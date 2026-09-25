@@ -1,10 +1,11 @@
 // Execution contract v1 on Android. Before the phone downloads a model or opens local data, it decides from the
 // run's published contract whether it may train at all, and projects the contract into the settings the native
 // trainer runs with. Android is v1-dependent: a run without a READY contract it can execute exactly is refused
-// with a precise reason, never approximated. Runs v1 does not cover yet — DeComFL and FedProx — are therefore
-// refused until their contracts exist.
-import { ArtifactBackend, ContractIssueCodeSchema, SecureAggregation, Strategy, UpdateProtocol,
-  type ArtifactVariant, type ExecutionContract, type LocalTraining } from '../gen/fedlearn/contract/v1/execution_contract_pb';
+// with a precise reason, never approximated. FedProx, which v1 does not cover yet, is therefore refused until its
+// contract exists.
+import { ArtifactBackend, ContractIssueCodeSchema, GradientEstimator, PerturbationRng, SecureAggregation, Strategy,
+  UpdateProtocol, type ArtifactVariant, type ExecutionContract, type LocalTraining, type ModelTraining,
+} from '../gen/fedlearn/contract/v1/execution_contract_pb';
 import { MalformedContractError, parseContractJson, validateContract } from './executionContract';
 import { SERVER_PROTOCOL_VERSION } from './nativeCompatibility';
 
@@ -40,10 +41,13 @@ const FIRST_ORDER_STRATEGIES: ReadonlyMap<Strategy, FirstOrderStrategy> = new Ma
 /** What the native trainer needs from the contract for one round. */
 export interface ContractProjection {
   contractId: string;
-  strategy: FirstOrderStrategy;
+  strategy: FirstOrderStrategy | 'DeComFL';
   learningRate: number;
+  /** First-order: local epochs of one whole-batch step each. DeComFL: K, the zeroth-order local steps. */
   numLocalSteps: number;
   batchSize: number;
+  /** DeComFL only: the zeroth-order settings the native round holds the server's round config to. */
+  zerothOrder?: { smoothing: number; numPerturbations: number };
 }
 
 export type ContractDecision =
@@ -124,6 +128,9 @@ export function projectContract(contract: ExecutionContract, contractId: string)
     return refuse('CONTRACT_INVALID', 'This run\'s execution contract describes no model training.');
   }
   const training = contract.workload.value;
+  if (contract.strategy === Strategy.DECOMFL) {
+    return projectDeComFL(contract, contractId, training);
+  }
   const strategy = FIRST_ORDER_STRATEGIES.get(contract.strategy);
   if (!strategy) {
     return refuse('UNSUPPORTED_STRATEGY',
@@ -164,6 +171,54 @@ export function projectContract(contract: ExecutionContract, contractId: string)
       learningRate: sgd!.learningRate,
       numLocalSteps: local.localEpochs,
       batchSize: local.batchSize,
+    },
+  };
+}
+
+/**
+ * DeComFL: zeroth-order training whose update is gradient scalars. The native round computes the forward
+ * difference only, draws perturbations with the generator that byte-matches torch.randn, and trains the staged
+ * batch whole; anything else the contract states is refused.
+ */
+function projectDeComFL(contract: ExecutionContract, contractId: string, training: ModelTraining): ContractDecision {
+  if (training.updateProtocol !== UpdateProtocol.UPDATE_DECOMFL_SCALAR) {
+    return refuse('UNSUPPORTED_UPDATE_PROTOCOL', 'This DeComFL run expects an update this app does not produce.');
+  }
+  if (contract.security?.secureAggregation !== SecureAggregation.SECAGG_NONE) {
+    return refuse('UNSUPPORTED_SECURITY', 'This run requires secure aggregation, which this app cannot perform.');
+  }
+  const local = training.localTraining;
+  if (!local) {
+    return refuse('CONTRACT_INVALID', 'This run\'s execution contract states no local training.');
+  }
+  if (local.optimizer.case !== 'zerothOrderSgd') {
+    return refuse('UNSUPPORTED_OPTIMIZER', 'This DeComFL run does not state zeroth-order training.');
+  }
+  const zo = local.optimizer.value;
+  if (zo.estimator !== GradientEstimator.ESTIMATOR_FORWARD) {
+    return refuse('UNSUPPORTED_OPTIMIZER', 'This run uses a gradient estimator this app does not implement; it '
+      + 'computes the forward difference only.');
+  }
+  if (zo.rng !== PerturbationRng.RNG_TORCH_CPU_RANDN_F32) {
+    return refuse('UNSUPPORTED_OPTIMIZER', 'This run draws perturbations with a generator this app does not have.');
+  }
+  if (local.dropLast !== false) {
+    return refuse('UNSUPPORTED_BATCHING',
+      'This run batches its local training in a way this app\'s trainer cannot reproduce.');
+  }
+  if (!portableCpuVariant(training.artifacts)) {
+    return refuse('MISSING_CPU_ARTIFACT', `This run has no portable CPU model for ${DEVICE_ABI} devices.`);
+  }
+  return {
+    kind: 'train',
+    contract,
+    projection: {
+      contractId,
+      strategy: 'DeComFL',
+      learningRate: zo.learningRate,
+      numLocalSteps: zo.numLocalSteps,
+      batchSize: local.batchSize,
+      zerothOrder: { smoothing: zo.smoothing, numPerturbations: zo.numPerturbations },
     },
   };
 }

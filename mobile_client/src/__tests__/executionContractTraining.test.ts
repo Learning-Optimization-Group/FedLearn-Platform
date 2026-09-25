@@ -147,6 +147,41 @@ describe('runTrainingLoop — the execution contract decides', () => {
     expect(runFedAvgRound.mock.calls[0][1]).toMatchObject({ strategy: 'FedOpt', learningRate: 0.01 });
   });
 
+  test('runs a DeComFL contract through the DeComFL round, with the contract\'s own training', async () => {
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce(STAGED_BUNDLE);
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    const getServerStatus = jest.fn()
+      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 1 })
+      .mockResolvedValueOnce({ serverState: 'TRAINING_COMPLETE', currentRound: 1 });
+    const runDeComFLRound = jest.fn().mockResolvedValue({
+      round: 1, loss: 1, accuracy: 0, scalarsTransmitted: 10,
+      uplinkBytes: 80, downlinkBytes: 0, computeMs: 1, reverted: false,
+    });
+    const runFedAvgRound = jest.fn();
+    const contract = contractJson() as {
+      strategy: string; modelTraining: { updateProtocol: string; localTraining: Record<string, unknown> } };
+    contract.strategy = 'STRATEGY_DECOMFL';
+    contract.modelTraining.updateProtocol = 'UPDATE_DECOMFL_SCALAR';
+    delete contract.modelTraining.localTraining.sgd;
+    delete contract.modelTraining.localTraining.localEpochs;
+    contract.modelTraining.localTraining.zerothOrderSgd = {
+      learningRate: 0.001, smoothing: 0.002, numLocalSteps: 1, numPerturbations: 10,
+      estimator: 'ESTIMATOR_FORWARD', rng: 'RNG_TORCH_CPU_RANDN_F32',
+    };
+
+    await runTrainingLoop(joined({ strategy: 'DeComFL', executionContract: contract }), hooks, {
+      policy: POLICY,
+      ops: { getServerStatus, runFedAvgRound, runDeComFLRound,
+        loadSubmittedRound: async () => null, saveSubmittedRound: async () => {} },
+    });
+
+    expect(runFedAvgRound).not.toHaveBeenCalled();
+    expect(runDeComFLRound.mock.calls[0][1]).toMatchObject({
+      strategy: 'DeComFL', learningRate: 0.001, mu: 0.002, numLocalSteps: 1, numPerturbations: 10,
+      gradEstimateMethod: 'forward',
+    });
+  });
+
   test('refuses a run with no published contract before touching the device', async () => {
     await expect(runTrainingLoop(joined({ contractState: undefined, executionContract: undefined }), hooks))
       .rejects.toBeInstanceOf(ExecutionContractRefusedError);

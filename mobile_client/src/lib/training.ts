@@ -134,8 +134,10 @@ function roundConfigFor(joined: JoinedRun, strategy: Strategy, projection: Contr
     // The contract states the strategy and the first-order training; nothing here is a default any more.
     strategy,
     learningRate: projection.learningRate,
-    mu: 0.001,
-    numPerturbations: 1,
+    // DeComFL's smoothing and perturbations, which the native round holds the server's round config to. A
+    // first-order round never reads them.
+    mu: projection.zerothOrder?.smoothing ?? 0.001,
+    numPerturbations: projection.zerothOrder?.numPerturbations ?? 1,
     numLocalSteps: projection.numLocalSteps,
     gradEstimateMethod: 'forward',
     seed: typeof m.seed === 'number' ? m.seed : 0,
@@ -350,7 +352,8 @@ export async function runTrainingLoop(
   // execute costs nothing. There is no fallback to the legacy run fields.
   const { contract, projection } = await resolveContract(joined, overrides?.contract);
   const strategy = supportedStrategy(projection.strategy);
-  const isFirstOrder = true;   // the contract's update protocol is the float32 trainable state
+  // DeComFL uploads gradient scalars; every other v1 strategy uploads the float32 trainable state.
+  const isFirstOrder = projection.strategy !== 'DeComFL';
 
   await assertNativeCompatibility(nativeCore);
   hooks.onLog(`Execution contract ${projection.contractId.slice(0, 12)}… accepted.`);
