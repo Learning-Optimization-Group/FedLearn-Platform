@@ -122,6 +122,30 @@ def _tinynet_first_order_full(learning_rate: float, local_epochs: int):
     return lambda initial_state_path=None: _tinynet_first_order(learning_rate, local_epochs, initial_state_path)
 
 
+def _tinynet_decomfl_full(initial_state_path=None) -> pb.ModelTraining:
+    """TINYNET_GOLDEN under DeComFL on the FULL arm: zeroth-order training, gradient scalars instead of weights.
+
+    Every number is what the DeComFL server fl_server.py builds sends each round (``config.get_decomfl_config``,
+    'default' because the backend passes no --dataset): the rate and smoothing, K local steps and P perturbations
+    (the shape of the seed matrix), and the forward estimator. Perturbations come from
+    fedlearn.estimators.perturbation.canonical_perturbation: seeded CPU torch.randn, float32.
+    """
+    from config import get_decomfl_config
+    settings = get_decomfl_config("default")
+    local = pb.LocalTraining(
+        zeroth_order_sgd=pb.ZerothOrderSgd(
+            learning_rate=settings.learning_rate, smoothing=settings.smoothing_param,
+            num_local_steps=settings.num_local_steps, num_perturbations=settings.num_perturbations,
+            estimator=pb.ESTIMATOR_FORWARD, rng=pb.RNG_TORCH_CPU_RANDN_F32),
+        # No optimizer state exists to carry: each step is a fresh estimate from the round's seeds.
+        reset_optimizer_each_round=True,
+        batch_size=8,
+        drop_last=False,
+        batch_order=pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH,
+    )
+    return _tinynet_full(pb.UPDATE_DECOMFL_SCALAR, local, initial_state_path)
+
+
 def _tinynet_first_order(learning_rate: float, local_epochs: int, initial_state_path=None) -> pb.ModelTraining:
     """TINYNET_GOLDEN under a first-order strategy on the FULL arm, as client.py runs it.
 
@@ -134,6 +158,20 @@ def _tinynet_first_order(learning_rate: float, local_epochs: int, initial_state_
     - Layout: the recipe's model, which freezes fc2 by construction. Its seeded build is also the frozen
       state every peer rebuilds, so the frozen digest comes from it.
     """
+    local = pb.LocalTraining(
+        local_epochs=local_epochs,
+        sgd=pb.Sgd(learning_rate=learning_rate, momentum=0.0, dampening=0.0, weight_decay=0.0, nesterov=False),
+        reset_optimizer_each_round=True,
+        batch_size=8,
+        drop_last=False,
+        batch_order=pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH,
+    )
+    return _tinynet_full(pb.UPDATE_TRAINABLE_STATE_F32, local, initial_state_path)
+
+
+def _tinynet_full(update_protocol, local_training, initial_state_path=None) -> pb.ModelTraining:
+    """The parts of a TINYNET_GOLDEN FULL-arm plan every strategy shares: the recipe's model, which freezes fc2 by
+    construction (its seeded build is also the frozen state every peer rebuilds), its trainable layout, and its data."""
     recipe = recipes.get_recipe("TINYNET_GOLDEN")
     model = recipe.build_model("cpu")
     width = model.fc1.in_features
@@ -145,18 +183,10 @@ def _tinynet_first_order(learning_rate: float, local_epochs: int, initial_state_
         arm=pb.ARM_FULL,
         task=pb.TASK_VECTOR_CLASSIFICATION,
         objective=_OBJECTIVES[recipes.ARM_OBJECTIVES["FULL"]],
-        update_protocol=pb.UPDATE_TRAINABLE_STATE_F32,
+        update_protocol=update_protocol,
         trainable=layout,
         frozen_state_sha256=_frozen_state_sha256(model, layout),
-        local_training=pb.LocalTraining(
-            local_epochs=local_epochs,
-            sgd=pb.Sgd(learning_rate=learning_rate, momentum=0.0, dampening=0.0, weight_decay=0.0,
-                       nesterov=False),
-            reset_optimizer_each_round=True,
-            batch_size=8,
-            drop_last=False,
-            batch_order=pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH,
-        ),
+        local_training=local_training,
         data=pb.DataRequirement(
             task=pb.TASK_VECTOR_CLASSIFICATION,
             input_shape=[width],
@@ -180,6 +210,8 @@ _PLANS = {
     ("TINYNET_GOLDEN", "Robust", "FULL"): _tinynet_first_order_full(_CLIENT_DEFAULT_RATE, _CLIENT_DEFAULT_EPOCHS),
     ("TINYNET_GOLDEN", "FedOpt", "FULL"): _tinynet_first_order_full(
         strategy_client_settings.FEDOPT_CLIENT_LEARNING_RATE, strategy_client_settings.FEDOPT_CLIENT_LOCAL_EPOCHS),
+    # DeComFL: zeroth-order training; the update is gradient scalars.
+    ("TINYNET_GOLDEN", "DeComFL", "FULL"): _tinynet_decomfl_full,
 }
 
 

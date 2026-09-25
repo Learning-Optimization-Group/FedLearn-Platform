@@ -136,6 +136,69 @@ def test_fedopt_trains_at_a_different_rate_than_fedavg():
     assert fedopt.local_training.sgd.learning_rate != fedavg.local_training.sgd.learning_rate
 
 
+def _decomfl_round_the_server_sends():
+    """What the real FL server sends a DeComFL client for round 1, read off the wire.
+
+    fl_server.select_strategy builds the strategy exactly as a spawned server does; a real coordinator and the real
+    servicer answer GetDeComFLConfig with it.
+    """
+    from argparse import Namespace
+    import fl_server
+    from fedlearn.communication.generated import fedlearn_pb2
+    from fedlearn.server.coordinator import FLCoordinator
+    from fedlearn.server.grpc_servicer import FederatedLearningServiceServicer
+    initial = OrderedDict((name, p.detach().clone())
+                          for name, p in recipes.get_recipe("TINYNET_GOLDEN").build_model("cpu").named_parameters()
+                          if p.requires_grad)
+    strategy = fl_server.select_strategy(
+        Namespace(strategy="decomfl", min_clients=4, clients_per_round=4, dataset="cb", aggregation="FFA_LORA"),
+        initial, None)
+    coordinator = FLCoordinator(strategy=strategy, min_clients_for_aggregation=4, clients_per_round=4)
+    coordinator.set_initial_parameters(initial)
+    return FederatedLearningServiceServicer(coordinator).GetDeComFLConfig(
+        fedlearn_pb2.GetDeComFLConfigRequest(client_id="c"), None)
+
+
+def test_tinynet_decomfl_plan_is_what_the_decomfl_server_asks_clients_to_train():
+    plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", "DeComFL", "FULL")
+    response = _decomfl_round_the_server_sends()
+    seeds = [list(step.seeds) for step in response.current_seeds.local_steps]
+
+    zo = plan.local_training.zeroth_order_sgd
+    assert plan.local_training.WhichOneof("optimizer") == "zeroth_order_sgd"
+    assert zo.learning_rate == float(response.config["learning_rate"])
+    assert zo.smoothing == float(response.config["smoothing_param"])
+    assert zo.num_local_steps == int(response.config["num_local_steps"]) == len(seeds)
+    assert zo.num_perturbations == int(response.config["num_perturbations"]) == len(seeds[0])
+    assert zo.estimator == {"forward": pb.ESTIMATOR_FORWARD, "central": pb.ESTIMATOR_CENTRAL}[
+        response.grad_estimate_method]
+    assert plan.update_protocol == pb.UPDATE_DECOMFL_SCALAR
+    assert plan.local_training.local_epochs == 0 and not plan.local_training.HasField("max_local_steps")
+
+
+def test_tinynet_decomfl_draws_perturbations_with_the_generator_the_contract_names():
+    import torch
+    from fedlearn.estimators.perturbation import canonical_perturbation
+    plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", "DeComFL", "FULL")
+    assert plan.local_training.zeroth_order_sgd.rng == pb.RNG_TORCH_CPU_RANDN_F32
+    size = sum(t.shape[0] * (t.shape[1] if len(t.shape) > 1 else 1) for t in plan.trainable)
+    for seed in (0, 42, 2_147_483_646):
+        expected = torch.randn(size, generator=torch.Generator(device="cpu").manual_seed(seed), dtype=torch.float32)
+        assert torch.equal(canonical_perturbation(seed, size), expected)
+
+
+def test_the_decomfl_plan_completes_a_valid_contract():
+    with open(GOLDEN_CONTRACT, "rb") as fh:
+        contract = parse_contract_binary(fh.read())
+    contract.strategy = pb.STRATEGY_DECOMFL
+    contract.model_training.CopyFrom(execution_plan.resolve_model_training("TINYNET_GOLDEN", "DeComFL", "FULL"))
+    golden = parse_contract_binary(open(GOLDEN_CONTRACT, "rb").read()).model_training
+    contract.model_training.model_revision = golden.model_revision
+    contract.model_training.initial_state_sha256 = golden.initial_state_sha256
+    contract.model_training.artifacts.extend(golden.artifacts)
+    assert validate_contract(contract, reader_protocol_version=2) == []
+
+
 def test_tinynet_fedavg_optimizer_state_starts_fresh_every_round(monkeypatch):
     plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL")
     participant = _tinynet_fedavg_client(monkeypatch)
@@ -221,7 +284,6 @@ def test_the_plan_completes_a_valid_contract():
 
 @pytest.mark.parametrize("recipe, strategy, arm", [
     ("CNN", "FedAvg", "FULL"),
-    ("TINYNET_GOLDEN", "DeComFL", "FULL"),
     ("TINYNET_GOLDEN", "FedProx", "FULL"),
 ])
 def test_a_run_without_a_v1_plan_is_not_representable(recipe, strategy, arm):
