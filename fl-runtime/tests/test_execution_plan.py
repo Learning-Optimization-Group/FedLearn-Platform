@@ -613,3 +613,61 @@ def test_accepting_a_contract_keeps_it_for_every_round(tmp_path, monkeypatch):
     client.enforce_execution_contract(args, "TINYNET_GOLDEN", "FULL")
 
     assert client.EXECUTION_CONTRACT == contract
+
+
+# --- a contracted DeComFL client holds each round's server config to the contract ------------------------------
+
+def _decomfl_contract():
+    contract = _contract_for_this_client()
+    contract.strategy = pb.STRATEGY_DECOMFL
+    plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", "DeComFL", "FULL")
+    contract.model_training.update_protocol = plan.update_protocol
+    contract.model_training.local_training.CopyFrom(plan.local_training)
+    return contract
+
+
+def _decomfl_training_config():
+    """What the laptop's DeComFL fit() receives for round 1: the server's config, its seeds, its estimator."""
+    response = _decomfl_round_the_server_sends()
+    config = dict(response.config)
+    config["seeds"] = [list(step.seeds) for step in response.current_seeds.local_steps]
+    config["grad_estimate_method"] = response.grad_estimate_method
+    return config
+
+
+def test_the_decomfl_guard_accepts_the_round_the_real_server_sends(monkeypatch):
+    import client
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", _decomfl_contract())
+    client._refuse_decomfl_round_outside_contract(_decomfl_training_config())
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda c: c.update({"learning_rate": "0.01"}),
+    lambda c: c.update({"smoothing_param": "0.01"}),
+    lambda c: c["seeds"].append(list(c["seeds"][0])),        # one more local step than the contract states
+    lambda c: c["seeds"][0].pop(),                            # one fewer perturbation
+    lambda c: c.update({"grad_estimate_method": "central"}),
+    lambda c: c.pop("learning_rate"),                         # the client would fall back to its own default
+], ids=["rate", "smoothing", "local_steps", "perturbations", "estimator", "rate_missing"])
+def test_the_decomfl_guard_refuses_a_round_the_contract_does_not_state(monkeypatch, mutate):
+    import client
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", _decomfl_contract())
+    config = _decomfl_training_config()
+    mutate(config)
+    with pytest.raises(ValueError, match="execution contract"):
+        client._refuse_decomfl_round_outside_contract(config)
+
+
+def test_without_a_contract_the_decomfl_guard_does_nothing(monkeypatch):
+    import client
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", None)
+    client._refuse_decomfl_round_outside_contract({"learning_rate": "5"})
+
+
+def test_a_contracted_decomfl_client_holds_its_rounds_to_the_contract(monkeypatch):
+    import client
+    net = recipes.get_recipe("TINYNET_GOLDEN").build_model("cpu")
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", _decomfl_contract())
+    assert client.build_decomfl_client(net, [], 0.001).round_check is client._refuse_decomfl_round_outside_contract
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", None)
+    assert client.build_decomfl_client(net, [], 0.001).round_check is None

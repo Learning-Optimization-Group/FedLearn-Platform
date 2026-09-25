@@ -645,6 +645,44 @@ def _refuse_round_outside_contract(config: dict) -> None:
                          f"states {local.local_epochs}")
 
 
+def _refuse_decomfl_round_outside_contract(config: dict) -> None:
+    """Under an execution contract, DeComFL's per-round server config is a cross-check, never an override.
+
+    The contract's zeroth-order training states the rate, the smoothing, K local steps x P perturbations (the shape
+    of the round's seed matrix) and the estimator. A round asking for anything else is refused before training, so a
+    client never computes scalars for directions or a function the run did not publish. A value the server omits is
+    refused too: the client would otherwise fall back to a default of its own.
+    """
+    if EXECUTION_CONTRACT is None:
+        return
+    zo = EXECUTION_CONTRACT.model_training.local_training.zeroth_order_sgd
+    from fedlearn.communication.generated import execution_contract_pb2 as pb
+    estimators = {pb.ESTIMATOR_FORWARD: "forward", pb.ESTIMATOR_CENTRAL: "central"}
+    seeds = config.get("seeds") or []
+    stated = {
+        "learning_rate": zo.learning_rate,
+        "smoothing_param": zo.smoothing,
+    }
+    for key, expected in stated.items():
+        if key not in config or float(config[key]) != expected:
+            raise ValueError(f"the server asked for {key} {config.get(key)!r}; the execution contract states {expected!r}")
+    if len(seeds) != zo.num_local_steps or any(len(step) != zo.num_perturbations for step in seeds):
+        raise ValueError(f"the server's seeds are {len(seeds)} x {[len(step) for step in seeds]}; the execution "
+                         f"contract states {zo.num_local_steps} x {zo.num_perturbations}")
+    if config.get("grad_estimate_method", "forward") != estimators.get(zo.estimator):
+        raise ValueError(f"the server asked for the {config.get('grad_estimate_method')!r} estimator; the execution "
+                         f"contract states {estimators.get(zo.estimator)!r}")
+
+
+def build_decomfl_client(net, trainloader, smoothing_param):
+    """The laptop's DeComFL client, held round by round to the run's execution contract when there is one."""
+    decomfl_client = DeComFLClient(model=net, train_loader=trainloader, smoothing_param=smoothing_param,
+                                   device=DEVICE)
+    if EXECUTION_CONTRACT is not None:
+        decomfl_client.round_check = _refuse_decomfl_round_outside_contract
+    return decomfl_client
+
+
 def _coerce_learning_rate(config: dict):
     """Return a positive finite server learning rate, or None when it was not supplied."""
     if "learning_rate" not in config:
@@ -1375,12 +1413,7 @@ def main():
             )
 
         # Create DeComFL client (works for all model types)
-        client = DeComFLClient(
-            model=net,
-            train_loader=trainloader,
-            smoothing_param=decomfl_config.smoothing_param,
-            device=DEVICE
-        )
+        client = build_decomfl_client(net, trainloader, decomfl_config.smoothing_param)
 
         client_id = f"project_{args.project_id}_client_{args.partition_id}"
 
