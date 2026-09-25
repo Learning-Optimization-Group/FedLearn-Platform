@@ -214,6 +214,8 @@ message LocalTraining {
     Adam adam = 5;
     AdamW adamw = 6;
     Rmsprop rmsprop = 7;
+    // DeComFL: zeroth-order training. Steps are counted by it, so local_epochs is 0 and max_local_steps absent.
+    ZerothOrderSgd zeroth_order_sgd = 12;
   }
   // Whether optimizer state starts fresh every server round.
   optional bool reset_optimizer_each_round = 8;
@@ -261,6 +263,38 @@ message Rmsprop {
   optional double weight_decay = 4;
   optional double momentum = 5;
   optional bool centered = 6;
+}
+
+// DeComFL's client update: SGD along random directions, the directional derivatives estimated by finite
+// differences. Each round the server issues the seeds, a num_local_steps x num_perturbations matrix; every other
+// number is stated here, and a round whose server config disagrees with it is refused before upload.
+message ZerothOrderSgd {
+  // eta. After each local step's num_perturbations draws: x -= (eta / num_perturbations) * sum_p g_p * z_p.
+  double learning_rate = 1;
+  // mu, the finite-difference step: g = (L(x + mu z) - L(x)) / mu for the forward estimator.
+  double smoothing = 2;
+  // K. Each step trains on the next batch of the local loader, cycling it.
+  uint32 num_local_steps = 3;
+  // P, directions per local step.
+  uint32 num_perturbations = 4;
+  GradientEstimator estimator = 5;
+  PerturbationRng rng = 6;
+}
+
+enum GradientEstimator {
+  ESTIMATOR_UNSPECIFIED = 0;
+  // g = (L(x + mu z) - L(x)) / mu.
+  ESTIMATOR_FORWARD = 1;
+  // g = (L(x + mu z) - L(x - mu z)) / (2 mu).
+  ESTIMATOR_CENTRAL = 2;
+}
+
+// How a perturbation z is drawn from its seed. Participants whose generators are not byte-identical estimate
+// derivatives along different directions, and the aggregate is silently wrong.
+enum PerturbationRng {
+  RNG_UNSPECIFIED = 0;
+  // Standard normal float32 of the trainable size, from a CPU torch.Generator seeded with the seed (torch.randn).
+  RNG_TORCH_CPU_RANDN_F32 = 1;
 }
 
 message DataRequirement {

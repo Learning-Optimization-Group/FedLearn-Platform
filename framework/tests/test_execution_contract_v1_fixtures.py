@@ -92,3 +92,23 @@ def test_committed_golden_files_are_the_generator_output():
     contract = generator.build_golden()
     assert generator.to_binary(contract) == _golden_bytes()
     assert generator.to_json_text(contract) == _golden_json_text()
+
+
+def test_a_contract_can_state_zeroth_order_training():
+    """DeComFL's client update (wikis/mobile/08): every number a DeComFL client executes is stated in the contract,
+    as a zeroth-order optimizer, and survives both encodings unchanged."""
+    local = pb.LocalTraining(
+        batch_size=8, drop_last=False, batch_order=pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH,
+        reset_optimizer_each_round=True,
+        zeroth_order_sgd=pb.ZerothOrderSgd(
+            learning_rate=0.001, smoothing=0.001, num_local_steps=1, num_perturbations=10,
+            estimator=pb.ESTIMATOR_FORWARD, rng=pb.RNG_TORCH_CPU_RANDN_F32))
+
+    assert local.WhichOneof("optimizer") == "zeroth_order_sgd"
+    again = pb.LocalTraining.FromString(local.SerializeToString())
+    assert again == local
+    assert json_format.Parse(json_format.MessageToJson(local), pb.LocalTraining()) == local
+    rendered = json.loads(json_format.MessageToJson(local))
+    assert rendered["zerothOrderSgd"] == {
+        "learningRate": 0.001, "smoothing": 0.001, "numLocalSteps": 1, "numPerturbations": 10,
+        "estimator": "ESTIMATOR_FORWARD", "rng": "RNG_TORCH_CPU_RANDN_F32"}

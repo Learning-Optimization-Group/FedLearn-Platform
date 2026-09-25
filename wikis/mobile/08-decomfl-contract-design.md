@@ -46,8 +46,8 @@ message LocalTraining {
 // DeComFL's client update. The server issues each round's seeds (num_local_steps x num_perturbations);
 // every other number is stated here, and a round whose config disagrees is refused.
 message ZerothOrderSgd {
-  optional double learning_rate = 1;     // eta, applied per local step as x -= (eta / P) * sum_p g_p z_p
-  optional double smoothing = 2;         // mu, the finite-difference step
+  double learning_rate = 1;              // eta, applied per local step as x -= (eta / P) * sum_p g_p z_p
+  double smoothing = 2;                  // mu, the finite-difference step
   uint32 num_local_steps = 3;            // K: one batch of the (cycled) local loader per step
   uint32 num_perturbations = 4;          // P
   GradientEstimator estimator = 5;
@@ -78,8 +78,8 @@ enum PerturbationRng { RNG_UNSPECIFIED = 0; RNG_TORCH_CPU_RANDN_F32 = 1; }
 
 ## Validation rules (added to the fixtures README; one corpus case per rule, all three readers)
 
-- `zeroth_order_sgd` present: `learningRate` or `smoothing` absent → `MISSING_FIELD`; not finite and positive →
-  `OUT_OF_RANGE`. `numLocalSteps` or `numPerturbations` 0 or above the v1 limit → `OUT_OF_RANGE`. `estimator` or
+- `zeroth_order_sgd` present: `learningRate` or `smoothing` not finite and positive (a zero is absent) →
+  `OUT_OF_RANGE`; plain doubles, like `Sgd.learning_rate`, because zero is never legal. `numLocalSteps` or `numPerturbations` 0 or above the v1 limit → `OUT_OF_RANGE`. `estimator` or
   `rng` not known → `UNKNOWN_ENUM`. `localEpochs` non-zero or `maxLocalSteps` present → `INVALID_STRATEGY_SETTINGS`.
 - `updateProtocol` is `UPDATE_DECOMFL_SCALAR` exactly when the optimizer is `zeroth_order_sgd`, and the strategy is
   `STRATEGY_DECOMFL` exactly then; otherwise `INVALID_STRATEGY_SETTINGS`.

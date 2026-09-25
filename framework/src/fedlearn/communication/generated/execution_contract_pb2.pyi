@@ -96,6 +96,17 @@ class BatchOrder(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     BATCH_ORDER_SEQUENTIAL: _ClassVar[BatchOrder]
     BATCH_ORDER_SHUFFLED_EACH_EPOCH: _ClassVar[BatchOrder]
 
+class GradientEstimator(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    ESTIMATOR_UNSPECIFIED: _ClassVar[GradientEstimator]
+    ESTIMATOR_FORWARD: _ClassVar[GradientEstimator]
+    ESTIMATOR_CENTRAL: _ClassVar[GradientEstimator]
+
+class PerturbationRng(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    RNG_UNSPECIFIED: _ClassVar[PerturbationRng]
+    RNG_TORCH_CPU_RANDN_F32: _ClassVar[PerturbationRng]
+
 class ContractIssueCode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     ISSUE_UNSPECIFIED: _ClassVar[ContractIssueCode]
@@ -168,6 +179,11 @@ DTYPE_F32: DType
 BATCH_ORDER_UNSPECIFIED: BatchOrder
 BATCH_ORDER_SEQUENTIAL: BatchOrder
 BATCH_ORDER_SHUFFLED_EACH_EPOCH: BatchOrder
+ESTIMATOR_UNSPECIFIED: GradientEstimator
+ESTIMATOR_FORWARD: GradientEstimator
+ESTIMATOR_CENTRAL: GradientEstimator
+RNG_UNSPECIFIED: PerturbationRng
+RNG_TORCH_CPU_RANDN_F32: PerturbationRng
 ISSUE_UNSPECIFIED: ContractIssueCode
 ISSUE_MALFORMED: ContractIssueCode
 ISSUE_UNSUPPORTED_CONTRACT_VERSION: ContractIssueCode
@@ -295,7 +311,7 @@ class TensorSpec(_message.Message):
     def __init__(self, name: _Optional[str] = ..., shape: _Optional[_Iterable[int]] = ..., dtype: _Optional[_Union[DType, str]] = ...) -> None: ...
 
 class LocalTraining(_message.Message):
-    __slots__ = ("local_epochs", "max_local_steps", "gradient_clip_norm", "sgd", "adam", "adamw", "rmsprop", "reset_optimizer_each_round", "batch_size", "drop_last", "batch_order")
+    __slots__ = ("local_epochs", "max_local_steps", "gradient_clip_norm", "sgd", "adam", "adamw", "rmsprop", "zeroth_order_sgd", "reset_optimizer_each_round", "batch_size", "drop_last", "batch_order")
     LOCAL_EPOCHS_FIELD_NUMBER: _ClassVar[int]
     MAX_LOCAL_STEPS_FIELD_NUMBER: _ClassVar[int]
     GRADIENT_CLIP_NORM_FIELD_NUMBER: _ClassVar[int]
@@ -303,6 +319,7 @@ class LocalTraining(_message.Message):
     ADAM_FIELD_NUMBER: _ClassVar[int]
     ADAMW_FIELD_NUMBER: _ClassVar[int]
     RMSPROP_FIELD_NUMBER: _ClassVar[int]
+    ZEROTH_ORDER_SGD_FIELD_NUMBER: _ClassVar[int]
     RESET_OPTIMIZER_EACH_ROUND_FIELD_NUMBER: _ClassVar[int]
     BATCH_SIZE_FIELD_NUMBER: _ClassVar[int]
     DROP_LAST_FIELD_NUMBER: _ClassVar[int]
@@ -314,11 +331,12 @@ class LocalTraining(_message.Message):
     adam: Adam
     adamw: AdamW
     rmsprop: Rmsprop
+    zeroth_order_sgd: ZerothOrderSgd
     reset_optimizer_each_round: bool
     batch_size: int
     drop_last: bool
     batch_order: BatchOrder
-    def __init__(self, local_epochs: _Optional[int] = ..., max_local_steps: _Optional[int] = ..., gradient_clip_norm: _Optional[float] = ..., sgd: _Optional[_Union[Sgd, _Mapping]] = ..., adam: _Optional[_Union[Adam, _Mapping]] = ..., adamw: _Optional[_Union[AdamW, _Mapping]] = ..., rmsprop: _Optional[_Union[Rmsprop, _Mapping]] = ..., reset_optimizer_each_round: bool = ..., batch_size: _Optional[int] = ..., drop_last: bool = ..., batch_order: _Optional[_Union[BatchOrder, str]] = ...) -> None: ...
+    def __init__(self, local_epochs: _Optional[int] = ..., max_local_steps: _Optional[int] = ..., gradient_clip_norm: _Optional[float] = ..., sgd: _Optional[_Union[Sgd, _Mapping]] = ..., adam: _Optional[_Union[Adam, _Mapping]] = ..., adamw: _Optional[_Union[AdamW, _Mapping]] = ..., rmsprop: _Optional[_Union[Rmsprop, _Mapping]] = ..., zeroth_order_sgd: _Optional[_Union[ZerothOrderSgd, _Mapping]] = ..., reset_optimizer_each_round: bool = ..., batch_size: _Optional[int] = ..., drop_last: bool = ..., batch_order: _Optional[_Union[BatchOrder, str]] = ...) -> None: ...
 
 class Sgd(_message.Message):
     __slots__ = ("learning_rate", "momentum", "dampening", "weight_decay", "nesterov")
@@ -381,6 +399,22 @@ class Rmsprop(_message.Message):
     momentum: float
     centered: bool
     def __init__(self, learning_rate: _Optional[float] = ..., alpha: _Optional[float] = ..., epsilon: _Optional[float] = ..., weight_decay: _Optional[float] = ..., momentum: _Optional[float] = ..., centered: bool = ...) -> None: ...
+
+class ZerothOrderSgd(_message.Message):
+    __slots__ = ("learning_rate", "smoothing", "num_local_steps", "num_perturbations", "estimator", "rng")
+    LEARNING_RATE_FIELD_NUMBER: _ClassVar[int]
+    SMOOTHING_FIELD_NUMBER: _ClassVar[int]
+    NUM_LOCAL_STEPS_FIELD_NUMBER: _ClassVar[int]
+    NUM_PERTURBATIONS_FIELD_NUMBER: _ClassVar[int]
+    ESTIMATOR_FIELD_NUMBER: _ClassVar[int]
+    RNG_FIELD_NUMBER: _ClassVar[int]
+    learning_rate: float
+    smoothing: float
+    num_local_steps: int
+    num_perturbations: int
+    estimator: GradientEstimator
+    rng: PerturbationRng
+    def __init__(self, learning_rate: _Optional[float] = ..., smoothing: _Optional[float] = ..., num_local_steps: _Optional[int] = ..., num_perturbations: _Optional[int] = ..., estimator: _Optional[_Union[GradientEstimator, str]] = ..., rng: _Optional[_Union[PerturbationRng, str]] = ...) -> None: ...
 
 class DataRequirement(_message.Message):
     __slots__ = ("task", "input_shape", "input_dtype", "class_count", "label_schema_id", "transforms", "tokenizer")
