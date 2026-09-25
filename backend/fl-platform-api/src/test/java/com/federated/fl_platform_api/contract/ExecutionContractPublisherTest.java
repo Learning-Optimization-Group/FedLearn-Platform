@@ -159,6 +159,34 @@ class ExecutionContractPublisherTest {
     }
 
     @Test
+    void aTinyNetDeComFLRunIsPublishedWithItsZerothOrderTraining() throws Exception {
+        run.setStrategy("DeComFL");
+        com.fedlearn.contract.v1.LocalTraining zeroth = plan().getLocalTraining().toBuilder()
+                .clearLocalEpochs()
+                .setZerothOrderSgd(com.fedlearn.contract.v1.ZerothOrderSgd.newBuilder()
+                        .setLearningRate(0.001).setSmoothing(0.001).setNumLocalSteps(1).setNumPerturbations(10)
+                        .setEstimator(com.fedlearn.contract.v1.GradientEstimator.ESTIMATOR_FORWARD)
+                        .setRng(com.fedlearn.contract.v1.PerturbationRng.RNG_TORCH_CPU_RANDN_F32))
+                .build();
+        ModelTraining decomfl = plan().toBuilder()
+                .setUpdateProtocol(com.fedlearn.contract.v1.UpdateProtocol.UPDATE_DECOMFL_SCALAR)
+                .setLocalTraining(zeroth)
+                .build();
+        when(resolver.resolve(eq("TINYNET_GOLDEN"), eq("DeComFL"), eq("FULL"), any())).thenReturn(decomfl);
+        when(runService.legacyManifest(run)).thenReturn(legacyManifest());
+
+        publisher.onStaged(run.getId());
+
+        ArgumentCaptor<ExecutionContract> contract = ArgumentCaptor.forClass(ExecutionContract.class);
+        verify(store).publish(eq(run), contract.capture());
+        assertThat(contract.getValue().getStrategy()).isEqualTo(com.fedlearn.contract.v1.Strategy.STRATEGY_DECOMFL);
+        assertThat(contract.getValue().getModelTraining().getLocalTraining().getZerothOrderSgd().getNumPerturbations())
+                .isEqualTo(10);
+        assertThat(ExecutionContractValidator.validate(contract.getValue(), ExecutionContractStore.SERVER_PROTOCOL_VERSION,
+                run.getId().toString(), project.getId().toString())).isEmpty();
+    }
+
+    @Test
     void aContinuedRunDigestsTheRegistryModelTheServerLoads() throws Exception {
         Path head = Files.writeString(dir.resolve("head.npz"), "registry head");
         Files.setLastModifiedTime(head, FileTime.from(Instant.now().minusSeconds(3600)));
