@@ -194,3 +194,66 @@ TEST(FederatedLoop, NoTorchVersionGate) {
   EXPECT_TRUE(out.ranTraining);
   EXPECT_FALSE(out.shouldStop);
 }
+
+// --- a DeComFL round held to the run's execution contract ------------------------------------------------------
+// The contract states the zeroth-order training; the server's round config is a cross-check. Anything it asks for
+// that the contract does not state -- or leaves out -- refuses the round before any upload.
+
+namespace {
+
+fedlearn::DeComFLConfig contractedConfig() {
+  fedlearn::DeComFLConfig c = makeDeComFLConfig();   // lr 0.01, mu 0.001, seeds 2 x 2
+  c.learningRateSent = true;
+  c.muSent = true;
+  return c;
+}
+
+fedlearn::ZerothOrderContract contractFor(const fedlearn::DeComFLConfig& c) {
+  return {c.config.learningRate, c.config.mu, 2, 2, fedlearn::GradEstimateMethod::Forward};
+}
+
+}  // namespace
+
+TEST(FederatedLoop, DeComFLTrainsWhenTheServerConfirmsTheContract) {
+  LoopFixture f;
+  MockFedLearnClient mock;
+  mock.cfg = contractedConfig();
+  const fedlearn::ZerothOrderContract contract = contractFor(mock.cfg);
+  fedlearn::FederatedLoop loop(mock, f.mm);
+
+  fedlearn::RoundOutcome out = loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
+  EXPECT_TRUE(out.ranTraining);
+  EXPECT_TRUE(mock.submitCalled);
+}
+
+struct ServerDeviation {
+  const char* name;
+  void (*apply)(fedlearn::DeComFLConfig&);
+};
+
+class DeComFLServerDisagreesWithContract : public ::testing::TestWithParam<ServerDeviation> {};
+
+TEST_P(DeComFLServerDisagreesWithContract, RefusesTheRoundBeforeUpload) {
+  LoopFixture f;
+  MockFedLearnClient mock;
+  mock.cfg = contractedConfig();
+  const fedlearn::ZerothOrderContract contract = contractFor(mock.cfg);
+  GetParam().apply(mock.cfg);
+  fedlearn::FederatedLoop loop(mock, f.mm);
+
+  EXPECT_THROW(loop.deComFLRound(f.model, "run", "client", f.batch, &contract), std::runtime_error);
+  EXPECT_FALSE(mock.submitCalled);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    FederatedLoop, DeComFLServerDisagreesWithContract,
+    ::testing::Values(
+        ServerDeviation{"OtherRate", [](fedlearn::DeComFLConfig& c) { c.config.learningRate = 0.02; }},
+        ServerDeviation{"OtherSmoothing", [](fedlearn::DeComFLConfig& c) { c.config.mu = 0.01; }},
+        ServerDeviation{"RateNotSent", [](fedlearn::DeComFLConfig& c) { c.learningRateSent = false; }},
+        ServerDeviation{"SmoothingNotSent", [](fedlearn::DeComFLConfig& c) { c.muSent = false; }},
+        ServerDeviation{"MoreLocalSteps", [](fedlearn::DeComFLConfig& c) { c.seeds.push_back({5, 6}); }},
+        ServerDeviation{"FewerPerturbations", [](fedlearn::DeComFLConfig& c) { c.seeds[1].pop_back(); }},
+        ServerDeviation{"CentralEstimator",
+                        [](fedlearn::DeComFLConfig& c) { c.config.method = fedlearn::GradEstimateMethod::Central; }}),
+    [](const ::testing::TestParamInfo<ServerDeviation>& info) { return std::string(info.param.name); });

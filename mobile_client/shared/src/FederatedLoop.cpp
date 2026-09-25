@@ -53,7 +53,8 @@ int parseLocalEpochs(const std::string& raw) {
 FederatedLoop::FederatedLoop(IFedLearnClient& net, ModelManager& mm) : net_(net), mm_(mm) {}
 
 RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::string& runId,
-                                         const std::string& clientId, const DataBatch& batch) {
+                                         const std::string& clientId, const DataBatch& batch,
+                                         const ZerothOrderContract* contract) {
   RoundOutcome out;
   if (net_.shouldStop()) {
     out.shouldStop = true;
@@ -86,6 +87,27 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
   }
   const int K = static_cast<int>(seeds.size());
   const int P = static_cast<int>(seeds[0].size());
+  if (contract != nullptr) {
+    // The run's execution contract states the zeroth-order training; the server's round config is a cross-check.
+    // Anything it asks for that the contract does not state -- or leaves out -- refuses the round before upload.
+    if (!cfg.learningRateSent || cfg.config.learningRate != contract->learningRate) {
+      throw std::runtime_error("the server's learning_rate disagrees with the execution contract");
+    }
+    if (!cfg.muSent || cfg.config.mu != contract->smoothing) {
+      throw std::runtime_error("the server's smoothing_param disagrees with the execution contract");
+    }
+    if (K != contract->numLocalSteps) {
+      throw std::runtime_error("the server's local steps disagree with the execution contract");
+    }
+    for (const auto& step : seeds) {
+      if (static_cast<int>(step.size()) != contract->numPerturbations) {
+        throw std::runtime_error("the server's perturbations disagree with the execution contract");
+      }
+    }
+    if (cfg.config.method != contract->method) {
+      throw std::runtime_error("the server's gradient estimator disagrees with the execution contract");
+    }
+  }
   out.scalarsK = K;  // server-authoritative K/P actually used (for accurate comm-cost reporting)
   out.scalarsP = P;
 

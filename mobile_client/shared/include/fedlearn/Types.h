@@ -45,6 +45,16 @@ struct RoundConfig {
   std::string torchVersion;
 };
 
+// The zeroth-order training a run's execution contract states (ZerothOrderSgd). A DeComFL round held to it refuses
+// server settings that differ, before anything is uploaded.
+struct ZerothOrderContract {
+  double learningRate = 0.0;
+  double smoothing = 0.0;
+  int numLocalSteps = 0;      // K
+  int numPerturbations = 0;   // P
+  GradEstimateMethod method = GradEstimateMethod::Forward;
+};
+
 struct DeviceMetrics {
   int64_t peakRssBytes = 0;
   std::string thermalState;

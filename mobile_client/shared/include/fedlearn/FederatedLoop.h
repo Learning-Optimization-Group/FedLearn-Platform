@@ -36,8 +36,8 @@ class FederatedLoop {
 
   // One DeComFL round (§6.2): GetDeComFLConfig -> (rebuild if missed) -> fit -> SubmitGradientScalars.
   // The K/P/eta/mu come from the per-round server config (the server is authoritative).
-  RoundOutcome deComFLRound(ExecutorchModel& model, const std::string& runId,
-                            const std::string& clientId, const DataBatch& batch);
+  RoundOutcome deComFLRound(ExecutorchModel& model, const std::string& runId, const std::string& clientId,
+                            const DataBatch& batch, const ZerothOrderContract* contract = nullptr);
 
   // One FedAvg round (§6.3, ZO-SGD): GetGlobalModelStream -> loadStateDict -> K local ZO-SGD steps
   // -> SubmitGradientScalars (scalar upload, Constraint 7 — not a weight blob). numLocalSteps (K),

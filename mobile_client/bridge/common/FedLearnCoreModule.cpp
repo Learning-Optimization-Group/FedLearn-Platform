@@ -365,7 +365,13 @@ RoundResult FedLearnCoreModule::doRunDeComFLRound(const std::string& runId, cons
   std::lock_guard<std::mutex> lk(stateMutex_);
   requireReady();
   const auto t0 = std::chrono::steady_clock::now();
-  fedlearn::RoundOutcome outcome = loop_->deComFLRound(*model_, runId, clientId_, trainingBatch_);
+  // Android trains only under an execution contract; cfg carries its zeroth-order training, and the round refuses
+  // any server setting that differs from it.
+  const fedlearn::ZerothOrderContract contract{
+      cfg.learningRate, cfg.mu, cfg.numLocalSteps, cfg.numPerturbations,
+      cfg.gradEstimateMethod == "central" ? fedlearn::GradEstimateMethod::Central
+                                          : fedlearn::GradEstimateMethod::Forward};
+  fedlearn::RoundOutcome outcome = loop_->deComFLRound(*model_, runId, clientId_, trainingBatch_, &contract);
   const auto t1 = std::chrono::steady_clock::now();
   if (outcome.shouldStop) {
     throw std::runtime_error("STOP: " + outcome.note);  // RN treats a STOP-prefixed reject as a clean stop
