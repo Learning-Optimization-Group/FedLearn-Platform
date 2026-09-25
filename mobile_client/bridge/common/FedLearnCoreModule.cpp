@@ -130,6 +130,8 @@ RoundConfig roundConfigFromJs(jsi::Runtime& rt, const jsi::Object& o) {
   c.numPerturbations = static_cast<int>(o.getProperty(rt, "numPerturbations").asNumber());
   c.numLocalSteps = static_cast<int>(o.getProperty(rt, "numLocalSteps").asNumber());
   c.gradEstimateMethod = o.getProperty(rt, "gradEstimateMethod").asString(rt).utf8(rt);
+  const jsi::Value initial = o.getProperty(rt, "initialStateSha256");
+  c.initialStateSha256 = initial.isString() ? initial.asString(rt).utf8(rt) : std::string();
   c.seed = static_cast<int64_t>(o.getProperty(rt, "seed").asNumber());
   c.torchVersion = o.getProperty(rt, "torchVersion").asString(rt).utf8(rt);
   return c;
@@ -370,7 +372,8 @@ RoundResult FedLearnCoreModule::doRunDeComFLRound(const std::string& runId, cons
   const fedlearn::ZerothOrderContract contract{
       cfg.learningRate, cfg.mu, cfg.numLocalSteps, cfg.numPerturbations,
       cfg.gradEstimateMethod == "central" ? fedlearn::GradEstimateMethod::Central
-                                          : fedlearn::GradEstimateMethod::Forward};
+                                          : fedlearn::GradEstimateMethod::Forward,
+      cfg.initialStateSha256};
   fedlearn::RoundOutcome outcome = loop_->deComFLRound(*model_, runId, clientId_, trainingBatch_, &contract);
   const auto t1 = std::chrono::steady_clock::now();
   if (outcome.shouldStop) {

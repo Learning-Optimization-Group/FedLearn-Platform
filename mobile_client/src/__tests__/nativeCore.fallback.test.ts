@@ -24,6 +24,7 @@ const A_ROUND_CONFIG = {
   gradEstimateMethod: 'forward' as const,
   seed: 0,
   torchVersion: '',
+  initialStateSha256: '',
 };
 
 // Load a FRESH copy of the spec so its module-level TurboModuleRegistry.get() re-runs with the mock

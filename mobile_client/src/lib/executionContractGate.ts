@@ -46,6 +46,8 @@ export interface ContractProjection {
   /** First-order: local epochs of one whole-batch step each. DeComFL: K, the zeroth-order local steps. */
   numLocalSteps: number;
   batchSize: number;
+  /** The run's initial trainable state; a DeComFL round starts only from the server's model with this digest. */
+  initialStateSha256: string;
   /** DeComFL only: the zeroth-order settings the native round holds the server's round config to. */
   zerothOrder?: { smoothing: number; numPerturbations: number };
 }
@@ -171,6 +173,7 @@ export function projectContract(contract: ExecutionContract, contractId: string)
       learningRate: sgd!.learningRate,
       numLocalSteps: local.localEpochs,
       batchSize: local.batchSize,
+      initialStateSha256: training.initialStateSha256,
     },
   };
 }
@@ -218,6 +221,7 @@ function projectDeComFL(contract: ExecutionContract, contractId: string, trainin
       learningRate: zo.learningRate,
       numLocalSteps: zo.numLocalSteps,
       batchSize: local.batchSize,
+      initialStateSha256: training.initialStateSha256,
       zerothOrder: { smoothing: zo.smoothing, numPerturbations: zo.numPerturbations },
     },
   };

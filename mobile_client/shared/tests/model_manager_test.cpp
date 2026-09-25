@@ -34,3 +34,12 @@ TEST(ModelManager, RejectsLayoutDisagreeingWithModel) {
   EXPECT_THROW(mm.loadModel(fedtest::goldenPath("zo_model_tiny.pte"), fedtest::kTinyPteSha, bad, 43, nullptr),
                std::runtime_error);
 }
+
+// The canonical digest of a trainable state (execution_plan.state_sha256): SHA-256 of its float32 safetensors
+// encoding with no metadata, tensors in layout order. The committed golden TinyNet initial state must hash to the
+// digest the golden execution contract binds, so the phone can prove which model it starts from.
+TEST(ModelManager, CanonicalStateDigestIsTheContractsDigestForTheGoldenInitialState) {
+  fedlearn::ModelManager mm = fedtest::makeManager();
+  mm.setFlatParams(fedtest::readF32(fedtest::goldenPath("zo_flat.f32")));
+  EXPECT_EQ(mm.canonicalStateSha256(), "1122ba73e49f6df981861bb76d3dcff46666abb5f41e3a6a4d510db9fddd965c");
+}

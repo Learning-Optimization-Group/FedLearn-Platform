@@ -4,6 +4,7 @@
 #include <unordered_map>
 
 #include "fedlearn/Safetensors.h"
+#include "fedlearn/Sha256.h"
 
 namespace fedlearn {
 
@@ -53,6 +54,35 @@ void ModelManager::setFlatParams(const std::vector<float>& flat) {
 }
 
 int64_t ModelManager::trainableParamCount() const { return static_cast<int64_t>(params_.size()); }
+
+namespace {
+
+std::vector<NamedTensor> namedTensors(const std::vector<ParamSpec>& layout, const std::vector<float>& params) {
+  std::vector<NamedTensor> tensors;
+  tensors.reserve(layout.size());
+  size_t off = 0;
+  for (const auto& spec : layout) {
+    int64_t k = 1;
+    for (int64_t d : spec.shape) k *= d;
+    if (off + static_cast<size_t>(k) > params.size()) {
+      throw std::runtime_error("ModelManager: layout overruns params");
+    }
+    NamedTensor nt;
+    nt.name = spec.name;
+    nt.shape = spec.shape;
+    nt.data.assign(params.begin() + static_cast<std::ptrdiff_t>(off),
+                   params.begin() + static_cast<std::ptrdiff_t>(off + static_cast<size_t>(k)));
+    tensors.push_back(std::move(nt));
+    off += static_cast<size_t>(k);
+  }
+  return tensors;
+}
+
+}  // namespace
+
+std::string ModelManager::canonicalStateSha256() const {
+  return Sha256::hexDigest(saveSafetensors(namedTensors(layout_, params_), {}));
+}
 
 std::string ModelManager::serializeStateDict(int64_t numExamples) const {
   std::vector<NamedTensor> tensors;

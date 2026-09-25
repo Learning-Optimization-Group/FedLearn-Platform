@@ -66,6 +66,7 @@ describe('the phone decides from the contract state', () => {
       learningRate: shared.learningRate,
       numLocalSteps: shared.numLocalSteps,
       batchSize: shared.batchSize,
+      initialStateSha256: '1122ba73e49f6df981861bb76d3dcff46666abb5f41e3a6a4d510db9fddd965c',
     });
   });
 

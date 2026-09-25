@@ -111,7 +111,24 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
   out.scalarsK = K;  // server-authoritative K/P actually used (for accurate comm-cost reporting)
   out.scalarsP = P;
 
-  // Lazily snapshot the global params into the loop's owned working state.
+  if (contract != nullptr && flatState_.empty()) {
+    // The DeComFL path never downloads the global model: it starts from a state and follows the aggregates from
+    // there. That state used to be the ModelManager's zero-initialised params, so every scalar was a derivative at
+    // the wrong point. Start from the server's model instead -- the run's initial model, which only round 1 serves --
+    // and only once it is proven to be the one the contract binds.
+    if (cfg.currentRound != 1) {
+      throw std::runtime_error("this device can join a DeComFL run only at its first round, when the server serves "
+                               "the run's initial model");
+    }
+    int served = 0;
+    const std::string initial = net_.getGlobalModelStream(runId, clientId, &served, nullptr);
+    mm_.loadStateDict(initial);
+    if (mm_.canonicalStateSha256() != contract->initialStateSha256) {
+      throw std::runtime_error("the server's initial model is not the one the execution contract binds");
+    }
+    flatState_ = mm_.getFlatParams();
+  }
+  // Lazily snapshot the global params into the loop's owned working state (a round held to no contract).
   if (flatState_.empty()) flatState_ = mm_.getFlatParams();
 
   DeComFLClient client(cfg.config.learningRate, P, K);
@@ -127,6 +144,9 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
       return out;
     }
   }
+
+  // Evaluation reports the model this round trains from, not a state the DeComFL path never updates.
+  mm_.setFlatParams(flatState_);
 
   // fit() works on a copy and reverts flatState_ (the server owns the true global trajectory).
   GradientScalars2D scalars = client.fit(model, flatState_, seeds, batch, cfg.config.mu);

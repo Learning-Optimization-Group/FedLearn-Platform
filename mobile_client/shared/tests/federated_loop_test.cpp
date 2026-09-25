@@ -201,16 +201,29 @@ TEST(FederatedLoop, NoTorchVersionGate) {
 
 namespace {
 
+// The golden execution contract's initialStateSha256: the committed TinyNet initial state (zo_flat.f32).
+const char* kInitialStateSha256 = "1122ba73e49f6df981861bb76d3dcff46666abb5f41e3a6a4d510db9fddd965c";
+
 fedlearn::DeComFLConfig contractedConfig() {
   fedlearn::DeComFLConfig c = makeDeComFLConfig();   // lr 0.01, mu 0.001, seeds 2 x 2
+  c.currentRound = 1;
   c.learningRateSent = true;
   c.muSent = true;
   return c;
 }
 
 fedlearn::ZerothOrderContract contractFor(const fedlearn::DeComFLConfig& c) {
-  return {c.config.learningRate, c.config.mu, 2, 2, fedlearn::GradEstimateMethod::Forward};
+  return {c.config.learningRate, c.config.mu, 2, 2, fedlearn::GradEstimateMethod::Forward, kInitialStateSha256};
 }
+
+// The global model the server streams down, from a trainable flat.
+std::string globalBlobFrom(const std::vector<float>& flat) {
+  fedlearn::ModelManager mm = fedtest::makeManager();
+  mm.setFlatParams(flat);
+  return mm.serializeStateDict(/*numExamples=*/0);
+}
+
+std::vector<float> initialState() { return fedtest::readF32(fedtest::goldenPath("zo_flat.f32")); }
 
 }  // namespace
 
@@ -218,12 +231,55 @@ TEST(FederatedLoop, DeComFLTrainsWhenTheServerConfirmsTheContract) {
   LoopFixture f;
   MockFedLearnClient mock;
   mock.cfg = contractedConfig();
+  mock.globalBlob = globalBlobFrom(initialState());
   const fedlearn::ZerothOrderContract contract = contractFor(mock.cfg);
   fedlearn::FederatedLoop loop(mock, f.mm);
 
   fedlearn::RoundOutcome out = loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
   EXPECT_TRUE(out.ranTraining);
   EXPECT_TRUE(mock.submitCalled);
+}
+
+// The phone used to start DeComFL from an all-zero model -- the ModelManager's initial params -- because the DeComFL
+// path never downloads the global model: every scalar it uploaded was a derivative at the wrong point. A contracted
+// round starts from the server's initial model and proves it is the one the contract binds.
+TEST(FederatedLoop, DeComFLStartsFromTheRunsInitialModel) {
+  LoopFixture f;
+  MockFedLearnClient mock;
+  mock.cfg = contractedConfig();
+  mock.globalBlob = globalBlobFrom(initialState());
+  const fedlearn::ZerothOrderContract contract = contractFor(mock.cfg);
+  fedlearn::FederatedLoop loop(mock, f.mm);
+
+  loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
+
+  EXPECT_EQ(f.mm.getFlatParams(), initialState());   // the model the round trained from, not zeros
+}
+
+TEST(FederatedLoop, DeComFLRefusesAnInitialModelTheContractDoesNotBind) {
+  LoopFixture f;
+  MockFedLearnClient mock;
+  mock.cfg = contractedConfig();
+  mock.globalBlob = globalBlobFrom(std::vector<float>(25, 0.0f));
+  const fedlearn::ZerothOrderContract contract = contractFor(mock.cfg);
+  fedlearn::FederatedLoop loop(mock, f.mm);
+
+  EXPECT_THROW(loop.deComFLRound(f.model, "run", "client", f.batch, &contract), std::runtime_error);
+  EXPECT_FALSE(mock.submitCalled);
+}
+
+TEST(FederatedLoop, DeComFLRefusesToStartAfterTheFirstRound) {
+  // Only round 1 serves the initial model the contract binds; from later rounds the phone cannot know it.
+  LoopFixture f;
+  MockFedLearnClient mock;
+  mock.cfg = contractedConfig();
+  mock.cfg.currentRound = 2;
+  mock.globalBlob = globalBlobFrom(initialState());
+  const fedlearn::ZerothOrderContract contract = contractFor(mock.cfg);
+  fedlearn::FederatedLoop loop(mock, f.mm);
+
+  EXPECT_THROW(loop.deComFLRound(f.model, "run", "client", f.batch, &contract), std::runtime_error);
+  EXPECT_FALSE(mock.submitCalled);
 }
 
 struct ServerDeviation {
@@ -237,6 +293,7 @@ TEST_P(DeComFLServerDisagreesWithContract, RefusesTheRoundBeforeUpload) {
   LoopFixture f;
   MockFedLearnClient mock;
   mock.cfg = contractedConfig();
+  mock.globalBlob = globalBlobFrom(initialState());
   const fedlearn::ZerothOrderContract contract = contractFor(mock.cfg);
   GetParam().apply(mock.cfg);
   fedlearn::FederatedLoop loop(mock, f.mm);

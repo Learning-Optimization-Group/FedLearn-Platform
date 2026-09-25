@@ -19,6 +19,7 @@ const CFG: RoundConfig = {
   gradEstimateMethod: 'forward',
   seed: 0,
   torchVersion: '',
+  initialStateSha256: '',
 };
 
 const POLICY: ResiliencePolicy = {

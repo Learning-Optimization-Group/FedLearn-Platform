@@ -36,6 +36,9 @@ export interface RoundConfig {
   numPerturbations: number; // P  (1..256, 04 §4.2)
   numLocalSteps: number; // K  (1..1000)
   gradEstimateMethod: GradEstimateMethod; // default 'forward' (B1-H2)
+  // The run's initial trainable state (execution contract). A DeComFL round starts only from the server's model
+  // proven to be this one. Empty when unset.
+  initialStateSha256: string;
   seed: number; // optimizer seed (distinct from data seed)
   torchVersion: string; // must match server's GetDeComFLConfigResponse.torch_version
 }

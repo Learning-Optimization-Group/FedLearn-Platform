@@ -37,6 +37,7 @@ struct RoundConfig {
   std::string gradEstimateMethod;  // "forward" | "central"
   int64_t seed = 0;
   std::string torchVersion;        // server's expected torch version (RNG-parity gate)
+  std::string initialStateSha256;  // the run's initial trainable state (execution contract)
 };
 
 struct RoundResult {

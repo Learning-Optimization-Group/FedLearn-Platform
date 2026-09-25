@@ -179,6 +179,8 @@ describe('runTrainingLoop — the execution contract decides', () => {
     expect(runDeComFLRound.mock.calls[0][1]).toMatchObject({
       strategy: 'DeComFL', learningRate: 0.001, mu: 0.002, numLocalSteps: 1, numPerturbations: 10,
       gradEstimateMethod: 'forward',
+      // The native round starts only from the initial model the contract binds.
+      initialStateSha256: (contract.modelTraining as unknown as { initialStateSha256: string }).initialStateSha256,
     });
   });
 

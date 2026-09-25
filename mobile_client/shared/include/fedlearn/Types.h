@@ -53,6 +53,9 @@ struct ZerothOrderContract {
   int numLocalSteps = 0;      // K
   int numPerturbations = 0;   // P
   GradEstimateMethod method = GradEstimateMethod::Forward;
+  // The run's initial trainable state (ModelTraining.initial_state_sha256). A round starts from the server's model
+  // only once it is proven to be this one.
+  std::string initialStateSha256;
 };
 
 struct DeviceMetrics {

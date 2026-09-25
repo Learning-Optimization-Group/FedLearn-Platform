@@ -140,6 +140,7 @@ function roundConfigFor(joined: JoinedRun, strategy: Strategy, projection: Contr
     numPerturbations: projection.zerothOrder?.numPerturbations ?? 1,
     numLocalSteps: projection.numLocalSteps,
     gradEstimateMethod: 'forward',
+    initialStateSha256: projection.initialStateSha256,
     seed: typeof m.seed === 'number' ? m.seed : 0,
     torchVersion: m.torchVersion ?? '',
   };
