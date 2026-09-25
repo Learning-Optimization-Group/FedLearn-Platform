@@ -200,9 +200,28 @@ def _json(case_id, description, mutate, *issues, context=None):
     return _case(case_id, description, issues, json_doc=_mutated(mutate), context=context)
 
 
-def _decomfl_secagg(doc, threshold=2):
+ZO = LT + ".zerothOrderSgd"
+VALID_ZO = {"learningRate": 0.001, "smoothing": 0.001, "numLocalSteps": 1, "numPerturbations": 10,
+            "estimator": "ESTIMATOR_FORWARD", "rng": "RNG_TORCH_CPU_RANDN_F32"}
+
+
+def _zeroth_order(doc, **overrides):
+    """Make the training zeroth-order: the optimizer counts the steps, so the epoch budget is dropped."""
+    local = doc[MT]["localTraining"]
+    local.pop("sgd")
+    local.pop("localEpochs")
+    local["zerothOrderSgd"] = {k: v for k, v in {**VALID_ZO, **overrides}.items() if v is not None}
+
+
+def _decomfl(doc, **overrides):
+    """A valid TinyNet DeComFL contract: scalar updates from zeroth-order training."""
     doc["strategy"] = "STRATEGY_DECOMFL"
     doc[MT]["updateProtocol"] = "UPDATE_DECOMFL_SCALAR"
+    _zeroth_order(doc, **overrides)
+
+
+def _decomfl_secagg(doc, threshold=2):
+    _decomfl(doc)
     doc["security"]["secureAggregation"] = "SECAGG_LIGHTSECAGG_SCALAR"
     if threshold is not None:
         doc["security"]["secureAggThreshold"] = threshold
@@ -384,18 +403,51 @@ def build_conformance() -> dict:
               lambda d: d["security"].update({"secureAggregation": "SECAGG_LIGHTSECAGG_SCALAR",
                                               "secureAggThreshold": 2}),
               ("INVALID_SECURITY", "security.secureAggregation")),
-        _json("secagg_decomfl_security_valid",
-              "DeComFL LightSecAgg is consistent; only the matrix refuses it in v1.",
-              _decomfl_secagg, ("UNSUPPORTED_COMBINATION", "")),
+        _json("secagg_decomfl_security_valid", "DeComFL with LightSecAgg is a valid contract.",
+              _decomfl_secagg),
         _json("secagg_without_threshold", "LightSecAgg without a threshold.",
               lambda d: _decomfl_secagg(d, threshold=None),
-              ("UNSUPPORTED_COMBINATION", ""), ("MISSING_FIELD", "security.secureAggThreshold")),
+              ("MISSING_FIELD", "security.secureAggThreshold")),
         _json("secagg_threshold_above_clients", "A threshold above clients per round.",
               lambda d: _decomfl_secagg(d, threshold=5),
-              ("UNSUPPORTED_COMBINATION", ""), ("OUT_OF_RANGE", "security.secureAggThreshold")),
+              ("OUT_OF_RANGE", "security.secureAggThreshold")),
         _json("secagg_threshold_one", "A threshold below two.",
               lambda d: _decomfl_secagg(d, threshold=1),
-              ("UNSUPPORTED_COMBINATION", ""), ("OUT_OF_RANGE", "security.secureAggThreshold")),
+              ("OUT_OF_RANGE", "security.secureAggThreshold")),
+        # --- zeroth-order training (DeComFL, wikis/mobile/08) ------------------------------------------
+        _json("decomfl_tinynet", "DeComFL on TinyNet: zeroth-order training, scalar updates.", _decomfl),
+        _json("zeroth_order_with_weight_update", "Zeroth-order training cannot produce a weight update.",
+              _zeroth_order, ("INVALID_STRATEGY_SETTINGS", MT + ".updateProtocol")),
+        _json("decomfl_scalar_update_from_sgd", "SGD cannot produce DeComFL scalars.",
+              lambda d: (d.update({"strategy": "STRATEGY_DECOMFL"}),
+                         d[MT].update({"updateProtocol": "UPDATE_DECOMFL_SCALAR"})),
+              ("INVALID_STRATEGY_SETTINGS", MT + ".updateProtocol")),
+        _json("zeroth_order_learning_rate_absent", "A zero zeroth-order learning rate.",
+              lambda d: _decomfl(d, learningRate=None), ("OUT_OF_RANGE", ZO + ".learningRate")),
+        _json("zeroth_order_smoothing_negative", "A negative smoothing step.",
+              lambda d: _decomfl(d, smoothing=-0.001), ("OUT_OF_RANGE", ZO + ".smoothing")),
+        _json("zeroth_order_smoothing_infinite", "A non-finite smoothing step.",
+              lambda d: _decomfl(d, smoothing="Infinity"), ("OUT_OF_RANGE", ZO + ".smoothing")),
+        _json("zeroth_order_local_steps_absent", "Zero zeroth-order local steps.",
+              lambda d: _decomfl(d, numLocalSteps=None), ("OUT_OF_RANGE", ZO + ".numLocalSteps")),
+        _json("zeroth_order_local_steps_over_limit", "More local steps than v1 allows.",
+              lambda d: _decomfl(d, numLocalSteps=1_000_001), ("OUT_OF_RANGE", ZO + ".numLocalSteps")),
+        _json("zeroth_order_perturbations_absent", "Zero perturbations.",
+              lambda d: _decomfl(d, numPerturbations=None), ("OUT_OF_RANGE", ZO + ".numPerturbations")),
+        _json("zeroth_order_perturbations_over_limit", "More perturbations than v1 allows.",
+              lambda d: _decomfl(d, numPerturbations=10_001), ("OUT_OF_RANGE", ZO + ".numPerturbations")),
+        _json("zeroth_order_estimator_absent", "No gradient estimator.",
+              lambda d: _decomfl(d, estimator=None), ("UNKNOWN_ENUM", ZO + ".estimator")),
+        _json("zeroth_order_estimator_unknown_number", "An estimator this reader does not know.",
+              lambda d: _decomfl(d, estimator=99), ("UNKNOWN_ENUM", ZO + ".estimator")),
+        _json("zeroth_order_rng_absent", "No perturbation generator.",
+              lambda d: _decomfl(d, rng=None), ("UNKNOWN_ENUM", ZO + ".rng")),
+        _json("zeroth_order_with_local_epochs", "An epoch budget beside the zeroth-order step count.",
+              lambda d: (_decomfl(d), d[MT]["localTraining"].update({"localEpochs": 1})),
+              ("INVALID_STRATEGY_SETTINGS", LT + ".localEpochs")),
+        _json("zeroth_order_with_max_local_steps", "A step cap beside the zeroth-order step count.",
+              lambda d: (_decomfl(d), d[MT]["localTraining"].update({"maxLocalSteps": 2})),
+              ("INVALID_STRATEGY_SETTINGS", LT + ".maxLocalSteps")),
         _json("threshold_without_secagg", "A threshold on a run without secure aggregation.",
               lambda d: d["security"].update({"secureAggThreshold": 2}),
               ("INVALID_SECURITY", "security.secureAggThreshold")),

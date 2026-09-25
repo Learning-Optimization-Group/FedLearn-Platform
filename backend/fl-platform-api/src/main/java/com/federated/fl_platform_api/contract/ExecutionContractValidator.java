@@ -13,10 +13,12 @@ import com.fedlearn.contract.v1.ContractIssueCode;
 import com.fedlearn.contract.v1.DType;
 import com.fedlearn.contract.v1.DataRequirement;
 import com.fedlearn.contract.v1.ExecutionContract;
+import com.fedlearn.contract.v1.GradientEstimator;
 import com.fedlearn.contract.v1.LocalTraining;
 import com.fedlearn.contract.v1.ModelTraining;
 import com.fedlearn.contract.v1.Objective;
 import com.fedlearn.contract.v1.Partitioning;
+import com.fedlearn.contract.v1.PerturbationRng;
 import com.fedlearn.contract.v1.Recipe;
 import com.fedlearn.contract.v1.Rmsprop;
 import com.fedlearn.contract.v1.RoundPolicy;
@@ -29,6 +31,7 @@ import com.fedlearn.contract.v1.TensorSpec;
 import com.fedlearn.contract.v1.Transform;
 import com.fedlearn.contract.v1.Transport;
 import com.fedlearn.contract.v1.UpdateProtocol;
+import com.fedlearn.contract.v1.ZerothOrderSgd;
 import com.google.protobuf.Internal;
 
 import java.util.ArrayList;
@@ -80,6 +83,7 @@ public final class ExecutionContractValidator {
     static final long MAX_ELEMENTS = 2_147_483_647L;
     static final long MAX_LOCAL_EPOCHS = 1000;
     static final long MAX_LOCAL_STEPS = 1_000_000;
+    static final long MAX_PERTURBATIONS = 10_000;
     static final long MAX_BATCH_SIZE = 65_536;
     static final long MAX_CLASSES = 1_000_000;
     static final int MAX_TRANSFORMS = 16;
@@ -110,7 +114,10 @@ public final class ExecutionContractValidator {
     private static final Set<List<Integer>> APPROVED_MATRIX = Set.of(
             tinyNetFirstOrder(Strategy.STRATEGY_FEDAVG_VALUE),
             tinyNetFirstOrder(Strategy.STRATEGY_FEDOPT_VALUE),
-            tinyNetFirstOrder(Strategy.STRATEGY_ROBUST_VALUE));
+            tinyNetFirstOrder(Strategy.STRATEGY_ROBUST_VALUE),
+            List.of(Recipe.RECIPE_TINYNET_GOLDEN_VALUE, Strategy.STRATEGY_DECOMFL_VALUE,
+                    Arm.ARM_FULL_VALUE, Task.TASK_VECTOR_CLASSIFICATION_VALUE,
+                    Objective.OBJECTIVE_CROSS_ENTROPY_VALUE, UpdateProtocol.UPDATE_DECOMFL_SCALAR_VALUE));
 
     private static List<Integer> tinyNetFirstOrder(int strategy) {
         return List.of(Recipe.RECIPE_TINYNET_GOLDEN_VALUE, strategy, Arm.ARM_FULL_VALUE,
@@ -332,6 +339,14 @@ public final class ExecutionContractValidator {
         check(matches(SHA256, mt.getInitialStateSha256()), ISSUE_INVALID_HASH, p + ".initialStateSha256");
         if (mt.hasLocalTraining()) {
             localTraining(mt.getLocalTraining());
+            // DeComFL scalars come only from zeroth-order training, and zeroth-order training produces nothing else.
+            LocalTraining.OptimizerCase optimizer = mt.getLocalTraining().getOptimizerCase();
+            if (optimizer != LocalTraining.OptimizerCase.OPTIMIZER_NOT_SET
+                    && known(UpdateProtocol::forNumber, mt.getUpdateProtocolValue()) &&
+                    (optimizer == LocalTraining.OptimizerCase.ZEROTH_ORDER_SGD) !=
+                            (mt.getUpdateProtocolValue() == UpdateProtocol.UPDATE_DECOMFL_SCALAR_VALUE)) {
+                add(ISSUE_INVALID_STRATEGY_SETTINGS, p + ".updateProtocol");
+            }
         } else {
             add(ISSUE_MISSING_FIELD, p + ".localTraining");
         }
@@ -383,14 +398,21 @@ public final class ExecutionContractValidator {
 
     private void localTraining(LocalTraining lt) {
         String p = "modelTraining.localTraining";
-        bounded(Integer.toUnsignedLong(lt.getLocalEpochs()), 1, MAX_LOCAL_EPOCHS, p + ".localEpochs");
-        if (lt.hasMaxLocalSteps()) {
-            bounded(Integer.toUnsignedLong(lt.getMaxLocalSteps()), 1, MAX_LOCAL_STEPS, p + ".maxLocalSteps");
+        LocalTraining.OptimizerCase optimizer = lt.getOptimizerCase();
+        if (optimizer == LocalTraining.OptimizerCase.ZEROTH_ORDER_SGD) {
+            // Zeroth-order training counts its own steps; an epoch budget or a step cap would be a second one.
+            check(lt.getLocalEpochs() == 0, ISSUE_INVALID_STRATEGY_SETTINGS, p + ".localEpochs");
+            check(!lt.hasMaxLocalSteps(), ISSUE_INVALID_STRATEGY_SETTINGS, p + ".maxLocalSteps");
+        } else {
+            bounded(Integer.toUnsignedLong(lt.getLocalEpochs()), 1, MAX_LOCAL_EPOCHS, p + ".localEpochs");
+            if (lt.hasMaxLocalSteps()) {
+                bounded(Integer.toUnsignedLong(lt.getMaxLocalSteps()), 1, MAX_LOCAL_STEPS, p + ".maxLocalSteps");
+            }
         }
         if (lt.hasGradientClipNorm()) {
             check(positiveFinite(lt.getGradientClipNorm()), ISSUE_OUT_OF_RANGE, p + ".gradientClipNorm");
         }
-        switch (lt.getOptimizerCase()) {
+        switch (optimizer) {
             case SGD -> sgd(lt.getSgd(), p + ".sgd");
             case ADAM -> {
                 Adam a = lt.getAdam();
@@ -403,12 +425,22 @@ public final class ExecutionContractValidator {
                         a.getWeightDecay(), a.hasAmsgrad(), p + ".adamw");
             }
             case RMSPROP -> rmsprop(lt.getRmsprop(), p + ".rmsprop");
+            case ZEROTH_ORDER_SGD -> zerothOrderSgd(lt.getZerothOrderSgd(), p + ".zerothOrderSgd");
             default -> add(ISSUE_MISSING_FIELD, p + ".optimizer");
         }
         present(lt.hasResetOptimizerEachRound(), p + ".resetOptimizerEachRound");
         bounded(Integer.toUnsignedLong(lt.getBatchSize()), 1, MAX_BATCH_SIZE, p + ".batchSize");
         present(lt.hasDropLast(), p + ".dropLast");
         enumValue(BatchOrder::forNumber, lt.getBatchOrderValue(), p + ".batchOrder");
+    }
+
+    private void zerothOrderSgd(ZerothOrderSgd zo, String p) {
+        check(positiveFinite(zo.getLearningRate()), ISSUE_OUT_OF_RANGE, p + ".learningRate");
+        check(positiveFinite(zo.getSmoothing()), ISSUE_OUT_OF_RANGE, p + ".smoothing");
+        bounded(Integer.toUnsignedLong(zo.getNumLocalSteps()), 1, MAX_LOCAL_STEPS, p + ".numLocalSteps");
+        bounded(Integer.toUnsignedLong(zo.getNumPerturbations()), 1, MAX_PERTURBATIONS, p + ".numPerturbations");
+        enumValue(GradientEstimator::forNumber, zo.getEstimatorValue(), p + ".estimator");
+        enumValue(PerturbationRng::forNumber, zo.getRngValue(), p + ".rng");
     }
 
     private boolean present(boolean has, String path) {

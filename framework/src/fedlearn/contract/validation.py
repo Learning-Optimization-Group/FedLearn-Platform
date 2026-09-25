@@ -31,6 +31,7 @@ MAX_RANK = 8
 MAX_ELEMENTS = 2_147_483_647
 MAX_LOCAL_EPOCHS = 1000
 MAX_LOCAL_STEPS = 1_000_000
+MAX_PERTURBATIONS = 10_000
 MAX_BATCH_SIZE = 65_536
 MAX_CLASSES = 1_000_000
 MAX_TRANSFORMS = 16
@@ -59,6 +60,10 @@ APPROVED_MATRIX = frozenset({
      pb.OBJECTIVE_CROSS_ENTROPY, pb.UPDATE_TRAINABLE_STATE_F32)
     # FedOpt and Robust are first-order client training too; their server-side work is not client behavior.
     for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_FEDOPT, pb.STRATEGY_ROBUST)
+} | {
+    # DeComFL: zeroth-order training, gradient scalars instead of weights.
+    (pb.RECIPE_TINYNET_GOLDEN, pb.STRATEGY_DECOMFL, pb.ARM_FULL, pb.TASK_VECTOR_CLASSIFICATION,
+     pb.OBJECTIVE_CROSS_ENTROPY, pb.UPDATE_DECOMFL_SCALAR),
 })
 
 _CLASSIFICATION_TASKS = frozenset({pb.TASK_VECTOR_CLASSIFICATION, pb.TASK_IMAGE_CLASSIFICATION,
@@ -266,6 +271,11 @@ class _Validator:
                    p + ".initialStateSha256")
         if mt.HasField("local_training"):
             self.local_training(mt.local_training)
+            # DeComFL scalars come only from zeroth-order training, and zeroth-order training produces nothing else.
+            optimizer = mt.local_training.WhichOneof("optimizer")
+            if optimizer is not None and _known(pb.UpdateProtocol.DESCRIPTOR, mt.update_protocol) and \
+                    (optimizer == "zeroth_order_sgd") != (mt.update_protocol == pb.UPDATE_DECOMFL_SCALAR):
+                self.add(pb.ISSUE_INVALID_STRATEGY_SETTINGS, p + ".updateProtocol")
         else:
             self.add(pb.ISSUE_MISSING_FIELD, p + ".localTraining")
         if mt.HasField("data"):
@@ -306,20 +316,30 @@ class _Validator:
 
     def local_training(self, lt) -> None:
         p = "modelTraining.localTraining"
-        self.bounded(lt.local_epochs, 1, MAX_LOCAL_EPOCHS, p + ".localEpochs")
-        if lt.HasField("max_local_steps"):
-            self.bounded(lt.max_local_steps, 1, MAX_LOCAL_STEPS, p + ".maxLocalSteps")
+        optimizer = lt.WhichOneof("optimizer")
+        if optimizer == "zeroth_order_sgd":
+            # Zeroth-order training counts its own steps; an epoch budget or a step cap would be a second one.
+            self.check(lt.local_epochs == 0, pb.ISSUE_INVALID_STRATEGY_SETTINGS, p + ".localEpochs")
+            self.check(not lt.HasField("max_local_steps"), pb.ISSUE_INVALID_STRATEGY_SETTINGS,
+                       p + ".maxLocalSteps")
+        else:
+            self.bounded(lt.local_epochs, 1, MAX_LOCAL_EPOCHS, p + ".localEpochs")
+            if lt.HasField("max_local_steps"):
+                self.bounded(lt.max_local_steps, 1, MAX_LOCAL_STEPS, p + ".maxLocalSteps")
         if lt.HasField("gradient_clip_norm"):
             self.check(_positive_finite(lt.gradient_clip_norm), pb.ISSUE_OUT_OF_RANGE,
                        p + ".gradientClipNorm")
-        optimizer = lt.WhichOneof("optimizer")
         if optimizer is None:
             self.add(pb.ISSUE_MISSING_FIELD, p + ".optimizer")
         elif optimizer == "sgd":
             self.sgd(lt.sgd, p + ".sgd")
         elif optimizer == "rmsprop":
             self.rmsprop(lt.rmsprop, p + ".rmsprop")
+        elif optimizer == "zeroth_order_sgd":
+            self.zeroth_order_sgd(lt.zeroth_order_sgd, p + ".zerothOrderSgd")
         else:
+            # A oneof case added to the schema must get its own rules here, never fall into Adam's.
+            assert optimizer in ("adam", "adamw"), f"no rules for optimizer {optimizer}"
             self.adam(getattr(lt, optimizer), f"{p}.{optimizer}")
         self.present(lt, "reset_optimizer_each_round", p + ".resetOptimizerEachRound")
         self.bounded(lt.batch_size, 1, MAX_BATCH_SIZE, p + ".batchSize")
@@ -349,6 +369,14 @@ class _Validator:
         if self.present(sgd, "nesterov", p + ".nesterov") and sgd.nesterov and \
                 momentum_ok and dampening_ok and not (sgd.momentum > 0 and sgd.dampening == 0):
             self.add(pb.ISSUE_INVALID_OPTIMIZER, p + ".nesterov")
+
+    def zeroth_order_sgd(self, zo, p: str) -> None:
+        self.check(_positive_finite(zo.learning_rate), pb.ISSUE_OUT_OF_RANGE, p + ".learningRate")
+        self.check(_positive_finite(zo.smoothing), pb.ISSUE_OUT_OF_RANGE, p + ".smoothing")
+        self.bounded(zo.num_local_steps, 1, MAX_LOCAL_STEPS, p + ".numLocalSteps")
+        self.bounded(zo.num_perturbations, 1, MAX_PERTURBATIONS, p + ".numPerturbations")
+        self.enum(pb.GradientEstimator.DESCRIPTOR, zo.estimator, p + ".estimator")
+        self.enum(pb.PerturbationRng.DESCRIPTOR, zo.rng, p + ".rng")
 
     def adam(self, adam, p: str) -> None:
         self.check(_positive_finite(adam.learning_rate), pb.ISSUE_OUT_OF_RANGE,

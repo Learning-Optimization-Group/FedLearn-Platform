@@ -45,6 +45,7 @@ as unsigned integers.
 | `MAX_ELEMENTS` (one extent, one tensor, all trainable tensors, one sample) | 2147483647 |
 | `MAX_LOCAL_EPOCHS` | 1000 |
 | `MAX_LOCAL_STEPS` | 1000000 |
+| `MAX_PERTURBATIONS` | 10000 |
 | `MAX_BATCH_SIZE` | 65536 |
 | `MAX_CLASSES` | 1000000 |
 | `MAX_TRANSFORMS`, `MAX_VARIANTS` | 16 |
@@ -92,10 +93,15 @@ Only these combinations of (recipe, strategy, arm, task, objective, update proto
 | `RECIPE_TINYNET_GOLDEN` | `STRATEGY_FEDAVG` | `ARM_FULL` | `TASK_VECTOR_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_TRAINABLE_STATE_F32` |
 | `RECIPE_TINYNET_GOLDEN` | `STRATEGY_FEDOPT` | `ARM_FULL` | `TASK_VECTOR_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_TRAINABLE_STATE_F32` |
 | `RECIPE_TINYNET_GOLDEN` | `STRATEGY_ROBUST` | `ARM_FULL` | `TASK_VECTOR_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_TRAINABLE_STATE_F32` |
+| `RECIPE_TINYNET_GOLDEN` | `STRATEGY_DECOMFL` | `ARM_FULL` | `TASK_VECTOR_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_DECOMFL_SCALAR` |
 
 FedOpt and Robust are first-order client training: server-side adaptation and robust aggregation are not
 client behavior, so their rows add no fields. A FedOpt contract's `localTraining` states the client rate and
 epochs its server sends (`fl-runtime/strategy_client_settings.py`).
+
+DeComFL is zeroth-order training: its `localTraining` states a `zerothOrderSgd` optimizer (rate, smoothing, local
+steps, perturbations, estimator, perturbation generator) and its update is gradient scalars. See
+`wikis/mobile/08-decomfl-contract-design.md`.
 
 Adding a row requires its runtime behavior to be implemented and tested on every participant type.
 
@@ -144,6 +150,9 @@ Each rule reads *condition → code at path*.
 - `arm`, `task`, `objective` or `updateProtocol` is not known → `UNKNOWN_ENUM`.
 - `frozenStateSha256` or `initialStateSha256` is not a SHA-256 → `INVALID_HASH`.
 - `localTraining` absent → `MISSING_FIELD`. `data` absent → `MISSING_FIELD`.
+- `localTraining` has an optimizer and `updateProtocol` is known, and the optimizer is `zerothOrderSgd` while
+  `updateProtocol` is not `UPDATE_DECOMFL_SCALAR`, or the reverse → `INVALID_STRATEGY_SETTINGS` at
+  `modelTraining.updateProtocol`. DeComFL scalars come only from zeroth-order training.
 - `strategy` is `STRATEGY_FEDPROX`: `fedproxMu` absent → `MISSING_FIELD`; not finite or negative →
   `OUT_OF_RANGE`. Otherwise, `strategy` is known and `fedproxMu` is present →
   `INVALID_STRATEGY_SETTINGS` at `modelTraining.fedproxMu`.
@@ -162,8 +171,10 @@ Each rule reads *condition → code at path*.
 
 ### `modelTraining.localTraining`
 
-- `localEpochs` outside `[1, MAX_LOCAL_EPOCHS]` → `OUT_OF_RANGE`.
-- `maxLocalSteps` present and outside `[1, MAX_LOCAL_STEPS]` → `OUT_OF_RANGE`.
+- The optimizer is not `zerothOrderSgd`: `localEpochs` outside `[1, MAX_LOCAL_EPOCHS]` → `OUT_OF_RANGE`;
+  `maxLocalSteps` present and outside `[1, MAX_LOCAL_STEPS]` → `OUT_OF_RANGE`.
+- The optimizer is `zerothOrderSgd`, which counts its own steps: `localEpochs` non-zero, or `maxLocalSteps`
+  present → `INVALID_STRATEGY_SETTINGS` at that field.
 - `gradientClipNorm` present and not finite and positive → `OUT_OF_RANGE`.
 - No optimizer → `MISSING_FIELD` at `modelTraining.localTraining.optimizer`.
 - `resetOptimizerEachRound` absent → `MISSING_FIELD`. `dropLast` absent → `MISSING_FIELD`.
@@ -180,6 +191,9 @@ Each rule reads *condition → code at path*.
 - `rmsprop`: `learningRate` or `epsilon` not finite and positive, or `alpha` not finite and strictly
   between 0 and 1 → `OUT_OF_RANGE`; `weightDecay` or `momentum` absent → `MISSING_FIELD`, or not
   finite and nonnegative → `OUT_OF_RANGE`; `centered` absent → `MISSING_FIELD`.
+- `zerothOrderSgd`: `learningRate` or `smoothing` not finite and positive → `OUT_OF_RANGE`;
+  `numLocalSteps` outside `[1, MAX_LOCAL_STEPS]` or `numPerturbations` outside `[1, MAX_PERTURBATIONS]` →
+  `OUT_OF_RANGE`; `estimator` or `rng` not known → `UNKNOWN_ENUM`.
 
 ### `modelTraining.data`
 

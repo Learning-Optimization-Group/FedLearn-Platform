@@ -22,9 +22,11 @@ import {
   ClientAuthSchema,
   ContractIssueCode,
   DTypeSchema,
+  GradientEstimatorSchema,
   ExecutionContractSchema,
   ObjectiveSchema,
   PartitioningSchema,
+  PerturbationRngSchema,
   RecipeSchema,
   SecureAggregation,
   SecureAggregationSchema,
@@ -53,6 +55,7 @@ const MAX_RANK = 8;
 const MAX_ELEMENTS = 2_147_483_647n;
 const MAX_LOCAL_EPOCHS = 1000;
 const MAX_LOCAL_STEPS = 1_000_000;
+const MAX_PERTURBATIONS = 10_000;
 const MAX_BATCH_SIZE = 65_536;
 const MAX_CLASSES = 1_000_000;
 const MAX_TRANSFORMS = 16;
@@ -78,8 +81,9 @@ const OPERATOR = /^[A-Za-z_][A-Za-z0-9_]*::[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-
 
 /** The approved v1 matrix: recipe, strategy, arm, task, objective, update protocol. */
 // FedOpt and Robust are first-order client training too; their server-side work is not client behavior.
-const APPROVED_MATRIX: ReadonlySet<string> = new Set(
-  [Strategy.FEDAVG, Strategy.FEDOPT, Strategy.ROBUST].map((strategy) =>
+// DeComFL is zeroth-order training with scalar updates.
+const APPROVED_MATRIX: ReadonlySet<string> = new Set([
+  ...[Strategy.FEDAVG, Strategy.FEDOPT, Strategy.ROBUST].map((strategy) =>
     [
       Recipe.TINYNET_GOLDEN,
       strategy,
@@ -89,7 +93,15 @@ const APPROVED_MATRIX: ReadonlySet<string> = new Set(
       UpdateProtocol.UPDATE_TRAINABLE_STATE_F32,
     ].join(','),
   ),
-);
+  [
+    Recipe.TINYNET_GOLDEN,
+    Strategy.DECOMFL,
+    Arm.FULL,
+    Task.VECTOR_CLASSIFICATION,
+    Objective.CROSS_ENTROPY,
+    UpdateProtocol.UPDATE_DECOMFL_SCALAR,
+  ].join(','),
+]);
 
 const CLASSIFICATION_TASKS: ReadonlySet<number> = new Set([
   Task.VECTOR_CLASSIFICATION,
@@ -339,6 +351,12 @@ class Validator {
     this.check(SHA256.test(mt.initialStateSha256), ContractIssueCode.ISSUE_INVALID_HASH, `${p}.initialStateSha256`);
     if (mt.localTraining !== undefined) {
       this.localTraining(mt.localTraining);
+      // DeComFL scalars come only from zeroth-order training, and zeroth-order training produces nothing else.
+      const optimizer = mt.localTraining.optimizer;
+      if (optimizer.case !== undefined && known(UpdateProtocolSchema, mt.updateProtocol) &&
+          (optimizer.case === 'zerothOrderSgd') !== (mt.updateProtocol === UpdateProtocol.UPDATE_DECOMFL_SCALAR)) {
+        this.add(ContractIssueCode.ISSUE_INVALID_STRATEGY_SETTINGS, `${p}.updateProtocol`);
+      }
     } else {
       this.add(ContractIssueCode.ISSUE_MISSING_FIELD, `${p}.localTraining`);
     }
@@ -388,9 +406,15 @@ class Validator {
 
   private localTraining(lt: LocalTraining): void {
     const p = 'modelTraining.localTraining';
-    this.bounded(lt.localEpochs, 1, MAX_LOCAL_EPOCHS, `${p}.localEpochs`);
-    if (lt.maxLocalSteps !== undefined) {
-      this.bounded(lt.maxLocalSteps, 1, MAX_LOCAL_STEPS, `${p}.maxLocalSteps`);
+    if (lt.optimizer.case === 'zerothOrderSgd') {
+      // Zeroth-order training counts its own steps; an epoch budget or a step cap would be a second one.
+      this.check(lt.localEpochs === 0, ContractIssueCode.ISSUE_INVALID_STRATEGY_SETTINGS, `${p}.localEpochs`);
+      this.check(lt.maxLocalSteps === undefined, ContractIssueCode.ISSUE_INVALID_STRATEGY_SETTINGS, `${p}.maxLocalSteps`);
+    } else {
+      this.bounded(lt.localEpochs, 1, MAX_LOCAL_EPOCHS, `${p}.localEpochs`);
+      if (lt.maxLocalSteps !== undefined) {
+        this.bounded(lt.maxLocalSteps, 1, MAX_LOCAL_STEPS, `${p}.maxLocalSteps`);
+      }
     }
     if (lt.gradientClipNorm !== undefined) {
       this.check(positiveFinite(lt.gradientClipNorm), ContractIssueCode.ISSUE_OUT_OF_RANGE, `${p}.gradientClipNorm`);
@@ -436,6 +460,17 @@ class Validator {
         this.nonnegative(rms.weightDecay, `${at}.weightDecay`);
         this.nonnegative(rms.momentum, `${at}.momentum`);
         this.present(rms.centered !== undefined, `${at}.centered`);
+        break;
+      }
+      case 'zerothOrderSgd': {
+        const zo = optimizer.value;
+        const at = `${p}.zerothOrderSgd`;
+        this.check(positiveFinite(zo.learningRate), ContractIssueCode.ISSUE_OUT_OF_RANGE, `${at}.learningRate`);
+        this.check(positiveFinite(zo.smoothing), ContractIssueCode.ISSUE_OUT_OF_RANGE, `${at}.smoothing`);
+        this.bounded(zo.numLocalSteps, 1, MAX_LOCAL_STEPS, `${at}.numLocalSteps`);
+        this.bounded(zo.numPerturbations, 1, MAX_PERTURBATIONS, `${at}.numPerturbations`);
+        this.enumValue(GradientEstimatorSchema, zo.estimator, `${at}.estimator`);
+        this.enumValue(PerturbationRngSchema, zo.rng, `${at}.rng`);
         break;
       }
       default:
