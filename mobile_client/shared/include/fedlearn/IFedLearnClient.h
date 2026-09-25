@@ -20,6 +20,10 @@ struct DeComFLConfig {
   bool shouldStop = false;       // server should_stop
   int currentRound = 0;
   RoundConfig config;            // learningRate, mu, method (P/K derived from seeds)
+  // Whether the server actually sent learning_rate / smoothing_param; when it did not, config holds a default. A round
+  // held to an execution contract refuses a value the server left out rather than train on a default.
+  bool learningRateSent = false;
+  bool muSent = false;
   Seeds2D seeds;                 // [K][P]
   RebuildHistory rebuildHistory; // missed rounds to replay (server-averaged g)
 };
