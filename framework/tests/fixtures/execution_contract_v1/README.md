@@ -93,11 +93,16 @@ Only these combinations of (recipe, strategy, arm, task, objective, update proto
 | `RECIPE_TINYNET_GOLDEN` | `STRATEGY_FEDAVG` | `ARM_FULL` | `TASK_VECTOR_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_TRAINABLE_STATE_F32` |
 | `RECIPE_TINYNET_GOLDEN` | `STRATEGY_FEDOPT` | `ARM_FULL` | `TASK_VECTOR_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_TRAINABLE_STATE_F32` |
 | `RECIPE_TINYNET_GOLDEN` | `STRATEGY_ROBUST` | `ARM_FULL` | `TASK_VECTOR_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_TRAINABLE_STATE_F32` |
+| `RECIPE_TINYNET_GOLDEN` | `STRATEGY_FEDPROX` | `ARM_FULL` | `TASK_VECTOR_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_TRAINABLE_STATE_F32` |
 | `RECIPE_TINYNET_GOLDEN` | `STRATEGY_DECOMFL` | `ARM_FULL` | `TASK_VECTOR_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_DECOMFL_SCALAR` |
 
 FedOpt and Robust are first-order client training: server-side adaptation and robust aggregation are not
 client behavior, so their rows add no fields. A FedOpt contract's `localTraining` states the client rate and
 epochs its server sends (`fl-runtime/strategy_client_settings.py`).
+
+FedProx is first-order client training plus a proximal term. Its row adds no matrix field; the contract's
+`modelTraining.fedproxMu` states the coefficient, and its `localTraining` states the rate and epochs the FedProx
+server sends. See `wikis/mobile/09-fedprox-contract-plan.md`.
 
 DeComFL is zeroth-order training: its `localTraining` states a `zerothOrderSgd` optimizer (rate, smoothing, local
 steps, perturbations, estimator, perturbation generator) and its update is gradient scalars. See

@@ -81,9 +81,10 @@ const OPERATOR = /^[A-Za-z_][A-Za-z0-9_]*::[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-
 
 /** The approved v1 matrix: recipe, strategy, arm, task, objective, update protocol. */
 // FedOpt and Robust are first-order client training too; their server-side work is not client behavior.
+// FedProx is first-order client training plus the proximal term its fedproxMu states.
 // DeComFL is zeroth-order training with scalar updates.
 const APPROVED_MATRIX: ReadonlySet<string> = new Set([
-  ...[Strategy.FEDAVG, Strategy.FEDOPT, Strategy.ROBUST].map((strategy) =>
+  ...[Strategy.FEDAVG, Strategy.FEDOPT, Strategy.ROBUST, Strategy.FEDPROX].map((strategy) =>
     [
       Recipe.TINYNET_GOLDEN,
       strategy,

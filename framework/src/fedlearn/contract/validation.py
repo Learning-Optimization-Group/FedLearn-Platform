@@ -59,7 +59,8 @@ APPROVED_MATRIX = frozenset({
     (pb.RECIPE_TINYNET_GOLDEN, strategy, pb.ARM_FULL, pb.TASK_VECTOR_CLASSIFICATION,
      pb.OBJECTIVE_CROSS_ENTROPY, pb.UPDATE_TRAINABLE_STATE_F32)
     # FedOpt and Robust are first-order client training too; their server-side work is not client behavior.
-    for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_FEDOPT, pb.STRATEGY_ROBUST)
+    # FedProx is first-order client training plus the proximal term its fedprox_mu states.
+    for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_FEDOPT, pb.STRATEGY_ROBUST, pb.STRATEGY_FEDPROX)
 } | {
     # DeComFL: zeroth-order training, gradient scalars instead of weights.
     (pb.RECIPE_TINYNET_GOLDEN, pb.STRATEGY_DECOMFL, pb.ARM_FULL, pb.TASK_VECTOR_CLASSIFICATION,

@@ -520,6 +520,29 @@ def test_a_contract_for_another_recipe_or_strategy_is_refused():
     assert problems == ["strategy STRATEGY_FEDAVG is not this client's FedOpt"]
 
 
+def _fedprox_contract():
+    contract = _contract_for_this_client()
+    contract.strategy = pb.STRATEGY_FEDPROX
+    plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedProx", "FULL")
+    contract.model_training.local_training.CopyFrom(plan.local_training)
+    contract.model_training.fedprox_mu = plan.fedprox_mu
+    return contract
+
+
+def test_a_fedprox_contract_stating_this_clients_proximal_term_is_accepted():
+    contract = _fedprox_contract()
+    assert execution_plan.check_contract(contract, "TINYNET_GOLDEN", "FedProx", "FULL",
+                                         project_id=contract.project_id) == []
+
+
+def test_a_fedprox_contract_with_another_proximal_coefficient_is_refused():
+    contract = _fedprox_contract()
+    contract.model_training.fedprox_mu = 0.2
+    assert execution_plan.check_contract(contract, "TINYNET_GOLDEN", "FedProx", "FULL",
+                                         project_id=contract.project_id) == [
+        "modelTraining.fedproxMu differs from what this client executes"]
+
+
 def test_an_invalid_contract_is_refused_with_its_issues():
     contract = _contract_for_this_client()
     contract.num_rounds = 0
