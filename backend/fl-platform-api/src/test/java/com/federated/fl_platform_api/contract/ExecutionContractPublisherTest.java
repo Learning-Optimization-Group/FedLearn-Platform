@@ -186,6 +186,24 @@ class ExecutionContractPublisherTest {
                 run.getId().toString(), project.getId().toString())).isEmpty();
     }
 
+    // FedProx's coefficient is part of the resolver's plan; the published contract carries it unchanged.
+    @Test
+    void aTinyNetFedProxRunIsPublishedWithItsProximalCoefficient() throws Exception {
+        run.setStrategy("FedProx");
+        when(resolver.resolve(eq("TINYNET_GOLDEN"), eq("FedProx"), eq("FULL"), any()))
+                .thenReturn(plan().toBuilder().setFedproxMu(0.1).build());
+        when(runService.legacyManifest(run)).thenReturn(legacyManifest());
+
+        publisher.onStaged(run.getId());
+
+        ArgumentCaptor<ExecutionContract> contract = ArgumentCaptor.forClass(ExecutionContract.class);
+        verify(store).publish(eq(run), contract.capture());
+        assertThat(contract.getValue().getStrategy()).isEqualTo(com.fedlearn.contract.v1.Strategy.STRATEGY_FEDPROX);
+        assertThat(contract.getValue().getModelTraining().getFedproxMu()).isEqualTo(0.1);
+        assertThat(ExecutionContractValidator.validate(contract.getValue(), ExecutionContractStore.SERVER_PROTOCOL_VERSION,
+                run.getId().toString(), project.getId().toString())).isEmpty();
+    }
+
     @Test
     void aContinuedRunDigestsTheRegistryModelTheServerLoads() throws Exception {
         Path head = Files.writeString(dir.resolve("head.npz"), "registry head");
