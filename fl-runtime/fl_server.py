@@ -418,8 +418,9 @@ def select_strategy(args, initial_parameters, evaluate_fn):
     elif args.strategy.lower() == 'fedprox':
         # FR-11: FedProx. Server aggregation is identical to FedAvg; the proximal term lives in
         # the client objective and is shipped via get_client_config. Default μ=0.1 gives a mild
-        # anti-drift pull (μ=0 would be bitwise-identical to FedAvg).
-        proximal_mu = 0.1
+        # anti-drift pull (μ=0 would be bitwise-identical to FedAvg). The execution contract states
+        # the same client settings, from the same constants.
+        proximal_mu = strategy_client_settings.FEDPROX_CLIENT_PROXIMAL_MU
         logging.info(f"Using FedProx strategy (proximal μ={proximal_mu})")
         strategy = FedProx(
             initial_parameters=initial_parameters,
@@ -427,6 +428,8 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             min_fit_clients=args.min_clients,
             clients_per_round=clients_per_round,
             proximal_mu=proximal_mu,
+            learning_rate=strategy_client_settings.FEDPROX_CLIENT_LEARNING_RATE,
+            local_epochs=strategy_client_settings.FEDPROX_CLIENT_LOCAL_EPOCHS,
         )
     elif args.strategy.lower() == 'fedopt':
         # FR-11: server-side adaptive optimisation (FedAdam by default). Standard FedAdam

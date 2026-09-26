@@ -7,3 +7,9 @@ contract states is therefore the rate the server sends. Torch-free so the resolv
 # FedOpt adapts on the server (FedAdam); its clients run plain SGD at this rate for this many epochs.
 FEDOPT_CLIENT_LEARNING_RATE = 0.01
 FEDOPT_CLIENT_LOCAL_EPOCHS = 1
+
+# FedProx aggregates like FedAvg; its clients run plain SGD at this rate for this many epochs and add the proximal
+# gradient mu * (w - w_global) on every step.
+FEDPROX_CLIENT_PROXIMAL_MU = 0.1
+FEDPROX_CLIENT_LEARNING_RATE = 0.01
+FEDPROX_CLIENT_LOCAL_EPOCHS = 1

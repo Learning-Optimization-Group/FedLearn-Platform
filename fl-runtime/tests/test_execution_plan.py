@@ -101,7 +101,7 @@ def _config_the_server_sends(strategy_name):
 
 
 @pytest.mark.parametrize("strategy, server_name", [("FedAvg", "fedavg"), ("FedOpt", "fedopt"),
-                                                   ("Robust", "robust")])
+                                                   ("Robust", "robust"), ("FedProx", "fedprox")])
 def test_tinynet_first_order_plan_is_what_the_client_trains_under_its_servers_config(
         monkeypatch, strategy, server_name):
     """For each first-order strategy: the server's per-round config -> what client.py builds from it -> the
@@ -134,6 +134,40 @@ def test_fedopt_trains_at_a_different_rate_than_fedavg():
     fedavg = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL")
     fedopt = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedOpt", "FULL")
     assert fedopt.local_training.sgd.learning_rate != fedavg.local_training.sgd.learning_rate
+
+
+def test_the_fedprox_plan_states_the_mu_its_server_sends_and_the_client_applies(monkeypatch):
+    """FedProx's only client-side difference is the proximal term, so its plan must state the server's mu -- the
+    value client.py hands the proximal gradient every step."""
+    import client
+    plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedProx", "FULL")
+    config = _config_the_server_sends("fedprox")
+    participant = _tinynet_fedavg_client(monkeypatch)
+    applied = []
+    real = client._apply_proximal_gradient
+    monkeypatch.setattr(client, "_apply_proximal_gradient",
+                        lambda net, anchor, mu: (applied.append(mu), real(net, anchor, mu)))
+
+    participant.fit(participant.get_parameters(), config)
+
+    assert plan.HasField("fedprox_mu")
+    assert plan.fedprox_mu == float(config["proximal_mu"]) > 0.0
+    assert applied and set(applied) == {plan.fedprox_mu}
+
+
+@pytest.mark.parametrize("strategy", ["FedAvg", "FedOpt", "Robust", "DeComFL"])
+def test_only_the_fedprox_plan_states_a_mu(strategy):
+    assert not execution_plan.resolve_model_training("TINYNET_GOLDEN", strategy, "FULL").HasField("fedprox_mu")
+
+
+def test_fedprox_trains_what_fedopts_clients_train_apart_from_the_proximal_term():
+    """TinyNet's data is one batch, so one epoch is one step, and at a round's first step w == w_global: the proximal
+    gradient is exactly zero. At the server's real settings a FedProx round trains exactly what a FedOpt client
+    does. Pinned so the equivalence is known, not rediscovered from a live run that cannot tell them apart."""
+    fedopt = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedOpt", "FULL")
+    fedprox = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedProx", "FULL")
+    assert fedprox.local_training == fedopt.local_training
+    assert fedprox.local_training.local_epochs == 1 and fedprox.local_training.batch_size == 8
 
 
 def _decomfl_round_the_server_sends():
@@ -284,7 +318,7 @@ def test_the_plan_completes_a_valid_contract():
 
 @pytest.mark.parametrize("recipe, strategy, arm", [
     ("CNN", "FedAvg", "FULL"),
-    ("TINYNET_GOLDEN", "FedProx", "FULL"),
+    ("CNN", "FedProx", "FULL"),
 ])
 def test_a_run_without_a_v1_plan_is_not_representable(recipe, strategy, arm):
     with pytest.raises(execution_plan.NotRepresentable):

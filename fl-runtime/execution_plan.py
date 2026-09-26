@@ -39,7 +39,7 @@ CLIENT_PROTOCOL_VERSION = 2
 _PLAN_FIELDS = (("model_id", "modelId"), ("arm", "arm"), ("task", "task"), ("objective", "objective"),
                 ("update_protocol", "updateProtocol"), ("trainable", "trainable"),
                 ("frozen_state_sha256", "frozenStateSha256"), ("local_training", "localTraining"),
-                ("data", "data"))
+                ("data", "data"), ("fedprox_mu", "fedproxMu"))
 
 
 class NotRepresentable(Exception):
@@ -120,6 +120,16 @@ def _tinynet_first_order_full(learning_rate: float, local_epochs: int):
     of SGD at ``learning_rate``: the client default for FedAvg and Robust, whose servers send no training
     settings, and the server's settings for FedOpt."""
     return lambda initial_state_path=None: _tinynet_first_order(learning_rate, local_epochs, initial_state_path)
+
+
+def _tinynet_fedprox_full(initial_state_path=None) -> pb.ModelTraining:
+    """TINYNET_GOLDEN under FedProx on the FULL arm: the first-order training the FedProx server sends (its rate and
+    epochs), plus its proximal coefficient. client.py adds mu * (w - w_global) to every trainable gradient after
+    backward and before the SGD step, with w_global the round's downloaded model."""
+    plan = _tinynet_first_order(strategy_client_settings.FEDPROX_CLIENT_LEARNING_RATE,
+                                strategy_client_settings.FEDPROX_CLIENT_LOCAL_EPOCHS, initial_state_path)
+    plan.fedprox_mu = strategy_client_settings.FEDPROX_CLIENT_PROXIMAL_MU
+    return plan
 
 
 def _tinynet_decomfl_full(initial_state_path=None) -> pb.ModelTraining:
@@ -210,6 +220,8 @@ _PLANS = {
     ("TINYNET_GOLDEN", "Robust", "FULL"): _tinynet_first_order_full(_CLIENT_DEFAULT_RATE, _CLIENT_DEFAULT_EPOCHS),
     ("TINYNET_GOLDEN", "FedOpt", "FULL"): _tinynet_first_order_full(
         strategy_client_settings.FEDOPT_CLIENT_LEARNING_RATE, strategy_client_settings.FEDOPT_CLIENT_LOCAL_EPOCHS),
+    # FedProx: first-order training plus the proximal term the contract's fedprox_mu states.
+    ("TINYNET_GOLDEN", "FedProx", "FULL"): _tinynet_fedprox_full,
     # DeComFL: zeroth-order training; the update is gradient scalars.
     ("TINYNET_GOLDEN", "DeComFL", "FULL"): _tinynet_decomfl_full,
 }
