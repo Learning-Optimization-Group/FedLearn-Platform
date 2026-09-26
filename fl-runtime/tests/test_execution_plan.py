@@ -645,6 +645,44 @@ def test_a_contracted_fedavg_client_refuses_a_server_that_sends_another_rate(mon
         participant.fit(participant.get_parameters(), _config_the_server_sends("fedopt"))
 
 
+@pytest.mark.parametrize("strategy_name, pb_strategy, config", [
+    ("FedProx", pb.STRATEGY_FEDPROX, {"learning_rate": "0.01", "local_epochs": "1", "proximal_mu": "0.2"}),
+    ("FedProx", pb.STRATEGY_FEDPROX, {"learning_rate": "0.01", "local_epochs": "1"}),
+    ("FedAvg", pb.STRATEGY_FEDAVG, {"proximal_mu": "0.1"}),
+    ("FedOpt", pb.STRATEGY_FEDOPT, {"learning_rate": "0.01", "local_epochs": "1", "proximal_mu": "0.1"}),
+], ids=["fedprox_other_mu", "fedprox_server_sends_no_mu", "fedavg_server_sends_a_mu", "fedopt_server_sends_a_mu"])
+def test_a_contracted_client_refuses_a_proximal_term_the_contract_does_not_state(
+        monkeypatch, strategy_name, pb_strategy, config):
+    """The proximal coefficient is a cross-check like the rate: absent means zero on both sides, so a FedProx round
+    without the contract's mu, or a proximal term on any other strategy, is refused before any optimizer exists."""
+    import client
+    contract = _fedprox_contract() if strategy_name == "FedProx" else _contract_for(strategy_name, pb_strategy)
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", contract)
+    participant = _tinynet_fedavg_client(monkeypatch)
+    created = _recording_sgd(monkeypatch)
+
+    with pytest.raises(ValueError, match="execution contract"):
+        participant.fit(participant.get_parameters(), config)
+    assert created == []
+
+
+def test_a_contracted_fedprox_client_trains_the_proximal_term_its_server_confirms(monkeypatch):
+    import client
+    contract = _fedprox_contract()
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", contract)
+    participant = _tinynet_fedavg_client(monkeypatch)
+    created = _recording_sgd(monkeypatch)
+    applied = []
+    real = client._apply_proximal_gradient
+    monkeypatch.setattr(client, "_apply_proximal_gradient",
+                        lambda net, anchor, mu: (applied.append(mu), real(net, anchor, mu)))
+
+    participant.fit(participant.get_parameters(), _config_the_server_sends("fedprox"))
+
+    assert created[0].param_groups[0]["lr"] == contract.model_training.local_training.sgd.learning_rate
+    assert applied and set(applied) == {contract.model_training.fedprox_mu}
+
+
 def test_without_a_contract_the_server_rate_still_applies(monkeypatch):
     import client
     monkeypatch.setattr(client, "EXECUTION_CONTRACT", None)

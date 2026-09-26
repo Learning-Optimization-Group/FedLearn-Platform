@@ -630,8 +630,9 @@ def _refuse_round_outside_contract(config: dict) -> None:
     """Under an execution contract, the server's per-round training settings are a cross-check, not an override.
 
     Without a contract they replace this client's own (FedOpt ships its client rate this way). With one, the
-    contract states the training; a server asking for a different rate or epoch count refuses the round before
-    training, rather than silently training something the run never published.
+    contract states the training; a server asking for a different rate, epoch count or proximal coefficient refuses
+    the round before training, rather than silently training something the run never published. An absent
+    proximal coefficient is zero on both sides: only a FedProx contract states one.
     """
     if EXECUTION_CONTRACT is None:
         return
@@ -643,6 +644,10 @@ def _refuse_round_outside_contract(config: dict) -> None:
     if "local_epochs" in config and _coerce_local_epochs(config, None) != local.local_epochs:
         raise ValueError(f"the server asked for local_epochs {config['local_epochs']!r}; the execution contract "
                          f"states {local.local_epochs}")
+    stated_mu = EXECUTION_CONTRACT.model_training.fedprox_mu
+    if _coerce_proximal_mu(config) != stated_mu:
+        raise ValueError(f"the server asked for proximal_mu {config.get('proximal_mu', 0.0)!r}; the execution "
+                         f"contract states {stated_mu!r}")
 
 
 def _refuse_decomfl_round_outside_contract(config: dict) -> None:
