@@ -11,6 +11,7 @@ K SGD steps and assert a tolerance-bounded match.
 Consumed by:
   * framework/tests/test_fedavg_local_golden.py        (Python self-consistency, CI-gated, pure torch)
   * mobile_client/shared/tests/fedavg_parity_test.cpp  (C++ ET first-order endpoint, added in M1c)
+  * mobile_client/shared/tests/fedavg_firstorder_round_test.cpp  (the FedProx endpoint, fedprox_local_*)
 
 Pure torch (NO executorch) — runs in the framework pytest gate. Freeze ONLY on an intentional torch
 bump (torch pinned 2.12.0, matching zo_manifest.json):
@@ -72,17 +73,20 @@ def load_committed_batch() -> tuple[torch.Tensor, torch.Tensor]:
     return inputs, targets
 
 
-def compute_fedavg_endpoint(*, lr: float = LR, local_epochs: int = LOCAL_EPOCHS) -> np.ndarray:
+def compute_fedavg_endpoint(*, lr: float = LR, local_epochs: int = LOCAL_EPOCHS,
+                            proximal_mu: float = 0.0) -> np.ndarray:
     """Run the REAL framework FedAvg client update and return the final trainable flat (<f4).
 
-    Uses LocalTrainer.fit(mu=0) — the actual FedAvg client code path, not a reimplementation.
+    Uses LocalTrainer.fit — the actual FedAvg client code path, not a reimplementation. mu=0 is FedAvg; a
+    positive proximal_mu is the FedProx client.
     """
     net = build_initial_net()
     inputs, targets = load_committed_batch()
     trainer = LocalTrainer(net, _OneBatchLoader(inputs, targets), device="cpu")
     # config values flow through a protobuf map<string,string> in production — pass them as strings
     # so this exercises the same str->float coercion the wire path does.
-    trainer.fit(None, {"learning_rate": str(lr), "local_epochs": str(local_epochs), "proximal_mu": "0"})
+    trainer.fit(None, {"learning_rate": str(lr), "local_epochs": str(local_epochs),
+                       "proximal_mu": str(proximal_mu) if proximal_mu else "0"})
     return flat_params(net).detach().cpu().numpy().astype("<f4")
 
 
@@ -146,6 +150,51 @@ def write_contract_endpoint(layout) -> None:
     print(f"contract endpoint: lr={lr} local_epochs={local_epochs} moved={moved:g}")
 
 
+# FedProx: the coefficient the FedProx FL server sends (fl-runtime/strategy_client_settings.py; a fl-runtime test
+# pins the two equal). Run at the FedAvg golden's lr 0.1 x 5 steps: at one step w == w_global and the proximal
+# gradient is zero, so the contract's own single-step training cannot exercise it.
+FEDPROX_MU = 0.1
+# The proximal term moves this endpoint by only ~1.4e-3 from FedAvg's, inside the 2e-3 FedAvg tolerance. So this
+# golden has its own, and the generator refuses to write one whose separation is not well outside it.
+FEDPROX_ENDPOINT_ATOL = 1e-4
+FEDPROX_MIN_SEPARATION = 10 * FEDPROX_ENDPOINT_ATOL
+
+
+def write_fedprox_endpoint(layout, fedavg_final: np.ndarray) -> None:
+    """The real FedProx client update (LocalTrainer.fit with mu > 0) over the FedAvg golden's training."""
+    final_flat = compute_fedavg_endpoint(proximal_mu=FEDPROX_MU)
+    separation = float(np.abs(final_flat - fedavg_final).max())
+    if separation < FEDPROX_MIN_SEPARATION:
+        raise SystemExit(
+            f"the proximal term moves the endpoint by {separation:g} from FedAvg's, under "
+            f"{FEDPROX_MIN_SEPARATION:g} — this golden could not tell FedProx from FedAvg")
+    final_flat.tofile(os.path.join(HERE, "fedprox_local_final.f32"))
+    manifest = {
+        "description": "FedProx local-update golden. LocalTrainer.fit with proximal_mu > 0: the FedAvg golden's "
+                       "local_epochs full-batch SGD steps at lr, each adding mu * (w - w_global) to the gradient.",
+        "torch_version": torch.__version__.split("+")[0],
+        "platform_machine": platform.machine(),
+        "learning_rate": LR,
+        "local_epochs": LOCAL_EPOCHS,
+        "proximal_mu": FEDPROX_MU,
+        "flat_dim": int(final_flat.shape[0]),
+        "initial_flat_file": "zo_flat.f32",
+        "inputs_file": "zo_inputs.f32",
+        "targets_file": "zo_targets.i64",
+        "param_layout": [[name, list(shape), k] for name, shape, k in layout],
+        "final_flat_file": "fedprox_local_final.f32",
+        "final_flat_sha256": hashlib.sha256(final_flat.tobytes()).hexdigest(),
+        "endpoint_atol": FEDPROX_ENDPOINT_ATOL,
+        # How far the proximal term moves the endpoint from fedavg_local_final.f32. The tolerance must stay well
+        # under it, or the test cannot distinguish FedProx from FedAvg.
+        "separation_from_fedavg": separation,
+    }
+    with open(os.path.join(HERE, "fedprox_local_manifest.json"), "w") as fh:
+        json.dump(manifest, fh, indent=2)
+        fh.write("\n")
+    print(f"fedprox endpoint: mu={FEDPROX_MU} separation_from_fedavg={separation:g}")
+
+
 def main() -> None:
     from fedlearn.communication.safetensors_codec import save_safetensors
 
@@ -202,6 +251,7 @@ def main() -> None:
         fh.write("\n")
 
     write_contract_endpoint(layout)
+    write_fedprox_endpoint(layout, final_flat)
 
     print(f"lr={LR} local_epochs={LOCAL_EPOCHS} d={d} torch={torch.__version__}")
     print("final_flat[:5] =", final_flat[:5].tolist())

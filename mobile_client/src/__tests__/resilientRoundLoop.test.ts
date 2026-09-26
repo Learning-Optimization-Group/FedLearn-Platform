@@ -20,6 +20,7 @@ const CFG: RoundConfig = {
   seed: 0,
   torchVersion: '',
   initialStateSha256: '',
+  proximalMu: 0,
 };
 
 const POLICY: ResiliencePolicy = {

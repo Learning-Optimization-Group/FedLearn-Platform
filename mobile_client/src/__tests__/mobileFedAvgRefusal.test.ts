@@ -2,9 +2,8 @@
 // contract is refused before any provisioning or native work, whatever its legacy fields say — that is why every
 // run here is refused, including the DeComFL and FedOpt runs an earlier build trained on the legacy fields alone.
 // Execution contract v1 covers TinyNet FedAvg; runs it does not cover yet are refused rather than approximated.
-// Two guards still run first because they name the obstacle better: secure aggregation, and FedProx's proximal
-// term, which the native trainer does not implement.
-import { runTrainingLoop, MobileFedProxUnsupportedError, ExecutionContractRefusedError } from '../lib/training';
+// One guard still runs first because it names the obstacle better: secure aggregation.
+import { runTrainingLoop, ExecutionContractRefusedError } from '../lib/training';
 import type { JoinedRun } from '../lib/runJoin';
 import { provisionTrainingBundle } from '../lib/modelProvisioning';
 import nativeCore from '../lib/nativeCore';
@@ -88,9 +87,9 @@ describe('runTrainingLoop — execution contract gated', () => {
     expect(provisionTrainingBundle).not.toHaveBeenCalled();
   });
 
-  test('refuses FedProx for its missing proximal term, before the contract is even read', async () => {
+  test('refuses a FedProx run without execution contract, like every other strategy', async () => {
     const p = runTrainingLoop(joinedRun('FedProx', /*firstOrderSupported=*/ true), hooks);
-    await expect(p).rejects.toBeInstanceOf(MobileFedProxUnsupportedError);
+    await expect(p).rejects.toBeInstanceOf(ExecutionContractRefusedError);
     expect(provisionTrainingBundle).not.toHaveBeenCalled();
   });
 

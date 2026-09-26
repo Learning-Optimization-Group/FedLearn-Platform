@@ -155,6 +155,14 @@ def test_the_fedprox_plan_states_the_mu_its_server_sends_and_the_client_applies(
     assert applied and set(applied) == {plan.fedprox_mu}
 
 
+def test_the_phones_fedprox_golden_uses_the_servers_proximal_coefficient():
+    """The native proximal term is proven against a framework golden; it must be the coefficient the contract states."""
+    import strategy_client_settings
+    path = os.path.join(os.path.dirname(GOLDEN_CONTRACT), "..", "decomfl_golden", "fedprox_local_manifest.json")
+    with open(path) as fh:
+        assert json.load(fh)["proximal_mu"] == strategy_client_settings.FEDPROX_CLIENT_PROXIMAL_MU
+
+
 @pytest.mark.parametrize("strategy", ["FedAvg", "FedOpt", "Robust", "DeComFL"])
 def test_only_the_fedprox_plan_states_a_mu(strategy):
     assert not execution_plan.resolve_model_training("TINYNET_GOLDEN", strategy, "FULL").HasField("fedprox_mu")

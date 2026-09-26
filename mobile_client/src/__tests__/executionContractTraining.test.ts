@@ -147,6 +147,24 @@ describe('runTrainingLoop — the execution contract decides', () => {
     expect(runFedAvgRound.mock.calls[0][1]).toMatchObject({ strategy: 'FedOpt', learningRate: 0.01 });
   });
 
+  test('runs a FedProx contract as FedProx, with the contract\'s proximal coefficient', async () => {
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce(STAGED_BUNDLE);
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    const { getServerStatus, runFedAvgRound } = oneRound();
+    const contract = contractJson() as {
+      strategy: string; modelTraining: { fedproxMu?: number; localTraining: { sgd: Record<string, unknown> } } };
+    contract.strategy = 'STRATEGY_FEDPROX';
+    contract.modelTraining.localTraining.sgd.learningRate = 0.01;
+    contract.modelTraining.fedproxMu = 0.1;
+
+    await runTrainingLoop(joined({ strategy: 'FedProx', executionContract: contract }), hooks, {
+      policy: POLICY,
+      ops: { getServerStatus, runFedAvgRound, loadSubmittedRound: async () => null, saveSubmittedRound: async () => {} },
+    });
+
+    expect(runFedAvgRound.mock.calls[0][1]).toMatchObject({ strategy: 'FedProx', learningRate: 0.01, proximalMu: 0.1 });
+  });
+
   test('runs a DeComFL contract through the DeComFL round, with the contract\'s own training', async () => {
     (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce(STAGED_BUNDLE);
     (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });

@@ -144,7 +144,12 @@ std::vector<float> TrainableExecutorchModel::getFlatParams() const {
 }
 
 float TrainableExecutorchModel::trainStep(const float* x, const std::vector<int64_t>& xShape,
-                                          const int64_t* y, int64_t n, float lr) {
+                                          const int64_t* y, int64_t n, float lr,
+                                          const std::vector<float>* proximalAnchor, float proximalMu) {
+  const bool proximal = proximalAnchor != nullptr && proximalMu != 0.0f;
+  if (proximal && static_cast<int64_t>(proximalAnchor->size()) != flatDim()) {
+    throw std::runtime_error("TrainableExecutorchModel: proximal anchor size != flatDim()");
+  }
   std::vector<SizesType> xSizes;
   xSizes.reserve(xShape.size());
   for (int64_t d : xShape) xSizes.push_back(toSize(d));
@@ -168,12 +173,14 @@ float TrainableExecutorchModel::trainStep(const float* x, const std::vector<int6
 
   // In-place SGD: p <- p - lr * grad(p) for every trainable param — exactly torch.optim.SGD(lr) with
   // no momentum/weight-decay (the FedAvg client). Gradients are fresh from THIS forward_backward.
+  // Under FedProx the gradient first gets mu * (p - anchor) added (the laptop's grad.add_(p - w0, alpha=mu)).
   auto gradsRes = impl_->mod->named_gradients("forward");
   if (!gradsRes.ok()) fail("named_gradients(forward) failed", gradsRes.error());
   auto paramsRes = impl_->mod->named_parameters("forward");
   if (!paramsRes.ok()) fail("named_parameters(forward) failed", paramsRes.error());
   const auto& grads = gradsRes.get();
   const auto& params = paramsRes.get();
+  int64_t offset = 0;
   for (size_t i = 0; i < impl_->names.size(); ++i) {
     Tensor p = Impl::lookup(params, impl_->names[i], "named_parameters");
     const Tensor g = Impl::lookup(grads, impl_->names[i], "named_gradients");
@@ -184,7 +191,16 @@ float TrainableExecutorchModel::trainStep(const float* x, const std::vector<int6
     }
     float* pd = p.mutable_data_ptr<float>();
     const float* gd = g.const_data_ptr<float>();
-    for (int64_t j = 0; j < k; ++j) pd[j] -= lr * gd[j];
+    if (proximal) {
+      const float* anchor = proximalAnchor->data() + offset;
+      for (int64_t j = 0; j < k; ++j) {
+        const float grad = gd[j] + proximalMu * (pd[j] - anchor[j]);
+        pd[j] -= lr * grad;
+      }
+    } else {
+      for (int64_t j = 0; j < k; ++j) pd[j] -= lr * gd[j];
+    }
+    offset += k;
   }
   return loss;
 }

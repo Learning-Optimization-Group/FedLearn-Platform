@@ -132,6 +132,8 @@ RoundConfig roundConfigFromJs(jsi::Runtime& rt, const jsi::Object& o) {
   c.gradEstimateMethod = o.getProperty(rt, "gradEstimateMethod").asString(rt).utf8(rt);
   const jsi::Value initial = o.getProperty(rt, "initialStateSha256");
   c.initialStateSha256 = initial.isString() ? initial.asString(rt).utf8(rt) : std::string();
+  const jsi::Value proximal = o.getProperty(rt, "proximalMu");
+  c.proximalMu = proximal.isNumber() ? proximal.asNumber() : 0.0;
   c.seed = static_cast<int64_t>(o.getProperty(rt, "seed").asNumber());
   c.torchVersion = o.getProperty(rt, "torchVersion").asString(rt).utf8(rt);
   return c;
@@ -400,10 +402,11 @@ RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const
 #ifdef FEDLEARN_HAS_TRAINING
   if (trainableModel_) {
     // TRUE first-order (MO-4 lift): real backprop (firstOrderRound) + a WEIGHT-blob upload via
-    // SubmitModelUpdateStream — what first-order servers aggregate. FedOpt requires server K/eta.
+    // SubmitModelUpdateStream — what first-order servers aggregate. FedOpt and FedProx require server K/eta;
+    // FedProx adds the contract's proximal term.
     fedlearn::RoundOutcome outcome = loop_->firstOrderRound(
         *trainableModel_, runId, clientId_, trainingBatch_, cfg.numLocalSteps, cfg.learningRate,
-        cfg.strategy == "FedOpt");
+        cfg.strategy == "FedOpt" || cfg.strategy == "FedProx", cfg.proximalMu);
     const auto t1 = std::chrono::steady_clock::now();
     if (outcome.shouldStop) throw std::runtime_error("STOP: " + outcome.note);
     RoundResult r;
@@ -418,6 +421,10 @@ RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const
 #endif
   // ZO-SGD fallback (no trainable .pte provisioned): K ZO-SGD steps, each averaging P
   // forward-difference estimates; the upload is per-(k,p) seeds + g-scalars, NOT a weight blob.
+  // It has no proximal term, so a FedProx round never falls back to it.
+  if (cfg.proximalMu != 0.0) {
+    throw std::runtime_error("FedProx requires the trainable program; none is provisioned");
+  }
   fedlearn::RoundOutcome outcome =
       loop_->fedAvgRound(*model_, runId, clientId_, trainingBatch_, cfg.numLocalSteps,
                          cfg.learningRate, cfg.mu, cfg.numPerturbations);

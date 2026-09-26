@@ -71,3 +71,40 @@ def test_fedavg_param_layout_is_canonical_named_parameters_order():
     man = _manifest()
     expected = [[name, list(shape), k] for name, shape, k in param_layout(build_initial_net())]
     assert man["param_layout"] == expected
+
+
+# --- FedProx: the same real LocalTrainer.fit, with the proximal term on ------------------------------------
+
+FEDPROX_MANIFEST = os.path.join(GOLDEN_DIR, "fedprox_local_manifest.json")
+
+
+def _fedprox_manifest() -> dict:
+    with open(FEDPROX_MANIFEST) as fh:
+        return json.load(fh)
+
+
+def test_fedprox_local_endpoint_reproduces_golden():
+    man = _fedprox_manifest()
+    final = compute_fedavg_endpoint(lr=man["learning_rate"], local_epochs=man["local_epochs"],
+                                    proximal_mu=man["proximal_mu"])
+    golden = np.fromfile(os.path.join(GOLDEN_DIR, man["final_flat_file"]), dtype="<f4")
+    assert final.shape == golden.shape == (man["flat_dim"],)
+    if platform.machine() == man["platform_machine"]:
+        np.testing.assert_array_equal(final, golden)
+    else:
+        np.testing.assert_allclose(final, golden, atol=man["endpoint_atol"], rtol=0)
+
+
+def test_the_fedprox_golden_is_far_from_the_fedavg_golden_at_its_own_tolerance():
+    """At one step the proximal term is zero, and at mu 0.1 over five steps it moves the endpoint by ~1e-3 -- inside
+    the FedAvg golden's 2e-3. So the FedProx golden carries its own tolerance, and must sit well outside it from the
+    FedAvg endpoint, or a native trainer with no proximal term would pass the FedProx test."""
+    man = _fedprox_manifest()
+    fedavg = _manifest()
+    assert (man["learning_rate"], man["local_epochs"]) == (fedavg["learning_rate"], fedavg["local_epochs"])
+    assert man["proximal_mu"] > 0.0
+    prox = np.fromfile(os.path.join(GOLDEN_DIR, man["final_flat_file"]), dtype="<f4")
+    plain = np.fromfile(os.path.join(GOLDEN_DIR, fedavg["final_flat_file"]), dtype="<f4")
+    separation = float(np.abs(prox - plain).max())
+    assert separation == man["separation_from_fedavg"]
+    assert separation >= 10 * man["endpoint_atol"]

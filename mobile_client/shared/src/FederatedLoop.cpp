@@ -246,7 +246,7 @@ RoundOutcome FederatedLoop::fedAvgRound(ExecutorchModel& model, const std::strin
 RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, const std::string& runId,
                                             const std::string& clientId, const DataBatch& batch,
                                             int numLocalSteps, double learningRate,
-                                            bool requireServerConfig) {
+                                            bool requireServerConfig, double proximalMu) {
   RoundOutcome out;
   if (net_.shouldStop()) {
     out.shouldStop = true;
@@ -284,22 +284,33 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
                                " disagrees with the execution contract");
     }
   }
+  // The proximal coefficient is a cross-check too. Absent means zero on both sides: only a FedProx contract states one.
+  if (!std::isfinite(proximalMu) || proximalMu < 0) {
+    throw std::runtime_error("invalid first-order proximal_mu");
+  }
   const auto proximal = serverConfig.find("proximal_mu");
-  if (proximal != serverConfig.end() &&
-      parseFiniteSetting(proximal->second, "proximal_mu", true) != 0.0) {
-    throw std::runtime_error("FedProx proximal term is not supported by native first-order training");
+  const double serverMu =
+      proximal == serverConfig.end() ? 0.0 : parseFiniteSetting(proximal->second, "proximal_mu", true);
+  if (serverMu != proximalMu) {
+    throw std::runtime_error("the server's proximal_mu " +
+                             (proximal == serverConfig.end() ? std::string("(none)") : proximal->second) +
+                             " disagrees with the execution contract");
   }
   mm_.loadStateDict(blob);                    // codec-validated + sha-checked by the stream layer
   model.setFlatParams(mm_.getFlatParams());   // load the fresh global weights into the trainable model
+  // FedProx's anchor: the round's downloaded global weights, fixed for the whole round.
+  const std::vector<float> anchor = proximalMu > 0 ? mm_.getFlatParams() : std::vector<float>{};
 
   const float lr = static_cast<float>(learningRate);
+  const float mu = static_cast<float>(proximalMu);
   for (int k = 0; k < numLocalSteps; ++k) {
     if (net_.shouldStop()) {
       out.shouldStop = true;
       out.note = "abort during local SGD";
       return out;
     }
-    model.trainStep(batch.inputs, batch.inputShape, batch.targets, batch.numSamples, lr);
+    model.trainStep(batch.inputs, batch.inputShape, batch.targets, batch.numSamples, lr,
+                    proximalMu > 0 ? &anchor : nullptr, mu);
   }
 
   mm_.setFlatParams(model.getFlatParams());   // updated (locally-advanced) weights back into the manager

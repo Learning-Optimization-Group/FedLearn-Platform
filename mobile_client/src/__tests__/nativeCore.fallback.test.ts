@@ -25,6 +25,7 @@ const A_ROUND_CONFIG = {
   seed: 0,
   torchVersion: '',
   initialStateSha256: '',
+  proximalMu: 0,
 };
 
 // Load a FRESH copy of the spec so its module-level TurboModuleRegistry.get() re-runs with the mock

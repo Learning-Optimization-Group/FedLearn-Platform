@@ -53,8 +53,14 @@ class TrainableExecutorchModel {
   // exactly matching torch.optim.SGD(params, lr) with no momentum/weight-decay (the FedAvg client,
   // local_trainer.py:84). Returns the loss at the params BEFORE the update. NOT const, NOT
   // concurrency-safe on one instance. Throws std::runtime_error on any execution failure.
+  //
+  // FedProx: with a proximal anchor (the round's global weights, canonical flat order, flatDim()
+  // long) and mu > 0, each gradient first gets the proximal gradient added, exactly as the laptop
+  // client's _apply_proximal_gradient does between backward and the SGD step:
+  //   p <- p - lr * (grad(p) + mu * (p - anchor))
   float trainStep(const float* x, const std::vector<int64_t>& xShape,
-                  const int64_t* y, int64_t n, float lr);
+                  const int64_t* y, int64_t n, float lr,
+                  const std::vector<float>* proximalAnchor = nullptr, float proximalMu = 0.0f);
 
   // Total trainable parameter count (sum of the canonical params' numels).
   int64_t flatDim() const;

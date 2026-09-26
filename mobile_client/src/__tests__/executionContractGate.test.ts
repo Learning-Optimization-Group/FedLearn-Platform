@@ -67,6 +67,7 @@ describe('the phone decides from the contract state', () => {
       numLocalSteps: shared.numLocalSteps,
       batchSize: shared.batchSize,
       initialStateSha256: '1122ba73e49f6df981861bb76d3dcff46666abb5f41e3a6a4d510db9fddd965c',
+      proximalMu: 0,
     });
   });
 
@@ -126,7 +127,26 @@ describe('the phone trains the first-order strategies v1 approves', () => {
     contract.strategy = strategy;
     local(contract).optimizer = { case: 'sgd', value: { ...sgd(contract), learningRate: rate } };
     const decision = decide(contract);
-    expect(decision).toMatchObject({ kind: 'train', projection: { strategy: name, learningRate: rate } });
+    expect(decision).toMatchObject({
+      kind: 'train', projection: { strategy: name, learningRate: rate, proximalMu: 0 } });
+  });
+
+  // FedProx is first-order training plus the proximal term: the native round needs the contract's coefficient.
+  it('trains a FedProx contract with its proximal coefficient', () => {
+    const contract = golden();
+    contract.strategy = Strategy.FEDPROX;
+    local(contract).optimizer = { case: 'sgd', value: { ...sgd(contract), learningRate: 0.01 } };
+    if (contract.workload.case === 'modelTraining') {
+      contract.workload.value.fedproxMu = 0.1;
+    }
+    expect(decide(contract)).toMatchObject({
+      kind: 'train', projection: { strategy: 'FedProx', learningRate: 0.01, proximalMu: 0.1 } });
+  });
+
+  it('refuses a FedProx contract that states no proximal coefficient', () => {
+    const contract = golden();
+    contract.strategy = Strategy.FEDPROX;
+    expect(projectContract(contract, 'a'.repeat(64))).toMatchObject({ kind: 'refuse', code: 'CONTRACT_INVALID' });
   });
 });
 
@@ -213,7 +233,7 @@ describe('the phone refuses what it cannot execute', () => {
   // these drive the capability layer directly: it is what refuses them once the matrix widens to those runs.
   it('refuses a strategy it has no contract path for', () => {
     const contract = golden();
-    contract.strategy = Strategy.FEDPROX;   // the native trainer has no proximal term
+    contract.strategy = Strategy.UNSPECIFIED;
     expect(projectContract(contract, 'a'.repeat(64)))
       .toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_STRATEGY' });
   });

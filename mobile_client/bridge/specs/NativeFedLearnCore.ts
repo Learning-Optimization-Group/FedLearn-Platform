@@ -5,7 +5,7 @@
 import type { TurboModule } from 'react-native';
 import { TurboModuleRegistry } from 'react-native';
 
-export type Strategy = 'DeComFL' | 'FedAvg' | 'FedOpt' | 'Robust';
+export type Strategy = 'DeComFL' | 'FedAvg' | 'FedOpt' | 'Robust' | 'FedProx';
 export type GradEstimateMethod = 'forward' | 'central';
 
 export interface RegisterResult {
@@ -39,6 +39,9 @@ export interface RoundConfig {
   // The run's initial trainable state (execution contract). A DeComFL round starts only from the server's model
   // proven to be this one. Empty when unset.
   initialStateSha256: string;
+  // FedProx's proximal coefficient (execution contract); 0 for every other strategy. A first-order round adds
+  // proximalMu * (w - w_global) to each gradient and refuses a server whose proximal_mu differs.
+  proximalMu: number;
   seed: number; // optimizer seed (distinct from data seed)
   torchVersion: string; // must match server's GetDeComFLConfigResponse.torch_version
 }

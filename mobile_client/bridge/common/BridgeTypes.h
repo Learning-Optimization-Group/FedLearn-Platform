@@ -29,7 +29,7 @@ struct ServerStatus {
 };
 
 struct RoundConfig {
-  std::string strategy;            // "DeComFL" | "FedAvg"
+  std::string strategy;            // "DeComFL" | "FedAvg" | "FedOpt" | "Robust" | "FedProx"
   double learningRate = 0.0;       // eta
   double mu = 0.0;                 // ZO smoothing radius
   int numPerturbations = 0;        // P
@@ -38,6 +38,7 @@ struct RoundConfig {
   int64_t seed = 0;
   std::string torchVersion;        // server's expected torch version (RNG-parity gate)
   std::string initialStateSha256;  // the run's initial trainable state (execution contract)
+  double proximalMu = 0.0;         // FedProx's coefficient (execution contract); 0 otherwise
 };
 
 struct RoundResult {

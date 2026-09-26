@@ -1,8 +1,7 @@
 // Execution contract v1 on Android. Before the phone downloads a model or opens local data, it decides from the
 // run's published contract whether it may train at all, and projects the contract into the settings the native
 // trainer runs with. Android is v1-dependent: a run without a READY contract it can execute exactly is refused
-// with a precise reason, never approximated. FedProx, which v1 does not cover yet, is therefore refused until its
-// contract exists.
+// with a precise reason, never approximated.
 import { ArtifactBackend, ContractIssueCodeSchema, GradientEstimator, PerturbationRng, SecureAggregation, Strategy,
   UpdateProtocol, type ArtifactVariant, type ExecutionContract, type LocalTraining, type ModelTraining,
 } from '../gen/fedlearn/contract/v1/execution_contract_pb';
@@ -29,13 +28,17 @@ export type ContractRefusalCode =
   | 'UNSUPPORTED_BATCHING'
   | 'MISSING_CPU_ARTIFACT';
 
-/** The first-order strategies v1 approves: ordinary client training, with the strategy's own work on the server. */
-export type FirstOrderStrategy = 'FedAvg' | 'FedOpt' | 'Robust';
+/**
+ * The first-order strategies v1 approves: ordinary client training, with the strategy's own work on the server.
+ * FedProx also adds the proximal term its contract states.
+ */
+export type FirstOrderStrategy = 'FedAvg' | 'FedOpt' | 'Robust' | 'FedProx';
 
 const FIRST_ORDER_STRATEGIES: ReadonlyMap<Strategy, FirstOrderStrategy> = new Map([
   [Strategy.FEDAVG, 'FedAvg'],
   [Strategy.FEDOPT, 'FedOpt'],
   [Strategy.ROBUST, 'Robust'],
+  [Strategy.FEDPROX, 'FedProx'],
 ]);
 
 /** What the native trainer needs from the contract for one round. */
@@ -48,6 +51,8 @@ export interface ContractProjection {
   batchSize: number;
   /** The run's initial trainable state; a DeComFL round starts only from the server's model with this digest. */
   initialStateSha256: string;
+  /** FedProx's proximal coefficient; 0 for every other strategy. */
+  proximalMu: number;
   /** DeComFL only: the zeroth-order settings the native round holds the server's round config to. */
   zerothOrder?: { smoothing: number; numPerturbations: number };
 }
@@ -136,8 +141,11 @@ export function projectContract(contract: ExecutionContract, contractId: string)
   const strategy = FIRST_ORDER_STRATEGIES.get(contract.strategy);
   if (!strategy) {
     return refuse('UNSUPPORTED_STRATEGY',
-      'This app trains only the first-order weight path published for FedAvg, FedOpt and Robust runs; this run '
-      + 'uses another strategy.');
+      'This app trains only the first-order weight path published for FedAvg, FedOpt, Robust and FedProx runs; '
+      + 'this run uses another strategy.');
+  }
+  if (strategy === 'FedProx' && training.fedproxMu === undefined) {
+    return refuse('CONTRACT_INVALID', 'This FedProx run\'s execution contract states no proximal coefficient.');
   }
   if (training.updateProtocol !== UpdateProtocol.UPDATE_TRAINABLE_STATE_F32) {
     return refuse('UNSUPPORTED_UPDATE_PROTOCOL', 'This run expects an update this app does not produce.');
@@ -174,6 +182,7 @@ export function projectContract(contract: ExecutionContract, contractId: string)
       numLocalSteps: local.localEpochs,
       batchSize: local.batchSize,
       initialStateSha256: training.initialStateSha256,
+      proximalMu: training.fedproxMu ?? 0,
     },
   };
 }
@@ -222,6 +231,7 @@ function projectDeComFL(contract: ExecutionContract, contractId: string, trainin
       numLocalSteps: zo.numLocalSteps,
       batchSize: local.batchSize,
       initialStateSha256: training.initialStateSha256,
+      proximalMu: 0,
       zerothOrder: { smoothing: zo.smoothing, numPerturbations: zo.numPerturbations },
     },
   };

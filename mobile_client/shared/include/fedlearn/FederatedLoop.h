@@ -53,11 +53,13 @@ class FederatedLoop {
   // TrainableExecutorchModel::trainStep) -> serialize the updated weights -> submitModelUpdate (the
   // weight-blob wire, NOT the ZO scalar wire). numLocalSteps and learningRate are the run's
   // execution contract; per-round server settings must equal them or the round is refused before upload.
-  // FedOpt additionally requires the server to send them.
+  // FedOpt additionally requires the server to send them. proximalMu is the contract's FedProx
+  // coefficient (0 for every other strategy): each step adds mu * (w - w_global), with w_global the
+  // downloaded model, and the server's proximal_mu (absent = 0) must equal it.
   RoundOutcome firstOrderRound(TrainableExecutorchModel& model, const std::string& runId,
                                const std::string& clientId, const DataBatch& batch,
                                int numLocalSteps, double learningRate,
-                               bool requireServerConfig = false);
+                               bool requireServerConfig = false, double proximalMu = 0.0);
 #endif
 
  private:

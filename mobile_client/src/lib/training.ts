@@ -44,15 +44,8 @@ export class MobileFedAvgUnsupportedError extends Error {
   }
 }
 
-export class MobileFedProxUnsupportedError extends MobileFedAvgUnsupportedError {
-  constructor() {
-    super('FedProx is not supported on this device yet: native training does not apply the proximal term.');
-    this.name = 'MobileFedProxUnsupportedError';
-  }
-}
-
 function supportedStrategy(value: string): Strategy {
-  if (value === 'DeComFL' || value === 'FedAvg' || value === 'FedOpt' || value === 'Robust') {
+  if (value === 'DeComFL' || value === 'FedAvg' || value === 'FedOpt' || value === 'Robust' || value === 'FedProx') {
     return value;
   }
   throw new MobileFedAvgUnsupportedError(`Unsupported strategy on this device: ${value}.`);
@@ -141,6 +134,7 @@ function roundConfigFor(joined: JoinedRun, strategy: Strategy, projection: Contr
     numLocalSteps: projection.numLocalSteps,
     gradEstimateMethod: 'forward',
     initialStateSha256: projection.initialStateSha256,
+    proximalMu: projection.proximalMu,
     seed: typeof m.seed === 'number' ? m.seed : 0,
     torchVersion: m.torchVersion ?? '',
   };
@@ -335,17 +329,13 @@ export async function runTrainingLoop(
   hooks: TrainingHooks,
   overrides?: { policy?: ResiliencePolicy; ops?: Partial<RoundOps>; contract?: ContractWaitOps },
 ): Promise<void> {
-  // Two legacy refusals stay ahead of the contract, because they name the real obstacle better than a missing
-  // contract would: a secure-aggregation run the phone cannot mask for, and FedProx, whose proximal term the
-  // native trainer does not implement.
+  // One legacy refusal stays ahead of the contract, because it names the real obstacle better than a missing
+  // contract would: a secure-aggregation run the phone cannot mask for.
   if (joined.manifest.secureAggregation === true) {
     throw new MobileSecureAggregationUnsupportedError(
       'This run uses secure aggregation, which this device cannot take part in yet: the phone cannot mask ' +
         'its update, and the server refuses unmasked ones. Join this run from the desktop app instead.',
     );
-  }
-  if (joined.manifest.strategy === 'FedProx') {
-    throw new MobileFedProxUnsupportedError();
   }
 
   // The run's published execution contract decides everything about this round: whether this device may train it
