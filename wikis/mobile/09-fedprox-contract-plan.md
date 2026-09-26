@@ -4,7 +4,7 @@
 contract that the laptop and Android clients both execute exactly. It is the last strategy the phone refuses
 (see [06](06-execution-contract-v1-implementation-plan.md), "Android is v1-dependent").
 
-**Status:** In progress (2026-09-26).
+**Status:** Slices 1–5 done (2026-09-26); the live run (slice 6) is pending a connected phone. See [Result](#result).
 
 ## What the clients actually execute
 
@@ -55,3 +55,23 @@ Consequences, stated rather than hidden:
 
 Any recipe other than TinyNet, changing FedProx's server-side defaults, and describing server-side settings in the
 contract.
+
+## Result
+
+| Slice | Commit |
+| --- | --- |
+| 1. One source for FedProx's client training; resolver plan | `04dd07b` |
+| 2. Matrix in all three readers | `9cc468a`: 177-case corpus; each reader fails the 3 changed cases with its matrix reverted |
+| 3. Backend publication | `8e7e2a5`: no backend code change was needed; the test fails with FedProx removed from the matrix |
+| 4. Laptop guard | `be0b41d` |
+| 5. Phone | `f1a78c6`: native endpoint 2.98e-8 from the framework golden; fails with the anchor removed |
+| 6. Live run | not run yet: no device attached |
+
+Measured while doing it (`research/notes/on-device/2026-09-26-fedprox-proximal-term-is-invisible-at-production-settings.md`):
+
+- **At one local step FedProx is byte-identical to FedAvg** at every rate and coefficient swept. At the production
+  lr 0.01 / μ 0.1, even ten steps separate the endpoints by only 6.4e-5. Raising FedProx's epochs would not make a
+  live run discriminate, so the server settings were left alone.
+- **The inherited tolerance would have passed a trainer with no proximal term.** At the FedAvg golden's lr 0.1 × 5,
+  μ 0.1 moves the endpoint 1.37e-3, inside that golden's 2e-3. The FedProx golden has its own 1e-4.
+- The APK builds with the change for arm64-v8a, but it has not been installed on a device.

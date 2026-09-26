@@ -62,8 +62,10 @@ approximates. Each refusal names its reason (`CONTRACT_MISSING`, `CONTRACT_LEGAC
 matrix was TinyNet / FedAvg / FULL only, so DeComFL, FedOpt and Robust stopped running on the phone even though
 Stage 1 validated them live. **FedOpt and Robust are restored** (2026-09-24,
 [07](07-fedopt-robust-contract-plan.md)): they are in the matrix and completed live on the phone. **DeComFL is restored
-too** (2026-09-25, [08](08-decomfl-contract-design.md)), after a schema extension for zeroth-order training. Only
-FedProx is still refused; it needs a native proximal term.
+too** (2026-09-25, [08](08-decomfl-contract-design.md)), after a schema extension for zeroth-order training. **FedProx
+is in the matrix too** (2026-09-26, [09](09-fedprox-contract-plan.md)): the native round applies the proximal term,
+proven against a multi-step framework golden. Its live run is pending, and at the server's one-step TinyNet settings
+the proximal term is exactly zero, so that run cannot show the term.
 
 ### Findings from 2H worth carrying into the paper
 
