@@ -7,7 +7,7 @@ import com.facebook.react.uimanager.ViewManager
 
 class FlServicePackage : ReactPackage {
   override fun createNativeModules(ctx: ReactApplicationContext): List<NativeModule> =
-    listOf(FlServiceModule(ctx))
+    listOf(FlServiceModule(ctx), com.fedlearn.mobile.artifacts.ArtifactServiceModule(ctx))
 
   override fun createViewManagers(ctx: ReactApplicationContext): List<ViewManager<*, *>> =
     emptyList()

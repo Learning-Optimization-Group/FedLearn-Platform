@@ -1,13 +1,13 @@
-// On-device model + training-data provisioning for a run. Fetches the run's bundle from the backend
-// (GET /api/runs/{runId}/model-bundle), downloads each binary (the ExecuTorch loss/infer .pte graphs +
-// the on-device data partition), and stages them into app-private storage via the native TurboModule
-// (nativeCore.stageBundleFile), which sha256-verifies each file against the bundle's declared hash
-// before writing it (MO-7). Returns the local paths training.ts feeds to loadModel /
-// setTrainingDataFromFiles. Raw features/labels are read from these local files by the native core and
-// never leave the device.
+// On-device model + training-data provisioning for a run. The model programs (the ExecuTorch .pte graphs) are the
+// ones the run's execution contract lists; each is streamed natively to app-private storage and verified against the
+// contract's size and SHA-256 (artifactService). The bundle endpoint (GET /api/runs/{runId}/model-bundle) supplies
+// the parameter layout and the on-device data files, which are still staged through nativeCore.stageBundleFile
+// (sha256-verified before writing, MO-7). Returns the local paths training.ts feeds to loadModel /
+// setTrainingDataFromFiles.
 import { api } from './restClient';
 import nativeCore, { type ModelManifest, type ParamSpec } from './nativeCore';
 import { readError } from './errors';
+import { fetchArtifact } from './artifactService';
 
 export interface ModelBundle {
   manifest: ModelManifest; // paramLayout + totalParamCount + inferPtePath/inferSha256
@@ -76,22 +76,52 @@ async function fetchAndStage(url: string, filename: string, expectedSha256: stri
  * (loss.pte, infer.pte, inputs.f32, targets.i64) is sha256-verified against the bundle's declared
  * hashes at staging time; loadModel additionally re-verifies the two .pte graphs on load.
  */
-export async function provisionTrainingBundle(runId: string): Promise<ModelBundle> {
+/** A model program the run's execution contract lists: its file name, digest and size. */
+export interface ContractProgram {
+  relativePath: string;
+  sha256: string;
+  byteSize: number;
+}
+
+/**
+ * Download one model program the contract lists, streamed natively to app-private storage and verified against the
+ * contract's size and digest. Returns its local path.
+ */
+async function fetchProgram(runId: string, program: ContractProgram): Promise<string> {
+  const url = `${api.defaults.baseURL ?? ''}/api/runs/${runId}/artifacts/${program.sha256}`;
+  try {
+    return await fetchArtifact(url, program.sha256, program.byteSize);
+  } catch (e) {
+    throw new ModelDeliveryUnavailableError(`Could not download ${program.relativePath}: ${readError(e)}`);
+  }
+}
+
+/**
+ * Provision a run's on-device training bundle. The model programs come from the execution contract, by digest
+ * (`programs`, its portable CPU variant): the loss and inference graphs, and the trainable graph when listed. The
+ * bundle endpoint still supplies the parameter layout, the trainable parameter names and the on-device data files,
+ * which are staged as before until datasets become on-device imports (Stage 3, section B).
+ */
+export async function provisionTrainingBundle(runId: string, programs: ContractProgram[]): Promise<ModelBundle> {
+  const byName = new Map(programs.map(p => [p.relativePath, p]));
+  const loss = byName.get('loss.pte');
+  const infer = byName.get('infer.pte');
+  for (const [name, program] of [['loss.pte', loss], ['infer.pte', infer]] as const) {
+    if (!program) {
+      throw new ModelDeliveryUnavailableError(`This run's execution contract lists no ${name}.`);
+    }
+  }
   let dto: ModelBundleDto;
   try {
     const res = await api.get<ModelBundleDto>(`/api/runs/${runId}/model-bundle`);
     dto = res.data;
-  } catch (e: unknown) {
-    const status = (e as { response?: { status?: number } })?.response?.status;
-    if (status === 404) {
-      throw new ModelDeliveryUnavailableError('No model bundle is staged for this run yet.');
-    }
+  } catch (e) {
     throw new ModelDeliveryUnavailableError(`Could not fetch the model bundle: ${readError(e)}`);
   }
 
   const [lossPtePath, inferPtePath, inputsF32Path, targetsI64Path] = await Promise.all([
-    fetchAndStage(dto.lossPteUrl, 'loss.pte', dto.lossSha256),
-    fetchAndStage(dto.inferPteUrl, 'infer.pte', dto.inferSha256),
+    fetchProgram(runId, loss!),
+    fetchProgram(runId, infer!),
     fetchAndStage(dto.inputsUrl, 'inputs.f32', dto.inputsSha256),
     fetchAndStage(dto.targetsUrl, 'targets.i64', dto.targetsSha256),
   ]);
@@ -99,28 +129,23 @@ export async function provisionTrainingBundle(runId: string): Promise<ModelBundl
   const manifest: ModelManifest = {
     paramLayout: dto.paramLayout,
     totalParamCount: dto.totalParamCount,
-    inferPtePath, // rewritten to the staged local path
-    inferSha256: dto.inferSha256,
+    inferPtePath,
+    inferSha256: infer!.sha256,
   };
 
-  // First-order (FedAvg) trainable graph, when the run advertises one. Fetch + sha256-verify + stage it
-  // just like the other bundle files, then hand its LOCAL staged path + the canonical trainable-param
-  // names to the native core via the manifest. When absent, trainablePtePath stays undefined and the
-  // native doRunFedAvgRound falls back to the DeComFL zeroth-order path (fail-safe).
-  if (dto.trainablePteUrl && dto.trainableSha256) {
-    manifest.trainablePtePath = await fetchAndStage(
-      dto.trainablePteUrl,
-      'trainable.pte',
-      dto.trainableSha256,
-    );
-    manifest.trainableSha256 = dto.trainableSha256;
+  // First-order runs list a trainable graph; its local path and the canonical trainable-parameter names go to the
+  // native core through the manifest. Without one the native core runs zeroth-order (DeComFL).
+  const trainable = byName.get('trainable.pte');
+  if (trainable) {
+    manifest.trainablePtePath = await fetchProgram(runId, trainable);
+    manifest.trainableSha256 = trainable.sha256;
     manifest.trainableParamNames = dto.trainableParamNames ?? [];
   }
 
   return {
     manifest,
     lossPtePath,
-    lossSha256: dto.lossSha256,
+    lossSha256: loss!.sha256,
     inputsF32Path,
     inputShape: dto.inputShape,
     targetsI64Path,

@@ -44,8 +44,11 @@ the contract's `ArtifactVariant.files`, which are already hash- and size-bound. 
 5. on mismatch moves the file to `quarantine/`, deleted after 24 h, and reports `ARTIFACT_HASH_MISMATCH`.
 
 **Auth.** The session cookie must reach the download without appearing in a URL or log. The intended mechanism is
-React Native's shared OkHttp client (`OkHttpClientProvider`), whose cookie jar the app's axios calls already use.
-Verified present in `react-android-0.80.0` (with `ReactCookieJarContainer`); the app ships OkHttp 4.9.2.
+React Native's OkHttp client (`OkHttpClientProvider`, present in `react-android-0.80.0`), with the app's cookie store
+attached explicitly: `JavaNetCookieJar(ForwardingCookieHandler(ctx))`, backed by the app-wide `CookieManager` where
+the REST session cookie lives. **The provider's client alone carries no cookies.** React Native's networking module
+attaches its jar to a client it builds for itself, so the first live A3 run got `ARTIFACT_HTTP_403` on every download,
+until the jar was attached. The app ships OkHttp 4.9.2.
 
 **Backend.** `bundleFile` must answer `Range` with `206`, and send a strong `ETag` (the file's SHA-256) and
 `Content-Length`. Spring may already support byte ranges for `Resource` bodies; *slice A2 pins it with a test either
@@ -166,6 +169,9 @@ A TinyNet run in which the phone trains an **imported** snapshot, not server fil
    checks finiteness and change, which is weaker but needs no exporter change.
 
 ## Slices (each test-first, each its own commit)
+
+Progress: A1 `4eff087`, A2 `fa77ef2`, A3 (this commit). A3 was checked live: a one-client TinyNet FedAvg run on
+the vivo completed, with the three contract programs stored as `files/artifacts/<sha256>` at the contract's exact sizes.
 
 - **A1** Kotlin `ArtifactDownloader` with size cap, streaming hash, atomic promote and quarantine; auth via the shared client. Unit tests use a local HTTP server (resume, mismatch, oversize).
 - **A2** Backend: range, strong ETag and hash-addressed file serving, with tests.

@@ -7,6 +7,7 @@ import { ArtifactBackend, ContractIssueCodeSchema, GradientEstimator, Perturbati
 } from '../gen/fedlearn/contract/v1/execution_contract_pb';
 import { MalformedContractError, parseContractJson, validateContract } from './executionContract';
 import { SERVER_PROTOCOL_VERSION } from './nativeCompatibility';
+import type { ContractProgram } from './modelProvisioning';
 
 /** The contract fields of a run manifest or connection payload, as the backend serves them. */
 export interface ContractCarrier {
@@ -258,6 +259,17 @@ function unsupportedOptimizer(local: LocalTraining): string | undefined {
 
 function portableCpuVariant(variants: readonly ArtifactVariant[]): ArtifactVariant | undefined {
   return variants.find(v => v.backend === ArtifactBackend.BACKEND_EXECUTORCH_CPU && v.abi === DEVICE_ABI);
+}
+
+/** The model programs the phone downloads: the portable CPU variant's files, with their digests and sizes. */
+export function contractPrograms(contract: ExecutionContract): ContractProgram[] {
+  if (contract.workload.case !== 'modelTraining') {
+    return [];
+  }
+  const variant = portableCpuVariant(contract.workload.value.artifacts);
+  return (variant?.files ?? []).map(f => ({
+    relativePath: f.relativePath, sha256: f.sha256, byteSize: Number(f.byteSize),
+  }));
 }
 
 /** What a staged bundle carries, as far as the contract binds it. */

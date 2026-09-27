@@ -15,6 +15,7 @@ import {
 } from '@/gen/fedlearn/contract/v1/execution_contract_pb';
 import {
   checkBundleAgainstContract,
+  contractPrograms,
   decideOnContract,
   projectContract,
   type ContractCarrier,
@@ -365,3 +366,26 @@ describe('a contract carrier without a workload', () => {
     expect(decide(contract)).toMatchObject({ kind: 'refuse', code: 'CONTRACT_INVALID' });
   });
 });
+
+describe('the programs the phone downloads come from the contract', () => {
+  it('lists the portable CPU variant\'s files with their digests and sizes', () => {
+    const contract = golden();
+    const variant = contract.workload.case === 'modelTraining'
+      ? contract.workload.value.artifacts.find(v => v.abi === 'arm64-v8a') : undefined;
+    const programs = contractPrograms(contract);
+    expect(programs.map(p => p.relativePath)).toEqual(variant!.files.map(f => f.relativePath));
+    const first = variant!.files[0]!;
+    expect(programs[0]).toEqual({
+      relativePath: first.relativePath, sha256: first.sha256, byteSize: Number(first.byteSize),
+    });
+  });
+
+  it('lists nothing when the contract has no portable CPU variant', () => {
+    const contract = golden();
+    if (contract.workload.case === 'modelTraining') {
+      contract.workload.value.artifacts = [];
+    }
+    expect(contractPrograms(contract)).toEqual([]);
+  });
+});
+

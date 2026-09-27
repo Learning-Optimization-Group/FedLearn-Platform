@@ -7,7 +7,7 @@ import { joinRun, type JoinedRun, type RunManifest } from './runJoin';
 import { provisionTrainingBundle } from './modelProvisioning';
 import { assertNativeCompatibility } from './nativeCompatibility';
 import type { ExecutionContract } from '../gen/fedlearn/contract/v1/execution_contract_pb';
-import {
+import { contractPrograms,
   checkBundleAgainstContract,
   decideOnContract,
   type ContractProjection,
@@ -349,7 +349,7 @@ export async function runTrainingLoop(
   await assertNativeCompatibility(nativeCore);
   hooks.onLog(`Execution contract ${projection.contractId.slice(0, 12)}… accepted.`);
   hooks.onLog('Provisioning model + on-device data…');
-  const bundle = await provisionTrainingBundle(joined.runId);
+  const bundle = await provisionTrainingBundle(joined.runId, contractPrograms(contract));
 
   // The staged bundle must be the one the contract binds: same programs, same trainable layout.
   const unbound = checkBundleAgainstContract(contract, {
