@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.contract;
 
+import com.federated.fl_platform_api.orchestration.ProcessTrees;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fedlearn.contract.v1.ModelTraining;
@@ -54,11 +55,11 @@ public class ScriptExecutionPlanResolver implements ExecutionPlanResolver {
         }
         try {
             if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
-                process.destroyForcibly();
+                ProcessTrees.destroyForcibly(process);
                 throw new IOException("the execution-plan resolver timed out after " + timeoutSeconds + "s");
             }
         } catch (InterruptedException e) {
-            process.destroyForcibly();
+            ProcessTrees.destroyForcibly(process);
             Thread.currentThread().interrupt();
             throw new IOException("interrupted while resolving the execution plan", e);
         }

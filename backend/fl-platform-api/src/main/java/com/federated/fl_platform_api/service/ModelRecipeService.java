@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.service;
 
+import com.federated.fl_platform_api.orchestration.ProcessTrees;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.federated.fl_platform_api.dto.ModelRecipeDto;
@@ -129,7 +130,7 @@ public class ModelRecipeService {
 
         boolean finished = process.waitFor(PROCESS_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         if (!finished) {
-            process.destroyForcibly();
+            ProcessTrees.destroyForcibly(process);
             throw new IOException("recipe discovery timed out after " + PROCESS_TIMEOUT_SECONDS + "s");
         }
         if (process.exitValue() != 0) {

@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.service;
 
+import com.federated.fl_platform_api.orchestration.ProcessTrees;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.federated.fl_platform_api.dto.GenerationRequest;
@@ -243,14 +244,14 @@ public class InferenceService {
             }
             boolean finished = process.waitFor(PROCESS_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (!finished) {
-                process.destroyForcibly();
+                ProcessTrees.destroyForcibly(process);
                 throw new ServerProcessException("Inference timed out after " + PROCESS_TIMEOUT_SECONDS + "s");
             }
         } catch (IOException e) {
             throw new ServerProcessException("Inference process I/O error", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            process.destroyForcibly();
+            ProcessTrees.destroyForcibly(process);
             throw new ServerProcessException("Inference interrupted", e);
         }
 
@@ -416,7 +417,7 @@ public class InferenceService {
                 }
                 boolean finished = process.waitFor(generationTimeoutSeconds, TimeUnit.SECONDS);
                 if (!finished) {
-                    process.destroyForcibly();
+                    ProcessTrees.destroyForcibly(process);
                     throw new ServerProcessException("Generation timed out after " + generationTimeoutSeconds + "s");
                 }
             } catch (IOException e) {
@@ -424,7 +425,7 @@ public class InferenceService {
                 throw new ServerProcessException("Generation process I/O error", e);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                process.destroyForcibly();
+                ProcessTrees.destroyForcibly(process);
                 throw new ServerProcessException("Generation interrupted", e);
             }
             JsonNode result = readResult(outputFile);
@@ -461,7 +462,7 @@ public class InferenceService {
         Process p = runningGenerations.get(projectId);
         if (p == null) return false;          // nothing running → harmless no-op (flag NOT set)
         stoppedGenerations.add(projectId);
-        p.destroyForcibly();
+        ProcessTrees.destroyForcibly(p);   // the script forks python; stopping only bash would leave it generating
         return true;
     }
 

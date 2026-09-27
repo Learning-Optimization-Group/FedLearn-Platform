@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.service;
 
+import com.federated.fl_platform_api.orchestration.ProcessTrees;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -286,7 +287,7 @@ public class ScriptModelBundleStager implements ModelBundleStager {
             Process p = pb.start();
             boolean finished = p.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             if (!finished) {
-                p.destroyForcibly();
+                ProcessTrees.destroyForcibly(p);
                 throw new TimeoutException("export_model timed out after " + timeoutSeconds + "s");
             }
             int exit = p.exitValue();
