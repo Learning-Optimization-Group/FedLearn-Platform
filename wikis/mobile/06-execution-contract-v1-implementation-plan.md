@@ -64,8 +64,9 @@ Stage 1 validated them live. **FedOpt and Robust are restored** (2026-09-24,
 [07](07-fedopt-robust-contract-plan.md)): they are in the matrix and completed live on the phone. **DeComFL is restored
 too** (2026-09-25, [08](08-decomfl-contract-design.md)), after a schema extension for zeroth-order training. **FedProx
 is in the matrix too** (2026-09-26, [09](09-fedprox-contract-plan.md)): the native round applies the proximal term,
-proven against a multi-step framework golden. Its live run is pending, and at the server's one-step TinyNet settings
-the proximal term is exactly zero, so that run cannot show the term.
+proven against a multi-step framework golden, and it completed live with the vivo and three laptops. At the server's
+one-step TinyNet settings the proximal term is exactly zero, so the live run proves the contract path, not the term.
+**Every v1 strategy now runs on the phone.**
 
 ### Findings from 2H worth carrying into the paper
 

@@ -4,7 +4,7 @@
 contract that the laptop and Android clients both execute exactly. It is the last strategy the phone refuses
 (see [06](06-execution-contract-v1-implementation-plan.md), "Android is v1-dependent").
 
-**Status:** Slices 1–5 done (2026-09-26); the live run (slice 6) is pending a connected phone. See [Result](#result).
+**Status:** Done (2026-09-26). All six slices landed; a vivo 1805 and three laptop clients completed a live FedProx run on one published contract. See [Result](#result).
 
 ## What the clients actually execute
 
@@ -65,7 +65,7 @@ contract.
 | 3. Backend publication | `8e7e2a5`: no backend code change was needed; the test fails with FedProx removed from the matrix |
 | 4. Laptop guard | `be0b41d` |
 | 5. Phone | `f1a78c6`: native endpoint 2.98e-8 from the framework golden; fails with the anchor removed |
-| 6. Live run | not run yet: no device attached |
+| 6. Live run | run `c0cfb18c…` on contract `a5a15cac7a79…`, fresh APK from `f1a78c6`: COMPLETED |
 
 Measured while doing it (`research/notes/on-device/2026-09-26-fedprox-proximal-term-is-invisible-at-production-settings.md`):
 
@@ -74,4 +74,17 @@ Measured while doing it (`research/notes/on-device/2026-09-26-fedprox-proximal-t
   live run discriminate, so the server settings were left alone.
 - **The inherited tolerance would have passed a trainer with no proximal term.** At the FedAvg golden's lr 0.1 × 5,
   μ 0.1 moves the endpoint 1.37e-3, inside that golden's 2e-3. The FedProx golden has its own 1e-4.
-- The APK builds with the change for arm64-v8a, but it has not been installed on a device.
+
+Live (2026-09-26): `All 4 clients reported` in rounds 1–3, with 9 laptop updates and 3 phone updates. The phone
+logged the contract as accepted. Replaying the run with only the phone's training varied, the contract predicts the
+phone's three losses and the server's saved final model exactly (max abs diff 0.0).
+
+- **The run cannot see the proximal term.** A phone with no proximal term predicts the same bytes, as expected at
+  one step. It does reject a proximal term anchored at zeros, but only through the saved model (3.6e-4). The
+  phone's 4-dp losses match that bug too.
+- **gRPC over Tailscale failed.** With Tailscale up, the dev backend advertises the FL server at the Mac's tailnet
+  IP. The phone reached it over TCP, but no HTTP/2 SETTINGS frame arrived, and registration timed out. Plain HTTP
+  over the same path works. This is not diagnosed; the run used the USB tunnel (`FL_SERVER_GRPC_HOST=127.0.0.1`), as
+  every earlier contract run did.
+- An earlier attempt failed to publish its contract (`STAGING_FAILED`), because the backend's default bundle
+  directory, `/var/models`, is not writable on macOS. Set `APP_MODEL_BUNDLE_DIR` for local live runs.
