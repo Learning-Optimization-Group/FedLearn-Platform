@@ -219,6 +219,11 @@ Acceptance for a three-round, four-client run:
 - replaying the run under the contract predicts the phone's per-round losses and the saved final model
   (`backend/fl-platform-api/models/$P.npz`).
 
+To compare clients one by one rather than only through the aggregate, start the backend with
+`FEDLEARN_RECORD_CLIENT_UPDATES=$WORK/client_updates.jsonl`. The FL server it spawns inherits the variable and appends
+every DeComFL update it accepts (round, client ID, examples, scalars as aggregated) to that file. It is research-only:
+the server refuses to start with it on a secure-aggregation or central-DP run.
+
 For the replay, vary only the phone's hypothesis, because the laptops were checked separately. Include at least
 one wrong hypothesis that the run should reject. Otherwise a replay that "matches" proves nothing. The saved model
 is the stronger evidence: the phone's 4-dp losses can miss a small deviation that the aggregate reveals (see

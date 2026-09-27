@@ -74,6 +74,10 @@ class FLCoordinator:
         # behind a min-cohort gate, being a no-op at the 1-3 client cohorts this platform runs.
         self.grad_clip_threshold = grad_clip_threshold
 
+        # Research-only record of each accepted client update (fedlearn.server.update_recorder). None records
+        # nothing; build_coordinator sets it from FEDLEARN_RECORD_CLIENT_UPDATES.
+        self.update_recorder = None
+
         # SE-3 poisoning defense (FedAvg path): optional server-side L2 clip of each client's UPDATE
         # DELTA (params - current global) to this budget, so no single client can move the global by
         # more than it. None disables it (the default): unlike the DeComFL scalar clamp, a too-tight
@@ -851,6 +855,8 @@ class FLCoordinator:
 
             # Store as tuple: (client_id, gradient_scalars, num_examples)
             self._client_updates_received.append((client_id, gradient_scalars, num_examples))
+            if self.update_recorder is not None:   # research-only; see update_recorder.py
+                self.update_recorder.record_decomfl(self.current_round, client_id, gradient_scalars, num_examples)
 
             if len(self._client_updates_received) >= self.clients_per_round:
                 log.info(

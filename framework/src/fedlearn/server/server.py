@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from .strategy import Strategy
 from .coordinator import FLCoordinator
+from fedlearn.server.update_recorder import update_recorder_from_env
 from .grpc_servicer import FederatedLearningServiceServicer
 from ..communication.generated import fedlearn_pb2_grpc
 from ..security.interceptor import interceptor_from_env
@@ -61,13 +62,20 @@ class ServerConfig:
 
 def build_coordinator(strategy, config: ServerConfig) -> FLCoordinator:
     """The run's coordinator. It is told the run's length so that, once the last round has aggregated, no client
-    is handed a further round to train in the moment before the loop below marks the run complete."""
-    return FLCoordinator(
+    is handed a further round to train in the moment before the loop below marks the run complete.
+
+    FEDLEARN_RECORD_CLIENT_UPDATES turns on the research-only record of each accepted client update; a run with
+    secure aggregation or central DP refuses it here, before any port is bound."""
+    recorder = update_recorder_from_env(secure_aggregation=config.secure_aggregation,
+                                        dp_enabled=bool(getattr(strategy, "dp_enabled", False)))
+    coordinator = FLCoordinator(
         strategy=strategy,
         min_clients_for_aggregation=strategy.min_fit_clients,
         clients_per_round=strategy.clients_per_round,
         num_rounds=config.num_rounds,
     )
+    coordinator.update_recorder = recorder
+    return coordinator
 
 
 def build_servicer(coordinator, config: "ServerConfig"):
