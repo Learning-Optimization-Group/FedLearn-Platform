@@ -164,6 +164,28 @@ grep -h "\[contract\]\|Refusing" $WORK/laptop_*.log     # three "execution contr
 
 The round-deadline clock is already running. Join the phone within `FEDLEARN_ROUND_TIMEOUT_S`.
 
+### Clients on other machines
+
+To put laptop clients on separate hardware, as in the four-platform run (Apple MPS, x86 CPU, Jetson CUDA and the
+phone), run each one on its own host against the server's reachable address (e.g. its Tailscale IP):
+
+- **Ship the exact commit.** Use `git archive HEAD framework fl-runtime proto | ssh $HOST "mkdir -p ~/fl/$SHA && tar -x -C ~/fl/$SHA"`,
+  not whatever the host has checked out. The client's `check_contract` compares against its own resolver.
+- **Match protobuf.** The generated code needs protobuf ≥ 5.29; a system Python with 4.x fails at import. A venv
+  with `--system-site-packages` plus `pip install protobuf==5.29.6 grpcio==1.83.0` reuses the host's torch.
+  Put `framework/src` first on `PYTHONPATH`, because an older installed `fedlearn` package would otherwise win.
+- **Jetson (JetPack 6):** run the client in a CUDA image with `--runtime nvidia --network host`, the commit
+  mounted at `/app`, and `PYTHONPATH=/app/framework/src:/app/fl-runtime`.
+- **Detach remote launches** with `setsid -f … < /dev/null`. `ssh host "nohup … &"` can keep the SSH session open.
+- **Probe gRPC from each host before starting its client.** A plain TCP check is not enough (see the
+  troubleshooting table):
+
+  ```bash
+  python -c "import grpc,sys;grpc.channel_ready_future(grpc.insecure_channel(sys.argv[1])).result(timeout=10);print('READY')" <server-ip>:50000
+  ```
+
+- `--device auto` picks cuda, then mps, then cpu per host. Record what each client printed (`[device] resolved …`).
+
 ## 6. Join from the phone
 
 In the app: sign in against server `http://127.0.0.1:8082` → **Projects** → the running project → **Join training
@@ -218,7 +240,10 @@ ssh $RELAY "$ADB reverse --remove-all"
 | Gradle: `Could not find ET_LIB_executorch` | the native `-P` paths are missing | step 1 |
 | `adb devices` empty | no USB data connection | cable, USB mode, the host's accessory prompt |
 | Contract `UNAVAILABLE`, `STAGING_FAILED`; laptops refuse with "contract ProtoJSON does not parse" | bundle staging could not write `/var/models` | `APP_MODEL_BUNDLE_DIR` |
-| Phone banner: `RegisterClient failed … <tailnet IP>:50000 … timed out before receiving SETTINGS frame` | the backend advertised a Tailscale IP; gRPC to it from the app fails (plain HTTP works; cause not diagnosed) | `FL_SERVER_GRPC_HOST=127.0.0.1` |
+| Phone banner: `RegisterClient failed … <tailnet IP>:50000 … timed out before receiving SETTINGS frame` | the backend advertised a Tailscale IP and the phone dialled it; gRPC over the tailnet failed transiently (below) | `FL_SERVER_GRPC_HOST=127.0.0.1` for the phone's USB path |
+| A remote client: `failed to connect to all addresses … tcp handshaker shutdown`, while `nc` connects | a transient on the tailnet path, seen from x86, Jetson and phone clients; it cleared within minutes; not diagnosed | rerun the gRPC probe until READY, then launch |
+| Phone project list: `Request failed with status code 403` | its saved session belongs to a previous backend database | Settings → Sign out, then sign in |
+| After `/stop`, the next project cannot get port 50000 | `/stop` leaves `fl_server.py` running (open platform bug) | `pkill -f fl_server.py` after stopping |
 | Phone banner: `UNAVAILABLE ipv4:127.0.0.1:50000: Socket closed` | the FL-port tunnel is broken (e.g. started from zsh) | step 4 under bash; rerun the SETTINGS check |
 | Round never closes; `Clients reported 3/4` | the phone joined but never started training | Home → Start training |
 | Run marked FAILED after training | FL-server callbacks went to another backend | fixed in `ca18c08`; with an older backend set `app.backend.internal-url` |

@@ -85,6 +85,8 @@ phone's three losses and the server's saved final model exactly (max abs diff 0.
 - **gRPC over Tailscale failed.** With Tailscale up, the dev backend advertises the FL server at the Mac's tailnet
   IP. The phone reached it over TCP, but no HTTP/2 SETTINGS frame arrived, and registration timed out. Plain HTTP
   over the same path works. This is not diagnosed; the run used the USB tunnel (`FL_SERVER_GRPC_HOST=127.0.0.1`), as
-  every earlier contract run did.
+  every earlier contract run did. Later the same day, Python clients on an x86 host and on a Jetson failed the same
+  way over Tailscale and connected minutes later, so this is probably a transient on that path, not specific to the
+  phone.
 - An earlier attempt failed to publish its contract (`STAGING_FAILED`), because the backend's default bundle
   directory, `/var/models`, is not writable on macOS. Set `APP_MODEL_BUNDLE_DIR` for local live runs.

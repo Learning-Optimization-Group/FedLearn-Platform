@@ -154,6 +154,12 @@ callbacks, carrying the run's internal token, went to an unrelated backend on :8
 `app.backend.internal-url` fixed it for the second run. The platform default itself is **not fixed**: it should
 derive from the backend's own `server.port`.
 
-Not shown by this run: laptop clients on separate hardware, the phone on a real network rather than USB port
+**Four platforms (2026-09-26).** A later DeComFL run put the phone, an Apple M4 Max client (MPS), an x86 Linux client
+(CPU) and a Jetson AGX Orin client (CUDA, torch 2.11) on one contract, the last three on separate hardware and
+two of them over Tailscale. It completed with four distinct clients in each of three rounds. A replay predicts the
+phone's losses exactly and the saved model to 7.45e-8, the same ~2.5 ULP residual as the all-on-one-Mac run. The
+setup is in the [runbook](10-live-run-runbook.md).
+
+Not shown by the Stage 2I run: laptop clients on separate hardware, the phone on a real network rather than USB port
 forwarding, the Electron launcher path, any learning signal (TinyNet has no evaluation set), and anything outside
 TinyNet / FedAvg / FULL.
