@@ -45,4 +45,40 @@ public class ProcessTreesTest {
         });
         Files.deleteIfExists(pidFile);
     }
+
+    @Test
+    void aWatchdogKillsTheTreeWhenItExpires() throws Exception {
+        Path pidFile = Files.createTempFile("wd", ".pid");
+        Files.delete(pidFile);
+        Process wrapper = startForkingWrapper(pidFile);
+        ProcessHandle child = forkedChild(pidFile);
+
+        try (ProcessTrees.Watchdog watchdog = ProcessTrees.killAfter(wrapper, 1)) {
+            await().atMost(10, SECONDS).untilAsserted(() -> {
+                assertFalse(wrapper.isAlive());
+                assertFalse(child.isAlive());
+            });
+            org.junit.jupiter.api.Assertions.assertTrue(watchdog.fired());
+        }
+        Files.deleteIfExists(pidFile);
+    }
+
+    @Test
+    void closingAWatchdogCancelsTheKill() throws Exception {
+        Path pidFile = Files.createTempFile("wd-closed", ".pid");
+        Files.delete(pidFile);
+        Process wrapper = startForkingWrapper(pidFile);
+        ProcessHandle child = forkedChild(pidFile);
+        try {
+            ProcessTrees.Watchdog watchdog = ProcessTrees.killAfter(wrapper, 1);
+            watchdog.close();
+            Thread.sleep(2500);
+            org.junit.jupiter.api.Assertions.assertTrue(wrapper.isAlive(), "a closed watchdog must not kill");
+            assertFalse(watchdog.fired());
+        } finally {
+            ProcessTrees.destroyForcibly(wrapper);
+            await().atMost(10, SECONDS).until(() -> !child.isAlive());
+            Files.deleteIfExists(pidFile);
+        }
+    }
 }

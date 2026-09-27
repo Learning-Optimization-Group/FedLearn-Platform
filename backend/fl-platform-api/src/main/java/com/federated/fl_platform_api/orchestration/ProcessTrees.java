@@ -8,6 +8,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -22,7 +26,49 @@ import java.util.concurrent.TimeoutException;
  */
 public final class ProcessTrees {
 
+    private static final ScheduledExecutorService WATCHDOGS = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "process-watchdog");
+        t.setDaemon(true);
+        return t;
+    });
+
     private ProcessTrees() {
+    }
+
+    /**
+     * Kills {@code process}'s tree if it is still running {@code timeoutSeconds} from now. For callers that stream a
+     * script's output line by line: killing the tree closes the pipe, so a read loop blocked on a hung script ends.
+     * Close it once the process is done to cancel the kill.
+     */
+    public static Watchdog killAfter(Process process, long timeoutSeconds) {
+        AtomicBoolean fired = new AtomicBoolean();
+        ScheduledFuture<?> kill = WATCHDOGS.schedule(() -> {
+            if (process.isAlive()) {
+                fired.set(true);
+                destroyForcibly(process);
+            }
+        }, timeoutSeconds, TimeUnit.SECONDS);
+        return new Watchdog(kill, fired);
+    }
+
+    /** A pending kill from {@link #killAfter}; {@link #fired()} says whether it went off. */
+    public static final class Watchdog implements AutoCloseable {
+        private final ScheduledFuture<?> kill;
+        private final AtomicBoolean fired;
+
+        private Watchdog(ScheduledFuture<?> kill, AtomicBoolean fired) {
+            this.kill = kill;
+            this.fired = fired;
+        }
+
+        public boolean fired() {
+            return fired.get();
+        }
+
+        @Override
+        public void close() {
+            kill.cancel(false);
+        }
     }
 
     /** Forcibly terminate {@code process} and every descendant it has at this moment. */
