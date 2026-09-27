@@ -261,4 +261,20 @@ describe('runTrainingLoop — the execution contract decides', () => {
     })).rejects.toThrow(/loss\.pte/);
     expect(runFedAvgRound).not.toHaveBeenCalled();
   });
+
+  // The native trainer takes one whole-dataset step per epoch, so it can reproduce the contract only when the staged
+  // data is a single batch. The gate's comment always said this was checked at staging; it never was.
+  test('refuses staged data larger than the contract\'s batch, before loading it', async () => {
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce({ ...STAGED_BUNDLE, inputShape: [16, 4] });
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    const { getServerStatus, runFedAvgRound } = oneRound();
+
+    const run = runTrainingLoop(joined(), hooks, {
+      policy: POLICY,
+      ops: { getServerStatus, runFedAvgRound, loadSubmittedRound: async () => null, saveSubmittedRound: async () => {} },
+    });
+    await expect(run).rejects.toMatchObject({ name: 'ExecutionContractRefusedError', code: 'UNSUPPORTED_BATCHING' });
+    expect(nativeCore.setTrainingDataFromFiles).not.toHaveBeenCalled();
+    expect(runFedAvgRound).not.toHaveBeenCalled();
+  });
 });

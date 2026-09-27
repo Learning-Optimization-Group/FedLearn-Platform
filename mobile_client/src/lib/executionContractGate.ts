@@ -163,7 +163,7 @@ export function projectContract(contract: ExecutionContract, contractId: string)
   }
   // The native trainer takes one step per local epoch over the whole local dataset, so it can reproduce a contract
   // whose every epoch is a single batch, keeping the final batch. The dataset's size is checked against batchSize
-  // when the data is staged.
+  // when the data is staged (runTrainingLoop).
   if (local.dropLast !== false || local.maxLocalSteps !== undefined) {
     return refuse('UNSUPPORTED_BATCHING',
       'This run batches its local training in a way this app\'s trainer cannot reproduce.');

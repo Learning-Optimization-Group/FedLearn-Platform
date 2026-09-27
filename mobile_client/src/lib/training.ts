@@ -363,6 +363,15 @@ export async function runTrainingLoop(
       `This run's staged model is not the one its execution contract binds (${unbound.join(', ')}).`);
   }
 
+  // The native trainer takes one whole-dataset step per epoch, so it reproduces the contract only when the staged
+  // data fits in one batch. A larger dataset would silently train steps the contract does not state.
+  const records = bundle.inputShape[0] ?? 0;
+  if (!(records >= 1 && records <= projection.batchSize)) {
+    throw new ExecutionContractRefusedError('UNSUPPORTED_BATCHING',
+      `This run trains batches of ${projection.batchSize}, but this device has ${records} examples; it can only `
+      + 'train data that fits in one batch.');
+  }
+
   await nativeCore.setModelManifest(bundle.manifest);
   const info = await nativeCore.loadModel(bundle.lossPtePath, bundle.lossSha256);
   hooks.onLog(`Model loaded — ${info.trainableParamCount} trainable params (tier ${info.tier}).`);
