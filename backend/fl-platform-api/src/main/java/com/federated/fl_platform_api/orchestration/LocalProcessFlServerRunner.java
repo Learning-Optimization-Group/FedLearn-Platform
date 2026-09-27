@@ -74,7 +74,8 @@ public final class LocalProcessFlServerRunner implements FlServerProcessRunner {
 
         @Override
         public void destroyForcibly() {
-            process.destroyForcibly();
+            // The wrapper script forks the FL server; kill its whole tree, not only the wrapper.
+            ProcessTrees.destroyForcibly(process.toHandle());
         }
     }
 }

@@ -914,9 +914,10 @@ public class FlServerManager {
         ProcessHandle handle = runningServers.remove(projectId);
         if (handle != null && handle.isAlive()) {
             log.info("Stopping FL server for project {}", projectId);
-            handle.destroyForcibly();
+            // The tracked handle is the wrapper script; the FL server is its child. Kill the whole tree.
+            java.util.List<ProcessHandle> tree = ProcessTrees.destroyForcibly(handle);
             try {
-                handle.onExit().get(stopWaitSeconds(), TimeUnit.SECONDS);
+                ProcessTrees.awaitExit(tree, stopWaitSeconds());
             } catch (InterruptedException e) {
                 log.warn("Interrupted while waiting for FL server {} to terminate", projectId);
                 Thread.currentThread().interrupt();
@@ -946,8 +947,7 @@ public class FlServerManager {
             try {
                 runningServers.remove(id, p);
                 if (p.isAlive()) {
-                    p.destroyForcibly();
-                    p.onExit().get(stopWaitSeconds(), TimeUnit.SECONDS);
+                    ProcessTrees.awaitExit(ProcessTrees.destroyForcibly(p), stopWaitSeconds());
                 }
             } catch (InterruptedException e) {
                 log.warn("Interrupted while waiting for FL server {} to terminate during shutdown", id);
