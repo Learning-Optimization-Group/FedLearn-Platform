@@ -87,4 +87,23 @@ class ScriptExecutionPlanResolverTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(Files.exists(dir.resolve("args.txt"))).isFalse();
     }
+
+    // The resolver read stdout to EOF before waiting with a timeout, so a hung script (which holds stdout) blocked the
+    // publisher forever and the timeout never fired. It must fire, and end what the script forked.
+    @Test
+    void aHungResolverTimesOutAndIsKilled(@TempDir Path dir) throws Exception {
+        Path pidFile = dir.resolve("child.pid");
+        Path script = dir.resolve("hang.sh");
+        Files.writeString(script, "#!/bin/bash\nsleep 300 &\necho $! > " + pidFile + "\nwait\n");
+        ScriptExecutionPlanResolver resolver = resolver(script);
+        ReflectionTestUtils.setField(resolver, "timeoutSeconds", 1L);
+
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(15), () ->
+                assertThatThrownBy(() -> resolver.resolve("TINYNET_GOLDEN", "FedAvg", "FULL", dir.resolve("m.npz")))
+                        .isInstanceOf(IOException.class).hasMessageContaining("timed out"));
+
+        ProcessHandle child = ProcessHandle.of(Long.parseLong(Files.readString(pidFile).trim())).orElse(null);
+        org.awaitility.Awaitility.await().atMost(10, java.util.concurrent.TimeUnit.SECONDS)
+                .untilAsserted(() -> assertThat(child == null || !child.isAlive()).isTrue());
+    }
 }

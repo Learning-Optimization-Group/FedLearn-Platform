@@ -9,17 +9,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Loads and caches the model-recipe catalog from the framework's {@code recipes.py}
@@ -40,7 +36,8 @@ public class ModelRecipeService {
     private static final Logger log = LoggerFactory.getLogger(ModelRecipeService.class);
 
     /** Recipe discovery is a quick metadata dump (no torch); a short cap is plenty. */
-    private static final long PROCESS_TIMEOUT_SECONDS = 30;
+    @Value("${app.recipes.timeout-seconds:30}")
+    private long processTimeoutSeconds = 30;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -124,14 +121,10 @@ public class ModelRecipeService {
         Process process = pb.start();
 
         String stdout;
-        try (InputStream in = process.getInputStream()) {
-            stdout = readAll(in);
-        }
-
-        boolean finished = process.waitFor(PROCESS_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        if (!finished) {
-            ProcessTrees.destroyForcibly(process);
-            throw new IOException("recipe discovery timed out after " + PROCESS_TIMEOUT_SECONDS + "s");
+        try {
+            stdout = ProcessTrees.awaitStdout(process, processTimeoutSeconds);
+        } catch (java.util.concurrent.TimeoutException e) {
+            throw new IOException("recipe discovery timed out after " + processTimeoutSeconds + "s");
         }
         if (process.exitValue() != 0) {
             throw new IOException("recipe discovery exited with code " + process.exitValue());
@@ -140,18 +133,6 @@ public class ModelRecipeService {
             throw new IOException("recipe discovery produced no output");
         }
         return objectMapper.readValue(stdout, new TypeReference<List<ModelRecipeDto>>() {});
-    }
-
-    private static String readAll(InputStream in) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        try (BufferedReader reader =
-                     new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line).append('\n');
-            }
-        }
-        return sb.toString();
     }
 
 }

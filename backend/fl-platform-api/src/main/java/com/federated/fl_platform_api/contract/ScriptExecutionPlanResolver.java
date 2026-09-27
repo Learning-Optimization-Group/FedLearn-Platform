@@ -11,11 +11,8 @@ import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 /**
@@ -50,14 +47,10 @@ public class ScriptExecutionPlanResolver implements ExecutionPlanResolver {
         pb.redirectError(ProcessBuilder.Redirect.DISCARD);
         Process process = pb.start();
         String stdout;
-        try (InputStream in = process.getInputStream()) {
-            stdout = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        }
         try {
-            if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
-                ProcessTrees.destroyForcibly(process);
-                throw new IOException("the execution-plan resolver timed out after " + timeoutSeconds + "s");
-            }
+            stdout = ProcessTrees.awaitStdout(process, timeoutSeconds);
+        } catch (java.util.concurrent.TimeoutException e) {
+            throw new IOException("the execution-plan resolver timed out after " + timeoutSeconds + "s");
         } catch (InterruptedException e) {
             ProcessTrees.destroyForcibly(process);
             Thread.currentThread().interrupt();

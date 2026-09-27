@@ -1,5 +1,9 @@
 package com.federated.fl_platform_api.orchestration;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -34,6 +38,36 @@ public final class ProcessTrees {
         root.destroyForcibly();
         tree.add(root);
         return tree;
+    }
+
+    /**
+     * The whole of {@code process}'s stdout, bounded by {@code timeoutSeconds}. Reading stdout to EOF before waiting
+     * blocks until every process holding the pipe exits, so a hung script would block forever and a timeout checked
+     * afterwards never fires. Here the read runs on its own thread; on timeout the process tree is killed and a
+     * {@link TimeoutException} is thrown.
+     */
+    public static String awaitStdout(Process process, long timeoutSeconds)
+            throws IOException, InterruptedException, TimeoutException {
+        CompletableFuture<String> stdout = CompletableFuture.supplyAsync(() -> {
+            try (InputStream in = process.getInputStream()) {
+                return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
+        if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
+            destroyForcibly(process);
+            throw new TimeoutException("timed out after " + timeoutSeconds + "s");
+        }
+        try {
+            // The process has exited; a descendant it left behind could still hold the pipe, so bound this too.
+            return stdout.get(timeoutSeconds, TimeUnit.SECONDS);
+        } catch (ExecutionException e) {
+            throw e.getCause() instanceof UncheckedIOException u ? u.getCause() : new IOException(e.getCause());
+        } catch (TimeoutException e) {
+            destroyForcibly(process);
+            throw new TimeoutException("stdout still open " + timeoutSeconds + "s after the process exited");
+        }
     }
 
     /** Wait up to {@code timeoutSeconds} for every process in {@code tree} to exit. */

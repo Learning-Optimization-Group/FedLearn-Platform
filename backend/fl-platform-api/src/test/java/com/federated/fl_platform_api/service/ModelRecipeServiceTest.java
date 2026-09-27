@@ -62,4 +62,26 @@ class ModelRecipeServiceTest {
         assertThrows(IllegalStateException.class, svc::getRecipes);   // first attempt fails
         assertEquals(1, svc.getRecipes().size());                    // retry succeeds — failure not cached
     }
+
+    // Recipe discovery read stdout to EOF before waiting with its timeout, so a hung recipes.py blocked forever.
+    @Test
+    @org.junit.jupiter.api.condition.DisabledOnOs(org.junit.jupiter.api.condition.OS.WINDOWS)
+    void aHungRecipeDiscoveryTimesOutAndIsKilled(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
+            throws Exception {
+        java.nio.file.Path pidFile = dir.resolve("child.pid");
+        java.nio.file.Path script = dir.resolve("hang.sh");
+        java.nio.file.Files.writeString(script, "#!/bin/bash\nsleep 300 &\necho $! > " + pidFile + "\nwait\n");
+        ModelRecipeService svc = new ModelRecipeService();
+        org.springframework.test.util.ReflectionTestUtils.setField(svc, "recipesWrapperPath", script.toString());
+        org.springframework.test.util.ReflectionTestUtils.setField(svc, "processTimeoutSeconds", 1L);
+
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(15), () -> {
+            java.io.IOException e = assertThrows(java.io.IOException.class, svc::runDescribe);
+            org.junit.jupiter.api.Assertions.assertTrue(e.getMessage().contains("timed out"), e.getMessage());
+        });
+
+        ProcessHandle child = ProcessHandle.of(Long.parseLong(java.nio.file.Files.readString(pidFile).trim())).orElse(null);
+        org.awaitility.Awaitility.await().atMost(10, java.util.concurrent.TimeUnit.SECONDS).untilAsserted(() ->
+                org.junit.jupiter.api.Assertions.assertTrue(child == null || !child.isAlive(), "forked child survived"));
+    }
 }
