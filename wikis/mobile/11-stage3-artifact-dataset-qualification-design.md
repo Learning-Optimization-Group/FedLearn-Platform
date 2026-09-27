@@ -1,7 +1,9 @@
 # Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design
 
-**Status:** Draft for approval (2026-09-27). No Stage 3 code exists yet. Per the [parity design](02-android-federated-learning-parity-design.md)
-("Stage 3: Artifact, Dataset, and Portable CPU Foundation"), this design must be approved before implementation.
+**Status:** Approved (2026-09-27, Anurag), with the recommendation taken on every decision: (1) fixture data only for
+runs the contract marks as fixture runs, refused by release builds; (2) a new reproducible
+`BATCH_ORDER_SEEDED_PERMUTATION_V1`; (3) CSV and the dataset package; (4) an exporter-recorded `probeLoss`.
+Implementation follows the slices below.
 
 **Goal:** make the phone train on data the user owns, delivered and verified the way a real model needs, and only on
 hardware that has proven it can. At the end of Stage 3, a TinyNet run still passes the Stage 2 conformance checks,
@@ -43,8 +45,7 @@ the contract's `ArtifactVariant.files`, which are already hash- and size-bound. 
 
 **Auth.** The session cookie must reach the download without appearing in a URL or log. The intended mechanism is
 React Native's shared OkHttp client (`OkHttpClientProvider`), whose cookie jar the app's axios calls already use.
-*Verify in slice A1* that RN 0.80 still exposes it; if it does not, TS passes the cookie to Kotlin in memory, never
-through a query string.
+Verified present in `react-android-0.80.0` (with `ReactCookieJarContainer`); the app ships OkHttp 4.9.2.
 
 **Backend.** `bundleFile` must answer `Range` with `206`, and send a strong `ETag` (the file's SHA-256) and
 `Content-Length`. Spring may already support byte ranges for `Resource` bodies; *slice A2 pins it with a test either
@@ -186,7 +187,6 @@ A TinyNet run in which the phone trains an **imported** snapshot, not server fil
 
 ## Risks
 
-- **RN OkHttp access** (A auth) is unverified for RN 0.80; the fallback is in section A.
 - **SAF on vivo/Funtouch** may add vendor quirks; B2 is tested on the vivo first.
 - **Batch-order change** touches the laptop client's training. It is gated by the contract, so Stage 2 contracts keep today's order.
 - **Serving no data** breaks today's demo path until decision 1 is implemented.
