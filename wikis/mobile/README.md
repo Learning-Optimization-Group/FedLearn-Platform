@@ -17,6 +17,7 @@ progress is tracked in the [implementation plan](06-execution-contract-v1-implem
 Bringing FedOpt and Robust into the contract is planned in [07](07-fedopt-robust-contract-plan.md).
 DeComFL's zeroth-order training is designed and recorded in [08](08-decomfl-contract-design.md).
 FedProx, the last strategy the phone refused, is planned and tracked in [09](09-fedprox-contract-plan.md).
+The procedure for a live phone + laptop run on one contract is the [live-run runbook](10-live-run-runbook.md).
 
 > **Design system: Ledger, not Ember.** `src/theme/tokens.generated.ts` and `src/theme/global.css` are **generated** by `design/build-tokens.mjs` from `design/tokens.json` and both carry the Ledger palette (canvas `#F6F3EE`, surface `#FFFFFF`, ink `#191A1C`, muted `#6B6760`, navy accent `#1C314D` / hover `#14243A`; dark family `#0B1622` / `#4F8AC9`). Ledger landed in `2c50672` and rolled onto mobile in `3d54484`, superseding **Ember**, which had superseded *Instrument*. `src/theme/tokens.ts` is now a thin re-export kept only so older import paths resolve — do not hand-edit either generated file; CI's "Design tokens in sync with source of truth" step (`scripts/check_design_tokens.sh`, unconditional in `ci.yml`) fails on drift. The shipped brand fonts are **Hanken Grotesk** (sans *and* display) + **JetBrains Mono** (`src/assets/fonts/`); Bricolage Grotesque was Ember-era and is gone.
 
