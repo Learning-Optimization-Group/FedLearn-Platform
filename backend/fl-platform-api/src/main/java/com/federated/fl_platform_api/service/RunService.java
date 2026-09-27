@@ -457,6 +457,52 @@ public class RunService {
         return new PathResource(file);
     }
 
+    /** A file a run's execution contract lists, located in the run's staged bundle. */
+    public record ContractArtifact(Path file, String sha256, long byteSize) {}
+
+    private static final java.util.regex.Pattern SHA256_HEX = java.util.regex.Pattern.compile("[0-9a-f]{64}");
+
+    /**
+     * The staged file the run's READY execution contract lists under {@code sha256} (Stage 3 slice A2). Only files
+     * the contract lists are served, and each only by its hash: a phone downloads exactly what the contract binds.
+     * The path comes from the contract, must stay inside the run's bundle directory, and the staged file's size must
+     * equal the declared size.
+     */
+    public ContractArtifact getContractArtifact(UUID runId, String sha256) {
+        if (!bundleDeliveryEnabled) {
+            throw new ProjectStateException("Model bundle delivery is disabled");
+        }
+        if (sha256 == null || !SHA256_HEX.matcher(sha256).matches()) {
+            throw new ResourceNotFoundException("Unknown artifact: not a sha256");
+        }
+        Run run = requireParticipantRun(runId);
+        com.federated.fl_platform_api.contract.ContractView view = contractStore.read(run);
+        if (view.state() != com.federated.fl_platform_api.contract.ContractState.READY || view.contract() == null) {
+            throw new ResourceNotFoundException("Run " + runId + " has no published execution contract");
+        }
+        com.fedlearn.contract.v1.ArtifactRef ref = view.contract().getModelTraining().getArtifactsList().stream()
+                .flatMap(v -> v.getFilesList().stream())
+                .filter(f -> f.getSha256().equals(sha256))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("The run's contract lists no artifact " + sha256));
+        Path base = Path.of(modelBundleDir, runId.toString()).toAbsolutePath().normalize();
+        Path file = base.resolve(ref.getRelativePath()).normalize();
+        if (!file.startsWith(base) || !Files.isRegularFile(file)) {
+            throw new ResourceNotFoundException("Artifact " + sha256 + " is not staged for run " + runId);
+        }
+        long size;
+        try {
+            size = Files.size(file);
+        } catch (IOException e) {
+            throw new ProjectStateException("Cannot read staged artifact " + sha256);
+        }
+        if (size != ref.getByteSize()) {
+            throw new ProjectStateException("Staged artifact " + sha256 + " is " + size
+                    + " bytes; the contract declares " + ref.getByteSize());
+        }
+        return new ContractArtifact(file, sha256, size);
+    }
+
     /** Loads a run and enforces org-scope + owner-or-CLIENT participation. */
     Run requireParticipantRun(UUID runId) {
         Run run = runRepository.findById(runId)
