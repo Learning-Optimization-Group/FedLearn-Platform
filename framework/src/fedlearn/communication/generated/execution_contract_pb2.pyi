@@ -95,6 +95,7 @@ class BatchOrder(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     BATCH_ORDER_UNSPECIFIED: _ClassVar[BatchOrder]
     BATCH_ORDER_SEQUENTIAL: _ClassVar[BatchOrder]
     BATCH_ORDER_SHUFFLED_EACH_EPOCH: _ClassVar[BatchOrder]
+    BATCH_ORDER_SEEDED_PERMUTATION_V1: _ClassVar[BatchOrder]
 
 class GradientEstimator(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -185,6 +186,7 @@ DTYPE_F32: DType
 BATCH_ORDER_UNSPECIFIED: BatchOrder
 BATCH_ORDER_SEQUENTIAL: BatchOrder
 BATCH_ORDER_SHUFFLED_EACH_EPOCH: BatchOrder
+BATCH_ORDER_SEEDED_PERMUTATION_V1: BatchOrder
 ESTIMATOR_UNSPECIFIED: GradientEstimator
 ESTIMATOR_FORWARD: GradientEstimator
 ESTIMATOR_CENTRAL: GradientEstimator

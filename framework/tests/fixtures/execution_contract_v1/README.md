@@ -9,6 +9,7 @@ fixtures and the exact v1 validation rules that every reader (Python, Java, Type
 | --- | --- |
 | `golden_tinynet_fedavg.binpb` | Canonical protobuf bytes of the TinyNet FedAvg golden contract. |
 | `golden_tinynet_fedavg.json` | The same contract as ProtoJSON. |
+| `batch_permutation_v1.golden` | `BATCH_ORDER_SEEDED_PERMUTATION_V1` permutations (`n seed round epoch : order`) that the framework's `fedlearn.contract.batch_order` and the native `fedlearn::seededPermutation` must both reproduce. Written by `generate_batch_permutation.py`. |
 | `conformance.json` | Valid and invalid inputs with the exact issues each must produce. |
 
 The golden is a schema fixture, not a published contract. `generate.py` says which values are real

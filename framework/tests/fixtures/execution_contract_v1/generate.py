@@ -267,6 +267,8 @@ def build_conformance() -> dict:
               lambda d: d.update({"num_rounds": d.pop("numRounds")})),
         _json("uint64_as_json_number", "ProtoJSON accepts a 64-bit integer as a JSON number.",
               lambda d: d["round"].update({"timeoutMs": 900000})),
+        _json("batch_order_seeded_permutation", "The reproducible seeded batch order is a defined batch order.",
+              lambda d: d[MT]["localTraining"].update({"batchOrder": "BATCH_ORDER_SEEDED_PERMUTATION_V1"})),
         _json("zero_retries_explicit", "An explicit zero retry budget is legal.",
               lambda d: d["round"].update({"maxTransientRetries": 0})),
         _json("central_dp_valid", "A valid central-DP disclosure.",

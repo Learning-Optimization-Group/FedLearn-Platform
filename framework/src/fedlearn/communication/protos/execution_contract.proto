@@ -144,6 +144,17 @@ enum BatchOrder {
   // Examples are reshuffled at the start of every epoch. The permutation is local to the
   // participant and is not reproducible across runtimes.
   BATCH_ORDER_SHUFFLED_EACH_EPOCH = 2;
+  // Examples are visited in a permutation redrawn each epoch that every runtime reproduces exactly, so a
+  // participant's update can be replayed from its data. All arithmetic is on unsigned 64-bit integers mod 2^64:
+  //   mix(z)  = z += 0x9E3779B97F4A7C15; z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9;
+  //             z = (z ^ (z >> 27)) * 0x94D049BB133111EB; return z ^ (z >> 31)
+  //   state   = mix(mix(mix(seed) ^ round) ^ epoch), where seed is ExecutionContract.seed (0 when absent),
+  //             round is the server round being trained (from 1) and epoch the local epoch within it (from 0)
+  //   next()  = r = mix(state); state += 0x9E3779B97F4A7C15; return r          (SplitMix64)
+  //   below(b) = draw r = next() until r < 2^64 - (2^64 mod b); return r mod b (no modulo bias)
+  //   order   = [0, 1, ..., n-1]; for i = n-1 down to 1: swap(order[i], order[below(i + 1)])  (Fisher-Yates)
+  // Batches are consecutive batch_size slices of order; the last one is kept unless drop_last.
+  BATCH_ORDER_SEEDED_PERMUTATION_V1 = 3;
 }
 
 message RoundPolicy {
