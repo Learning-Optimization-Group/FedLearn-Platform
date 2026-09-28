@@ -179,6 +179,18 @@ next commit. TinyNet states `FIXTURE`. The phone trains a fixture run only in a 
 `LOCAL_SNAPSHOT` run until B2 binds a snapshot at join. A3 was checked live: a one-client TinyNet FedAvg run on
 the vivo completed, with the three contract programs stored as `files/artifacts/<sha256>` at the contract's exact sizes.
 
+Later progress:
+- B2: `74b5b0f` (import), `e40296e` (training on a snapshot), `30b5c69` (choosing a dataset before Start, and the
+  dataset list in Settings).
+- The run intent's data source: `6396750`, plus `218fb90` (the web start dialog, and recipes that declare it).
+- E: two live phone-only runs on 2026-09-28, each with a bit-exact replay of the saved model on the imported CSV.
+  The first run exposed static-shape programs: a 6-example snapshot failed with ExecuTorch `NotSupported`.
+  - Fixed by `8d9f933`: staged programs take 1..8 examples.
+  - `fe10d4e`: that error is no longer retried.
+  - `86fa1f8`: a contract whose `batch_size` exceeds the programs' `maxBatch` is not published.
+- C1: `84528a2` adds `BATCH_ORDER_SEEDED_PERMUTATION_V1`, in Python and C++ with a shared golden. Decision 2 took
+  the recommendation.
+
 - **A1** Kotlin `ArtifactDownloader` with size cap, streaming hash, atomic promote and quarantine; auth via the shared client. Unit tests use a local HTTP server (resume, mismatch, oversize).
 - **A2** Backend: range, strong ETag and hash-addressed file serving, with tests.
 - **A3** Move `modelProvisioning.ts` to A; remove base64 staging; jest tests plus a live TinyNet run.
