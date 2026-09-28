@@ -91,6 +91,31 @@ class RunIntentTest {
         assertThat(run.getIntent()).hasValueSatisfying(i -> assertThat(i.roundTimeoutMs()).isNull());
     }
 
+    // V30: a version-3 snapshot records where the run's training data comes from.
+    @Test
+    void theDataSourceIsCapturedAndRoundTripsAsVersionThree() {
+        RunIntent intent = RunIntent.capture(project(), true, false, 900_000L, TrainingDataSource.LOCAL_SNAPSHOT);
+        assertThat(intent.dataSource()).isEqualTo(TrainingDataSource.LOCAL_SNAPSHOT);
+        Run run = new Run();
+        run.setIntent(intent);
+        assertThat(run.getIntent()).contains(intent);
+        assertThat(org.springframework.test.util.ReflectionTestUtils.getField(run, "intentVersion")).isEqualTo((short) 3);
+    }
+
+    @Test
+    void aSnapshotWithoutADataSourceStaysVersionTwo() {
+        Run run = new Run();
+        run.setIntent(RunIntent.capture(project(), true, false, 900_000L));
+        assertThat(run.getIntent()).hasValueSatisfying(i -> assertThat(i.dataSource()).isNull());
+        assertThat(org.springframework.test.util.ReflectionTestUtils.getField(run, "intentVersion")).isEqualTo((short) 2);
+    }
+
+    @Test
+    void aDataSourceIsRecordedOnlyWithARoundTimeout() {
+        assertThatThrownBy(() -> RunIntent.capture(project(), true, false, null, TrainingDataSource.FIXTURE))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test
     void aRoundTimeoutMustBePositive() {
         assertThatThrownBy(() -> RunIntent.capture(project(), true, false, 0L))

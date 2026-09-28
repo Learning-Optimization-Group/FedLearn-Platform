@@ -3,6 +3,7 @@ package com.federated.fl_platform_api.service;
 import com.federated.fl_platform_api.audit.Auditable;
 import com.federated.fl_platform_api.dto.*;
 import com.federated.fl_platform_api.exception.ProjectStateException;
+import com.federated.fl_platform_api.model.TrainingDataSource;
 import com.federated.fl_platform_api.model.TrainingArm;
 import com.federated.fl_platform_api.model.RobustAggregationSettings;
 import com.federated.fl_platform_api.model.RobustMethod;
@@ -478,8 +479,10 @@ public class ProjectService {
 
             Run run = null;
             try {
+                TrainingDataSource dataSource = request != null && request.getDataSource() != null
+                        ? TrainingDataSource.valueOf(request.getDataSource()) : TrainingDataSource.FIXTURE;
                 run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
-                        robustSettings, secureAggThreshold);
+                        robustSettings, secureAggThreshold, dataSource);
                 project.setActiveRunId(run.getId());
                 projectRepository.save(project);
 

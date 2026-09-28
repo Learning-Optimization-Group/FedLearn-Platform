@@ -309,6 +309,21 @@ def test_tinynet_trains_its_committed_fixture_data(strategy):
     assert plan.data.source == pb.DATA_SOURCE_FIXTURE
 
 
+@pytest.mark.parametrize("strategy", ["FedAvg", "FedOpt", "Robust", "FedProx", "DeComFL"])
+def test_a_run_on_participants_own_data_states_a_local_snapshot(strategy):
+    """The run's intent decides the data source; everything else in the plan is the same run."""
+    fixture = execution_plan.resolve_model_training("TINYNET_GOLDEN", strategy, "FULL")
+    local = execution_plan.resolve_model_training("TINYNET_GOLDEN", strategy, "FULL", data_source="LOCAL_SNAPSHOT")
+    assert local.data.source == pb.DATA_SOURCE_LOCAL_SNAPSHOT
+    local.data.source = pb.DATA_SOURCE_FIXTURE
+    assert local == fixture
+
+
+def test_an_unknown_data_source_is_refused():
+    with pytest.raises(ValueError, match="data source"):
+        execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL", data_source="UNSPECIFIED")
+
+
 def test_tinynet_fedavg_identity_follows_the_recipe():
     plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL")
     assert plan.model_id == "tinynet_golden"
@@ -353,6 +368,19 @@ def test_the_cli_prints_the_plan_as_protojson():
     assert out["representable"] is True
     printed = json_format.ParseDict(out["modelTraining"], pb.ModelTraining())
     assert printed == execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL")
+
+
+def test_the_cli_passes_the_runs_data_source():
+    out = _cli("--recipe", "TINYNET_GOLDEN", "--strategy", "FedAvg", "--training-arm", "FULL",
+               "--data-source", "LOCAL_SNAPSHOT")
+    assert out["modelTraining"]["data"]["source"] == "DATA_SOURCE_LOCAL_SNAPSHOT"
+
+
+def test_the_cli_refuses_a_data_source_outside_its_vocabulary():
+    script = os.path.join(os.path.dirname(__file__), "..", "execution_plan.py")
+    done = subprocess.run([sys.executable, script, "--recipe", "TINYNET_GOLDEN", "--strategy", "FedAvg",
+                           "--training-arm", "FULL", "--data-source", "UNSPECIFIED"], capture_output=True, text=True)
+    assert done.returncode != 0
 
 
 def test_the_cli_reports_an_unrepresentable_run_without_failing():
@@ -506,6 +534,13 @@ def _check(contract, **kwargs):
 
 def test_a_contract_matching_this_clients_execution_is_accepted():
     assert _check(_contract_for_this_client()) == []
+
+
+def test_this_client_refuses_a_run_on_participants_own_data():
+    """A laptop client trains the recipe's fixture batch; it has no dataset snapshot, so it cannot join such a run."""
+    contract = _contract_for_this_client()
+    contract.model_training.data.source = pb.DATA_SOURCE_LOCAL_SNAPSHOT
+    assert _check(contract) == ["modelTraining.data differs from what this client executes"]
 
 
 def test_a_contract_for_different_training_is_refused():

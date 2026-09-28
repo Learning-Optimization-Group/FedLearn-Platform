@@ -115,6 +115,8 @@ public class RunService {
     // The only filenames the bundle file endpoint will serve (blocks path traversal / arbitrary reads).
     private static final Set<String> ALLOWED_BUNDLE_FILES =
             Set.of("loss.pte", "infer.pte", "inputs.f32", "targets.i64", "trainable.pte");
+    /** The staged fixture batch, which only a run on the fixture data hands out. */
+    private static final Set<String> FIXTURE_DATA_FILES = Set.of("inputs.f32", "targets.i64");
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -137,6 +139,14 @@ public class RunService {
      */
     public Run createForStart(Project project, String strategy, int numRounds, int minClients,
                               int clientsPerRound, RobustAggregationSettings robust, Integer secureAggThreshold) {
+        return createForStart(project, strategy, numRounds, minClients, clientsPerRound, robust, secureAggThreshold,
+                TrainingDataSource.FIXTURE);
+    }
+
+    /** As above, plus where the run's training data comes from, recorded in its intent (V30). */
+    public Run createForStart(Project project, String strategy, int numRounds, int minClients,
+                              int clientsPerRound, RobustAggregationSettings robust, Integer secureAggThreshold,
+                              TrainingDataSource dataSource) {
         Run run = new Run();
         run.setProjectId(project.getId());
         run.setStrategy(strategy);
@@ -153,7 +163,7 @@ public class RunService {
         run.setSecureAggregation(secureAggThreshold != null);
         run.setSecureAggThreshold(secureAggThreshold);
         run.setIntent(RunIntent.capture(project, serverCert.tlsRequired(), clientAuthRequired,
-                RunIntent.roundTimeoutMs(roundTimeoutSeconds)));
+                RunIntent.roundTimeoutMs(roundTimeoutSeconds), dataSource));
         return runRepository.save(run);
     }
 
@@ -420,10 +430,14 @@ public class RunService {
             p.path("shape").forEach(s -> shape.add(s.asInt()));
             layout.add(new ModelBundleDto.ParamSpec(p.path("name").asText(), shape));
         }
+        String base = "/api/runs/" + runId + "/files/";
+        // A run on participants' own data has no fixture batch to hand out: each device trains its snapshot.
+        boolean fixture = !trainsOnOwnData(run);
         JsonNode ds = m.path("dataset");
         List<Integer> inputShape = new ArrayList<>();
-        ds.path("inputShape").forEach(s -> inputShape.add(s.asInt()));
-        String base = "/api/runs/" + runId + "/files/";
+        if (fixture) {
+            ds.path("inputShape").forEach(s -> inputShape.add(s.asInt()));
+        }
         // First-order trainable graph — present only when the staged bundle carries a trainablePtePath.
         // Absent => null url/sha + empty names, which the mobile client reads as "DeComFL-only".
         String trainablePte = mm.path("trainablePtePath").asText("");
@@ -435,9 +449,16 @@ public class RunService {
                 runId, layout, mm.path("totalParamCount").asLong(),
                 base + "loss.pte", m.path("lossPte").path("sha256").asText(),
                 base + "infer.pte", mm.path("inferSha256").asText(),
-                base + ds.path("inputsFile").asText("inputs.f32"), ds.path("inputsSha256").asText(), inputShape,
-                base + ds.path("targetsFile").asText("targets.i64"), ds.path("targetsSha256").asText(),
+                fixture ? base + ds.path("inputsFile").asText("inputs.f32") : null,
+                fixture ? ds.path("inputsSha256").asText() : null, inputShape,
+                fixture ? base + ds.path("targetsFile").asText("targets.i64") : null,
+                fixture ? ds.path("targetsSha256").asText() : null,
                 trainablePteUrl, trainableSha256, trainableParamNames, recipeClassNames(run));
+    }
+
+    /** True when the run's intent trains on each participant's own dataset snapshot rather than the fixture batch. */
+    private static boolean trainsOnOwnData(Run run) {
+        return run.getIntent().map(RunIntent::dataSource).orElse(null) == TrainingDataSource.LOCAL_SNAPSHOT;
     }
 
     /** The class names of the run's recipe, in label-index order; empty when the catalog does not know it. */
@@ -456,9 +477,12 @@ public class RunService {
         if (!bundleDeliveryEnabled) {
             throw new ProjectStateException("Model bundle delivery is disabled");
         }
-        requireParticipantRun(runId);
+        Run run = requireParticipantRun(runId);
         if (!ALLOWED_BUNDLE_FILES.contains(filename)) {
             throw new ResourceNotFoundException("Unknown bundle file: " + filename);
+        }
+        if (FIXTURE_DATA_FILES.contains(filename) && trainsOnOwnData(run)) {
+            throw new ResourceNotFoundException("Run " + runId + " trains on participants' own data, not " + filename);
         }
         Path base = Path.of(modelBundleDir, runId.toString()).normalize();
         Path file = base.resolve(filename).normalize();

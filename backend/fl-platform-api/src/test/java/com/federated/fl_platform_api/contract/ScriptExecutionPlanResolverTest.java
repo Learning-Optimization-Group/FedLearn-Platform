@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.contract;
 
+import com.federated.fl_platform_api.model.TrainingDataSource;
 import com.fedlearn.contract.v1.ModelTraining;
 import com.google.protobuf.util.JsonFormat;
 import org.junit.jupiter.api.Test;
@@ -47,43 +48,58 @@ class ScriptExecutionPlanResolverTest {
     @Test
     void thePrintedPlanIsParsed(@TempDir Path dir) throws Exception {
         ModelTraining plan = resolver(wrapper(dir, golden(), 0))
-                .resolve("TINYNET_GOLDEN", "FedAvg", "FULL", Path.of("/models/p.npz"));
+                .resolve("TINYNET_GOLDEN", "FedAvg", "FULL", TrainingDataSource.FIXTURE, Path.of("/models/p.npz"));
         assertThat(plan).isEqualTo(ExecutionContractCodec.parseBinary(ExecutionContractConformanceTest.goldenBytes())
                 .getModelTraining());
         assertThat(Files.readAllLines(dir.resolve("args.txt"))).containsExactly(
                 "--recipe", "TINYNET_GOLDEN", "--strategy", "FedAvg", "--training-arm", "FULL",
-                "--initial-state=/models/p.npz");
+                "--data-source", "FIXTURE", "--initial-state=/models/p.npz");
+    }
+
+    @Test
+    void theRunsDataSourceIsPassedToTheScript(@TempDir Path dir) throws Exception {
+        resolver(wrapper(dir, golden(), 0))
+                .resolve("TINYNET_GOLDEN", "FedAvg", "FULL", TrainingDataSource.LOCAL_SNAPSHOT, Path.of("/models/p.npz"));
+        assertThat(Files.readAllLines(dir.resolve("args.txt"))).containsSubsequence("--data-source", "LOCAL_SNAPSHOT");
+    }
+
+    @Test
+    void aMissingDataSourceIsRefusedBeforeSpawning(@TempDir Path dir) throws Exception {
+        assertThatThrownBy(() -> resolver(wrapper(dir, golden(), 0))
+                .resolve("TINYNET_GOLDEN", "FedAvg", "FULL", null, Path.of("/models/p.npz")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(Files.exists(dir.resolve("args.txt"))).isFalse();
     }
 
     @Test
     void anUnrepresentableRunIsReportedWithTheScriptsReason(@TempDir Path dir) {
         assertThatThrownBy(() -> resolver(wrapper(dir, "{\"representable\": false, \"reason\": \"no v1 plan\"}", 0))
-                .resolve("CNN", "FedAvg", "FULL", Path.of("/models/p.npz")))
+                .resolve("CNN", "FedAvg", "FULL", TrainingDataSource.FIXTURE, Path.of("/models/p.npz")))
                 .isInstanceOf(NotRepresentableException.class).hasMessageContaining("no v1 plan");
     }
 
     @Test
     void aFailingScriptIsAnError(@TempDir Path dir) {
         assertThatThrownBy(() -> resolver(wrapper(dir, "", 2))
-                .resolve("TINYNET_GOLDEN", "FedAvg", "FULL", Path.of("/models/p.npz")))
+                .resolve("TINYNET_GOLDEN", "FedAvg", "FULL", TrainingDataSource.FIXTURE, Path.of("/models/p.npz")))
                 .isInstanceOf(IOException.class).hasMessageContaining("exited 2");
     }
 
     @Test
     void unparseableOutputIsAnError(@TempDir Path dir) {
         assertThatThrownBy(() -> resolver(wrapper(dir, "{\"representable\": true, \"modelTraining\": {\"nope\": 1}}", 0))
-                .resolve("TINYNET_GOLDEN", "FedAvg", "FULL", Path.of("/models/p.npz")))
+                .resolve("TINYNET_GOLDEN", "FedAvg", "FULL", TrainingDataSource.FIXTURE, Path.of("/models/p.npz")))
                 .isInstanceOf(IOException.class);
     }
 
     @Test
     void argumentsOutsideTheirVocabularyAreRefusedBeforeSpawning(@TempDir Path dir) throws Exception {
         ScriptExecutionPlanResolver r = resolver(wrapper(dir, golden(), 0));
-        assertThatThrownBy(() -> r.resolve("--help", "FedAvg", "FULL", Path.of("/m.npz")))
+        assertThatThrownBy(() -> r.resolve("--help", "FedAvg", "FULL", TrainingDataSource.FIXTURE, Path.of("/m.npz")))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> r.resolve("TINYNET_GOLDEN", "Fed Avg", "FULL", Path.of("/m.npz")))
+        assertThatThrownBy(() -> r.resolve("TINYNET_GOLDEN", "Fed Avg", "FULL", TrainingDataSource.FIXTURE, Path.of("/m.npz")))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> r.resolve("TINYNET_GOLDEN", "FedAvg", "full", Path.of("/m.npz")))
+        assertThatThrownBy(() -> r.resolve("TINYNET_GOLDEN", "FedAvg", "full", TrainingDataSource.FIXTURE, Path.of("/m.npz")))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(Files.exists(dir.resolve("args.txt"))).isFalse();
     }
@@ -99,7 +115,7 @@ class ScriptExecutionPlanResolverTest {
         ReflectionTestUtils.setField(resolver, "timeoutSeconds", 1L);
 
         org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(15), () ->
-                assertThatThrownBy(() -> resolver.resolve("TINYNET_GOLDEN", "FedAvg", "FULL", dir.resolve("m.npz")))
+                assertThatThrownBy(() -> resolver.resolve("TINYNET_GOLDEN", "FedAvg", "FULL", TrainingDataSource.FIXTURE, dir.resolve("m.npz")))
                         .isInstanceOf(IOException.class).hasMessageContaining("timed out"));
 
         ProcessHandle child = ProcessHandle.of(Long.parseLong(Files.readString(pidFile).trim())).orElse(null);

@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.contract;
 
+import com.federated.fl_platform_api.model.TrainingDataSource;
 import com.federated.fl_platform_api.orchestration.ProcessTrees;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,14 +36,17 @@ public class ScriptExecutionPlanResolver implements ExecutionPlanResolver {
     private long timeoutSeconds;
 
     @Override
-    public ModelTraining resolve(String recipeKey, String strategy, String trainingArm, Path initialState)
-            throws NotRepresentableException, IOException {
+    public ModelTraining resolve(String recipeKey, String strategy, String trainingArm, TrainingDataSource dataSource,
+                                 Path initialState) throws NotRepresentableException, IOException {
         requireMatch("recipe", RECIPE_KEY, recipeKey);
         requireMatch("strategy", STRATEGY, strategy);
         requireMatch("training arm", TRAINING_ARM, trainingArm);
+        if (dataSource == null) {
+            throw new IllegalArgumentException("refusing to resolve an execution plan without a data source");
+        }
         List<String> command = List.of("bash", new File(wrapperPath).getAbsolutePath(),
                 "--recipe", recipeKey, "--strategy", strategy, "--training-arm", trainingArm,
-                "--initial-state=" + initialState.toAbsolutePath());
+                "--data-source", dataSource.name(), "--initial-state=" + initialState.toAbsolutePath());
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.redirectError(ProcessBuilder.Redirect.DISCARD);
         Process process = pb.start();

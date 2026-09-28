@@ -14,14 +14,16 @@ import java.util.Objects;
  */
 public record RunIntent(TrainingArm trainingArm, String modelName, String taskType, boolean dpEnabled,
                         Double dpTargetEpsilon, Double dpDelta, Double dpClipNorm, boolean tlsRequired,
-                        boolean clientAuthRequired, Long roundTimeoutMs) {
+                        boolean clientAuthRequired, Long roundTimeoutMs, TrainingDataSource dataSource) {
 
     /**
      * The snapshot layouts stored in runs.intent_version: version 2 records the FL server's round timeout
      * (V29); version 1, taken before that, has none.
      */
     public static final int VERSION_WITHOUT_ROUND_TIMEOUT = 1;
-    public static final int VERSION = 2;
+    public static final int VERSION_WITHOUT_DATA_SOURCE = 2;
+    /** Version 3 (V30) also records the data source. */
+    public static final int VERSION = 3;
 
     public RunIntent {
         Objects.requireNonNull(trainingArm, "trainingArm");
@@ -29,6 +31,17 @@ public record RunIntent(TrainingArm trainingArm, String modelName, String taskTy
         if (roundTimeoutMs != null && roundTimeoutMs <= 0) {
             throw new IllegalArgumentException("roundTimeoutMs must be positive, not " + roundTimeoutMs);
         }
+        if (dataSource != null && roundTimeoutMs == null) {
+            throw new IllegalArgumentException("a data source is recorded only in a version-3 snapshot, with a round timeout");
+        }
+    }
+
+    /** An intent without a recorded data source, as a version-2 (or, without a timeout, version-1) snapshot reads. */
+    public RunIntent(TrainingArm trainingArm, String modelName, String taskType, boolean dpEnabled,
+                     Double dpTargetEpsilon, Double dpDelta, Double dpClipNorm, boolean tlsRequired,
+                     boolean clientAuthRequired, Long roundTimeoutMs) {
+        this(trainingArm, modelName, taskType, dpEnabled, dpTargetEpsilon, dpDelta, dpClipNorm, tlsRequired,
+                clientAuthRequired, roundTimeoutMs, null);
     }
 
     /** An intent without a recorded round timeout, as a version-1 snapshot reads. */
@@ -41,6 +54,11 @@ public record RunIntent(TrainingArm trainingArm, String modelName, String taskTy
 
     public static RunIntent capture(Project project, boolean tlsRequired, boolean clientAuthRequired,
                                     Long roundTimeoutMs) {
+        return capture(project, tlsRequired, clientAuthRequired, roundTimeoutMs, null);
+    }
+
+    public static RunIntent capture(Project project, boolean tlsRequired, boolean clientAuthRequired,
+                                    Long roundTimeoutMs, TrainingDataSource dataSource) {
         boolean dp = project.isDpEnabled();
         return new RunIntent(
                 project.getTrainingArm() != null ? project.getTrainingArm() : TrainingArm.FULL,
@@ -52,7 +70,8 @@ public record RunIntent(TrainingArm trainingArm, String modelName, String taskTy
                 dp ? project.getDpClipNorm() : null,
                 tlsRequired,
                 clientAuthRequired,
-                roundTimeoutMs);
+                roundTimeoutMs,
+                dataSource);
     }
 
     /** Captures an intent without a round timeout, for callers to which the timeout is irrelevant. */

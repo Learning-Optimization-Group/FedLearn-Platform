@@ -70,9 +70,22 @@ class RunServiceTest {
 
         Run run = runService.createForStart(p, "FedAvg", 5, 2, 2);
 
-        assertEquals(java.util.Optional.of(
-                        com.federated.fl_platform_api.model.RunIntent.capture(p, true, true, 900_000L)),
+        // A run started without naming a data source trains the recipe's fixture (V30).
+        assertEquals(java.util.Optional.of(com.federated.fl_platform_api.model.RunIntent.capture(p, true, true, 900_000L,
+                        com.federated.fl_platform_api.model.TrainingDataSource.FIXTURE)),
                 run.getIntent());
+    }
+
+    @Test
+    void createForStart_recordsARunOnParticipantsOwnData() {
+        when(runRepository.save(any(Run.class))).thenAnswer(inv -> inv.getArgument(0));
+        ReflectionTestUtils.setField(runService, "roundTimeoutSeconds", 900.0);
+
+        Run run = runService.createForStart(project(UUID.randomUUID()), "FedAvg", 5, 2, 2, null, null,
+                com.federated.fl_platform_api.model.TrainingDataSource.LOCAL_SNAPSHOT);
+
+        assertEquals(com.federated.fl_platform_api.model.TrainingDataSource.LOCAL_SNAPSHOT,
+                run.getIntent().orElseThrow().dataSource());
     }
 
     @Test

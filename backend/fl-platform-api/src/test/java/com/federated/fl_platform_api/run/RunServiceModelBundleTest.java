@@ -96,7 +96,7 @@ class RunServiceModelBundleTest {
     }
 
     /** Mock the requireParticipantRun path so the caller is a CLIENT of the run's project. */
-    private void mockParticipant(UUID runId, UUID projectId) {
+    private Run mockParticipant(UUID runId, UUID projectId) {
         Run run = new Run(); run.setId(runId); run.setProjectId(projectId);
         run.setStatus(RunStatus.RUNNING);
         Project p = new Project(); p.setId(projectId);
@@ -107,6 +107,52 @@ class RunServiceModelBundleTest {
         when(projectRepository.findById(projectId)).thenReturn(Optional.of(p));
         when(authz.currentUser()).thenReturn(caller);
         when(membershipRepository.findByIdProjectIdAndIdUserId(projectId, 7L)).thenReturn(Optional.of(m));
+        return run;
+    }
+
+    /** A participant's run whose intent trains on {@code source}. */
+    private void mockParticipant(UUID runId, UUID projectId, TrainingDataSource source) {
+        Project p = new Project(); p.setId(projectId); p.setModelName("tinynet_golden");
+        mockParticipant(runId, projectId).setIntent(RunIntent.capture(p, false, false, 900_000L, source));
+    }
+
+    @Test
+    void getModelBundle_forARunOnParticipantsOwnData_advertisesNoFixtureData() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        String[] shas = stage(rid);
+        mockParticipant(rid, pid, TrainingDataSource.LOCAL_SNAPSHOT);
+
+        ModelBundleDto b = runService.getModelBundle(rid);
+
+        assertNull(b.inputsUrl());
+        assertNull(b.inputsSha256());
+        assertEquals(java.util.List.of(), b.inputShape());
+        assertNull(b.targetsUrl());
+        assertNull(b.targetsSha256());
+        assertEquals(shas[0], b.lossSha256());
+    }
+
+    @Test
+    void getModelFile_refusesFixtureDataForARunOnParticipantsOwnData() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        stage(rid);
+        mockParticipant(rid, pid, TrainingDataSource.LOCAL_SNAPSHOT);
+
+        assertThrows(ResourceNotFoundException.class, () -> runService.getModelFile(rid, "inputs.f32"));
+        assertThrows(ResourceNotFoundException.class, () -> runService.getModelFile(rid, "targets.i64"));
+        assertNotNull(runService.getModelFile(rid, "loss.pte"));
+    }
+
+    @Test
+    void getModelFile_servesFixtureDataForAFixtureRun() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        String[] shas = stage(rid);
+        mockParticipant(rid, pid, TrainingDataSource.FIXTURE);
+
+        assertEquals("/api/runs/" + rid + "/files/inputs.f32", runService.getModelBundle(rid).inputsUrl());
+        try (InputStream in = runService.getModelFile(rid, "inputs.f32").getInputStream()) {
+            assertEquals(shas[1], sha256(in.readAllBytes()));
+        }
     }
 
     @Test

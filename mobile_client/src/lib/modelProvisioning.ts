@@ -29,11 +29,12 @@ interface ModelBundleDto {
   lossSha256: string;
   inferPteUrl: string;
   inferSha256: string;
-  inputsUrl: string;
-  inputsSha256: string;
+  // The run's fixture batch; null (and an empty shape) for a run that trains on each device's own dataset.
+  inputsUrl: string | null;
+  inputsSha256: string | null;
   inputShape: number[];
-  targetsUrl: string;
-  targetsSha256: string;
+  targetsUrl: string | null;
+  targetsSha256: string | null;
   // First-order (FedAvg) trainable graph — present only when the backend staged one for this run.
   // Absent => DeComFL-only: the manifest omits trainablePtePath and the native core runs zeroth-order.
   trainablePteUrl?: string | null;
@@ -57,7 +58,10 @@ export class ModelDeliveryUnavailableError extends Error {
  * before writing, so a tampered/corrupted file is rejected at staging time (MO-7). A bundle that
  * doesn't declare a hash for the file is refused outright — nothing unverifiable gets staged.
  */
-async function fetchAndStage(url: string, filename: string, expectedSha256: string): Promise<string> {
+async function fetchAndStage(url: string | null, filename: string, expectedSha256: string | null): Promise<string> {
+  if (!url) {
+    throw new ModelDeliveryUnavailableError(`The model bundle offers no ${filename}; this run has no fixture data.`);
+  }
   if (!expectedSha256) {
     throw new ModelDeliveryUnavailableError(
       `The model bundle did not declare a sha256 for ${filename}; refusing to stage an unverifiable file.`,

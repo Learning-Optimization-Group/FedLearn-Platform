@@ -204,8 +204,9 @@ def _tinynet_full(update_protocol, local_training, initial_state_path=None) -> p
             class_count=len(recipe.classes),
             label_schema_id=label_schema_id(recipe.classes),
             transforms=[pb.Transform(identity_vector=pb.IdentityVector(width=width))],
-            # Every TinyNet client trains the recipe's committed fixture batch (build_tinynet_golden_decomfl_loader),
-            # served to phones by the run's server: a test/demo run.
+            # By default every TinyNet client trains the recipe's committed fixture batch
+            # (build_tinynet_golden_decomfl_loader), served to phones by the run's server: a test/demo run.
+            # resolve_model_training restates it when the run trains on participants' own snapshots.
             source=pb.DATA_SOURCE_FIXTURE,
         ),
     )
@@ -230,20 +231,30 @@ _PLANS = {
 }
 
 
+# The run intent's TrainingDataSource names, as the backend passes them.
+DATA_SOURCES = {"FIXTURE": pb.DATA_SOURCE_FIXTURE, "LOCAL_SNAPSHOT": pb.DATA_SOURCE_LOCAL_SNAPSHOT}
+
+
 def resolve_model_training(recipe_key: str, strategy: str, training_arm: str,
-                           initial_state_path: str | None = None) -> pb.ModelTraining:
+                           initial_state_path: str | None = None, data_source: str = "FIXTURE") -> pb.ModelTraining:
     """The contract's ModelTraining fields that Python owns, for one run configuration.
 
     ``initial_state_path`` is the model file the FL server loads its initial global model from; when given,
-    its digest is included. Model revision, artifacts and strategy settings are added by the publisher from
-    the staged bundle and the run record.
+    its digest is included. ``data_source`` is the run's: the recipe's committed fixture batch, or each
+    participant's own dataset snapshot, which must match the plan's data requirement. Model revision, artifacts
+    and strategy settings are added by the publisher from the staged bundle and the run record.
     """
+    if data_source not in DATA_SOURCES:
+        raise ValueError(f"unknown data source {data_source!r}")
     build = _PLANS.get((recipe_key, strategy, training_arm))
     if build is None:
         raise NotRepresentable(
             f"no execution contract v1 plan for recipe {recipe_key} with strategy {strategy} on arm "
             f"{training_arm}")
-    return build(initial_state_path)
+    plan = pb.ModelTraining()
+    plan.CopyFrom(build(initial_state_path))
+    plan.data.source = DATA_SOURCES[data_source]
+    return plan
 
 
 def check_contract(contract: pb.ExecutionContract, recipe_key: str, strategy: str, training_arm: str, *,
@@ -281,9 +292,12 @@ def main(argv=None) -> int:
     parser.add_argument("--strategy", required=True)
     parser.add_argument("--training-arm", required=True)
     parser.add_argument("--initial-state", help="the model file the FL server loads its initial model from")
+    parser.add_argument("--data-source", choices=sorted(DATA_SOURCES), default="FIXTURE",
+                        help="where participants' training data comes from")
     args = parser.parse_args(argv)
     try:
-        plan = resolve_model_training(args.recipe, args.strategy, args.training_arm, args.initial_state)
+        plan = resolve_model_training(args.recipe, args.strategy, args.training_arm, args.initial_state,
+                                      args.data_source)
     except NotRepresentable as exc:
         print(json.dumps({"representable": False, "reason": str(exc)}))
         return 0

@@ -140,6 +140,11 @@ public class Run {
     @Column(name = "intent_round_timeout_ms")
     private Long intentRoundTimeoutMs;
 
+    // V30: where the run's training data comes from; recorded from intent version 3.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "intent_data_source", length = 16)
+    private TrainingDataSource intentDataSource;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getProjectId() { return projectId; }
@@ -206,12 +211,13 @@ public class Run {
         return Optional.of(new RunIntent(intentTrainingArm, intentModelName, intentTaskType,
                 Boolean.TRUE.equals(intentDpEnabled), intentDpTargetEpsilon, intentDpDelta, intentDpClipNorm,
                 Boolean.TRUE.equals(intentTlsRequired), Boolean.TRUE.equals(intentClientAuthRequired),
-                intentRoundTimeoutMs));
+                intentRoundTimeoutMs, intentDataSource));
     }
 
     public void setIntent(RunIntent intent) {
-        intentVersion = (short) (intent.roundTimeoutMs() != null
-                ? RunIntent.VERSION : RunIntent.VERSION_WITHOUT_ROUND_TIMEOUT);
+        intentVersion = (short) (intent.dataSource() != null ? RunIntent.VERSION
+                : intent.roundTimeoutMs() != null ? RunIntent.VERSION_WITHOUT_DATA_SOURCE
+                : RunIntent.VERSION_WITHOUT_ROUND_TIMEOUT);
         intentTrainingArm = intent.trainingArm();
         intentModelName = intent.modelName();
         intentTaskType = intent.taskType();
@@ -222,5 +228,6 @@ public class Run {
         intentTlsRequired = intent.tlsRequired();
         intentClientAuthRequired = intent.clientAuthRequired();
         intentRoundTimeoutMs = intent.roundTimeoutMs();
+        intentDataSource = intent.dataSource();
     }
 }

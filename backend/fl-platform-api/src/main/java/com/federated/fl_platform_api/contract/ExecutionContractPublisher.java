@@ -3,11 +3,13 @@ package com.federated.fl_platform_api.contract;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.model.RunIntent;
+import com.federated.fl_platform_api.model.TrainingDataSource;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.repository.RunRepository;
 import com.federated.fl_platform_api.service.ModelBundleStagingListener;
 import com.federated.fl_platform_api.service.RegistryModelResolver;
 import com.federated.fl_platform_api.service.RunService;
+import com.fedlearn.contract.v1.DataSource;
 import com.fedlearn.contract.v1.ExecutionContract;
 import com.fedlearn.contract.v1.ModelTraining;
 import org.slf4j.Logger;
@@ -20,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,6 +38,11 @@ import java.util.UUID;
 public class ExecutionContractPublisher implements ModelBundleStagingListener {
 
     private static final Logger log = LoggerFactory.getLogger(ExecutionContractPublisher.class);
+
+    /** What the contract states for each data source a run intent records. */
+    private static final Map<TrainingDataSource, DataSource> CONTRACT_SOURCES = Map.of(
+            TrainingDataSource.FIXTURE, DataSource.DATA_SOURCE_FIXTURE,
+            TrainingDataSource.LOCAL_SNAPSHOT, DataSource.DATA_SOURCE_LOCAL_SNAPSHOT);
 
     private final RunRepository runs;
     private final ProjectRepository projects;
@@ -94,8 +102,16 @@ public class ExecutionContractPublisher implements ModelBundleStagingListener {
                         "the initial model file changed after the run started");
                 return;
             }
+            // An intent recorded before runs stated a data source trained the recipe's fixture batch.
+            TrainingDataSource dataSource = intent.dataSource() != null ? intent.dataSource() : TrainingDataSource.FIXTURE;
             ModelTraining plan = plans.resolve(run.getRecipeKey(), run.getStrategy(), intent.trainingArm().name(),
-                    initialModel);
+                    dataSource, initialModel);
+            DataSource stated = plan.getData().getSource();
+            if (stated != CONTRACT_SOURCES.get(dataSource)) {
+                decide(run, ContractUnavailableReason.INVALID_CONTRACT,
+                        "the resolved plan states data source " + stated + " for a " + dataSource + " run");
+                return;
+            }
             ExecutionContract contract = ExecutionContractAssembler.assemble(run, plan, bundle, new ExecutionContractAssembler.Policy(
                     ExecutionContractStore.SERVER_PROTOCOL_VERSION, maxTransientRetries, retryBackoffMs));
             // Old clients act on the legacy manifest fields and updated clients on the contract, so the two must

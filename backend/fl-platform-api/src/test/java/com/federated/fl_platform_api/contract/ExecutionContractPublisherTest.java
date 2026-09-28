@@ -4,6 +4,7 @@ import com.federated.fl_platform_api.model.PartitioningMode;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.model.RunIntent;
+import com.federated.fl_platform_api.model.TrainingDataSource;
 import com.federated.fl_platform_api.model.TrainingArm;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.repository.RunRepository;
@@ -89,7 +90,7 @@ class ExecutionContractPublisherTest {
         when(projects.findById(project.getId())).thenReturn(Optional.of(project));
         when(registry.resolveModelPath(project)).thenReturn(Optional.empty());
         when(reader.read(run.getId())).thenReturn(bundle());
-        when(resolver.resolve(eq("TINYNET_GOLDEN"), eq("FedAvg"), eq("FULL"), any())).thenReturn(plan());
+        when(resolver.resolve(eq("TINYNET_GOLDEN"), eq("FedAvg"), eq("FULL"), any(), any())).thenReturn(plan());
         when(runService.legacyManifest(run)).thenReturn(legacyManifest());
     }
 
@@ -111,6 +112,11 @@ class ExecutionContractPublisherTest {
     private static ModelTraining plan() throws Exception {
         return ExecutionContractCodec.parseBinary(ExecutionContractConformanceTest.goldenBytes()).getModelTraining()
                 .toBuilder().clearModelRevision().clearArtifacts().build();
+    }
+
+    private static ModelTraining planOn(com.fedlearn.contract.v1.DataSource source) throws Exception {
+        ModelTraining p = plan();
+        return p.toBuilder().setData(p.getData().toBuilder().setSource(source)).build();
     }
 
     private static StagedBundle bundle() throws Exception {
@@ -138,7 +144,44 @@ class ExecutionContractPublisherTest {
         assertThat(contract.getValue().getRound().getMaxTransientRetries()).isEqualTo(3);
         assertThat(ExecutionContractValidator.validate(contract.getValue(), ExecutionContractStore.SERVER_PROTOCOL_VERSION,
                 run.getId().toString(), project.getId().toString())).isEmpty();
-        verify(resolver).resolve("TINYNET_GOLDEN", "FedAvg", "FULL", initialModel);
+        verify(resolver).resolve("TINYNET_GOLDEN", "FedAvg", "FULL", TrainingDataSource.FIXTURE, initialModel);
+    }
+
+    @Test
+    void aRunOnParticipantsOwnDataIsResolvedWithItsDataSource() throws Exception {
+        run.setIntent(RunIntent.capture(project, true, true, 900_000L, TrainingDataSource.LOCAL_SNAPSHOT));
+        when(resolver.resolve(eq("TINYNET_GOLDEN"), eq("FedAvg"), eq("FULL"), eq(TrainingDataSource.LOCAL_SNAPSHOT),
+                any())).thenReturn(planOn(com.fedlearn.contract.v1.DataSource.DATA_SOURCE_LOCAL_SNAPSHOT));
+
+        publisher.onStaged(run.getId());
+
+        ArgumentCaptor<ExecutionContract> contract = ArgumentCaptor.forClass(ExecutionContract.class);
+        verify(store).publish(eq(run), contract.capture());
+        assertThat(contract.getValue().getModelTraining().getData().getSource())
+                .isEqualTo(com.fedlearn.contract.v1.DataSource.DATA_SOURCE_LOCAL_SNAPSHOT);
+    }
+
+    // The resolver is a separate script: a plan that states another data source than the run's must not reach phones,
+    // which would train the fixture batch on a run meant for their own data (or the reverse).
+    @Test
+    void aPlanStatingAnotherDataSourceThanTheRunsIsNotPublished() throws Exception {
+        run.setIntent(RunIntent.capture(project, true, true, 900_000L, TrainingDataSource.LOCAL_SNAPSHOT));
+
+        publisher.onStaged(run.getId());
+
+        verify(store).markUnavailable(eq(run), eq(ContractUnavailableReason.INVALID_CONTRACT),
+                contains("data source"));
+        verify(store, never()).publish(any(), any());
+    }
+
+    // A run started before intents recorded a data source trained the recipe's fixture batch; it still does.
+    @Test
+    void aRunWhoseIntentPredatesDataSourcesIsResolvedAsAFixtureRun() throws Exception {
+        assertThat(run.getIntent().orElseThrow().dataSource()).isNull();
+
+        publisher.onStaged(run.getId());
+
+        verify(resolver).resolve("TINYNET_GOLDEN", "FedAvg", "FULL", TrainingDataSource.FIXTURE, initialModel);
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -146,7 +189,7 @@ class ExecutionContractPublisherTest {
     void aTinyNetFedOptOrRobustRunIsPublished(String strategy, com.fedlearn.contract.v1.Strategy expected)
             throws Exception {
         run.setStrategy(strategy);
-        when(resolver.resolve(eq("TINYNET_GOLDEN"), eq(strategy), eq("FULL"), any())).thenReturn(plan());
+        when(resolver.resolve(eq("TINYNET_GOLDEN"), eq(strategy), eq("FULL"), any(), any())).thenReturn(plan());
         when(runService.legacyManifest(run)).thenReturn(legacyManifest());
 
         publisher.onStaged(run.getId());
@@ -172,7 +215,7 @@ class ExecutionContractPublisherTest {
                 .setUpdateProtocol(com.fedlearn.contract.v1.UpdateProtocol.UPDATE_DECOMFL_SCALAR)
                 .setLocalTraining(zeroth)
                 .build();
-        when(resolver.resolve(eq("TINYNET_GOLDEN"), eq("DeComFL"), eq("FULL"), any())).thenReturn(decomfl);
+        when(resolver.resolve(eq("TINYNET_GOLDEN"), eq("DeComFL"), eq("FULL"), any(), any())).thenReturn(decomfl);
         when(runService.legacyManifest(run)).thenReturn(legacyManifest());
 
         publisher.onStaged(run.getId());
@@ -190,7 +233,7 @@ class ExecutionContractPublisherTest {
     @Test
     void aTinyNetFedProxRunIsPublishedWithItsProximalCoefficient() throws Exception {
         run.setStrategy("FedProx");
-        when(resolver.resolve(eq("TINYNET_GOLDEN"), eq("FedProx"), eq("FULL"), any()))
+        when(resolver.resolve(eq("TINYNET_GOLDEN"), eq("FedProx"), eq("FULL"), any(), any()))
                 .thenReturn(plan().toBuilder().setFedproxMu(0.1).build());
         when(runService.legacyManifest(run)).thenReturn(legacyManifest());
 
@@ -212,7 +255,7 @@ class ExecutionContractPublisherTest {
 
         publisher.onStaged(run.getId());
 
-        verify(resolver).resolve("TINYNET_GOLDEN", "FedAvg", "FULL", head);
+        verify(resolver).resolve("TINYNET_GOLDEN", "FedAvg", "FULL", TrainingDataSource.FIXTURE, head);
     }
 
     @Test
@@ -223,7 +266,7 @@ class ExecutionContractPublisherTest {
 
         verify(store).markUnavailable(eq(run), eq(ContractUnavailableReason.NOT_REPRESENTABLE),
                 contains("changed after the run started"));
-        verify(resolver, never()).resolve(anyString(), anyString(), anyString(), any());
+        verify(resolver, never()).resolve(anyString(), anyString(), anyString(), any(), any());
     }
 
     @Test
@@ -249,7 +292,7 @@ class ExecutionContractPublisherTest {
 
     @Test
     void anUnrepresentablePlanIsRecordedWithItsReason() throws Exception {
-        when(resolver.resolve(anyString(), anyString(), anyString(), any()))
+        when(resolver.resolve(anyString(), anyString(), anyString(), any(), any()))
                 .thenThrow(new NotRepresentableException("no execution contract v1 plan"));
 
         publisher.onStaged(run.getId());
@@ -260,7 +303,7 @@ class ExecutionContractPublisherTest {
 
     @Test
     void aResolverThatCannotRunIsRecordedAsNotRepresentable() throws Exception {
-        when(resolver.resolve(anyString(), anyString(), anyString(), any()))
+        when(resolver.resolve(anyString(), anyString(), anyString(), any(), any()))
                 .thenThrow(new IOException("the execution-plan resolver exited 1"));
 
         publisher.onStaged(run.getId());

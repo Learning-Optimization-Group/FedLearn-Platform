@@ -140,6 +140,12 @@ describe('provisionTrainingBundle', () => {
     await expect(provisionTrainingBundle('r1', PROGRAMS)).rejects.toBeInstanceOf(ModelDeliveryUnavailableError);
   });
 
+  test('refuses to stage fixture data a run on the device\'s own data does not offer', async () => {
+    serve({ ...DTO, inputsUrl: null, inputsSha256: null, inputShape: [], targetsUrl: null, targetsSha256: null });
+    await expect(provisionTrainingBundle('r1', PROGRAMS)).rejects.toThrow(/no fixture data/);
+    expect(mCore.stageBundleFile).not.toHaveBeenCalled();
+  });
+
   test.each(['inputsSha256', 'targetsSha256'] as const)(
     'refuses to stage data when the bundle omits %s', async (missing) => {
       serve({ ...DTO, [missing]: '' });
