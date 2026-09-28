@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { Project, StartServerData, errorMessage } from '../../services/apiServices';
+import { Project, StartServerData, errorMessage, fetchModelRecipes, type ModelRecipe } from '../../services/apiServices';
 import { createLogger } from '../../lib/logger';
 import { Modal, Input, Select, Button, FormField } from '../ui';
 
@@ -58,16 +58,36 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
   const [secureAggThreshold, setSecureAggThreshold] = useState(SECURE_AGG_MIN_THRESHOLD);
   // null = follow "Devices needed to start" until the user sets a round size of their own.
   const [clientsPerRound, setClientsPerRound] = useState<number | null>(null);
+  const [ownData, setOwnData] = useState(false);
+  const [recipes, setRecipes] = useState<ModelRecipe[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // The catalog says whether this project's recipe can train on each phone's own dataset. Without it the choice is
+  // simply not offered, and the run trains on the recipe's built-in data as before.
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    fetchModelRecipes()
+      .then((res) => { if (!cancelled) setRecipes(res.data ?? []); })
+      .catch(() => { if (!cancelled) setRecipes([]); });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   if (!project) return null;
 
   const isLlmLora = (project?.modelType ?? '').toUpperCase() === 'LLM_LORA';
   const showRobust = !isLlmLora && strategy === 'Robust';
   const selectedRule = ROBUST_RULES.find((r) => r.value === robustMethod);
-  // Secure aggregation masks only DeComFL's gradient scalars, so it is offered only there.
-  const showSecure = !isLlmLora && strategy === 'DeComFL';
+  const recipe = recipes.find((r) => r.key.toUpperCase() === (project.modelType ?? '').toUpperCase());
+  // Text federation trains no model on device data, so it has no data source to choose.
+  const showData = strategy !== 'FoT' && (recipe?.supportedDataSources ?? []).includes('LOCAL_SNAPSHOT');
+  const onOwnData = showData && ownData;
+  // Secure aggregation masks only DeComFL's gradient scalars, so it is offered only there. Only phones train on
+  // their own data and phones can't join a secure run yet, so it is not offered on participants' own data.
+  const showSecure = !isLlmLora && strategy === 'DeComFL' && !onOwnData;
   // Text federation has no rounds of devices to size.
   const showPerRound = isLlmLora || strategy !== 'FoT';
   const perRound = clientsPerRound ?? minClients;
@@ -100,6 +120,10 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
       if (showPerRound && Number(perRound) > Number(minClients)) {
         config.clientsPerRound = Number(perRound);
       }
+      // The built-in data is the server default, so only a run on participants' own data names its source.
+      if (onOwnData) {
+        config.dataSource = 'LOCAL_SNAPSHOT';
+      }
       await onSubmit(project.id, config);
       // Reset form defaults upon success
       setStrategy('FedAvg');
@@ -112,6 +136,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
       setSecureAggregation(false);
       setSecureAggThreshold(SECURE_AGG_MIN_THRESHOLD);
       setClientsPerRound(null);
+      setOwnData(false);
     } catch (err) {
       // Keep the modal open and surface the backend detail inline, so the
       // failure isn't hidden behind the modal on the route beneath it.
@@ -220,6 +245,30 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
                   required
                 />
               </FormField>
+            )}
+          </>
+        )}
+
+        {showData && (
+          <>
+            <FormField
+              label="Training data"
+              help="Where each device's training examples come from."
+            >
+              <Select
+                value={ownData ? 'LOCAL_SNAPSHOT' : 'FIXTURE'}
+                onChange={(e) => setOwnData(e.target.value === 'LOCAL_SNAPSHOT')}
+              >
+                <option value="FIXTURE">Built-in sample data (for trying it out)</option>
+                <option value="LOCAL_SNAPSHOT">Each phone's own dataset</option>
+              </Select>
+            </FormField>
+            {ownData && (
+              <p className="flex items-start gap-2 rounded-md border border-border bg-surface-muted px-3 py-2.5 text-label text-fg">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted" strokeWidth={1.5} />
+                Only phones can join. Each phone trains on a dataset it has imported, which must match this model's
+                inputs and classes; the data never leaves the phone.
+              </p>
             )}
           </>
         )}

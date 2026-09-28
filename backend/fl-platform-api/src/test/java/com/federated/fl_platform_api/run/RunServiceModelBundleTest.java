@@ -314,7 +314,7 @@ class RunServiceModelBundleTest {
         projectRepository.findById(pid).orElseThrow().setModelType("TINYNET_GOLDEN");
         when(modelRecipeService.findByKey("TINYNET_GOLDEN")).thenReturn(Optional.of(
                 new com.federated.fl_platform_api.dto.ModelRecipeDto("TINYNET_GOLDEN", "TinyNet", "vector",
-                        java.util.List.of("c0", "c1", "c2"), java.util.List.of(), java.util.List.of(), null, null, null)));
+                        java.util.List.of("c0", "c1", "c2"), java.util.List.of(), java.util.List.of(), null)));
 
         ModelBundleDto b = runService.getModelBundle(rid);
 

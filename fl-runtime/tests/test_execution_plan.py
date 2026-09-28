@@ -817,3 +817,34 @@ def test_a_contracted_decomfl_client_holds_its_rounds_to_the_contract(monkeypatc
     assert client.build_decomfl_client(net, [], 0.001).round_check is client._refuse_decomfl_round_outside_contract
     monkeypatch.setattr(client, "EXECUTION_CONTRACT", None)
     assert client.build_decomfl_client(net, [], 0.001).round_check is None
+
+
+# --- the catalog declares which recipes participants can train on their own data ----------------------------
+
+def _declared_sources(meta):
+    return meta.get("supported_data_sources", ["FIXTURE"])
+
+
+@pytest.mark.parametrize("meta", recipes.RECIPE_METADATA, ids=lambda m: m["key"])
+def test_every_declared_data_source_is_one_the_contract_can_state(meta):
+    assert set(_declared_sources(meta)) <= set(execution_plan.DATA_SOURCES)
+    assert "FIXTURE" in _declared_sources(meta)
+
+
+@pytest.mark.parametrize("meta", recipes.RECIPE_METADATA, ids=lambda m: m["key"])
+def test_a_recipe_offers_participants_own_data_only_with_a_plan_that_states_it(meta):
+    """The picker offers a run on participants' own data from this declaration; a recipe without an execution plan
+    has no contract to tell a device what data to bring, so it must not declare one."""
+    planned = [strategy for (key, strategy, arm) in execution_plan._PLANS if key == meta["key"]]
+    if "LOCAL_SNAPSHOT" in _declared_sources(meta):
+        assert planned, f"{meta['key']} declares LOCAL_SNAPSHOT but has no execution plan"
+        for strategy in planned:
+            plan = execution_plan.resolve_model_training(meta["key"], strategy, "FULL", data_source="LOCAL_SNAPSHOT")
+            assert plan.data.source == pb.DATA_SOURCE_LOCAL_SNAPSHOT
+    else:
+        assert not planned, f"{meta['key']} has an execution plan but does not offer participants' own data"
+
+
+def test_the_catalog_describes_the_data_sources_a_recipe_supports():
+    tinynet = next(r for r in recipes.describe() if r["key"] == "TINYNET_GOLDEN")
+    assert tinynet["supported_data_sources"] == ["FIXTURE", "LOCAL_SNAPSHOT"]

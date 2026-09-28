@@ -1,7 +1,25 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { StartProjectModal } from './StartProjectModal';
-import type { Project } from '../../services/apiServices';
+import { fetchModelRecipes, type ModelRecipe, type Project } from '../../services/apiServices';
+
+vi.mock('../../services/apiServices', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../services/apiServices')>()),
+  fetchModelRecipes: vi.fn(),
+}));
+
+const TINYNET: ModelRecipe = {
+  key: 'TINYNET_GOLDEN', displayName: 'TinyNet', inputKind: 'vector', classes: ['c0', 'c1', 'c2'],
+  baseModels: ['tinynet_golden'], optimizers: ['SGD'], supportedArms: ['FULL'],
+  supportedDataSources: ['FIXTURE', 'LOCAL_SNAPSHOT'],
+};
+const CNN: ModelRecipe = {
+  key: 'CNN', displayName: 'CNN', inputKind: 'image', classes: [], baseModels: [], optimizers: [],
+};
+
+beforeEach(() => {
+  vi.mocked(fetchModelRecipes).mockReset().mockResolvedValue({ data: [CNN, TINYNET] } as never);
+});
 
 const PROJECT: Project = {
   id: 'p1',
@@ -281,5 +299,75 @@ describe('StartProjectModal — devices per round', () => {
     expect(screen.getByLabelText(PER_ROUND)).toBeInTheDocument();
     chooseStrategy('FoT');
     expect(screen.queryByLabelText(PER_ROUND)).not.toBeInTheDocument();
+  });
+});
+
+// Training data. A run can train on each phone's own dataset only where the project's recipe says so: that recipe
+// has an on-device plan telling a phone what data to bring. Only phones train on their own data, and phones cannot
+// join a secure run yet, so the two are never offered together.
+describe('StartProjectModal — training data', () => {
+  const DATA = 'Training data';
+  const TINY_PROJECT: Project = { ...PROJECT, modelType: 'TINYNET_GOLDEN', modelName: 'tinynet_golden' };
+  const submit = () => fireEvent.click(screen.getByRole('button', { name: /start training/i }));
+
+  it('is offered for a recipe that trains on participants\' own data', async () => {
+    render(<StartProjectModal isOpen project={TINY_PROJECT} onClose={vi.fn()} onSubmit={vi.fn()} />);
+    expect(await screen.findByLabelText(DATA)).toBeInTheDocument();
+  });
+
+  it('is not offered for a recipe that trains only on its fixture data', async () => {
+    render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={vi.fn()} />);
+    await waitFor(() => expect(fetchModelRecipes).toHaveBeenCalled());
+    expect(screen.queryByLabelText(DATA)).not.toBeInTheDocument();
+  });
+
+  it('is not offered when the catalog cannot be loaded', async () => {
+    vi.mocked(fetchModelRecipes).mockRejectedValue(new Error('down'));
+    render(<StartProjectModal isOpen project={TINY_PROJECT} onClose={vi.fn()} onSubmit={vi.fn()} />);
+    await waitFor(() => expect(fetchModelRecipes).toHaveBeenCalled());
+    expect(screen.queryByLabelText(DATA)).not.toBeInTheDocument();
+  });
+
+  it('submits a run on each phone\'s own dataset', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<StartProjectModal isOpen project={TINY_PROJECT} onClose={vi.fn()} onSubmit={onSubmit} />);
+    fireEvent.change(await screen.findByLabelText(DATA), { target: { value: 'LOCAL_SNAPSHOT' } });
+    submit();
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit).toHaveBeenCalledWith('p1', {
+      strategy: 'FedAvg', numRounds: 5, minClients: 2, dataSource: 'LOCAL_SNAPSHOT',
+    });
+  });
+
+  it('sends no data source for the built-in sample data, which is the server default', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<StartProjectModal isOpen project={TINY_PROJECT} onClose={vi.fn()} onSubmit={onSubmit} />);
+    await screen.findByLabelText(DATA);
+    submit();
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(Object.keys(onSubmit.mock.calls[0][1]).sort()).toEqual(['minClients', 'numRounds', 'strategy']);
+  });
+
+  it('does not offer secure aggregation on participants\' own data', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<StartProjectModal isOpen project={TINY_PROJECT} onClose={vi.fn()} onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByLabelText('Training method'), { target: { value: 'DeComFL' } });
+    fireEvent.change(screen.getByLabelText('Secure aggregation'), { target: { value: 'on' } });
+    fireEvent.change(await screen.findByLabelText(DATA), { target: { value: 'LOCAL_SNAPSHOT' } });
+    expect(screen.queryByLabelText('Secure aggregation')).not.toBeInTheDocument();
+    submit();
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][1]).not.toHaveProperty('secureAggregation');
+    expect(onSubmit.mock.calls[0][1]).toMatchObject({ dataSource: 'LOCAL_SNAPSHOT' });
+  });
+
+  it('is not offered for text federation', async () => {
+    render(<StartProjectModal isOpen project={TINY_PROJECT} onClose={vi.fn()} onSubmit={vi.fn()} />);
+    await screen.findByLabelText(DATA);
+    fireEvent.change(screen.getByLabelText('Training method'), { target: { value: 'FoT' } });
+    expect(screen.queryByLabelText(DATA)).not.toBeInTheDocument();
   });
 });

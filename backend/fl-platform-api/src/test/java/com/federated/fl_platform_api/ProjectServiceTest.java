@@ -690,13 +690,37 @@ class ProjectServiceTest {
     }
 
     @Test
-    void aStartRecordsTheDataSourceItAsksFor_andDefaultsToTheFixture() throws Exception {
+    void aStartRecordsTheDataSourceItAsksFor() throws Exception {
         arrangeSecureStart(true);
+        catalogOffers("TINYNET_GOLDEN", List.of("FIXTURE", "LOCAL_SNAPSHOT"));
         StartProject own = roundSizeStart("FedAvg", 2, null);
         own.setDataSource("LOCAL_SNAPSHOT");
         projectService.startServerForProject(testProject.getId(), own);
         verify(runService).createForStart(eq(testProject), eq("FedAvg"), anyInt(), eq(2), eq(2), isNull(), isNull(),
                 eq(com.federated.fl_platform_api.model.TrainingDataSource.LOCAL_SNAPSHOT));
+    }
+
+    @Test
+    void aStartOnParticipantsOwnDataIsRefusedBeforeAnythingIsCreated_whenTheRecipeDoesNotOfferIt() {
+        arrangeSecureStart(true);
+        catalogOffers("CNN", null);
+        StartProject own = roundSizeStart("FedAvg", 2, null);
+        own.setDataSource("LOCAL_SNAPSHOT");
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                projectService.startServerForProject(testProject.getId(), own));
+        assertTrue(ex.getMessage().contains("own data"), ex.getMessage());
+        verify(runService, never()).createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any());
+        verify(flServerManager, never()).isServerRunning(any());
+    }
+
+    /** The test project's recipe is {@code key}, and the catalog says it offers {@code sources}. */
+    private void catalogOffers(String key, List<String> sources) {
+        testProject.setModelType(key);
+        com.federated.fl_platform_api.service.ModelRecipeService recipes =
+                mock(com.federated.fl_platform_api.service.ModelRecipeService.class);
+        when(recipes.findByKey(key)).thenReturn(Optional.of(new com.federated.fl_platform_api.dto.ModelRecipeDto(
+                key, key, "vector", List.of(), List.of(), List.of(), null, null, null, sources)));
+        org.springframework.test.util.ReflectionTestUtils.setField(projectService, "modelRecipeService", recipes);
     }
 
     @Test

@@ -375,6 +375,10 @@ RECIPE_METADATA = [
         # even on FULL. Declared here so the client and server read one fact instead of each
         # matching on the recipe name (they had drifted: the server knew, the CLI client did not).
         "frozen_by_construction": True,
+        # Where participants' training data may come from: the recipe's committed fixture batch, or each device's
+        # own dataset snapshot, checked on the device against the contract's data requirement. A recipe offers
+        # LOCAL_SNAPSHOT only with an execution plan that can state it. Absent means FIXTURE only.
+        "supported_data_sources": ["FIXTURE", "LOCAL_SNAPSHOT"],
         "display_name": "On-device DeComFL demo (TinyNet)",
         "input_kind": "vector",
         "classes": ["c0", "c1", "c2"],

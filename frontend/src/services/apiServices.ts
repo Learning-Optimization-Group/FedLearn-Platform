@@ -68,6 +68,8 @@ export interface StartServerData {
     secureAggThreshold?: number;
     /** Devices a round waits for; it can still finish with minClients. Defaults to minClients on the server. */
     clientsPerRound?: number;
+    /** Where participants' training data comes from; the server default is the recipe's fixture data. */
+    dataSource?: 'FIXTURE' | 'LOCAL_SNAPSHOT';
 }
 
 export interface Project {
@@ -182,6 +184,8 @@ export interface ModelRecipe {
     supportedArms?: string[];
     /** Present only when the recipe offers more than one arm. */
     armTradeoff?: ArmTradeoff;
+    /** Where a run's participants may take their training data from; absent means the fixture data only. */
+    supportedDataSources?: string[];
 }
 
 /** Lists the model recipes the platform can train. */
@@ -241,6 +245,9 @@ export const startProjectServer = (projectId: string, startData: StartServerData
         if (startData.secureAggThreshold !== undefined) {
             body.secureAggThreshold = startData.secureAggThreshold;
         }
+    }
+    if (startData?.dataSource) {
+        body.dataSource = startData.dataSource;
     }
     return api.post<Project>(`/projects/${projectId}/start`, body);
 };

@@ -32,6 +32,11 @@ describe('startProjectServer — request body', () => {
     });
   });
 
+  it('passes the run\'s data source through', async () => {
+    await startProjectServer('p1', { strategy: 'FedAvg', dataSource: 'LOCAL_SNAPSHOT' });
+    expect(api.post).toHaveBeenCalledWith('/projects/p1/start', { strategy: 'FedAvg', dataSource: 'LOCAL_SNAPSHOT' });
+  });
+
   it('passes the clipping radius through', async () => {
     await startProjectServer('p1', { strategy: 'Robust', robustMethod: 'CENTERED_CLIP', centeredClipTau: 1.5 });
     expect(api.post).toHaveBeenCalledWith('/projects/p1/start', {
