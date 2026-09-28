@@ -27,7 +27,10 @@ public record ModelBundleDto(
         // first-order) — the mobile client treats a null trainablePteUrl exactly as "DeComFL-only".
         String trainablePteUrl,
         String trainableSha256,
-        List<String> trainableParamNames) {  // canonical base.<name> order the phone re-maps ET's map onto
+        List<String> trainableParamNames,    // canonical base.<name> order the phone re-maps ET's map onto
+        // The recipe's class names, in label-index order. A phone imports its own data against them; the snapshot's
+        // labels-sha256 of this list must equal the contract's labelSchemaId. Empty when the recipe is unknown.
+        List<String> classNames) {
 
     /** One trainable tensor's layout (mirrors the mobile ModelManifest.ParamSpec). */
     public record ParamSpec(String name, List<Integer> shape) {

@@ -44,6 +44,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -74,6 +75,7 @@ public class RunService {
 
     @Autowired private Environment environment;
     @Autowired private ExecutionContractStore contractStore;
+    @Autowired private ModelRecipeService modelRecipeService;
 
     // V27: the effective client-auth setting recorded in each run's intent; the same property the FL-server spawn
     // enforces. TLS comes from serverCert, which reads app.fl.require-tls.
@@ -400,7 +402,7 @@ public class RunService {
         if (!bundleDeliveryEnabled) {
             throw new ProjectStateException("Model bundle delivery is disabled");
         }
-        requireParticipantRun(runId);
+        Run run = requireParticipantRun(runId);
         Path manifestPath = Path.of(modelBundleDir, runId.toString(), "manifest.json");
         if (!Files.isRegularFile(manifestPath)) {
             throw new ResourceNotFoundException("No model bundle staged for run " + runId);
@@ -435,7 +437,16 @@ public class RunService {
                 base + "infer.pte", mm.path("inferSha256").asText(),
                 base + ds.path("inputsFile").asText("inputs.f32"), ds.path("inputsSha256").asText(), inputShape,
                 base + ds.path("targetsFile").asText("targets.i64"), ds.path("targetsSha256").asText(),
-                trainablePteUrl, trainableSha256, trainableParamNames);
+                trainablePteUrl, trainableSha256, trainableParamNames, recipeClassNames(run));
+    }
+
+    /** The class names of the run's recipe, in label-index order; empty when the catalog does not know it. */
+    private List<String> recipeClassNames(Run run) {
+        return projectRepository.findById(run.getProjectId())
+                .flatMap(p -> Optional.ofNullable(p.getModelType()))
+                .flatMap(modelRecipeService::findByKey)
+                .map(r -> r.classes() == null ? List.<String>of() : List.copyOf(r.classes()))
+                .orElse(List.of());
     }
 
     /** Stream one whitelisted bundle binary. Same auth gate; the whitelist + a startsWith check block

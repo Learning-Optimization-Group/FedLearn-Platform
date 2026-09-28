@@ -45,6 +45,7 @@ class RunServiceModelBundleTest {
     @Mock OrgScope orgScope;
     @Mock ConnectionTokenService tokenService;
     @Mock com.federated.fl_platform_api.contract.ExecutionContractStore contractStore;
+    @Mock com.federated.fl_platform_api.service.ModelRecipeService modelRecipeService;
     @InjectMocks RunService runService;
 
     @TempDir Path modelsDir;
@@ -255,4 +256,34 @@ class RunServiceModelBundleTest {
         assertFalse(runService.getManifest(rid2).isFirstOrderSupported(),
                 "a DeComFL-only run fail-closes first-order (phone stays on the ZO path)");
     }
+
+    // Stage 3 B2: a phone imports its own data against the run's class list. The bundle carries it in the recipe's
+    // order; the phone's snapshot then records labels-sha256 of that list, which must equal the contract's
+    // labelSchemaId, so a substituted or reordered list cannot bind.
+    @Test
+    void getModelBundle_carriesTheRecipesClassNamesInOrder() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        stage(rid);
+        mockParticipant(rid, pid);
+        projectRepository.findById(pid).orElseThrow().setModelType("TINYNET_GOLDEN");
+        when(modelRecipeService.findByKey("TINYNET_GOLDEN")).thenReturn(Optional.of(
+                new com.federated.fl_platform_api.dto.ModelRecipeDto("TINYNET_GOLDEN", "TinyNet", "vector",
+                        java.util.List.of("c0", "c1", "c2"), java.util.List.of(), java.util.List.of(), null, null, null)));
+
+        ModelBundleDto b = runService.getModelBundle(rid);
+
+        assertEquals(java.util.List.of("c0", "c1", "c2"), b.classNames());
+    }
+
+    @Test
+    void getModelBundle_hasNoClassNamesForARecipeTheCatalogDoesNotKnow() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        stage(rid);
+        mockParticipant(rid, pid);
+        projectRepository.findById(pid).orElseThrow().setModelType("RETIRED_RECIPE");
+        when(modelRecipeService.findByKey("RETIRED_RECIPE")).thenReturn(Optional.empty());
+
+        assertEquals(java.util.List.of(), runService.getModelBundle(rid).classNames());
+    }
 }
+

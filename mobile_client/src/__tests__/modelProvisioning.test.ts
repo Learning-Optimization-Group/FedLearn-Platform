@@ -30,6 +30,7 @@ const DTO = {
   inputsUrl: '/api/runs/r1/files/inputs.f32', inputsSha256: 'insha', inputShape: [8, 4],
   targetsUrl: '/api/runs/r1/files/targets.i64', targetsSha256: 'tgtsha',
   trainableParamNames: ['base.fc1.weight', 'base.fc1.bias'],
+  classNames: ['c0', 'c1', 'c2'],
 };
 
 function serve(dto: object = DTO) {
@@ -62,6 +63,14 @@ describe('provisionTrainingBundle', () => {
     const staged = mCore.stageBundleFile.mock.calls.map((c: unknown[]) => c[0]);
     expect(staged).not.toContain('loss.pte');
     expect(staged).not.toContain('infer.pte');
+  });
+
+  test('carries the run\'s class names, in label order, for importing the device\'s own data', async () => {
+    serve();
+
+    const b = await provisionTrainingBundle('r1', PROGRAMS);
+
+    expect(b.classNames).toEqual(['c0', 'c1', 'c2']);
   });
 
   test('stages the on-device data files as before, each verified against its declared hash', async () => {

@@ -16,6 +16,7 @@ export interface ModelBundle {
   inputsF32Path: string; // row-major float32, shape = inputShape
   inputShape: number[];
   targetsI64Path: string; // int64 labels
+  classNames: string[]; // the run's classes in label order; a device's own dataset is imported against them
 }
 
 // The backend ModelBundleDto (RunController#modelBundle). File fields are URLs under /api/runs/{id}/files.
@@ -37,6 +38,7 @@ interface ModelBundleDto {
   trainablePteUrl?: string | null;
   trainableSha256?: string | null;
   trainableParamNames?: string[] | null;
+  classNames?: string[] | null;
 }
 
 /** Thrown when the model/data bundle can't be fetched/staged (distinguished so the UI can show a precise
@@ -149,6 +151,7 @@ export async function provisionTrainingBundle(runId: string, programs: ContractP
     inputsF32Path,
     inputShape: dto.inputShape,
     targetsI64Path,
+    classNames: dto.classNames ?? [],
   };
 }
 
