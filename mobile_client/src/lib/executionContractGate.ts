@@ -58,6 +58,8 @@ export interface ContractProjection {
   proximalMu: number;
   /** DeComFL only: the zeroth-order settings the native round holds the server's round config to. */
   zerothOrder?: { smoothing: number; numPerturbations: number };
+  /** Where the training data comes from: the recipe's fixture served by the run, or a snapshot on this device. */
+  dataSource: 'FIXTURE' | 'LOCAL_SNAPSHOT';
 }
 
 export type ContractDecision =
@@ -190,6 +192,7 @@ export function projectContract(contract: ExecutionContract, contractId: string)
       batchSize: local.batchSize,
       initialStateSha256: training.initialStateSha256,
       proximalMu: training.fedproxMu ?? 0,
+      dataSource: dataSourceOf(training),
     },
   };
 }
@@ -197,7 +200,7 @@ export function projectContract(contract: ExecutionContract, contractId: string)
 /**
  * Where the run's training data comes from. A fixture run trains the recipe's committed data served by the run's
  * server: acceptable for development and demos, refused by a release build, whose training data must be the user's
- * own. A run on the user's own data needs a dataset snapshot bound at join, which this build cannot do yet.
+ * own. A run on the user's own data trains a dataset snapshot the user binds at join (runTrainingLoop checks it).
  */
 function dataSourceRefusal(training: ModelTraining): ContractDecision | undefined {
   const source = training.data?.source;
@@ -206,10 +209,13 @@ function dataSourceRefusal(training: ModelTraining): ContractDecision | undefine
       'This run trains on server-supplied test data, which a release build does not do.');
   }
   if (source === DataSource.LOCAL_SNAPSHOT) {
-    return refuse('UNSUPPORTED_DATA_SOURCE', 'This run trains on each device\'s own dataset, which this build cannot '
-      + 'import yet.');
+    return undefined;
   }
   return refuse('CONTRACT_INVALID', 'This run\'s execution contract does not say where its training data comes from.');
+}
+
+function dataSourceOf(training: ModelTraining): 'FIXTURE' | 'LOCAL_SNAPSHOT' {
+  return training.data?.source === DataSource.LOCAL_SNAPSHOT ? 'LOCAL_SNAPSHOT' : 'FIXTURE';
 }
 
 /**
@@ -257,6 +263,7 @@ function projectDeComFL(contract: ExecutionContract, contractId: string, trainin
       batchSize: local.batchSize,
       initialStateSha256: training.initialStateSha256,
       proximalMu: 0,
+      dataSource: dataSourceOf(training),
       zerothOrder: { smoothing: zo.smoothing, numPerturbations: zo.numPerturbations },
     },
   };

@@ -73,6 +73,17 @@ describe('provisionTrainingBundle', () => {
     expect(b.classNames).toEqual(['c0', 'c1', 'c2']);
   });
 
+  test('fetches no training data for a run on the device\'s own dataset', async () => {
+    serve();
+
+    const b = await provisionTrainingBundle('r1', PROGRAMS, { fixtureData: false });
+
+    expect(mCore.stageBundleFile).not.toHaveBeenCalled();
+    expect(b.inputsF32Path).toBeUndefined();
+    expect(b.targetsI64Path).toBeUndefined();
+    expect(b.lossPtePath).toBe(`/data/files/artifacts/${LOSS}`);
+  });
+
   test('stages the on-device data files as before, each verified against its declared hash', async () => {
     serve();
 

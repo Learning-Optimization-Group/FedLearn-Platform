@@ -13,9 +13,10 @@ export interface ModelBundle {
   manifest: ModelManifest; // paramLayout + totalParamCount + inferPtePath/inferSha256
   lossPtePath: string; // forward(flat,x,y) -> loss graph (weights-free .pte)
   lossSha256: string;
-  inputsF32Path: string; // row-major float32, shape = inputShape
-  inputShape: number[];
-  targetsI64Path: string; // int64 labels
+  // The run's fixture data; absent for a run that trains the device's own dataset snapshot.
+  inputsF32Path?: string; // row-major float32, shape = inputShape
+  inputShape?: number[];
+  targetsI64Path?: string; // int64 labels
   classNames: string[]; // the run's classes in label order; a device's own dataset is imported against them
 }
 
@@ -104,7 +105,12 @@ async function fetchProgram(runId: string, program: ContractProgram): Promise<st
  * bundle endpoint still supplies the parameter layout, the trainable parameter names and the on-device data files,
  * which are staged as before until datasets become on-device imports (Stage 3, section B).
  */
-export async function provisionTrainingBundle(runId: string, programs: ContractProgram[]): Promise<ModelBundle> {
+export async function provisionTrainingBundle(
+  runId: string,
+  programs: ContractProgram[],
+  options: { fixtureData?: boolean } = {},
+): Promise<ModelBundle> {
+  const fixtureData = options.fixtureData ?? true;
   const byName = new Map(programs.map(p => [p.relativePath, p]));
   const loss = byName.get('loss.pte');
   const infer = byName.get('infer.pte');
@@ -121,11 +127,12 @@ export async function provisionTrainingBundle(runId: string, programs: ContractP
     throw new ModelDeliveryUnavailableError(`Could not fetch the model bundle: ${readError(e)}`);
   }
 
+  // A run on the device's own dataset takes no training data from the server.
   const [lossPtePath, inferPtePath, inputsF32Path, targetsI64Path] = await Promise.all([
     fetchProgram(runId, loss!),
     fetchProgram(runId, infer!),
-    fetchAndStage(dto.inputsUrl, 'inputs.f32', dto.inputsSha256),
-    fetchAndStage(dto.targetsUrl, 'targets.i64', dto.targetsSha256),
+    fixtureData ? fetchAndStage(dto.inputsUrl, 'inputs.f32', dto.inputsSha256) : Promise.resolve(undefined),
+    fixtureData ? fetchAndStage(dto.targetsUrl, 'targets.i64', dto.targetsSha256) : Promise.resolve(undefined),
   ]);
 
   const manifest: ModelManifest = {
@@ -149,7 +156,7 @@ export async function provisionTrainingBundle(runId: string, programs: ContractP
     lossPtePath,
     lossSha256: loss!.sha256,
     inputsF32Path,
-    inputShape: dto.inputShape,
+    inputShape: fixtureData ? dto.inputShape : undefined,
     targetsI64Path,
     classNames: dto.classNames ?? [],
   };

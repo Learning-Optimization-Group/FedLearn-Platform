@@ -277,4 +277,77 @@ describe('runTrainingLoop — the execution contract decides', () => {
     expect(nativeCore.setTrainingDataFromFiles).not.toHaveBeenCalled();
     expect(runFedAvgRound).not.toHaveBeenCalled();
   });
+
+  // Stage 3 B2: a run on each device's own data trains the snapshot the user bound, and the server supplies no data.
+  function localSnapshotContract(): Record<string, unknown> {
+    const contract = contractJson() as { modelTraining: { data: Record<string, unknown> } };
+    contract.modelTraining.data.source = 'DATA_SOURCE_LOCAL_SNAPSHOT';
+    return contract as unknown as Record<string, unknown>;
+  }
+
+  const DATASET = {
+    snapshotId: 'd'.repeat(64),
+    recordCount: 6,
+    inputShape: [4],
+    inputDtype: 'f32',
+    classNames: ['c0', 'c1', 'c2'],
+    labelSchemaId: 'labels-sha256:4817507d9942bf24635535b19b1588bb44e00d2b51314536926f3580c7f5d896',
+    inputsPath: '/data/datasets/d/inputs.f32',
+    targetsPath: '/data/datasets/d/targets.i64',
+  };
+
+  test('refuses a run on the device\'s own data when no dataset is bound, before provisioning', async () => {
+    const { getServerStatus, runFedAvgRound } = oneRound();
+
+    const run = runTrainingLoop(joined({ executionContract: localSnapshotContract() }), hooks, {
+      policy: POLICY, ops: { getServerStatus, runFedAvgRound },
+    });
+
+    await expect(run).rejects.toMatchObject({ name: 'ExecutionContractRefusedError', code: 'DATASET_REQUIRED' });
+    expect(provisionTrainingBundle).not.toHaveBeenCalled();
+  });
+
+  test('refuses a bound dataset that is not what the contract requires, naming why', async () => {
+    const { getServerStatus, runFedAvgRound } = oneRound();
+
+    const run = runTrainingLoop(joined({ executionContract: localSnapshotContract() }), hooks, {
+      policy: POLICY, ops: { getServerStatus, runFedAvgRound },
+      dataset: { ...DATASET, labelSchemaId: 'labels-sha256:' + 'e'.repeat(64) },
+    });
+
+    await expect(run).rejects.toMatchObject({ code: 'DATASET_INCOMPATIBLE' });
+    await expect(run).rejects.toThrow(/labelSchemaId/);
+    expect(provisionTrainingBundle).not.toHaveBeenCalled();
+  });
+
+  test('trains the bound dataset, with no training data from the server', async () => {
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce({
+      ...STAGED_BUNDLE, inputsF32Path: undefined, targetsI64Path: undefined, inputShape: undefined });
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    const { getServerStatus, runFedAvgRound } = oneRound();
+
+    await runTrainingLoop(joined({ executionContract: localSnapshotContract() }), hooks, {
+      policy: POLICY,
+      ops: { getServerStatus, runFedAvgRound, loadSubmittedRound: async () => null, saveSubmittedRound: async () => {} },
+      dataset: DATASET,
+    });
+
+    expect((provisionTrainingBundle as jest.Mock).mock.calls[0][2]).toEqual({ fixtureData: false });
+    expect(nativeCore.setTrainingDataFromFiles).toHaveBeenCalledWith(DATASET.inputsPath, [6, 4], DATASET.targetsPath);
+    expect(runFedAvgRound).toHaveBeenCalled();
+  });
+
+  test('still refuses a bound dataset larger than one batch', async () => {
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce({
+      ...STAGED_BUNDLE, inputsF32Path: undefined, targetsI64Path: undefined, inputShape: undefined });
+    const { getServerStatus, runFedAvgRound } = oneRound();
+
+    const run = runTrainingLoop(joined({ executionContract: localSnapshotContract() }), hooks, {
+      policy: POLICY, ops: { getServerStatus, runFedAvgRound }, dataset: { ...DATASET, recordCount: 9 },
+    });
+
+    await expect(run).rejects.toMatchObject({ code: 'UNSUPPORTED_BATCHING' });
+    expect(nativeCore.setTrainingDataFromFiles).not.toHaveBeenCalled();
+  });
 });
+

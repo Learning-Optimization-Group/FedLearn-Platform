@@ -5,6 +5,7 @@
 import nativeCore, { type RoundConfig, type RoundResult, type Strategy } from './nativeCore';
 import { joinRun, type JoinedRun, type RunManifest } from './runJoin';
 import { provisionTrainingBundle } from './modelProvisioning';
+import { snapshotMismatches, type DatasetSnapshot } from './datasetService';
 import { assertNativeCompatibility } from './nativeCompatibility';
 import type { ExecutionContract } from '../gen/fedlearn/contract/v1/execution_contract_pb';
 import { contractPrograms,
@@ -73,7 +74,10 @@ export class MobileSecureAggregationUnsupportedError extends Error {
  * shown as information, like the refusals above.
  */
 export class ExecutionContractRefusedError extends Error {
-  constructor(readonly code: ContractRefusalCode | 'CONTRACT_TIMEOUT' | 'BUNDLE_MISMATCH', message: string) {
+  constructor(
+    readonly code: ContractRefusalCode | 'CONTRACT_TIMEOUT' | 'BUNDLE_MISMATCH' | 'DATASET_REQUIRED' | 'DATASET_INCOMPATIBLE',
+    message: string,
+  ) {
     super(message);
     this.name = 'ExecutionContractRefusedError';
   }
@@ -327,7 +331,9 @@ export async function runResilientRoundLoop(
 export async function runTrainingLoop(
   joined: JoinedRun,
   hooks: TrainingHooks,
-  overrides?: { policy?: ResiliencePolicy; ops?: Partial<RoundOps>; contract?: ContractWaitOps },
+  // policy / ops / contract exist so tests can inject them; dataset is the snapshot the user bound for a run on the
+  // device's own data (a LOCAL_SNAPSHOT contract).
+  overrides?: { policy?: ResiliencePolicy; ops?: Partial<RoundOps>; contract?: ContractWaitOps; dataset?: DatasetSnapshot },
 ): Promise<void> {
   // One legacy refusal stays ahead of the contract, because it names the real obstacle better than a missing
   // contract would: a secure-aggregation run the phone cannot mask for.
@@ -342,6 +348,21 @@ export async function runTrainingLoop(
   // at all, and with what. It is resolved before any provisioning or native work, so a run this device cannot
   // execute costs nothing. There is no fallback to the legacy run fields.
   const { contract, projection } = await resolveContract(joined, overrides?.contract);
+  // A run on the device's own data needs a snapshot the user bound, exactly as the contract requires, before anything
+  // is downloaded.
+  const dataset = overrides?.dataset;
+  if (projection.dataSource === 'LOCAL_SNAPSHOT') {
+    if (!dataset) {
+      throw new ExecutionContractRefusedError('DATASET_REQUIRED',
+        'This run trains on your own data. Choose a dataset on this device first.');
+    }
+    const requirement = contract.workload.case === 'modelTraining' ? contract.workload.value.data : undefined;
+    const mismatches = requirement ? snapshotMismatches(dataset, requirement) : ['data requirement'];
+    if (mismatches.length > 0) {
+      throw new ExecutionContractRefusedError('DATASET_INCOMPATIBLE',
+        `The chosen dataset is not what this run's model takes (${mismatches.join(', ')}).`);
+    }
+  }
   const strategy = supportedStrategy(projection.strategy);
   // DeComFL uploads gradient scalars; every other v1 strategy uploads the float32 trainable state.
   const isFirstOrder = projection.strategy !== 'DeComFL';
@@ -349,7 +370,14 @@ export async function runTrainingLoop(
   await assertNativeCompatibility(nativeCore);
   hooks.onLog(`Execution contract ${projection.contractId.slice(0, 12)}… accepted.`);
   hooks.onLog('Provisioning model + on-device data…');
-  const bundle = await provisionTrainingBundle(joined.runId, contractPrograms(contract));
+  const ownData = projection.dataSource === 'LOCAL_SNAPSHOT' ? dataset : undefined;
+  const bundle = await provisionTrainingBundle(joined.runId, contractPrograms(contract), { fixtureData: !ownData });
+  const staged = ownData
+    ? { inputsPath: ownData.inputsPath, shape: [ownData.recordCount, ...ownData.inputShape], targetsPath: ownData.targetsPath }
+    : { inputsPath: bundle.inputsF32Path, shape: bundle.inputShape, targetsPath: bundle.targetsI64Path };
+  if (!staged.inputsPath || !staged.shape || !staged.targetsPath) {
+    throw new ExecutionContractRefusedError('BUNDLE_MISMATCH', 'This run delivered no training data.');
+  }
 
   // The staged bundle must be the one the contract binds: same programs, same trainable layout.
   const unbound = checkBundleAgainstContract(contract, {
@@ -365,7 +393,7 @@ export async function runTrainingLoop(
 
   // The native trainer takes one whole-dataset step per epoch, so it reproduces the contract only when the staged
   // data fits in one batch. A larger dataset would silently train steps the contract does not state.
-  const records = bundle.inputShape[0] ?? 0;
+  const records = staged.shape[0] ?? 0;
   if (!(records >= 1 && records <= projection.batchSize)) {
     throw new ExecutionContractRefusedError('UNSUPPORTED_BATCHING',
       `This run trains batches of ${projection.batchSize}, but this device has ${records} examples; it can only `
@@ -376,11 +404,7 @@ export async function runTrainingLoop(
   const info = await nativeCore.loadModel(bundle.lossPtePath, bundle.lossSha256);
   hooks.onLog(`Model loaded — ${info.trainableParamCount} trainable params (tier ${info.tier}).`);
 
-  await nativeCore.setTrainingDataFromFiles(
-    bundle.inputsF32Path,
-    bundle.inputShape,
-    bundle.targetsI64Path,
-  );
+  await nativeCore.setTrainingDataFromFiles(staged.inputsPath, staged.shape, staged.targetsPath);
   hooks.onLog('On-device data staged. Training starts — your data never leaves this device.');
 
   // The model + on-device data stay loaded natively across a rejoin, so rejoin only re-establishes the

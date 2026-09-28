@@ -70,6 +70,7 @@ describe('the phone decides from the contract state', () => {
       batchSize: shared.batchSize,
       initialStateSha256: '1122ba73e49f6df981861bb76d3dcff46666abb5f41e3a6a4d510db9fddd965c',
       proximalMu: 0,
+      dataSource: 'FIXTURE',
     });
   });
 
@@ -415,9 +416,11 @@ describe('the phone decides from where a run\'s training data comes from', () =>
     }
   });
 
-  it('refuses a run on participants\' own data until this build can bind a dataset snapshot', () => {
+  it('trains a run on participants\' own data, projecting where the data comes from', () => {
     expect(projectContract(withSource(DataSource.LOCAL_SNAPSHOT), 'a'.repeat(64)))
-      .toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_DATA_SOURCE' });
+      .toMatchObject({ kind: 'train', projection: { dataSource: 'LOCAL_SNAPSHOT' } });
+    expect(projectContract(withSource(DataSource.FIXTURE), 'a'.repeat(64)))
+      .toMatchObject({ kind: 'train', projection: { dataSource: 'FIXTURE' } });
   });
 });
 
