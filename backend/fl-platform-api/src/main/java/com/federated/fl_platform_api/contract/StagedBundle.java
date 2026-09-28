@@ -4,10 +4,11 @@ import java.util.List;
 
 /**
  * What a run's staged on-device bundle says about itself (manifest.json): each model program's digest and size,
- * the runtime operators they require, the declared resource envelope, and the trainable layout the programs load.
+ * the runtime operators they require, the declared resource envelope, the trainable layout the programs load, and
+ * the most examples one call of a program takes ({@code maxBatch}: the programs take 1..maxBatch).
  */
 public record StagedBundle(List<ModelFile> modelFiles, List<String> requiredOperators, ResourceEnvelope envelope,
-                           List<LayoutEntry> paramLayout) {
+                           List<LayoutEntry> paramLayout, int maxBatch) {
 
     public StagedBundle {
         modelFiles = List.copyOf(modelFiles);

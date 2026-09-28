@@ -90,3 +90,11 @@ def test_the_staged_loss_and_infer_programs_take_fewer_examples_than_the_fixture
     for n in (1, 6, 8):
         assert torch.isfinite(loss.execute([flat, x[:n], y[:n]])[0]).all()
         assert tuple(infer.execute([flat, x[:n]])[0].shape) == (n, 3)
+
+
+def test_the_manifest_states_the_most_examples_the_staged_programs_take(tmp_path):
+    """The backend refuses to publish a contract whose batch the programs cannot take, so the bound must be stated,
+    and it must be the bound the programs were exported with."""
+    _, manifest = _stage(tmp_path)
+    with open(os.path.join(REPO, "framework", "tests", "fixtures", "decomfl_golden", "fedavg_pte_manifest.json")) as fh:
+        assert manifest["maxBatch"] == json.load(fh)["dynbatch"]["max_batch"] == 8

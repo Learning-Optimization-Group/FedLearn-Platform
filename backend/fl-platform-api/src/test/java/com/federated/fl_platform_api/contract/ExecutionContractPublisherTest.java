@@ -131,7 +131,7 @@ class ExecutionContractPublisherTest {
         return new StagedBundle(files, golden.getRequiredOperatorsList(),
                 new StagedBundle.ResourceEnvelope(8L << 20, 20_732L, 1_000L, 5_000L),
                 List.of(new StagedBundle.LayoutEntry("fc1.weight", List.of(5L, 4L)),
-                        new StagedBundle.LayoutEntry("fc1.bias", List.of(5L))));
+                        new StagedBundle.LayoutEntry("fc1.bias", List.of(5L))), 8);
     }
 
     @Test
@@ -316,7 +316,7 @@ class ExecutionContractPublisherTest {
     void anAssemblyDisagreementIsRecordedAsNotRepresentable() throws Exception {
         StagedBundle b = bundle();
         when(reader.read(run.getId())).thenReturn(new StagedBundle(b.modelFiles(), b.requiredOperators(),
-                b.envelope(), List.of(b.paramLayout().get(1), b.paramLayout().get(0))));
+                b.envelope(), List.of(b.paramLayout().get(1), b.paramLayout().get(0)), b.maxBatch()));
 
         publisher.onStaged(run.getId());
 

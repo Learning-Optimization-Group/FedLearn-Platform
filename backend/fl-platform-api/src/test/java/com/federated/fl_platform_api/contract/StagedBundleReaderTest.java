@@ -48,6 +48,7 @@ class StagedBundleReaderTest {
         ArrayNode layout = manifest.putObject("modelManifest").putArray("paramLayout");
         layout.addObject().put("name", "fc1.weight").putArray("shape").add(5).add(4);
         layout.addObject().put("name", "fc1.bias").putArray("shape").add(5);
+        manifest.put("maxBatch", 8);
         write(root, manifest);
         return manifest;
     }
@@ -67,6 +68,23 @@ class StagedBundleReaderTest {
         assertThat(bundle.paramLayout()).containsExactly(
                 new StagedBundle.LayoutEntry("fc1.weight", List.of(5L, 4L)),
                 new StagedBundle.LayoutEntry("fc1.bias", List.of(5L)));
+        assertThat(bundle.maxBatch()).isEqualTo(8);
+    }
+
+    // The programs take 1..maxBatch examples per call; a bundle that does not say how many cannot be checked against
+    // the contract's batch size, and a device would find out only when the runtime refused its data.
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"absent", "0", "-1", "2.5", "\"8\""})
+    void aBundleThatDoesNotStateAPositiveMaxBatchIsRefused(String value, @TempDir Path root) throws Exception {
+        ObjectNode manifest = stage(root);
+        if (value.equals("absent")) {
+            manifest.remove("maxBatch");
+        } else {
+            manifest.set("maxBatch", JSON.readTree(value));
+        }
+        write(root, manifest);
+        assertThatThrownBy(() -> reader(root).read(RUN)).isInstanceOf(IOException.class)
+                .hasMessageContaining("maxBatch");
     }
 
     @Test

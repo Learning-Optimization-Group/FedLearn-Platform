@@ -110,6 +110,11 @@ def stage_bundle(run_id: str, out_root: Path, fixture: Path = DEFAULT_FIXTURE) -
                 "basis": envelope["basis"],
             },
         }
+        # The most examples one call of a program takes (they take 1..maxBatch). Stated only for the dynamic-batch
+        # programs: a static program takes exactly its example count, so without them the backend, which refuses a
+        # bundle that states no maxBatch, publishes no contract rather than one a device's data would fail.
+        if dyn:
+            contract_fields["maxBatch"] = dyn["max_batch"]
 
     manifest = {
         "runId": run_id,

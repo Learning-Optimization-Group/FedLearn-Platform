@@ -62,7 +62,11 @@ public class StagedBundleReader {
             entry.path("shape").forEach(extent -> shape.add(extent.asLong()));
             layout.add(new StagedBundle.LayoutEntry(entry.path("name").asText(), shape));
         }
-        return new StagedBundle(files, operators, envelope, layout);
+        JsonNode maxBatch = manifest.get("maxBatch");
+        if (maxBatch == null || !maxBatch.isIntegralNumber() || !maxBatch.canConvertToInt() || maxBatch.intValue() < 1) {
+            throw new IOException("the staged bundle states no positive maxBatch (the most examples its programs take)");
+        }
+        return new StagedBundle(files, operators, envelope, layout, maxBatch.intValue());
     }
 
     private static JsonNode required(JsonNode node, String field) throws IOException {

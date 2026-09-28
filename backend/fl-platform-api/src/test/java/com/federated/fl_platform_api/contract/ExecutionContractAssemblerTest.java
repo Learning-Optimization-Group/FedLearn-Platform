@@ -75,7 +75,7 @@ class ExecutionContractAssemblerTest {
         return new StagedBundle(files, golden.getRequiredOperatorsList(),
                 new StagedBundle.ResourceEnvelope(8L << 20, 20_732L, 1_000L, 5_000L),
                 List.of(new StagedBundle.LayoutEntry("fc1.weight", List.of(5L, 4L)),
-                        new StagedBundle.LayoutEntry("fc1.bias", List.of(5L))));
+                        new StagedBundle.LayoutEntry("fc1.bias", List.of(5L))), 8);
     }
 
     private static ExecutionContract assemble(Run run, ModelTraining plan, StagedBundle bundle) throws Exception {
@@ -203,16 +203,35 @@ class ExecutionContractAssemblerTest {
     void aBundleWhoseLayoutDisagreesWithThePlanIsNotRepresentable() throws Exception {
         StagedBundle b = bundle();
         StagedBundle reordered = new StagedBundle(b.modelFiles(), b.requiredOperators(), b.envelope(),
-                List.of(b.paramLayout().get(1), b.paramLayout().get(0)));
+                List.of(b.paramLayout().get(1), b.paramLayout().get(0)), b.maxBatch());
         assertThatThrownBy(() -> assemble(run(intent(true, true), "FedAvg"), plan(), reordered))
                 .isInstanceOf(NotRepresentableException.class).hasMessageContaining("layout");
+    }
+
+    // A device trains each step of batch_size examples through the staged programs, which take at most maxBatch.
+    @Test
+    void aPlanWhoseBatchExceedsWhatTheStagedProgramsTakeIsNotRepresentable() throws Exception {
+        StagedBundle b = bundle();
+        StagedBundle small = new StagedBundle(b.modelFiles(), b.requiredOperators(), b.envelope(), b.paramLayout(),
+                plan().getLocalTraining().getBatchSize() - 1);
+        assertThatThrownBy(() -> assemble(run(intent(true, true), "FedAvg"), plan(), small))
+                .isInstanceOf(NotRepresentableException.class).hasMessageContaining("examples");
+    }
+
+    @Test
+    void aPlanWhoseBatchTheStagedProgramsTakeIsAssembled() throws Exception {
+        StagedBundle b = bundle();
+        StagedBundle exact = new StagedBundle(b.modelFiles(), b.requiredOperators(), b.envelope(), b.paramLayout(),
+                plan().getLocalTraining().getBatchSize());
+        assertThat(assemble(run(intent(true, true), "FedAvg"), plan(), exact).getModelTraining().getLocalTraining()
+                .getBatchSize()).isEqualTo(plan().getLocalTraining().getBatchSize());
     }
 
     @Test
     void aWeightUpdateWithoutATrainableProgramIsNotRepresentable() throws Exception {
         StagedBundle b = bundle();
         StagedBundle noTrainable = new StagedBundle(b.modelFiles().subList(0, 2), b.requiredOperators(),
-                b.envelope(), b.paramLayout());
+                b.envelope(), b.paramLayout(), b.maxBatch());
         assertThatThrownBy(() -> assemble(run(intent(true, true), "FedAvg"), plan(), noTrainable))
                 .isInstanceOf(NotRepresentableException.class).hasMessageContaining("trainable.pte");
     }

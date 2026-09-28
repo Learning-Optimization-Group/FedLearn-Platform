@@ -139,6 +139,7 @@ public final class ExecutionContractAssembler {
             throw new NotRepresentableException("the resolved plan has no initial-state digest");
         }
         requireLayoutAgreement(plan.getTrainableList(), bundle.paramLayout());
+        requireBatchFits(plan.getLocalTraining().getBatchSize(), bundle.maxBatch());
         List<StagedBundle.ModelFile> programs = programs(bundle,
                 plan.getUpdateProtocol() == UpdateProtocol.UPDATE_TRAINABLE_STATE_F32);
         ArtifactVariant.Builder variant = ArtifactVariant.newBuilder()
@@ -161,6 +162,14 @@ public final class ExecutionContractAssembler {
                 .clearArtifacts()
                 .addArtifacts(variant)
                 .build();
+    }
+
+    /** Every training step feeds batch_size examples through the staged programs, which take 1..maxBatch. */
+    private static void requireBatchFits(int batchSize, int maxBatch) throws NotRepresentableException {
+        if (batchSize > maxBatch) {
+            throw new NotRepresentableException("the plan trains batches of " + batchSize
+                    + " examples, but the staged programs take at most " + maxBatch + " examples per step");
+        }
     }
 
     private static void requireLayoutAgreement(List<TensorSpec> planned, List<StagedBundle.LayoutEntry> staged)
