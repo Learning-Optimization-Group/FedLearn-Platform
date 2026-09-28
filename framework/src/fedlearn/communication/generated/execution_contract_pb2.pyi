@@ -107,6 +107,12 @@ class PerturbationRng(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     RNG_UNSPECIFIED: _ClassVar[PerturbationRng]
     RNG_TORCH_CPU_RANDN_F32: _ClassVar[PerturbationRng]
 
+class DataSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DATA_SOURCE_UNSPECIFIED: _ClassVar[DataSource]
+    DATA_SOURCE_LOCAL_SNAPSHOT: _ClassVar[DataSource]
+    DATA_SOURCE_FIXTURE: _ClassVar[DataSource]
+
 class ContractIssueCode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     ISSUE_UNSPECIFIED: _ClassVar[ContractIssueCode]
@@ -184,6 +190,9 @@ ESTIMATOR_FORWARD: GradientEstimator
 ESTIMATOR_CENTRAL: GradientEstimator
 RNG_UNSPECIFIED: PerturbationRng
 RNG_TORCH_CPU_RANDN_F32: PerturbationRng
+DATA_SOURCE_UNSPECIFIED: DataSource
+DATA_SOURCE_LOCAL_SNAPSHOT: DataSource
+DATA_SOURCE_FIXTURE: DataSource
 ISSUE_UNSPECIFIED: ContractIssueCode
 ISSUE_MALFORMED: ContractIssueCode
 ISSUE_UNSUPPORTED_CONTRACT_VERSION: ContractIssueCode
@@ -417,7 +426,7 @@ class ZerothOrderSgd(_message.Message):
     def __init__(self, learning_rate: _Optional[float] = ..., smoothing: _Optional[float] = ..., num_local_steps: _Optional[int] = ..., num_perturbations: _Optional[int] = ..., estimator: _Optional[_Union[GradientEstimator, str]] = ..., rng: _Optional[_Union[PerturbationRng, str]] = ...) -> None: ...
 
 class DataRequirement(_message.Message):
-    __slots__ = ("task", "input_shape", "input_dtype", "class_count", "label_schema_id", "transforms", "tokenizer")
+    __slots__ = ("task", "input_shape", "input_dtype", "class_count", "label_schema_id", "transforms", "tokenizer", "source")
     TASK_FIELD_NUMBER: _ClassVar[int]
     INPUT_SHAPE_FIELD_NUMBER: _ClassVar[int]
     INPUT_DTYPE_FIELD_NUMBER: _ClassVar[int]
@@ -425,6 +434,7 @@ class DataRequirement(_message.Message):
     LABEL_SCHEMA_ID_FIELD_NUMBER: _ClassVar[int]
     TRANSFORMS_FIELD_NUMBER: _ClassVar[int]
     TOKENIZER_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
     task: Task
     input_shape: _containers.RepeatedScalarFieldContainer[int]
     input_dtype: DType
@@ -432,7 +442,8 @@ class DataRequirement(_message.Message):
     label_schema_id: str
     transforms: _containers.RepeatedCompositeFieldContainer[Transform]
     tokenizer: ArtifactRef
-    def __init__(self, task: _Optional[_Union[Task, str]] = ..., input_shape: _Optional[_Iterable[int]] = ..., input_dtype: _Optional[_Union[DType, str]] = ..., class_count: _Optional[int] = ..., label_schema_id: _Optional[str] = ..., transforms: _Optional[_Iterable[_Union[Transform, _Mapping]]] = ..., tokenizer: _Optional[_Union[ArtifactRef, _Mapping]] = ...) -> None: ...
+    source: DataSource
+    def __init__(self, task: _Optional[_Union[Task, str]] = ..., input_shape: _Optional[_Iterable[int]] = ..., input_dtype: _Optional[_Union[DType, str]] = ..., class_count: _Optional[int] = ..., label_schema_id: _Optional[str] = ..., transforms: _Optional[_Iterable[_Union[Transform, _Mapping]]] = ..., tokenizer: _Optional[_Union[ArtifactRef, _Mapping]] = ..., source: _Optional[_Union[DataSource, str]] = ...) -> None: ...
 
 class Transform(_message.Message):
     __slots__ = ("identity_vector",)

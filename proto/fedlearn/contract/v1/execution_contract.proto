@@ -310,6 +310,18 @@ message DataRequirement {
   repeated Transform transforms = 6;
   // Present exactly for text tasks.
   ArtifactRef tokenizer = 7;
+  // Where each participant's training data comes from. A run on user data states LOCAL_SNAPSHOT; the server then
+  // serves no training data. FIXTURE marks a run on the recipe's committed fixture data (a test or demo run), which a
+  // release client refuses.
+  DataSource source = 8;
+}
+
+enum DataSource {
+  DATA_SOURCE_UNSPECIFIED = 0;
+  // An immutable dataset snapshot the participant imported on its own device.
+  DATA_SOURCE_LOCAL_SNAPSHOT = 1;
+  // The recipe's committed fixture data, served by the run's server. For tests and demos only.
+  DATA_SOURCE_FIXTURE = 2;
 }
 
 // Closed v1 vocabulary. A new operation requires its own specification and a version review; an
