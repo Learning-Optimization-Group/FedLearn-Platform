@@ -301,6 +301,14 @@ def test_tinynet_data_requirement_is_the_client_data(monkeypatch):
     assert [t.identity_vector.width for t in data.transforms] == [x.shape[1]]
 
 
+@pytest.mark.parametrize("strategy", ["FedAvg", "FedOpt", "Robust", "FedProx", "DeComFL"])
+def test_tinynet_trains_its_committed_fixture_data(strategy):
+    """Every TinyNet participant trains the recipe's committed batch, served by the run's server: a fixture run, which
+    release phones refuse. A run on participants' own data will state DATA_SOURCE_LOCAL_SNAPSHOT."""
+    plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", strategy, "FULL")
+    assert plan.data.source == pb.DATA_SOURCE_FIXTURE
+
+
 def test_tinynet_fedavg_identity_follows_the_recipe():
     plan = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL")
     assert plan.model_id == "tinynet_golden"

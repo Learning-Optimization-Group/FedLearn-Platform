@@ -22,6 +22,7 @@ import {
   ClientAuthSchema,
   ContractIssueCode,
   DTypeSchema,
+  DataSourceSchema,
   GradientEstimatorSchema,
   ExecutionContractSchema,
   ObjectiveSchema,
@@ -495,6 +496,7 @@ class Validator {
     const shapeOk = elementCount(data.inputShape) !== undefined;
     this.check(shapeOk, ContractIssueCode.ISSUE_INVALID_DATA_REQUIREMENT, `${p}.inputShape`);
     this.enumValue(DTypeSchema, data.inputDtype, `${p}.inputDtype`);
+    this.enumValue(DataSourceSchema, data.source, `${p}.source`);
     if (CLASSIFICATION_TASKS.has(task)) {
       this.bounded(data.classCount, 2, MAX_CLASSES, `${p}.classCount`);
     } else if (task === Task.CAUSAL_LM && data.classCount !== 0) {

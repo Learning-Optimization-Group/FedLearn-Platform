@@ -74,7 +74,8 @@
             "width": 4
           }
         }
-      ]
+      ],
+      "source": "DATA_SOURCE_FIXTURE"
     },
     "artifacts": [
       {

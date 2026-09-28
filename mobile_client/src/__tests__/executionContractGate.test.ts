@@ -11,6 +11,7 @@ import {
   Strategy,
   UpdateProtocol,
   ZerothOrderSgdSchema,
+  DataSource,
   type ExecutionContract,
 } from '@/gen/fedlearn/contract/v1/execution_contract_pb';
 import {
@@ -386,6 +387,37 @@ describe('the programs the phone downloads come from the contract', () => {
       contract.workload.value.artifacts = [];
     }
     expect(contractPrograms(contract)).toEqual([]);
+  });
+});
+
+describe('the phone decides from where a run\'s training data comes from', () => {
+  function withSource(source: DataSource): ExecutionContract {
+    const contract = golden();
+    if (contract.workload.case === 'modelTraining' && contract.workload.value.data) {
+      contract.workload.value.data.source = source;
+    }
+    return contract;
+  }
+
+  it('trains a fixture-data run in a development build', () => {
+    expect(projectContract(withSource(DataSource.FIXTURE), 'a'.repeat(64))).toMatchObject({ kind: 'train' });
+  });
+
+  it('refuses a fixture-data run in a release build', () => {
+    const g = globalThis as unknown as { __DEV__: boolean };
+    const dev = g.__DEV__;
+    g.__DEV__ = false;
+    try {
+      expect(projectContract(withSource(DataSource.FIXTURE), 'a'.repeat(64)))
+        .toMatchObject({ kind: 'refuse', code: 'FIXTURE_DATA_REFUSED' });
+    } finally {
+      g.__DEV__ = dev;
+    }
+  });
+
+  it('refuses a run on participants\' own data until this build can bind a dataset snapshot', () => {
+    expect(projectContract(withSource(DataSource.LOCAL_SNAPSHOT), 'a'.repeat(64)))
+      .toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_DATA_SOURCE' });
   });
 });
 

@@ -105,6 +105,8 @@ def build_golden() -> pb.ExecutionContract:
                 # execution_plan.label_schema_id(recipes.get_recipe("TINYNET_GOLDEN").classes)
                 label_schema_id="labels-sha256:4817507d9942bf24635535b19b1588bb44e00d2b51314536926f3580c7f5d896",
                 transforms=[pb.Transform(identity_vector=pb.IdentityVector(width=4))],
+                # TinyNet trains the recipe's committed fixture batch.
+                source=pb.DATA_SOURCE_FIXTURE,
             ),
             artifacts=[
                 pb.ArtifactVariant(
@@ -628,6 +630,12 @@ def build_conformance() -> dict:
               ("INVALID_DATA_REQUIREMENT", DATA + ".transforms[0].identityVector.width")),
         _json("input_dtype_absent", "An absent input dtype.",
               lambda d: d[MT]["data"].pop("inputDtype"), ("UNKNOWN_ENUM", DATA + ".inputDtype")),
+        _json("data_source_local_snapshot", "Training on each participant's own imported dataset.",
+              lambda d: d[MT]["data"].update({"source": "DATA_SOURCE_LOCAL_SNAPSHOT"})),
+        _json("data_source_absent", "A run must say where its training data comes from.",
+              lambda d: d[MT]["data"].pop("source"), ("UNKNOWN_ENUM", DATA + ".source")),
+        _json("data_source_unknown", "A data source this reader does not know.",
+              lambda d: d[MT]["data"].update({"source": 99}), ("UNKNOWN_ENUM", DATA + ".source")),
         _json("class_count_one", "Classification needs at least two classes.",
               lambda d: d[MT]["data"].update({"classCount": 1}),
               ("OUT_OF_RANGE", DATA + ".classCount")),

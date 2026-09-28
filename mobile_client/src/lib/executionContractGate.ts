@@ -2,7 +2,7 @@
 // run's published contract whether it may train at all, and projects the contract into the settings the native
 // trainer runs with. Android is v1-dependent: a run without a READY contract it can execute exactly is refused
 // with a precise reason, never approximated.
-import { ArtifactBackend, ContractIssueCodeSchema, GradientEstimator, PerturbationRng, SecureAggregation, Strategy,
+import { ArtifactBackend, ContractIssueCodeSchema, DataSource, GradientEstimator, PerturbationRng, SecureAggregation, Strategy,
   UpdateProtocol, type ArtifactVariant, type ExecutionContract, type LocalTraining, type ModelTraining,
 } from '../gen/fedlearn/contract/v1/execution_contract_pb';
 import { MalformedContractError, parseContractJson, validateContract } from './executionContract';
@@ -27,7 +27,9 @@ export type ContractRefusalCode =
   | 'UNSUPPORTED_SECURITY'
   | 'UNSUPPORTED_OPTIMIZER'
   | 'UNSUPPORTED_BATCHING'
-  | 'MISSING_CPU_ARTIFACT';
+  | 'MISSING_CPU_ARTIFACT'
+  | 'FIXTURE_DATA_REFUSED'
+  | 'UNSUPPORTED_DATA_SOURCE';
 
 /**
  * The first-order strategies v1 approves: ordinary client training, with the strategy's own work on the server.
@@ -136,6 +138,10 @@ export function projectContract(contract: ExecutionContract, contractId: string)
     return refuse('CONTRACT_INVALID', 'This run\'s execution contract describes no model training.');
   }
   const training = contract.workload.value;
+  const source = dataSourceRefusal(training);
+  if (source) {
+    return source;
+  }
   if (contract.strategy === Strategy.DECOMFL) {
     return projectDeComFL(contract, contractId, training);
   }
@@ -186,6 +192,24 @@ export function projectContract(contract: ExecutionContract, contractId: string)
       proximalMu: training.fedproxMu ?? 0,
     },
   };
+}
+
+/**
+ * Where the run's training data comes from. A fixture run trains the recipe's committed data served by the run's
+ * server: acceptable for development and demos, refused by a release build, whose training data must be the user's
+ * own. A run on the user's own data needs a dataset snapshot bound at join, which this build cannot do yet.
+ */
+function dataSourceRefusal(training: ModelTraining): ContractDecision | undefined {
+  const source = training.data?.source;
+  if (source === DataSource.FIXTURE) {
+    return __DEV__ ? undefined : refuse('FIXTURE_DATA_REFUSED',
+      'This run trains on server-supplied test data, which a release build does not do.');
+  }
+  if (source === DataSource.LOCAL_SNAPSHOT) {
+    return refuse('UNSUPPORTED_DATA_SOURCE', 'This run trains on each device\'s own dataset, which this build cannot '
+      + 'import yet.');
+  }
+  return refuse('CONTRACT_INVALID', 'This run\'s execution contract does not say where its training data comes from.');
 }
 
 /**

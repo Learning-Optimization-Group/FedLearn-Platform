@@ -11,6 +11,7 @@ import com.fedlearn.contract.v1.CentralDp;
 import com.fedlearn.contract.v1.ClientAuth;
 import com.fedlearn.contract.v1.ContractIssueCode;
 import com.fedlearn.contract.v1.DType;
+import com.fedlearn.contract.v1.DataSource;
 import com.fedlearn.contract.v1.DataRequirement;
 import com.fedlearn.contract.v1.ExecutionContract;
 import com.fedlearn.contract.v1.GradientEstimator;
@@ -502,6 +503,7 @@ public final class ExecutionContractValidator {
         boolean shapeOk = elementCount(data.getInputShapeList()) >= 0;
         check(shapeOk, ISSUE_INVALID_DATA_REQUIREMENT, p + ".inputShape");
         enumValue(DType::forNumber, data.getInputDtypeValue(), p + ".inputDtype");
+        enumValue(DataSource::forNumber, data.getSourceValue(), p + ".source");
         long classCount = Integer.toUnsignedLong(data.getClassCount());
         if (CLASSIFICATION_TASKS.contains(task)) {
             bounded(classCount, 2, MAX_CLASSES, p + ".classCount");

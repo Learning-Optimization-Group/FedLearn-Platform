@@ -173,7 +173,10 @@ A TinyNet run in which the phone trains an **imported** snapshot, not server fil
 
 ## Slices (each test-first, each its own commit)
 
-Progress: A1 `4eff087`, A2 `fa77ef2`, A3 `b7f4d96`, B1 (dataset snapshots, next commit). A3 was checked live: a one-client TinyNet FedAvg run on
+Progress: A1 `4eff087`, A2 `fa77ef2`, A3 `b7f4d96`, B1 `0e361b4`. Decision 1: the schema is `bf55731`
+(`DataRequirement.source`, `DataSource` = `LOCAL_SNAPSHOT` | `FIXTURE`), and the reader rules and resolver come in the
+next commit. TinyNet states `FIXTURE`. The phone trains a fixture run only in a development build, and refuses a
+`LOCAL_SNAPSHOT` run until B2 binds a snapshot at join. A3 was checked live: a one-client TinyNet FedAvg run on
 the vivo completed, with the three contract programs stored as `files/artifacts/<sha256>` at the contract's exact sizes.
 
 - **A1** Kotlin `ArtifactDownloader` with size cap, streaming hash, atomic promote and quarantine; auth via the shared client. Unit tests use a local HTTP server (resume, mismatch, oversize).

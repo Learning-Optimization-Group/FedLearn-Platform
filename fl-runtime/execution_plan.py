@@ -204,6 +204,9 @@ def _tinynet_full(update_protocol, local_training, initial_state_path=None) -> p
             class_count=len(recipe.classes),
             label_schema_id=label_schema_id(recipe.classes),
             transforms=[pb.Transform(identity_vector=pb.IdentityVector(width=width))],
+            # Every TinyNet client trains the recipe's committed fixture batch (build_tinynet_golden_decomfl_loader),
+            # served to phones by the run's server: a test/demo run.
+            source=pb.DATA_SOURCE_FIXTURE,
         ),
     )
     if initial_state_path is not None:

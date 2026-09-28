@@ -406,6 +406,7 @@ class _Validator:
         shape_ok = _element_count(data.input_shape) is not None
         self.check(shape_ok, pb.ISSUE_INVALID_DATA_REQUIREMENT, p + ".inputShape")
         self.enum(pb.DType.DESCRIPTOR, data.input_dtype, p + ".inputDtype")
+        self.enum(pb.DataSource.DESCRIPTOR, data.source, p + ".source")
         if data.task in _CLASSIFICATION_TASKS:
             self.bounded(data.class_count, 2, MAX_CLASSES, p + ".classCount")
         elif data.task == pb.TASK_CAUSAL_LM and data.class_count != 0:
