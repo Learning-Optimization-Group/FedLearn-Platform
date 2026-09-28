@@ -77,7 +77,10 @@ inputs.f32      row-major float32, recordCount x prod(inputShape)
 targets.i64     int64 class indices
 ```
 
-`snapshotId` is the SHA-256 of `snapshot.json`'s canonical body. `labelSchemaId` uses **the same definition as the
+`snapshotId` is the SHA-256 of the canonical JSON of the snapshot's content fields (everything but the id; no
+timestamp), encoded exactly as Python's `json.dumps(sort_keys=True, separators=(",", ":"))`, so a Python check can
+recompute it. Importing identical content therefore yields the same snapshot: import is idempotent, and still never
+mutates a snapshot. `labelSchemaId` uses **the same definition as the
 contract**: `"labels-sha256:" + sha256(JSON(classNames))` (`execution_plan.label_schema_id`), so compatibility is a
 string comparison. The native trainer already reads exactly `inputs.f32` + `targets.i64`, so it needs no change to
 consume a snapshot.
@@ -93,7 +96,7 @@ attempt. A mismatch refuses with `DATASET_INCOMPATIBLE` and names the field. Not
 server except `num_examples`, which the update already carries.
 
 **Lifecycle.** Snapshots are listed in a new *Data* screen and can be deleted when not pinned. Deleting removes the
-directory. Re-importing the same source creates a new snapshot; a snapshot is never mutated.
+directory. Re-importing identical content yields the same snapshot; a snapshot is never mutated.
 
 ## C. Native minibatching and batch order
 
@@ -170,7 +173,7 @@ A TinyNet run in which the phone trains an **imported** snapshot, not server fil
 
 ## Slices (each test-first, each its own commit)
 
-Progress: A1 `4eff087`, A2 `fa77ef2`, A3 (this commit). A3 was checked live: a one-client TinyNet FedAvg run on
+Progress: A1 `4eff087`, A2 `fa77ef2`, A3 `b7f4d96`, B1 (dataset snapshots, next commit). A3 was checked live: a one-client TinyNet FedAvg run on
 the vivo completed, with the three contract programs stored as `files/artifacts/<sha256>` at the contract's exact sizes.
 
 - **A1** Kotlin `ArtifactDownloader` with size cap, streaming hash, atomic promote and quarantine; auth via the shared client. Unit tests use a local HTTP server (resume, mismatch, oversize).
