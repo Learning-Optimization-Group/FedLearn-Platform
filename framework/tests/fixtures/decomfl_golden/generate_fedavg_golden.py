@@ -39,6 +39,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 #     small so cross-runtime drift (ET backward vs torch autograd) stays inside endpoint_atol. ---
 LR = 0.1
 LOCAL_EPOCHS = 5  # == number of full-batch SGD steps
+SMALL_BATCH = 6  # a device dataset smaller than the 8-example batch the programs are exported with
 
 
 class _OneBatchLoader:
@@ -74,14 +75,16 @@ def load_committed_batch() -> tuple[torch.Tensor, torch.Tensor]:
 
 
 def compute_fedavg_endpoint(*, lr: float = LR, local_epochs: int = LOCAL_EPOCHS,
-                            proximal_mu: float = 0.0) -> np.ndarray:
+                            proximal_mu: float = 0.0, examples: int = 8) -> np.ndarray:
     """Run the REAL framework FedAvg client update and return the final trainable flat (<f4).
 
     Uses LocalTrainer.fit — the actual FedAvg client code path, not a reimplementation. mu=0 is FedAvg; a
-    positive proximal_mu is the FedProx client.
+    positive proximal_mu is the FedProx client. ``examples`` trains the first that many of the committed batch,
+    as one full batch.
     """
     net = build_initial_net()
     inputs, targets = load_committed_batch()
+    inputs, targets = inputs[:examples], targets[:examples]
     trainer = LocalTrainer(net, _OneBatchLoader(inputs, targets), device="cpu")
     # config values flow through a protobuf map<string,string> in production — pass them as strings
     # so this exercises the same str->float coercion the wire path does.
@@ -213,6 +216,15 @@ def main() -> None:
     final_flat.tofile(os.path.join(HERE, "fedavg_local_final.f32"))
     final_sha = hashlib.sha256(final_flat.tobytes()).hexdigest()
 
+    # A device dataset smaller than the example batch: the first 6 examples as one full batch. A program exported
+    # with a static batch of 8 cannot train it; one with a dynamic batch must land here. The golden must sit well
+    # outside the tolerance of the 8-example endpoint, or a trainer that ignored the batch size would pass.
+    final_6 = compute_fedavg_endpoint(examples=SMALL_BATCH)
+    separation = float(np.abs(final_6 - final_flat).max())
+    if separation < 10 * 2e-3:
+        raise SystemExit(f"the {SMALL_BATCH}-example endpoint is only {separation} from the 8-example one")
+    final_6.tofile(os.path.join(HERE, "fedavg_local_final_6.f32"))
+
     # safetensors state-dict of the final trainable flat (byte-exact codec contract, ZO-golden layout).
     layout = param_layout(build_initial_net())  # [(name, shape, numel)] canonical named_parameters order
     named_tensors, off = [], 0
@@ -245,6 +257,11 @@ def main() -> None:
         # endpoint tolerance for the cross-runtime (ET backward vs torch autograd) C++ replay; same
         # 2e-3 family as the DeComFL endpoint golden. Never assert bit-exact cross-arch/cross-runtime.
         "endpoint_atol": 2e-3,
+        # The same update on the first SMALL_BATCH examples (a dynamic-batch program's endpoint).
+        "small_batch_examples": SMALL_BATCH,
+        "small_batch_final_flat_file": "fedavg_local_final_6.f32",
+        "small_batch_final_flat_sha256": hashlib.sha256(final_6.tobytes()).hexdigest(),
+        "small_batch_separation_from_full_batch": separation,
     }
     with open(os.path.join(HERE, "fedavg_local_manifest.json"), "w") as fh:
         json.dump(manifest, fh, indent=2)

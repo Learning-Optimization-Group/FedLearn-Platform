@@ -59,3 +59,34 @@ def test_the_manifest_records_every_model_file_digest(tmp_path):
         assert {"file": name, "sha256": digest, "byteSize": (dest / name).stat().st_size} \
             in manifest["modelFiles"]
     assert [f["file"] for f in manifest["modelFiles"]] == list(MODEL_FILES)
+
+
+# Stage 3: a device trains its own dataset, so the staged programs must take any example count up to the run's batch,
+# not only the 8 examples of the fixture batch (a static program refused 6 on a phone: ExecuTorch NotSupported).
+
+def test_the_staged_programs_are_the_dynamic_batch_ones_and_the_manifest_names_their_digests(tmp_path):
+    dest, manifest = _stage(tmp_path)
+    with open(os.path.join(REPO, "framework", "tests", "fixtures", "decomfl_golden", "fedavg_pte_manifest.json")) as fh:
+        dyn = json.load(fh)["dynbatch"]
+    for staged, key in (("loss.pte", "loss"), ("infer.pte", "infer"), ("trainable.pte", "trainable")):
+        assert hashlib.sha256((dest / staged).read_bytes()).hexdigest() == dyn[f"{key}_sha256"]
+    assert manifest["lossPte"]["sha256"] == dyn["loss_sha256"]
+    assert manifest["modelManifest"]["inferSha256"] == dyn["infer_sha256"]
+    assert manifest["modelManifest"]["trainableSha256"] == dyn["trainable_sha256"]
+
+
+def test_the_staged_loss_and_infer_programs_take_fewer_examples_than_the_fixture_batch(tmp_path):
+    import numpy as np
+    import torch
+    from executorch.runtime import Runtime
+
+    dest, _ = _stage(tmp_path)
+    golden = os.path.join(REPO, "framework", "tests", "fixtures", "decomfl_golden")
+    flat = torch.from_numpy(np.fromfile(os.path.join(golden, "zo_flat.f32"), dtype="<f4").copy())
+    x = torch.from_numpy(np.fromfile(os.path.join(golden, "zo_inputs.f32"), dtype="<f4").reshape(8, 4).copy())
+    y = torch.from_numpy(np.fromfile(os.path.join(golden, "zo_targets.i64"), dtype="<i8").reshape(8).copy())
+    loss = Runtime.get().load_program(str(dest / "loss.pte")).load_method("forward")
+    infer = Runtime.get().load_program(str(dest / "infer.pte")).load_method("forward")
+    for n in (1, 6, 8):
+        assert torch.isfinite(loss.execute([flat, x[:n], y[:n]])[0]).all()
+        assert tuple(infer.execute([flat, x[:n]])[0].shape) == (n, 3)

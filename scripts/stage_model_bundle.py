@@ -49,6 +49,16 @@ def stage_bundle(run_id: str, out_root: Path, fixture: Path = DEFAULT_FIXTURE) -
     dest = out_root / run_id
     dest.mkdir(parents=True, exist_ok=True)
 
+    # The programs a run stages take a dynamic example count (1..the fixture batch), so a device can train its own
+    # dataset; the static goldens refuse any count but 8 at runtime. Staged when the fixture ships them.
+    dyn_path = fixture / "fedavg_pte_manifest.json"
+    dyn = json.loads(dyn_path.read_text()).get("dynbatch") if dyn_path.exists() else None
+    if dyn:
+        src = {**src,
+               "pte_file": dyn["loss_file"], "pte_sha256": dyn["loss_sha256"],
+               "infer_file": dyn["infer_file"], "infer_sha256": dyn["infer_sha256"],
+               "trainable_file": dyn["trainable_file"], "trainable_sha256": dyn["trainable_sha256"]}
+
     # (source filename, canonical staged name, expected sha256 from the source manifest or None)
     copies = [
         (src["pte_file"], "loss.pte", src["pte_sha256"]),        # forward(flat,x,y) -> loss

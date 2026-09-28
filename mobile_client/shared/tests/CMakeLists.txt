@@ -48,6 +48,7 @@ if(FEDLEARN_BUILD_TRAINING)
     fedavg_parity_test.cpp
     execution_contract_projection_test.cpp
     fedavg_firstorder_round_test.cpp
+    dynamic_batch_training_test.cpp
   )
 endif()
 

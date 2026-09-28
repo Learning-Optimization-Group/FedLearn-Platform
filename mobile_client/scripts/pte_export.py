@@ -15,7 +15,21 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 from torch.func import functional_call
-from torch.export import export
+from torch.export import Dim, export
+
+
+def _batch_dim(max_batch: int | None):
+    """The example count as an export dimension: dynamic from 1 to ``max_batch``, or static (None).
+
+    A static dimension fixes every program to the example batch it was exported with, so a device dataset of any
+    other size is refused at runtime (ExecuTorch NotSupported). A dynamic one lets a device train its own dataset,
+    and a final partial minibatch, up to the bound the runtime plans memory for.
+    """
+    if max_batch is None:
+        return None
+    if max_batch < 1:
+        raise ValueError(f"max_batch must be at least 1, not {max_batch}")
+    return Dim("batch", min=1, max=max_batch)
 
 
 def trainable_names(model: nn.Module) -> list[str]:
@@ -87,8 +101,11 @@ class _FunctionalInfer(nn.Module):
         return functional_call(self._base[0], params, (x,))
 
 
-def export_functional_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, torch.Tensor]) -> bytes:
-    """Return .pte bytes for forward(flat_trainable, x, y) -> cross_entropy."""
+def export_functional_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, torch.Tensor],
+                          max_batch: int | None = None) -> bytes:
+    """Return .pte bytes for forward(flat_trainable, x, y) -> cross_entropy.
+
+    ``max_batch`` makes the example count dynamic (1..max_batch); None keeps it static at the example's."""
     from executorch.exir import to_edge
 
     model = model.eval()
@@ -96,18 +113,21 @@ def export_functional_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, 
     assert sum(p.numel() for p in wrapper.parameters()) == 0, "wrapper must register 0 params"
     x, y = example_inputs
     ex = (trainable_flat(model), x, y)
-    ep = export(wrapper, ex)
+    batch = _batch_dim(max_batch)
+    ep = export(wrapper, ex, dynamic_shapes=None if batch is None else (None, {0: batch}, {0: batch}))
     return to_edge(ep).to_executorch().buffer
 
 
-def export_functional_infer_pte(model: nn.Module, example_x: torch.Tensor) -> bytes:
-    """Return .pte bytes for forward(flat_trainable, x) -> logits."""
+def export_functional_infer_pte(model: nn.Module, example_x: torch.Tensor, max_batch: int | None = None) -> bytes:
+    """Return .pte bytes for forward(flat_trainable, x) -> logits (``max_batch`` as in export_functional_pte)."""
     from executorch.exir import to_edge
 
     model = model.eval()
     wrapper = _FunctionalInfer(model).eval()
     assert sum(p.numel() for p in wrapper.parameters()) == 0, "wrapper must register 0 params"
-    ep = export(wrapper, (trainable_flat(model), example_x))
+    batch = _batch_dim(max_batch)
+    ep = export(wrapper, (trainable_flat(model), example_x),
+                dynamic_shapes=None if batch is None else (None, {0: batch}))
     return to_edge(ep).to_executorch().buffer
 
 
@@ -150,18 +170,21 @@ def training_trainable_names(model: nn.Module) -> list[str]:
     return [f"base.{n}" for n in trainable_names(model)]
 
 
-def export_trainable_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, torch.Tensor]) -> bytes:
+def export_trainable_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, torch.Tensor],
+                         max_batch: int | None = None) -> bytes:
     """Return .pte bytes for a TRAINABLE graph: forward(x, y) -> (cross_entropy, prediction) with a
     captured backward pass. Load it with ET's TrainingModule (execute_forward_backward + optimizer).
 
     Frozen (requires_grad=False) layers are baked as constants and get no gradient, so only the
     trainable params (``training_trainable_names(model)``) are optimised — matching the framework's
-    FedAvg update, which leaves frozen layers fixed."""
+    FedAvg update, which leaves frozen layers fixed. ``max_batch`` as in export_functional_pte."""
     from executorch.exir import to_edge
     from torch.export.experimental import _export_forward_backward
 
     wrapper = _TrainingGraph(model)
     x, y = example_inputs
-    ep = export(wrapper, (x, y), strict=True)
+    batch = _batch_dim(max_batch)
+    ep = export(wrapper, (x, y), strict=True,
+                dynamic_shapes=None if batch is None else ({0: batch}, {0: batch}))
     ep = _export_forward_backward(ep)
     return to_edge(ep).to_executorch().buffer

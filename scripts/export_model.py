@@ -123,9 +123,15 @@ def export_recipe_bundle(
     x = torch.randn(num_samples, *feat, generator=g, dtype=torch.float32)
     y = torch.randint(0, num_classes, (num_samples,), generator=g, dtype=torch.int64)
 
+    # Every program takes 1..num_samples examples per call, so a device can train its own dataset (and, with
+    # minibatching, a final partial batch) rather than only a batch of exactly the example's size, which a static
+    # export refuses at runtime (ExecuTorch NotSupported). num_samples is the run's batch size for the recipes a
+    # phone trains (TinyNet: 8).
+    max_batch = num_samples
+
     # Weight-free graphs. pte_export bakes frozen params as constants; trainable params are the flat input.
-    loss_pte = pte_export.export_functional_pte(model, (x, y))
-    infer_pte = pte_export.export_functional_infer_pte(model, x)
+    loss_pte = pte_export.export_functional_pte(model, (x, y), max_batch=max_batch)
+    infer_pte = pte_export.export_functional_infer_pte(model, x, max_batch=max_batch)
 
     # First-order (FedAvg) trainable graph: forward(x, y) -> (cross_entropy, prediction) with a CAPTURED
     # backward pass, loadable by ET's TrainingModule on the phone (execute_forward_backward + SGD). This is
@@ -136,7 +142,7 @@ def export_recipe_bundle(
     trainable_pte: bytes | None = None
     trainable_param_names: list[str] = []
     try:
-        trainable_pte = pte_export.export_trainable_pte(model, (x, y))
+        trainable_pte = pte_export.export_trainable_pte(model, (x, y), max_batch=max_batch)
         trainable_param_names = pte_export.training_trainable_names(model)
     except Exception as e:  # noqa: BLE001 — export is experimental; never let it abort the (DeComFL) bundle
         print(f"  [trainable-pte] export failed for {key} ({type(e).__name__}: {e}); "
