@@ -303,7 +303,39 @@ class FlServerManagerIntegrationTest {
         });
     }
 
+    // The FL port range sits inside the OS ephemeral range, so an unrelated outgoing connection can hold a local port
+    // in it. The probe used to accept such a port (a wildcard bind with SO_REUSEADDR succeeds beside it), and the FL
+    // server's own bind then failed with EADDRINUSE: seen three times on a developer machine. The probe must skip it.
+    @Test
+    void aPortHeldByAnOutgoingConnectionIsSkipped() throws IOException {
+        int port = pickTwoFreeConsecutivePortsInRange();
+        useWrapper(aliveStub);
+        ReflectionTestUtils.setField(manager, "portRangeStart", port);
+        ReflectionTestUtils.setField(manager, "portRangeEnd", port + 1);
+        try (ServerSocket peer = new ServerSocket(0, 50, java.net.InetAddress.getLoopbackAddress());
+             java.net.Socket outgoing = new java.net.Socket()) {
+            outgoing.bind(new java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), port));
+            outgoing.connect(peer.getLocalSocketAddress());
+
+            Project p = project("CNN");
+            Optional<Integer> reserved = manager.startServerForProject(p, "FedAvg", 5, 1);
+            startedProjects.add(p.getId());
+
+            assertEquals(Optional.of(port + 1), reserved, "the port held by the outgoing connection must be skipped");
+            assertTrue(manager.isServerRunning(p.getId()));
+        }
+    }
+
     // --- helpers ------------------------------------------------------------
+
+    private int pickTwoFreeConsecutivePortsInRange() {
+        for (int candidate = RANGE_START; candidate < RANGE_END; candidate++) {
+            if (!isPortBound(candidate) && !isPortBound(candidate + 1)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("no two consecutive free ports in " + RANGE_START + "-" + RANGE_END);
+    }
 
     @SuppressWarnings("unchecked")
     private ProcessHandle trackedHandle(UUID projectId) {

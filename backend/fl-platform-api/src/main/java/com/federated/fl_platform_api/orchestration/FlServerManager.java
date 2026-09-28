@@ -1001,15 +1001,33 @@ public class FlServerManager {
                 if (reservedPorts.contains(port)) {
                     continue;
                 }
-                try (ServerSocket s = new ServerSocket(port)) {
+                if (isPortFree(port)) {
                     reservedPorts.add(port);
                     return port;
-                } catch (IOException ignored) {
-                    // port in use, try next
                 }
             }
             throw new IllegalStateException(
                 "No free port in range " + portRangeStart + "–" + portRangeEnd);
+        }
+    }
+
+    /**
+     * Whether an FL server could bind {@code port}. The range sits inside the OS ephemeral range, so an unrelated
+     * outgoing connection can hold a local port in it. A default {@code new ServerSocket(port)} sets SO_REUSEADDR and
+     * binds beside such a connection, so it alone accepted ports the FL server then failed to bind (EADDRINUSE). A
+     * bind of the IPv4 wildcard with SO_REUSEADDR off fails exactly as the server's would, and is checked as well.
+     */
+    private static boolean isPortFree(int port) {
+        try (ServerSocket strict = new ServerSocket()) {
+            strict.setReuseAddress(false);
+            strict.bind(new java.net.InetSocketAddress("0.0.0.0", port));
+        } catch (IOException inUse) {
+            return false;
+        }
+        try (ServerSocket s = new ServerSocket(port)) {
+            return true;
+        } catch (IOException inUse) {
+            return false;
         }
     }
 
