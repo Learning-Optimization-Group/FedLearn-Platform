@@ -98,7 +98,7 @@ const CONTRACT_WAIT_INTERVAL_MS = 3_000;
  * The contract this device may train under, waiting while the server is still publishing it. Staging a run's
  * artifacts takes a moment, so a PENDING contract is polled rather than refused; anything else is decided at once.
  */
-async function resolveContract(
+export async function resolveContract(
   joined: JoinedRun,
   ops?: ContractWaitOps,
 ): Promise<{ contract: ExecutionContract; projection: ContractProjection }> {

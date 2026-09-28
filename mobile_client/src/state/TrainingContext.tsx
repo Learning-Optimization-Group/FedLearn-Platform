@@ -35,6 +35,7 @@ import {
 } from '../lib/training';
 import { startServerStatusHeartbeat } from '../lib/statusHeartbeat';
 import { ModelDeliveryUnavailableError } from '../lib/modelProvisioning';
+import type { DatasetSnapshot } from '../lib/datasetService';
 import { readError } from '../lib/errors';
 import { contributionLedger } from '../lib/contributionLedger';
 import { diagnosticJournal } from '../lib/diagnosticJournal';
@@ -49,8 +50,11 @@ export interface TrainingContextValue {
   state: TrainingState;
   /** Join the project's active run (registers the native FL client). */
   join: (projectId: string, projectName?: string) => Promise<void>;
-  /** Start the on-device training loop for the joined run. */
-  startTraining: () => Promise<void>;
+  /**
+   * Start the on-device training loop for the joined run. A run on the device's own data trains `dataset`, which the
+   * loop checks against the run's contract; it stays pinned (state.datasetInUse) until training ends.
+   */
+  startTraining: (dataset?: DatasetSnapshot) => Promise<void>;
   /** Abort training + native path + foreground service and reset to notJoined. */
   stopTraining: () => Promise<void>;
 }
@@ -134,11 +138,11 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
 
   // Start the on-device training loop: stage the model + local data, then run rounds. All compute
   // is on-device; only seeds + gradient scalars are uploaded (raw data never leaves).
-  const startTraining = useCallback(async () => {
+  const startTraining = useCallback(async (dataset?: DatasetSnapshot) => {
     if (!joined) return;
     return participationFlight.current.run(async () => {
       const ledgerProjectName = projectName ?? joined.projectId;
-      dispatch({ type: 'TRAINING_START' });
+      dispatch({ type: 'TRAINING_START', datasetId: dataset?.snapshotId });
       stopRef.current = false;
       foregroundService.start();
       try {
@@ -168,6 +172,7 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
         }, {
           // A run's contract is published while its bundle stages, so wait for it rather than refusing at once.
           contract: { fetchManifest: fetchRunManifest },
+          dataset,
         });
       } catch (e) {
         void diagnosticJournal.append('training-error', readError(e)).catch(() => {});

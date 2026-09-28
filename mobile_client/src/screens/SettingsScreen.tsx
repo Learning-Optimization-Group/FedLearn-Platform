@@ -9,6 +9,7 @@ import { getServerBaseUrl, setServerBaseUrl } from '../lib/serverConfig';
 import { maxSupportedTier, type ModelTier } from '../lib/deviceClass';
 import { useAuth } from '../context/AuthContext';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { DeviceDatasetsCard } from '../components/DeviceDatasetsCard';
 import { StatusBadge } from '../components/StatusBadge';
 import { useThemeTokens } from '../theme/useThemeTokens';
 import { diagnosticJournal } from '../lib/diagnosticJournal';
@@ -213,6 +214,8 @@ export function SettingsScreen() {
           <Text className="text-caption font-sans text-success mt-2">{diagnosticsNotice}</Text>
         ) : null}
       </View>
+
+      <DeviceDatasetsCard />
 
       {/* Account (the app-version row moved into the This-device card above) */}
       <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
