@@ -15,6 +15,7 @@
 #include "DeviceState.h"
 #include "fedlearn/DataLoader.h"
 #include "fedlearn/EvalMetrics.h"
+#include "fedlearn/ModelExecutionError.h"
 #include "fedlearn/Sha256.h"
 
 namespace fedlearn::bridge {
@@ -579,7 +580,7 @@ jsi::Value FedLearnCoreModule::runOnWorker(jsi::Runtime& rt, Work work, Build bu
               }
             });
           } catch (const std::exception& e) {
-            std::string msg = e.what();
+            std::string msg = fedlearn::rejectionMessage(e);  // model-execution errors carry the no-retry prefix
             invoker->invokeAsync([weak, msg](jsi::Runtime&) {
               if (auto p = weak.lock()) {
                 p->reject(msg);

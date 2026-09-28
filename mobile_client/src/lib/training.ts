@@ -189,6 +189,27 @@ export const DEFAULT_RESILIENCE: ResiliencePolicy = {
 
 const isStopSignal = (e: unknown): boolean => String(e).includes('STOP:');
 
+// The native bridge prefixes a model-execution failure (fedlearn::ModelExecutionError: ExecuTorch refused to load or
+// run a program on this device's data) so the loop can tell it from a network blip.
+const MODEL_EXECUTION_PREFIX = 'MODEL_EXECUTION: ';
+
+/**
+ * ExecuTorch could not run the run's model on this device's data. The failure is deterministic for the program and
+ * the data, so the loop ends training at once instead of retrying the round and rejoining the run.
+ */
+export class ModelExecutionFailedError extends Error {
+  constructor(readonly detail: string) {
+    super(`This device could not run the model on this data, so training stopped: ${detail}`);
+    this.name = 'ModelExecutionFailedError';
+  }
+}
+
+function modelExecutionDetail(e: unknown): string | undefined {
+  const message = e instanceof Error ? e.message : String(e);
+  const at = message.indexOf(MODEL_EXECUTION_PREFIX);
+  return at < 0 ? undefined : message.slice(at + MODEL_EXECUTION_PREFIX.length);
+}
+
 class RoundCheckpointError extends Error {
   constructor(cause: unknown) {
     super(`Could not save the round checkpoint; training stopped to avoid a duplicate upload: ${String(cause)}`);
@@ -206,7 +227,8 @@ class InvalidServerStatusError extends Error {}
  * isolated blips never accumulate. When the retry budget is exhausted, escalate to a bounded `rejoin`
  * (re-enroll + re-register) up to `maxRejoins` times, continuing on the new run id. Only once BOTH
  * budgets are spent does the loop give up and rethrow the last error. STOP / terminal state /
- * cooperative stop always end cleanly and are never retried.
+ * cooperative stop always end cleanly and are never retried, and a model-execution failure (deterministic for the
+ * program and this device's data) ends training at once with ModelExecutionFailedError.
  *
  * NOTE: this bounds the common blip, which surfaces as a fast Promise REJECTION. A call that HANGS
  * (never settles) is out of scope here — that needs per-RPC deadlines on the native gRPC path (MO-2).
@@ -285,6 +307,8 @@ export async function runResilientRoundLoop(
         hooks.onLog('Server ended this client’s participation.');
         return;
       }
+      const modelFailure = modelExecutionDetail(e);
+      if (modelFailure !== undefined) throw new ModelExecutionFailedError(modelFailure);
 
       consecutiveSuccesses = 0; // a failure breaks the stability streak
       consecutiveFailures += 1;

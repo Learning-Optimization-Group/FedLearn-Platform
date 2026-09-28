@@ -4,6 +4,7 @@
 // (pte_export max_batch) must train 6 examples to the framework's endpoint on those 6, and 8 to the usual one.
 //
 // Constants mirror framework/tests/fixtures/decomfl_golden/{fedavg_local,fedavg_pte}_manifest.json.
+#include "fedlearn/ModelExecutionError.h"
 #include "fedlearn/TrainableExecutorchModel.h"
 #include "fixtures.h"
 
@@ -46,9 +47,10 @@ void expectNear(const std::vector<float>& got, const std::string& goldenFile) {
 
 }  // namespace
 
+// The refusal is a model-execution error: deterministic for this program and data, so retrying it is futile.
 TEST(DynamicBatchTraining, AStaticBatchProgramRefusesAnotherExampleCount) {
   fedlearn::TrainableExecutorchModel m(fedtest::goldenPath(kStaticPte), kStaticPteSha, kParamNames);
-  EXPECT_THROW(trainFirst(m, kSmallBatch), std::runtime_error);
+  EXPECT_THROW(trainFirst(m, kSmallBatch), fedlearn::ModelExecutionError);
 }
 
 TEST(DynamicBatchTraining, ADynamicBatchProgramTrainsFewerExamplesToTheFrameworkEndpoint) {

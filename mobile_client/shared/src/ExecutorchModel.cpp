@@ -1,4 +1,5 @@
 #include "fedlearn/ExecutorchModel.h"
+#include "fedlearn/ModelExecutionError.h"
 #include "fedlearn/Sha256.h"
 
 #include <executorch/extension/data_loader/file_data_loader.h>
@@ -41,7 +42,7 @@ void ensureRuntimeInit() {
 }
 
 [[noreturn]] void fail(const std::string& what, Error e) {
-  throw std::runtime_error("ExecutorchModel: " + what + " (error " +
+  throw ModelExecutionError("ExecutorchModel: " + what + " (error " +
                            std::to_string(static_cast<int>(e)) + ")");
 }
 

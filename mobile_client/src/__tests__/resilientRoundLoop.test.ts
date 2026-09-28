@@ -7,7 +7,12 @@
 // These drive the state machine through an injected ops object (no native module, no real timers): the
 // blip is a fast Promise rejection, which is the common on-device failure shape (a hang needs MO-2's
 // per-RPC deadlines — out of scope here and flagged in the impl).
-import { runResilientRoundLoop, type RoundOps, type ResiliencePolicy } from '../lib/training';
+import {
+  ModelExecutionFailedError,
+  runResilientRoundLoop,
+  type RoundOps,
+  type ResiliencePolicy,
+} from '../lib/training';
 import type { RoundConfig, RoundResult } from '../lib/nativeCore';
 
 const CFG: RoundConfig = {
@@ -173,6 +178,24 @@ describe('runResilientRoundLoop (MO-8)', () => {
     expect(ops.runFedAvgRound).toHaveBeenCalledTimes(1);
     expect(ops.rejoin).not.toHaveBeenCalled();
   });
+
+  // Stage 3: ExecuTorch refusing to run the model on this device's data is deterministic (a live phone retried
+  // NotSupported for about a minute, then rejoined twice, before giving up). It ends training at once.
+  it.each(['runFedAvgRound', 'runDeComFLRound'] as const)(
+    'stops at once, without retrying or rejoining, when the model cannot run on this data (%s)', async (op) => {
+      const cause = new Error('MODEL_EXECUTION: TrainableExecutorchModel: execute_forward_backward failed (error 16)');
+      const ops = baseOps({ [op]: jest.fn().mockRejectedValue(cause) });
+      const h = hooks();
+
+      const run = runResilientRoundLoop({ runId: 'r', isFedAvg: op === 'runFedAvgRound', cfg: CFG }, ops, POLICY, h);
+
+      await expect(run).rejects.toBeInstanceOf(ModelExecutionFailedError);
+      await expect(run).rejects.toThrow(/execute_forward_backward failed \(error 16\)/);
+      expect(ops[op]).toHaveBeenCalledTimes(1);
+      expect(ops.rejoin).not.toHaveBeenCalled();
+      expect(ops.delay).not.toHaveBeenCalled();
+      expect(h.logs.some((l) => l.startsWith('Transient error'))).toBe(false);
+    });
 
   it('cooperative stop ends the loop before any work', async () => {
     const ops = baseOps();
