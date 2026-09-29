@@ -205,6 +205,29 @@ message ModelTraining {
   repeated ArtifactVariant artifacts = 12;
   // Present exactly when the strategy is STRATEGY_FEDPROX.
   optional double fedprox_mu = 13;
+  // The model's dropout layers in forward order, and how each draws its masks. Empty when the model has none. A
+  // participant applies exactly these masks, so a training step is reproducible from the contract and the data.
+  repeated DropoutLayer dropout = 14;
+}
+
+message DropoutLayer {
+  // The dropout module's name in the model (named_modules()), e.g. "dropout1".
+  string module = 1;
+  // The probability of dropping an element, in [0, 1).
+  double rate = 2;
+  DropoutMasks masks = 3;
+}
+
+enum DropoutMasks {
+  DROPOUT_MASKS_UNSPECIFIED = 0;
+  // Masks every runtime reproduces. For local SGD step `step` of a round (counted from 0 across the round's epochs)
+  // and the layer at index `layer` of ModelTraining.dropout, with the SplitMix64 mix() of
+  // BATCH_ORDER_SEEDED_PERMUTATION_V1:
+  //   state = mix(mix(mix(mix(seed) ^ round) ^ step) ^ layer)   (seed = ExecutionContract.seed, 0 when absent)
+  //   the layer's activation elements, in row-major order, each take one draw r = next() of that stream;
+  //   u = (r >> 11) * 2^-53; the element is dropped (0) iff u < rate, and kept elements are multiplied by
+  //   float32(1) / float32(1 - rate), the inverted-dropout scale.
+  DROPOUT_MASKS_SEEDED_V1 = 1;
 }
 
 message TensorSpec {

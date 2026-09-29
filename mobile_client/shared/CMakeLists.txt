@@ -14,6 +14,7 @@ add_library(fedlearn_core STATIC
   src/DataLoader.cpp
   src/FederatedLoop.cpp
   src/BatchOrder.cpp
+  src/DropoutMasks.cpp
   src/DatasetEvaluation.cpp
 )
 

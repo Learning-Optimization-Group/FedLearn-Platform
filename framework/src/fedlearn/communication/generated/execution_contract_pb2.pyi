@@ -97,6 +97,11 @@ class BatchOrder(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     BATCH_ORDER_SHUFFLED_EACH_EPOCH: _ClassVar[BatchOrder]
     BATCH_ORDER_SEEDED_PERMUTATION_V1: _ClassVar[BatchOrder]
 
+class DropoutMasks(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DROPOUT_MASKS_UNSPECIFIED: _ClassVar[DropoutMasks]
+    DROPOUT_MASKS_SEEDED_V1: _ClassVar[DropoutMasks]
+
 class GradientEstimator(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     ESTIMATOR_UNSPECIFIED: _ClassVar[GradientEstimator]
@@ -187,6 +192,8 @@ BATCH_ORDER_UNSPECIFIED: BatchOrder
 BATCH_ORDER_SEQUENTIAL: BatchOrder
 BATCH_ORDER_SHUFFLED_EACH_EPOCH: BatchOrder
 BATCH_ORDER_SEEDED_PERMUTATION_V1: BatchOrder
+DROPOUT_MASKS_UNSPECIFIED: DropoutMasks
+DROPOUT_MASKS_SEEDED_V1: DropoutMasks
 ESTIMATOR_UNSPECIFIED: GradientEstimator
 ESTIMATOR_FORWARD: GradientEstimator
 ESTIMATOR_CENTRAL: GradientEstimator
@@ -282,7 +289,7 @@ class CentralDp(_message.Message):
     def __init__(self, target_epsilon: _Optional[float] = ..., delta: _Optional[float] = ..., clip_norm: _Optional[float] = ...) -> None: ...
 
 class ModelTraining(_message.Message):
-    __slots__ = ("model_id", "model_revision", "arm", "task", "objective", "update_protocol", "trainable", "frozen_state_sha256", "initial_state_sha256", "local_training", "data", "artifacts", "fedprox_mu")
+    __slots__ = ("model_id", "model_revision", "arm", "task", "objective", "update_protocol", "trainable", "frozen_state_sha256", "initial_state_sha256", "local_training", "data", "artifacts", "fedprox_mu", "dropout")
     MODEL_ID_FIELD_NUMBER: _ClassVar[int]
     MODEL_REVISION_FIELD_NUMBER: _ClassVar[int]
     ARM_FIELD_NUMBER: _ClassVar[int]
@@ -296,6 +303,7 @@ class ModelTraining(_message.Message):
     DATA_FIELD_NUMBER: _ClassVar[int]
     ARTIFACTS_FIELD_NUMBER: _ClassVar[int]
     FEDPROX_MU_FIELD_NUMBER: _ClassVar[int]
+    DROPOUT_FIELD_NUMBER: _ClassVar[int]
     model_id: str
     model_revision: str
     arm: Arm
@@ -309,7 +317,18 @@ class ModelTraining(_message.Message):
     data: DataRequirement
     artifacts: _containers.RepeatedCompositeFieldContainer[ArtifactVariant]
     fedprox_mu: float
-    def __init__(self, model_id: _Optional[str] = ..., model_revision: _Optional[str] = ..., arm: _Optional[_Union[Arm, str]] = ..., task: _Optional[_Union[Task, str]] = ..., objective: _Optional[_Union[Objective, str]] = ..., update_protocol: _Optional[_Union[UpdateProtocol, str]] = ..., trainable: _Optional[_Iterable[_Union[TensorSpec, _Mapping]]] = ..., frozen_state_sha256: _Optional[str] = ..., initial_state_sha256: _Optional[str] = ..., local_training: _Optional[_Union[LocalTraining, _Mapping]] = ..., data: _Optional[_Union[DataRequirement, _Mapping]] = ..., artifacts: _Optional[_Iterable[_Union[ArtifactVariant, _Mapping]]] = ..., fedprox_mu: _Optional[float] = ...) -> None: ...
+    dropout: _containers.RepeatedCompositeFieldContainer[DropoutLayer]
+    def __init__(self, model_id: _Optional[str] = ..., model_revision: _Optional[str] = ..., arm: _Optional[_Union[Arm, str]] = ..., task: _Optional[_Union[Task, str]] = ..., objective: _Optional[_Union[Objective, str]] = ..., update_protocol: _Optional[_Union[UpdateProtocol, str]] = ..., trainable: _Optional[_Iterable[_Union[TensorSpec, _Mapping]]] = ..., frozen_state_sha256: _Optional[str] = ..., initial_state_sha256: _Optional[str] = ..., local_training: _Optional[_Union[LocalTraining, _Mapping]] = ..., data: _Optional[_Union[DataRequirement, _Mapping]] = ..., artifacts: _Optional[_Iterable[_Union[ArtifactVariant, _Mapping]]] = ..., fedprox_mu: _Optional[float] = ..., dropout: _Optional[_Iterable[_Union[DropoutLayer, _Mapping]]] = ...) -> None: ...
+
+class DropoutLayer(_message.Message):
+    __slots__ = ("module", "rate", "masks")
+    MODULE_FIELD_NUMBER: _ClassVar[int]
+    RATE_FIELD_NUMBER: _ClassVar[int]
+    MASKS_FIELD_NUMBER: _ClassVar[int]
+    module: str
+    rate: float
+    masks: DropoutMasks
+    def __init__(self, module: _Optional[str] = ..., rate: _Optional[float] = ..., masks: _Optional[_Union[DropoutMasks, str]] = ...) -> None: ...
 
 class TensorSpec(_message.Message):
     __slots__ = ("name", "shape", "dtype")

@@ -359,6 +359,7 @@ public final class ExecutionContractValidator {
             add(ISSUE_MISSING_FIELD, p + ".data");
         }
         artifacts(mt.getArtifactsList());
+        dropout(mt.getDropoutList());
         int strategy = contract.getStrategyValue();
         if (strategy == Strategy.STRATEGY_FEDPROX_VALUE) {
             if (!mt.hasFedproxMu()) {
@@ -368,6 +369,27 @@ public final class ExecutionContractValidator {
             }
         } else if (known(Strategy::forNumber, strategy) && mt.hasFedproxMu()) {
             add(ISSUE_INVALID_STRATEGY_SETTINGS, p + ".fedproxMu");
+        }
+    }
+
+    /** Each dropout layer names a module once, drops with a rate in [0, 1), and states how its masks are drawn. */
+    private void dropout(List<com.fedlearn.contract.v1.DropoutLayer> layers) {
+        String p = "modelTraining.dropout";
+        if (layers.size() > MAX_TENSORS) {
+            add(ISSUE_MALFORMED_LAYOUT, p);
+            return;
+        }
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < layers.size(); i++) {
+            com.fedlearn.contract.v1.DropoutLayer layer = layers.get(i);
+            String at = p + "[" + i + "]";
+            boolean nameOk = layer.getModule().length() <= MAX_TENSOR_NAME_LENGTH
+                    && matches(TENSOR_NAME, layer.getModule());
+            check(nameOk && !seen.contains(layer.getModule()), ISSUE_MALFORMED_LAYOUT, at + ".module");
+            seen.add(layer.getModule());
+            check(Double.isFinite(layer.getRate()) && layer.getRate() >= 0 && layer.getRate() < 1, ISSUE_OUT_OF_RANGE,
+                    at + ".rate");
+            enumValue(com.fedlearn.contract.v1.DropoutMasks::forNumber, layer.getMasksValue(), at + ".masks");
         }
     }
 

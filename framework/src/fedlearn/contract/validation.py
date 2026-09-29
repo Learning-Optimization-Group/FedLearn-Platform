@@ -284,6 +284,7 @@ class _Validator:
         else:
             self.add(pb.ISSUE_MISSING_FIELD, p + ".data")
         self.artifacts(mt.artifacts)
+        self.dropout(mt.dropout)
         if self.c.strategy == pb.STRATEGY_FEDPROX:
             if not mt.HasField("fedprox_mu"):
                 self.add(pb.ISSUE_MISSING_FIELD, p + ".fedproxMu")
@@ -291,6 +292,21 @@ class _Validator:
                 self.add(pb.ISSUE_OUT_OF_RANGE, p + ".fedproxMu")
         elif _known(pb.Strategy.DESCRIPTOR, self.c.strategy) and mt.HasField("fedprox_mu"):
             self.add(pb.ISSUE_INVALID_STRATEGY_SETTINGS, p + ".fedproxMu")
+
+    def dropout(self, layers) -> None:
+        """Each dropout layer names a module once, drops with a rate in [0, 1), and states how its masks are drawn."""
+        p = "modelTraining.dropout"
+        if len(layers) > MAX_TENSORS:
+            self.add(pb.ISSUE_MALFORMED_LAYOUT, p)
+            return
+        seen: set[str] = set()
+        for i, layer in enumerate(layers):
+            at = f"{p}[{i}]"
+            name_ok = len(layer.module) <= MAX_TENSOR_NAME_LENGTH and _matches(_TENSOR_NAME, layer.module)
+            self.check(name_ok and layer.module not in seen, pb.ISSUE_MALFORMED_LAYOUT, at + ".module")
+            seen.add(layer.module)
+            self.check(math.isfinite(layer.rate) and 0 <= layer.rate < 1, pb.ISSUE_OUT_OF_RANGE, at + ".rate")
+            self.enum(pb.DropoutMasks.DESCRIPTOR, layer.masks, at + ".masks")
 
     def trainable(self, tensors) -> None:
         p = "modelTraining.trainable"
