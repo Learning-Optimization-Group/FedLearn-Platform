@@ -190,6 +190,14 @@ Later progress:
   - `86fa1f8`: a contract whose `batch_size` exceeds the programs' `maxBatch` is not published.
 - C1: `84528a2` adds `BATCH_ORDER_SEEDED_PERMUTATION_V1`, in Python and C++ with a shared golden. Decision 2 took
   the recommendation.
+- C2: `d6dae1d`. The native first-order round trains seeded minibatches, and first-order own-data plans state the
+  order. `70fda73` evaluates a multi-batch dataset in chunks: the first live minibatch run found whole-dataset
+  evaluation failing after every round. Live, a 20-example snapshot replays bit-exactly.
+- D2: the probe core is `ba51358`, wired end to end in `1edf80e` (stager, bundle DTO, bridge ABI 3, a per-device
+  cache, and `QUALIFICATION_FAILED`). Decision 4 took the exporter-recorded reference: `probeLoss` became two step
+  losses. It was checked live: "Model qualified on this device (probe 7 ms)".
+- Found along the way: `1ac1e89` (server status reports each round's real deadline) and `6fbbe50` (the privacy
+  label is true for own-data and DeComFL runs).
 
 - **A1** Kotlin `ArtifactDownloader` with size cap, streaming hash, atomic promote and quarantine; auth via the shared client. Unit tests use a local HTTP server (resume, mismatch, oversize).
 - **A2** Backend: range, strong ETag and hash-addressed file serving, with tests.
