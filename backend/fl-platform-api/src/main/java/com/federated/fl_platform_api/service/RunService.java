@@ -337,6 +337,15 @@ public class RunService {
 
     @Transactional
     public EnrollmentDto enroll(UUID runId) {
+        return enroll(runId, null);
+    }
+
+    /**
+     * Enroll the caller in the run, recording the device's capability report when it sends one (Stage 3 D1). A
+     * re-enrollment without a report keeps the one sent before; the report never affects what the device may train.
+     */
+    @Transactional
+    public EnrollmentDto enroll(UUID runId, com.federated.fl_platform_api.dto.CapabilityReport report) {
         Run run = runRepository.lockById(runId)
                 .orElseThrow(() -> new ResourceNotFoundException("Run not found: " + runId));
         Project project = projectRepository.findById(run.getProjectId())
@@ -366,6 +375,13 @@ public class RunService {
                     new RunEnrollmentId(runId, self.getId()), next, kind, Instant.now());
         }
         enrollment.setTokenIssuedAt(Instant.now());
+        if (report != null) {
+            try {
+                enrollment.setCapabilityReport(objectMapper.writeValueAsString(report), Instant.now());
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                throw new IllegalArgumentException("the capability report could not be recorded", e);
+            }
+        }
         enrollment = enrollmentRepository.save(enrollment);
 
         String grpcEndpoint = endpoint(run);

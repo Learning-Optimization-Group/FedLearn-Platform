@@ -457,6 +457,70 @@ class RunServiceTest {
         verify(clientCa).issueClientCert("7", rid);
     }
 
+    // Stage 3 D1: a device's capability report arrives with enrollment and is kept on it, informational only.
+    private static com.federated.fl_platform_api.dto.CapabilityReport report(int batteryPct) {
+        return new com.federated.fl_platform_api.dto.CapabilityReport("android", "9", 27, java.util.List.of("arm64-v8a"),
+                3_000_000_000L, 20_000_000_000L, "vivo 1805", "2.1.0", "7", 3, 2, "NOMINAL", batteryPct);
+    }
+
+    private RunEnrollment enrollWith(UUID rid, RunEnrollment existing,
+                                     com.federated.fl_platform_api.dto.CapabilityReport report) {
+        UUID pid = UUID.randomUUID();
+        Project p = project(pid); User u = new User(); u.setId(7L);
+        Run r = runningRun(rid, pid, 4, PartitioningMode.SHARDED);
+        org.springframework.test.util.ReflectionTestUtils.setField(runService, "objectMapper",
+                new com.fasterxml.jackson.databind.ObjectMapper());
+        when(runRepository.lockById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 7L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+        when(enrollmentRepository.findByIdRunIdAndIdUserId(rid, 7L)).thenReturn(java.util.Optional.ofNullable(existing));
+        if (existing == null) {
+            when(enrollmentRepository.maxPartitionIdForRun(rid)).thenReturn(-1);
+        }
+        when(enrollmentRepository.save(any(RunEnrollment.class))).thenAnswer(i -> i.getArgument(0));
+        when(tokenService.mint(any(), anyLong())).thenReturn(
+                new ConnectionTokenService.Minted("tok", java.time.Instant.now().plusSeconds(120)));
+        runService.enroll(rid, report);
+        org.mockito.ArgumentCaptor<RunEnrollment> saved = org.mockito.ArgumentCaptor.forClass(RunEnrollment.class);
+        verify(enrollmentRepository).save(saved.capture());
+        return saved.getValue();
+    }
+
+    @Test
+    void enroll_recordsTheDevicesCapabilityReportWithItsTime() throws Exception {
+        RunEnrollment saved = enrollWith(UUID.randomUUID(), null, report(80));
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(saved.getCapabilityReport());
+        assertEquals("android", json.path("platform").asText());
+        assertEquals(27, json.path("apiLevel").asInt());
+        assertEquals(80, json.path("batteryPct").asInt());
+        assertNotNull(saved.getCapabilityReportedAt());
+    }
+
+    @Test
+    void enroll_withoutAReport_keepsTheOneADeviceSentEarlier() {
+        UUID rid = UUID.randomUUID();
+        RunEnrollment existing = new RunEnrollment(new RunEnrollmentId(rid, 7L), 1, ClientKind.SHARD,
+                java.time.Instant.now());
+        existing.setCapabilityReport("{\"platform\":\"android\"}", java.time.Instant.now());
+        RunEnrollment saved = enrollWith(rid, existing, null);
+        assertEquals("{\"platform\":\"android\"}", saved.getCapabilityReport());
+    }
+
+    @Test
+    void aCapabilityReportOutsideItsBoundsIsInvalid() {
+        var validator = jakarta.validation.Validation.buildDefaultValidatorFactory().getValidator();
+        assertTrue(validator.validate(report(80)).isEmpty());
+        assertFalse(validator.validate(report(150)).isEmpty());
+        var tooManyAbis = new com.federated.fl_platform_api.dto.CapabilityReport("android", "9", 27,
+                java.util.Collections.nCopies(20, "x"), 1L, 1L, "m", "v", "b", 3, 2, "NOMINAL", 50);
+        assertFalse(validator.validate(tooManyAbis).isEmpty());
+        var otherPlatform = new com.federated.fl_platform_api.dto.CapabilityReport("windows", "9", 27, null, 1L, 1L,
+                "m", "v", "b", 3, 2, null, null);
+        assertFalse(validator.validate(otherPlatform).isEmpty());
+    }
+
     @Test
     void enroll_isIdempotentForSameUser() {
         UUID rid = UUID.randomUUID(); UUID pid = UUID.randomUUID();

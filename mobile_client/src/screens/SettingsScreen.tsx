@@ -13,6 +13,7 @@ import { DeviceDatasetsCard } from '../components/DeviceDatasetsCard';
 import { StatusBadge } from '../components/StatusBadge';
 import { useThemeTokens } from '../theme/useThemeTokens';
 import { diagnosticJournal } from '../lib/diagnosticJournal';
+import { collectCapabilityReport, diagnosticsWithReport } from '../lib/capabilityReport';
 
 type ProbeState = 'idle' | 'probing' | 'reachable' | 'unreachable';
 
@@ -190,8 +191,8 @@ export function SettingsScreen() {
           accessibilityLabel="Share training diagnostics"
           className="flex-row items-center justify-center bg-surface-1 border border-hairline rounded-md py-3 active:opacity-80"
           onPress={() => {
-            void diagnosticJournal.exportText()
-              .then((message) => Share.share({ message }))
+            void Promise.all([diagnosticJournal.exportText(), collectCapabilityReport().catch(() => undefined)])
+              .then(([journal, report]) => Share.share({ message: diagnosticsWithReport(journal, report) }))
               .catch((e) => setError(`Could not share diagnostics: ${String(e)}`));
           }}>
           <Text className="text-fg text-label font-sans">Share training diagnostics</Text>

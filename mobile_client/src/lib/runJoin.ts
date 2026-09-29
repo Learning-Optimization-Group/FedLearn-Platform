@@ -1,3 +1,4 @@
+import { collectCapabilityReport } from './capabilityReport';
 import { api } from './restClient';
 import nativeCore from './nativeCore';
 import { getOrCreateClientId } from './clientId';
@@ -102,7 +103,11 @@ export async function joinRun(p: JoinParams): Promise<JoinedRun> {
   const runId = await resolveRunId(p.projectId);
   await pollUntilRunning(runId);
 
-  const { data: enroll } = await api.post<EnrollResponse>(`/api/runs/${runId}/enroll`);
+  // Stage 3 D1: report this device's capabilities with the enrollment. Informational only: a report that cannot be
+  // collected is left out, and it never decides whether this device may train.
+  const capabilityReport = await collectCapabilityReport().catch(() => undefined);
+  const { data: enroll } = await api.post<EnrollResponse>(`/api/runs/${runId}/enroll`,
+    capabilityReport ? { capabilityReport } : undefined);
 
   const clientId = await getOrCreateClientId();
   const useTls = p.useTls ?? enroll.grpcTls ?? false;

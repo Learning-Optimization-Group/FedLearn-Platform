@@ -36,8 +36,10 @@ public class RunController {
     }
 
     @PostMapping("/{runId}/enroll")
-    public ResponseEntity<EnrollmentDto> enroll(@PathVariable UUID runId) {
-        return ResponseEntity.ok(runService.enroll(runId));
+    public ResponseEntity<EnrollmentDto> enroll(@PathVariable UUID runId,
+            @org.springframework.web.bind.annotation.RequestBody(required = false)
+            @jakarta.validation.Valid com.federated.fl_platform_api.dto.EnrollRequest body) {
+        return ResponseEntity.ok(runService.enroll(runId, body == null ? null : body.capabilityReport()));
     }
 
     /** On-device training bundle metadata (paramLayout, shas, file URLs). */
