@@ -149,6 +149,14 @@ RoundConfig roundConfigFromJs(jsi::Runtime& rt, const jsi::Object& o) {
   // Bridge ABI 2: the contract's first-order minibatching. The seed crosses as a decimal string (64-bit).
   c.batchSize = static_cast<int64_t>(o.getProperty(rt, "batchSize").asNumber());
   c.batchSeed = o.getProperty(rt, "batchSeed").asString(rt).utf8(rt);
+  // Bridge ABI 4: the contract's optimizer and dropout layers. Required: a JS layer that omits them is not ABI 4.
+  c.optimizer = o.getProperty(rt, "optimizer").asString(rt).utf8(rt);
+  c.adamBeta1 = o.getProperty(rt, "adamBeta1").asNumber();
+  c.adamBeta2 = o.getProperty(rt, "adamBeta2").asNumber();
+  c.adamEpsilon = o.getProperty(rt, "adamEpsilon").asNumber();
+  const jsi::Array rates = o.getProperty(rt, "dropoutRates").asObject(rt).asArray(rt);
+  for (size_t i = 0; i < rates.size(rt); ++i) c.dropoutRates.push_back(rates.getValueAtIndex(rt, i).asNumber());
+  c.dropoutSeed = o.getProperty(rt, "dropoutSeed").asString(rt).utf8(rt);
   c.seed = static_cast<int64_t>(o.getProperty(rt, "seed").asNumber());
   c.torchVersion = o.getProperty(rt, "torchVersion").asString(rt).utf8(rt);
   return c;
@@ -368,6 +376,9 @@ RoundResult FedLearnCoreModule::doRunDeComFLRound(const std::string& runId, cons
   std::lock_guard<std::mutex> lk(stateMutex_);
   requireReady();
   const auto t0 = std::chrono::steady_clock::now();
+  if (!cfg.dropoutRates.empty()) {
+    throw std::runtime_error("a zeroth-order round draws no dropout masks; its model must have no dropout");
+  }
   // Android trains only under an execution contract; cfg carries its zeroth-order training, and the round refuses
   // any server setting that differs from it.
   const fedlearn::ZerothOrderContract contract{
@@ -407,9 +418,24 @@ RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const
     batching.batchSize = cfg.batchSize;
     batching.seededPermutation = !cfg.batchSeed.empty();
     batching.seed = batching.seededPermutation ? fedlearn::parseBatchSeed(cfg.batchSeed) : 0;
+    fedlearn::LocalOptimizer optimizer;
+    if (cfg.optimizer == "adam") {
+      optimizer.adam = true;
+      optimizer.beta1 = cfg.adamBeta1;
+      optimizer.beta2 = cfg.adamBeta2;
+      optimizer.epsilon = cfg.adamEpsilon;
+    } else if (cfg.optimizer != "sgd") {
+      throw std::runtime_error("unknown optimizer '" + cfg.optimizer + "'");
+    }
+    fedlearn::DropoutSpec dropout;
+    dropout.rates = cfg.dropoutRates;
+    if (!dropout.rates.empty()) {
+      if (cfg.dropoutSeed.empty()) throw std::runtime_error("dropout layers need the contract's mask seed");
+      dropout.seed = fedlearn::parseBatchSeed(cfg.dropoutSeed);  // the same exact decimal uint64 parsing
+    }
     fedlearn::RoundOutcome outcome = loop_->firstOrderRound(
         *trainableModel_, runId, clientId_, trainingBatch_, cfg.numLocalSteps, cfg.learningRate,
-        cfg.strategy == "FedOpt" || cfg.strategy == "FedProx", cfg.proximalMu, batching);
+        cfg.strategy == "FedOpt" || cfg.strategy == "FedProx", cfg.proximalMu, batching, optimizer, dropout);
     const auto t1 = std::chrono::steady_clock::now();
     if (outcome.shouldStop) throw std::runtime_error("STOP: " + outcome.note);
     RoundResult r;
@@ -427,6 +453,9 @@ RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const
   // It has no proximal term, so a FedProx round never falls back to it.
   if (cfg.proximalMu != 0.0) {
     throw std::runtime_error("FedProx requires the trainable program; none is provisioned");
+  }
+  if (cfg.optimizer != "sgd" || !cfg.dropoutRates.empty()) {
+    throw std::runtime_error("Adam and dropout require the trainable program; none is provisioned");
   }
   fedlearn::RoundOutcome outcome =
       loop_->fedAvgRound(*model_, runId, clientId_, trainingBatch_, cfg.numLocalSteps,

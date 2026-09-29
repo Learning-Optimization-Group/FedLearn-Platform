@@ -48,6 +48,17 @@ export interface RoundConfig {
   // 64-bit). Added in bridge ABI 2.
   batchSize: number;
   batchSeed: string;
+  // The first-order optimizer (execution contract local_training): 'sgd', or 'adam' (fresh each round, no weight decay
+  // or AMSGrad) at learningRate with these moment settings. Added in bridge ABI 4.
+  optimizer: string;
+  adamBeta1: number;
+  adamBeta2: number;
+  adamEpsilon: number;
+  // The model's dropout layers (execution contract dropout): their rates in forward order, masks drawn from
+  // DROPOUT_MASKS_SEEDED_V1 seeded by dropoutSeed (the contract's seed as a decimal string). Empty for a model without
+  // dropout. Added in bridge ABI 4.
+  dropoutRates: ReadonlyArray<number>;
+  dropoutSeed: string;
   seed: number; // optimizer seed (distinct from data seed)
   torchVersion: string; // must match server's GetDeComFLConfigResponse.torch_version
 }

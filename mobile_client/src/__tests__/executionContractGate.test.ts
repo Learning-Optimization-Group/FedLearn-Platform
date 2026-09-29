@@ -3,8 +3,11 @@
 // Android is v1-dependent: a run without a READY contract it can execute is refused, never approximated.
 import { create, toJson } from '@bufbuild/protobuf';
 import {
+  AdamSchema,
   ArtifactBackend,
   BatchOrder,
+  DropoutLayerSchema,
+  DropoutMasks,
   ExecutionContractSchema,
   GradientEstimator,
   PerturbationRng,
@@ -454,3 +457,77 @@ describe('the phone decides from where a run\'s training data comes from', () =>
   });
 });
 
+
+// Stage 4 S4: the MLP trains with Adam (the laptop's optimizer) and draws its dropout masks from the contract's seeded
+// stream (DROPOUT_MASKS_SEEDED_V1), so the phone's update stays replayable.
+function withAdam(contract: ExecutionContract, over: { weightDecay?: number; amsgrad?: boolean } = {}) {
+  local(contract).optimizer = {
+    case: 'adam',
+    value: create(AdamSchema, {
+      learningRate: 0.001, beta1: 0.9, beta2: 0.999, epsilon: 1e-8, weightDecay: 0, amsgrad: false, ...over }),
+  };
+  return contract;
+}
+
+function withDropout(contract: ExecutionContract, rates: number[], masks = DropoutMasks.SEEDED_V1) {
+  if (contract.workload.case !== 'modelTraining') throw new Error('the golden contract trains a model');
+  contract.workload.value.dropout = rates.map((rate, i) => create(DropoutLayerSchema, { module: `drop${i}`, rate, masks }));
+  return contract;
+}
+
+describe('the phone trains Adam and seeded dropout as the contract states', () => {
+  it('projects Adam with the moments settings and rate the contract states', () => {
+    const decision = decide(withAdam(golden()));
+    expect(decision).toMatchObject({
+      kind: 'train',
+      projection: { learningRate: 0.001, adam: { beta1: 0.9, beta2: 0.999, epsilon: 1e-8 } },
+    });
+  });
+
+  it('projects no Adam for an SGD contract', () => {
+    const decision = decide(golden());
+    expect(decision.kind === 'train' && decision.projection.adam).toBeUndefined();
+  });
+
+  it.each([
+    ['weight decay', { weightDecay: 0.01 }],
+    ['AMSGrad', { amsgrad: true }],
+  ])('refuses Adam with %s, which its trainer does not implement', (_name, over) => {
+    expect(decide(withAdam(golden(), over))).toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_OPTIMIZER' });
+  });
+
+  it('refuses Adam under FedProx, whose proximal term its Adam does not add', () => {
+    const contract = withAdam(golden());
+    contract.strategy = Strategy.FEDPROX;
+    if (contract.workload.case === 'modelTraining') contract.workload.value.fedproxMu = 0.1;
+    expect(projectContract(contract, 'a'.repeat(64))).toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_OPTIMIZER' });
+  });
+
+  it('projects each dropout layer\'s rate in order and the contract seed as an exact string', () => {
+    const contract = withDropout(golden(), [0.3, 0.5]);
+    contract.seed = 18446744073709551615n;
+    expect(decide(contract)).toMatchObject({
+      kind: 'train', projection: { dropout: { rates: [0.3, 0.5], seed: '18446744073709551615' } } });
+  });
+
+  it('seeds the masks with 0 when the contract states no seed, as the mask stream specifies', () => {
+    const contract = withDropout(golden(), [0.3]);
+    contract.seed = undefined;
+    expect(decide(contract)).toMatchObject({ kind: 'train', projection: { dropout: { rates: [0.3], seed: '0' } } });
+  });
+
+  it('projects no dropout for a model without dropout layers', () => {
+    const decision = decide(golden());
+    expect(decision.kind === 'train' && decision.projection.dropout).toBeUndefined();
+  });
+
+  it('refuses masks drawn any other way', () => {
+    const contract = withDropout(golden(), [0.3], DropoutMasks.UNSPECIFIED);
+    expect(projectContract(contract, 'a'.repeat(64))).toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_DROPOUT' });
+  });
+
+  it('refuses dropout under DeComFL, whose zeroth-order passes draw no masks', () => {
+    const contract = withDropout(decomfl(), [0.3]);
+    expect(projectContract(contract, 'a'.repeat(64))).toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_DROPOUT' });
+  });
+});

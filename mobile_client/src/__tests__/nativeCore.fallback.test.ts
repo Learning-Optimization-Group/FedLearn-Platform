@@ -28,6 +28,12 @@ const A_ROUND_CONFIG = {
   proximalMu: 0,
   batchSize: 0,
   batchSeed: '',
+  optimizer: 'sgd',
+  adamBeta1: 0.9,
+  adamBeta2: 0.999,
+  adamEpsilon: 1e-8,
+  dropoutRates: [],
+  dropoutSeed: '',
 };
 
 // Load a FRESH copy of the spec so its module-level TurboModuleRegistry.get() re-runs with the mock

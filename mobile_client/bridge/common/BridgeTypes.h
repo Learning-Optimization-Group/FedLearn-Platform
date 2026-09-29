@@ -41,6 +41,15 @@ struct RoundConfig {
   double proximalMu = 0.0;         // FedProx's coefficient (execution contract); 0 otherwise
   int64_t batchSize = 0;           // first-order minibatch size; 0 = the whole dataset as one step per epoch
   std::string batchSeed;           // decimal uint64 seeding BATCH_ORDER_SEEDED_PERMUTATION_V1; empty = not seeded
+  // Bridge ABI 4: the contract's first-order optimizer ("sgd" | "adam") and Adam's moment settings.
+  std::string optimizer = "sgd";
+  double adamBeta1 = 0.9;
+  double adamBeta2 = 0.999;
+  double adamEpsilon = 1e-8;
+  // Bridge ABI 4: the contract's dropout layers (rates in forward order) and the decimal uint64 seed of their
+  // DROPOUT_MASKS_SEEDED_V1 masks. Empty for a model without dropout.
+  std::vector<double> dropoutRates;
+  std::string dropoutSeed;
 };
 
 struct RoundResult {

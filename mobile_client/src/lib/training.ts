@@ -145,6 +145,13 @@ function roundConfigFor(joined: JoinedRun, strategy: Strategy, projection: Contr
     // Seeded minibatching when the contract states the reproducible batch order; otherwise one whole-dataset step.
     batchSize: projection.minibatch ? projection.batchSize : 0,
     batchSeed: projection.minibatch?.seed ?? '',
+    // Adam's moment settings are read only when the optimizer is Adam; SGD passes torch's defaults.
+    optimizer: projection.adam ? 'adam' : 'sgd',
+    adamBeta1: projection.adam?.beta1 ?? 0.9,
+    adamBeta2: projection.adam?.beta2 ?? 0.999,
+    adamEpsilon: projection.adam?.epsilon ?? 1e-8,
+    dropoutRates: projection.dropout?.rates ?? [],
+    dropoutSeed: projection.dropout?.seed ?? '',
     seed: typeof m.seed === 'number' ? m.seed : 0,
     torchVersion: m.torchVersion ?? '',
   };

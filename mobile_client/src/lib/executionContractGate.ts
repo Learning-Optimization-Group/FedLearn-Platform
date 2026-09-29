@@ -2,7 +2,7 @@
 // run's published contract whether it may train at all, and projects the contract into the settings the native
 // trainer runs with. Android is v1-dependent: a run without a READY contract it can execute exactly is refused
 // with a precise reason, never approximated.
-import { ArtifactBackend, BatchOrder, ContractIssueCodeSchema, DataSource, GradientEstimator, PerturbationRng, SecureAggregation, Strategy,
+import { ArtifactBackend, BatchOrder, ContractIssueCodeSchema, DataSource, DropoutMasks, GradientEstimator, PerturbationRng, SecureAggregation, Strategy,
   UpdateProtocol, type ArtifactVariant, type ExecutionContract, type LocalTraining, type ModelTraining,
 } from '../gen/fedlearn/contract/v1/execution_contract_pb';
 import { MalformedContractError, parseContractJson, validateContract } from './executionContract';
@@ -27,6 +27,7 @@ export type ContractRefusalCode =
   | 'UNSUPPORTED_SECURITY'
   | 'UNSUPPORTED_OPTIMIZER'
   | 'UNSUPPORTED_BATCHING'
+  | 'UNSUPPORTED_DROPOUT'
   | 'MISSING_CPU_ARTIFACT'
   | 'FIXTURE_DATA_REFUSED'
   | 'UNSUPPORTED_DATA_SOURCE';
@@ -66,6 +67,13 @@ export interface ContractProjection {
    * and then the device trains its whole dataset as one batch, so the dataset must fit in one.
    */
   minibatch?: { seed: string };
+  /** First-order Adam (fresh each round) at learningRate, with the contract's moment settings. Absent means SGD. */
+  adam?: { beta1: number; beta2: number; epsilon: number };
+  /**
+   * The model's dropout layers: their rates in forward order, with masks drawn from DROPOUT_MASKS_SEEDED_V1 seeded by
+   * the contract's seed (0 when absent) as an exact decimal string. Absent for a model without dropout.
+   */
+  dropout?: { rates: number[]; seed: string };
 }
 
 export type ContractDecision =
@@ -176,6 +184,14 @@ export function projectContract(contract: ExecutionContract, contractId: string)
   if (optimizer) {
     return refuse('UNSUPPORTED_OPTIMIZER', optimizer);
   }
+  if (strategy === 'FedProx' && local.optimizer.case === 'adam') {
+    return refuse('UNSUPPORTED_OPTIMIZER',
+      'This FedProx run adds its proximal term to Adam\'s gradient, which this app\'s Adam does not do.');
+  }
+  const dropout = unsupportedDropout(training);
+  if (dropout) {
+    return refuse('UNSUPPORTED_DROPOUT', dropout);
+  }
   // The native trainer takes one step per local epoch over the whole local dataset, so it can reproduce a contract
   // whose every epoch is a single batch, keeping the final batch. The dataset's size is checked against batchSize
   // when the data is staged (runTrainingLoop).
@@ -186,23 +202,34 @@ export function projectContract(contract: ExecutionContract, contractId: string)
   if (!portableCpuVariant(training.artifacts)) {
     return refuse('MISSING_CPU_ARTIFACT', `This run has no portable CPU model for ${DEVICE_ABI} devices.`);
   }
-  const sgd = local.optimizer.case === 'sgd' ? local.optimizer.value : undefined;
+  const seed = (contract.seed ?? 0n).toString();
+  const adam = local.optimizer.case === 'adam' ? local.optimizer.value : undefined;
   return {
     kind: 'train',
     contract,
     projection: {
       contractId,
       strategy,
-      learningRate: sgd!.learningRate,
+      learningRate: local.optimizer.case === 'sgd' || local.optimizer.case === 'adam'
+        ? local.optimizer.value.learningRate : 0,
       numLocalSteps: local.localEpochs,
       batchSize: local.batchSize,
       initialStateSha256: training.initialStateSha256,
       proximalMu: training.fedproxMu ?? 0,
       dataSource: dataSourceOf(training),
-      ...(local.batchOrder === BatchOrder.SEEDED_PERMUTATION_V1
-        ? { minibatch: { seed: (contract.seed ?? 0n).toString() } } : {}),
+      ...(local.batchOrder === BatchOrder.SEEDED_PERMUTATION_V1 ? { minibatch: { seed } } : {}),
+      ...(adam ? { adam: { beta1: adam.beta1, beta2: adam.beta2, epsilon: adam.epsilon } } : {}),
+      ...(training.dropout.length > 0 ? { dropout: { rates: training.dropout.map(d => d.rate), seed } } : {}),
     },
   };
+}
+
+/** Why this app cannot draw the contract's dropout masks, or undefined when it can (or the model has no dropout). */
+function unsupportedDropout(training: ModelTraining): string | undefined {
+  if (training.dropout.some(d => d.masks !== DropoutMasks.SEEDED_V1)) {
+    return 'This run draws dropout masks in a way this app cannot reproduce.';
+  }
+  return undefined;
 }
 
 /**
@@ -245,6 +272,10 @@ function projectDeComFL(contract: ExecutionContract, contractId: string, trainin
   if (local.optimizer.case !== 'zerothOrderSgd') {
     return refuse('UNSUPPORTED_OPTIMIZER', 'This DeComFL run does not state zeroth-order training.');
   }
+  if (training.dropout.length > 0) {
+    return refuse('UNSUPPORTED_DROPOUT', 'This DeComFL run states dropout, which this app\'s zeroth-order training '
+      + 'draws no masks for.');
+  }
   const zo = local.optimizer.value;
   if (zo.estimator !== GradientEstimator.ESTIMATOR_FORWARD) {
     return refuse('UNSUPPORTED_OPTIMIZER', 'This run uses a gradient estimator this app does not implement; it '
@@ -279,13 +310,19 @@ function projectDeComFL(contract: ExecutionContract, contractId: string, trainin
 
 /** Why this app's trainer cannot run the contract's optimizer, or undefined when it can. */
 function unsupportedOptimizer(local: LocalTraining): string | undefined {
-  if (local.optimizer.case !== 'sgd') {
-    return `This run trains with ${local.optimizer.case ?? 'no'} optimizer; this app implements plain SGD.`;
-  }
-  const sgd = local.optimizer.value;
-  if (sgd.momentum !== 0 || sgd.dampening !== 0 || sgd.weightDecay !== 0 || sgd.nesterov !== false) {
-    return 'This run trains with SGD settings this app implements no state for (momentum, dampening, weight '
-      + 'decay or Nesterov).';
+  if (local.optimizer.case === 'sgd') {
+    const sgd = local.optimizer.value;
+    if (sgd.momentum !== 0 || sgd.dampening !== 0 || sgd.weightDecay !== 0 || sgd.nesterov !== false) {
+      return 'This run trains with SGD settings this app implements no state for (momentum, dampening, weight '
+        + 'decay or Nesterov).';
+    }
+  } else if (local.optimizer.case === 'adam') {
+    const adam = local.optimizer.value;
+    if ((adam.weightDecay ?? 0) !== 0 || adam.amsgrad === true) {
+      return 'This run trains with Adam settings this app does not implement (weight decay or AMSGrad).';
+    }
+  } else {
+    return `This run trains with ${local.optimizer.case ?? 'no'} optimizer; this app implements SGD and Adam.`;
   }
   if (local.gradientClipNorm !== undefined) {
     return 'This run clips gradients, which this app does not implement.';

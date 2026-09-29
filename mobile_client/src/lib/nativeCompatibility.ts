@@ -2,7 +2,7 @@ import type { RuntimeCompatibility } from './nativeCore';
 
 // Bump when the JavaScript/native execution surface changes incompatibly. This is deliberately
 // separate from the FL server protocol, which is negotiated during registration.
-export const BRIDGE_ABI_VERSION = 3;
+export const BRIDGE_ABI_VERSION = 4;
 export const SERVER_PROTOCOL_VERSION = 2;
 
 export class NativeCompatibilityError extends Error {

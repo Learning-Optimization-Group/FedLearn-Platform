@@ -28,6 +28,12 @@ const CFG: RoundConfig = {
   proximalMu: 0,
   batchSize: 0,
   batchSeed: '',
+  optimizer: 'sgd',
+  adamBeta1: 0.9,
+  adamBeta2: 0.999,
+  adamEpsilon: 1e-8,
+  dropoutRates: [],
+  dropoutSeed: '',
 };
 
 const POLICY: ResiliencePolicy = {

@@ -24,7 +24,7 @@ jest.mock('../lib/nativeCore', () => ({
     runDeComFLRound: jest.fn(),
     qualifyTrainable: jest.fn(),
     runFedAvgRound: jest.fn(),
-    getRuntimeCompatibility: jest.fn().mockResolvedValue({ bridgeAbiVersion: 3, protocolVersion: 2 }),
+    getRuntimeCompatibility: jest.fn().mockResolvedValue({ bridgeAbiVersion: 4, protocolVersion: 2 }),
   },
 }));
 
@@ -171,6 +171,46 @@ describe('runTrainingLoop — the execution contract decides', () => {
     });
 
     expect(runFedAvgRound.mock.calls[0][1]).toMatchObject({ strategy: 'FedProx', learningRate: 0.01, proximalMu: 0.1 });
+  });
+
+  test('passes SGD and no dropout for a contract that states them', async () => {
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce(STAGED_BUNDLE);
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    const { getServerStatus, runFedAvgRound } = oneRound();
+
+    await runTrainingLoop(joined(), hooks, {
+      policy: POLICY,
+      ops: { getServerStatus, runFedAvgRound, loadSubmittedRound: async () => null, saveSubmittedRound: async () => {} },
+    });
+
+    expect(runFedAvgRound.mock.calls[0][1]).toMatchObject({ optimizer: 'sgd', dropoutRates: [], dropoutSeed: '' });
+  });
+
+  // Stage 4 S4: the MLP's Adam and its seeded dropout masks reach the native round exactly as the contract states.
+  test('passes the contract\'s Adam and dropout layers to the native round', async () => {
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce(STAGED_BUNDLE);
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    const { getServerStatus, runFedAvgRound } = oneRound();
+    const contract = contractJson() as {
+      seed?: string; modelTraining: { dropout?: unknown[]; localTraining: Record<string, unknown> } };
+    delete contract.modelTraining.localTraining.sgd;
+    contract.modelTraining.localTraining.adam = {
+      learningRate: 0.001, beta1: 0.9, beta2: 0.999, epsilon: 1e-8, weightDecay: 0, amsgrad: false };
+    contract.modelTraining.dropout = [
+      { module: 'drop1', rate: 0.3, masks: 'DROPOUT_MASKS_SEEDED_V1' },
+      { module: 'drop2', rate: 0.3, masks: 'DROPOUT_MASKS_SEEDED_V1' },
+    ];
+    contract.seed = '18446744073709551615';
+
+    await runTrainingLoop(joined({ executionContract: contract }), hooks, {
+      policy: POLICY,
+      ops: { getServerStatus, runFedAvgRound, loadSubmittedRound: async () => null, saveSubmittedRound: async () => {} },
+    });
+
+    expect(runFedAvgRound.mock.calls[0][1]).toMatchObject({
+      learningRate: 0.001, optimizer: 'adam', adamBeta1: 0.9, adamBeta2: 0.999, adamEpsilon: 1e-8,
+      dropoutRates: [0.3, 0.3], dropoutSeed: '18446744073709551615',
+    });
   });
 
   test('runs a DeComFL contract through the DeComFL round, with the contract\'s own training', async () => {
