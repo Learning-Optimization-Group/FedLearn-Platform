@@ -9,6 +9,7 @@
 
 #include "fedlearn/BatchOrder.h"
 #include "fedlearn/DeComFLClient.h"
+#include "fedlearn/DropoutMasks.h"
 #include "fedlearn/EtZeroOrder.h"
 #include "fedlearn/RandnEngine.h"
 
@@ -249,7 +250,8 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
                                             const std::string& clientId, const DataBatch& batch,
                                             int numLocalSteps, double learningRate,
                                             bool requireServerConfig, double proximalMu,
-                                            const LocalBatching& batching) {
+                                            const LocalBatching& batching, const LocalOptimizer& optimizer,
+                                            const DropoutSpec& dropout) {
   RoundOutcome out;
   if (batching.batchSize < 0 || (batching.seededPermutation && batching.batchSize == 0)) {
     throw std::runtime_error("invalid first-order batch_size");
@@ -312,6 +314,44 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
 
   const float lr = static_cast<float>(learningRate);
   const float mu = static_cast<float>(proximalMu);
+  if (optimizer.adam && proximalMu > 0) {
+    throw std::runtime_error("FedProx with Adam is not implemented on this device");
+  }
+  if (optimizer.adam) model.resetOptimizerState();  // the laptop creates a fresh Adam every round
+  const AdamSettings adam{learningRate, optimizer.beta1, optimizer.beta2, optimizer.epsilon};
+  // Each dropout layer's mask input shape, from the program: [batch, activation dims...].
+  std::vector<std::vector<int64_t>> maskShapes;
+  if (!dropout.rates.empty()) {
+    maskShapes = model.extraInputShapes();
+    if (maskShapes.size() != dropout.rates.size()) {
+      throw std::runtime_error("the training program takes " + std::to_string(maskShapes.size()) +
+                               " dropout masks, but the contract states " + std::to_string(dropout.rates.size()) +
+                               " dropout layers");
+    }
+  }
+  uint64_t step = 0;
+  std::vector<std::vector<float>> maskData(maskShapes.size());
+  std::vector<InputTensor> masks(maskShapes.size());
+  // One local SGD step: the contract's optimizer, with this step's dropout masks when the model has dropout.
+  const auto trainOne = [&](const float* stepX, const std::vector<int64_t>& stepShape, const int64_t* stepY,
+                            int64_t rows) {
+    for (size_t l = 0; l < maskShapes.size(); ++l) {
+      int64_t perExample = 1;
+      for (size_t d = 1; d < maskShapes[l].size(); ++d) perExample *= maskShapes[l][d];
+      maskData[l] = dropoutMask(static_cast<uint64_t>(rows * perExample), dropout.rates[l], dropout.seed,
+                                static_cast<uint64_t>(currentRound), step, l);
+      masks[l].data = maskData[l].data();
+      masks[l].shape = maskShapes[l];
+      masks[l].shape[0] = rows;
+    }
+    const std::vector<InputTensor>* extra = masks.empty() ? nullptr : &masks;
+    if (optimizer.adam) {
+      model.trainStepAdam(stepX, stepShape, stepY, rows, adam, extra);
+    } else {
+      model.trainStep(stepX, stepShape, stepY, rows, lr, proximalMu > 0 ? &anchor : nullptr, mu, extra);
+    }
+    ++step;
+  };
   // One example's feature count: the product of the input shape past the example dimension.
   int64_t rowWidth = 1;
   for (size_t d = 1; d < batch.inputShape.size(); ++d) rowWidth *= batch.inputShape[d];
@@ -324,8 +364,7 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
         out.note = "abort during local SGD";
         return out;
       }
-      model.trainStep(batch.inputs, batch.inputShape, batch.targets, batch.numSamples, lr,
-                      proximalMu > 0 ? &anchor : nullptr, mu);
+      trainOne(batch.inputs, batch.inputShape, batch.targets, batch.numSamples);
       continue;
     }
     // Epoch k: gather each minibatch's rows, in the contract's order, into one contiguous buffer.
@@ -348,7 +387,7 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
       }
       std::vector<int64_t> shape = batch.inputShape;
       shape[0] = n;
-      model.trainStep(xs.data(), shape, ys.data(), n, lr, proximalMu > 0 ? &anchor : nullptr, mu);
+      trainOne(xs.data(), shape, ys.data(), n);
     }
   }
 

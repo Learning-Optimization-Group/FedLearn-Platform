@@ -12,6 +12,8 @@ owns and perturbs the flat vector. Validated toolchain: torch 2.12.0 + executorc
 """
 from __future__ import annotations
 
+import copy
+
 import torch
 import torch.nn as nn
 from torch.func import functional_call
@@ -158,6 +160,71 @@ class _TrainingGraph(nn.Module):
     def forward(self, x: torch.Tensor, y: torch.Tensor):
         out = self.base(x)
         return self.loss(out, y), out.detach().argmax(1)
+
+
+class _DropoutMaskSlot(nn.Module):
+    """Stands in for an nn.Dropout in a mobile training program: multiplies by the mask the step was given."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.mask = None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x * self.mask
+
+
+class _MaskedTrainingGraph(nn.Module):
+    """forward(x, y, masks) -> (loss, prediction), with every nn.Dropout replaced by multiplication with a mask input.
+
+    The masks (one per dropout layer, in named_modules() order, each shaped like that layer's activation) come from
+    the contract's DROPOUT_MASKS_SEEDED_V1 stream, so a device's step is reproducible; torch's own dropout RNG is not.
+    """
+
+    def __init__(self, base: nn.Module):
+        super().__init__()
+        self.base = copy.deepcopy(base)
+        self.slots: list[tuple[str, _DropoutMaskSlot]] = []
+        for name, module in list(self.base.named_modules()):
+            if isinstance(module, nn.Dropout):
+                parent_name, _, child = name.rpartition(".")
+                parent = self.base.get_submodule(parent_name) if parent_name else self.base
+                slot = _DropoutMaskSlot()
+                setattr(parent, child, slot)
+                self.slots.append((name, slot))
+        self.loss = nn.CrossEntropyLoss()
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor, masks: tuple[torch.Tensor, ...]):
+        for (_, slot), mask in zip(self.slots, masks):
+            slot.mask = mask
+        out = self.base(x)
+        return self.loss(out, y), out.detach().argmax(1)
+
+
+def dropout_layers(model: nn.Module) -> list[tuple[str, float]]:
+    """The model's dropout layers in forward (named_modules) order, with their rates: what the contract states."""
+    return [(name, float(m.p)) for name, m in model.named_modules() if isinstance(m, nn.Dropout)]
+
+
+def export_masked_trainable_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, torch.Tensor],
+                                mask_shapes: list[tuple[int, ...]], max_batch: int | None = None) -> bytes:
+    """A trainable graph whose dropout layers take their masks as inputs: forward(x, y, masks).
+
+    ``mask_shapes`` are the per-example activation shapes of the dropout layers, in dropout_layers() order; the batch
+    dimension is dynamic like x's when ``max_batch`` is given. Frozen params are baked as in export_trainable_pte.
+    """
+    from executorch.exir import to_edge
+    from torch.export.experimental import _export_forward_backward
+
+    wrapper = _MaskedTrainingGraph(model)
+    if len(wrapper.slots) != len(mask_shapes):
+        raise ValueError(f"the model has {len(wrapper.slots)} dropout layers, not {len(mask_shapes)}")
+    x, y = example_inputs
+    masks = tuple(torch.ones(x.shape[0], *shape) for shape in mask_shapes)
+    batch = _batch_dim(max_batch)
+    dynamic = None if batch is None else ({0: batch}, {0: batch}, tuple({0: batch} for _ in masks))
+    ep = export(wrapper, (x, y, masks), strict=True, dynamic_shapes=dynamic)
+    ep = _export_forward_backward(ep)
+    return to_edge(ep).to_executorch().buffer
 
 
 def training_trainable_names(model: nn.Module) -> list[str]:

@@ -149,7 +149,8 @@ std::vector<float> TrainableExecutorchModel::getFlatParams() const {
 }
 
 float TrainableExecutorchModel::forwardBackward(const float* x, const std::vector<int64_t>& xShape,
-                                                const int64_t* y, int64_t n) {
+                                                const int64_t* y, int64_t n,
+                                                const std::vector<InputTensor>* extra) {
   std::vector<SizesType> xSizes;
   xSizes.reserve(xShape.size());
   for (int64_t d : xShape) xSizes.push_back(toSize(d));
@@ -159,7 +160,18 @@ float TrainableExecutorchModel::forwardBackward(const float* x, const std::vecto
   auto tX = make_tensor_ptr(xSizes, const_cast<float*>(x), ScalarType::Float);
   auto tY = make_tensor_ptr(ySizes, const_cast<int64_t*>(y), ScalarType::Long);
 
-  auto res = impl_->mod->execute_forward_backward("forward", {*tX, *tY});
+  // The extra inputs (masks) are aliased like x and y; their TensorPtrs must outlive the call.
+  std::vector<executorch::extension::TensorPtr> extraTensors;
+  std::vector<EValue> inputs{*tX, *tY};
+  if (extra != nullptr) {
+    for (const auto& in : *extra) {
+      std::vector<SizesType> sizes;
+      for (int64_t d : in.shape) sizes.push_back(toSize(d));
+      extraTensors.push_back(make_tensor_ptr(sizes, const_cast<float*>(in.data), ScalarType::Float));
+      inputs.emplace_back(*extraTensors.back());
+    }
+  }
+  auto res = impl_->mod->execute_forward_backward("forward", inputs);
   if (!res.ok()) fail("execute_forward_backward failed", res.error());
   const auto& outs = res.get();
   if (outs.empty() || !outs[0].isTensor()) {
@@ -174,12 +186,13 @@ float TrainableExecutorchModel::forwardBackward(const float* x, const std::vecto
 
 float TrainableExecutorchModel::trainStep(const float* x, const std::vector<int64_t>& xShape,
                                           const int64_t* y, int64_t n, float lr,
-                                          const std::vector<float>* proximalAnchor, float proximalMu) {
+                                          const std::vector<float>* proximalAnchor, float proximalMu,
+                                          const std::vector<InputTensor>* extra) {
   const bool proximal = proximalAnchor != nullptr && proximalMu != 0.0f;
   if (proximal && static_cast<int64_t>(proximalAnchor->size()) != flatDim()) {
     throw std::runtime_error("TrainableExecutorchModel: proximal anchor size != flatDim()");
   }
-  const float loss = forwardBackward(x, xShape, y, n);
+  const float loss = forwardBackward(x, xShape, y, n, extra);
 
   // In-place SGD: p <- p - lr * grad(p) for every trainable param — exactly torch.optim.SGD(lr) with
   // no momentum/weight-decay (the FedAvg client). Gradients are fresh from THIS forward_backward.
@@ -222,12 +235,13 @@ void TrainableExecutorchModel::resetOptimizerState() {
 }
 
 float TrainableExecutorchModel::trainStepAdam(const float* x, const std::vector<int64_t>& xShape, const int64_t* y,
-                                              int64_t n, const AdamSettings& adam) {
+                                              int64_t n, const AdamSettings& adam,
+                                              const std::vector<InputTensor>* extra) {
   if (!(adam.learningRate > 0) || !(adam.beta1 >= 0 && adam.beta1 < 1) || !(adam.beta2 >= 0 && adam.beta2 < 1) ||
       !(adam.epsilon > 0)) {
     throw std::runtime_error("TrainableExecutorchModel: invalid Adam settings");
   }
-  const float loss = forwardBackward(x, xShape, y, n);
+  const float loss = forwardBackward(x, xShape, y, n, extra);
   if (impl_->adamStep == 0) {
     impl_->adamM.assign(impl_->names.size(), {});
     impl_->adamV.assign(impl_->names.size(), {});
@@ -273,6 +287,20 @@ float TrainableExecutorchModel::trainStepAdam(const float* x, const std::vector<
     }
   }
   return loss;
+}
+
+std::vector<std::vector<int64_t>> TrainableExecutorchModel::extraInputShapes() const {
+  auto meta = impl_->mod->method_meta("forward");
+  if (!meta.ok()) fail("method_meta(forward) failed", meta.error());
+  std::vector<std::vector<int64_t>> shapes;
+  for (size_t i = 2; i < meta->num_inputs(); ++i) {
+    auto tensor = meta->input_tensor_meta(i);
+    if (!tensor.ok()) fail("input_tensor_meta failed", tensor.error());
+    std::vector<int64_t> dims;
+    for (auto d : tensor->sizes()) dims.push_back(static_cast<int64_t>(d));
+    shapes.push_back(dims);
+  }
+  return shapes;
 }
 
 }  // namespace fedlearn

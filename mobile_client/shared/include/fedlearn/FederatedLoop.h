@@ -33,6 +33,24 @@ struct LocalBatching {
   uint64_t seed = 0;  // ExecutionContract.seed (0 when absent)
 };
 
+/** The contract's local optimizer: SGD at the round's learning rate, or Adam (fresh each round) at it. */
+struct LocalOptimizer {
+  bool adam = false;
+  double beta1 = 0.9;
+  double beta2 = 0.999;
+  double epsilon = 1e-8;
+};
+
+/**
+ * The contract's dropout layers (ModelTraining.dropout): their rates in forward order and the run seed their
+ * DROPOUT_MASKS_SEEDED_V1 masks are drawn with. Empty for a model without dropout. The program must take one mask
+ * input per layer, after (x, y).
+ */
+struct DropoutSpec {
+  std::vector<double> rates;
+  uint64_t seed = 0;
+};
+
 }  // namespace fedlearn
 
 namespace fedlearn {
@@ -77,7 +95,8 @@ class FederatedLoop {
                                const std::string& clientId, const DataBatch& batch,
                                int numLocalSteps, double learningRate,
                                bool requireServerConfig = false, double proximalMu = 0.0,
-                               const LocalBatching& batching = {});
+                               const LocalBatching& batching = {}, const LocalOptimizer& optimizer = {},
+                               const DropoutSpec& dropout = {});
 #endif
 
  private:
