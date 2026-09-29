@@ -1,0 +1,20 @@
+{
+  "description": "First-order minibatch golden (Stage 3 C2): LocalTrainer.fit on minibatch_inputs/targets in BATCH_ORDER_SEEDED_PERMUTATION_V1 order, one SGD step per minibatch, final batch kept.",
+  "torch_version": "2.12.0",
+  "examples": 20,
+  "batch_size": 8,
+  "local_epochs": 2,
+  "learning_rate": 0.1,
+  "seed": 42,
+  "round": 1,
+  "initial_flat_file": "zo_flat.f32",
+  "inputs_file": "minibatch_inputs.f32",
+  "targets_file": "minibatch_targets.i64",
+  "final_flat_file": "fedavg_minibatch_final.f32",
+  "final_flat_sha256": "b89026d806b4206243e7dc7424ae458989054708ab9850dac10cb4ca150a221f",
+  "control_separation": {
+    "sequential_order": 0.029378920793533325,
+    "one_full_batch": 0.0422796867787838,
+    "epoch_zero_order_every_epoch": 0.005540519952774048
+  }
+}

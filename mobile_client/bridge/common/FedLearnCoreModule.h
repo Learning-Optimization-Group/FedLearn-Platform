@@ -53,7 +53,7 @@ namespace react = facebook::react;
 // The protocol version this client speaks (must equal the server's; RegisterClient rejects on
 // mismatch — E1 / 04 §10.1.2). Bump on any breaking contract change.
 inline constexpr int kProtocolVersion = 2;
-inline constexpr int kBridgeAbiVersion = 1;
+inline constexpr int kBridgeAbiVersion = 2;
 
 class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreModule> {
  public:

@@ -42,6 +42,12 @@ export interface RoundConfig {
   // FedProx's proximal coefficient (execution contract); 0 for every other strategy. A first-order round adds
   // proximalMu * (w - w_global) to each gradient and refuses a server whose proximal_mu differs.
   proximalMu: number;
+  // First-order minibatching (execution contract local_training). batchSize 0 trains the whole dataset as one step
+  // per epoch; otherwise each epoch takes one step per batchSize minibatch, visiting the examples in
+  // BATCH_ORDER_SEEDED_PERMUTATION_V1 order seeded by batchSeed (the contract's seed as a decimal string, since it is
+  // 64-bit). Added in bridge ABI 2.
+  batchSize: number;
+  batchSeed: string;
   seed: number; // optimizer seed (distinct from data seed)
   torchVersion: string; // must match server's GetDeComFLConfigResponse.torch_version
 }

@@ -316,7 +316,27 @@ def test_a_run_on_participants_own_data_states_a_local_snapshot(strategy):
     local = execution_plan.resolve_model_training("TINYNET_GOLDEN", strategy, "FULL", data_source="LOCAL_SNAPSHOT")
     assert local.data.source == pb.DATA_SOURCE_LOCAL_SNAPSHOT
     local.data.source = pb.DATA_SOURCE_FIXTURE
+    local.local_training.batch_order = fixture.local_training.batch_order
     assert local == fixture
+
+
+@pytest.mark.parametrize("strategy", ["FedAvg", "FedOpt", "Robust", "FedProx"])
+def test_a_first_order_run_on_participants_own_data_trains_in_the_reproducible_batch_order(strategy):
+    """A device's own dataset can exceed one batch; the seeded order keeps every multi-batch update replayable."""
+    local = execution_plan.resolve_model_training("TINYNET_GOLDEN", strategy, "FULL", data_source="LOCAL_SNAPSHOT")
+    assert local.local_training.batch_order == pb.BATCH_ORDER_SEEDED_PERMUTATION_V1
+    assert local.local_training.drop_last is False
+
+
+def test_a_fixture_run_keeps_the_laptops_shuffled_order():
+    fixture = execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL")
+    assert fixture.local_training.batch_order == pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH
+
+
+def test_a_decomfl_run_on_participants_own_data_keeps_one_batch():
+    """The phone trains DeComFL's dataset as one batch, so its order does not change to the minibatch one."""
+    local = execution_plan.resolve_model_training("TINYNET_GOLDEN", "DeComFL", "FULL", data_source="LOCAL_SNAPSHOT")
+    assert local.local_training.batch_order == pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH
 
 
 def test_an_unknown_data_source_is_refused():

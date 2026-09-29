@@ -38,7 +38,10 @@ export function TrainingDataCard({
       <Text className="text-label font-sans font-semibold text-fg">This run trains on your own data</Text>
       <Text className="mt-1 text-caption font-sans text-fg-muted">
         {`Each example is ${plan.inputWidth} numbers with one label: ${plan.classNames.join(', ')}. `
-          + `At most ${plan.batchSize} examples for now. Your data stays on this phone.`}
+          + (plan.maxExamples === null
+            ? `Any number of examples, trained in batches of ${plan.batchSize}. `
+            : `At most ${plan.maxExamples} examples. `)
+          + 'Your data stays on this phone.'}
       </Text>
 
       {rows.map(({ d, reasons }) => {

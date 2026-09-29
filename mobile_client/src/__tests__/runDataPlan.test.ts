@@ -110,10 +110,22 @@ describe('datasetFit', () => {
     expect(datasetFit(other, plan)).toEqual(['different classes', 'different input size', 'different class count']);
   });
 
-  // The native trainer takes one whole-dataset step per epoch until minibatching lands (Stage 3 slice C).
-  test('a dataset larger than one batch is not usable yet', () => {
+  // A contract without the reproducible batch order trains one whole-dataset step per epoch, so a device dataset
+  // must fit in one batch.
+  test('a dataset larger than one batch is not usable on a single-batch contract', () => {
+    expect(plan.maxExamples).toBe(plan.batchSize);
     expect(datasetFit({ ...SNAPSHOT, recordCount: plan.batchSize + 1 }, plan))
       .toEqual([`more than ${plan.batchSize} examples`]);
+  });
+
+  test('a seeded-minibatch contract takes a dataset of any size', async () => {
+    const lt = (contract: Record<string, unknown>) =>
+      (contract as { modelTraining: { localTraining: Record<string, unknown> } }).modelTraining.localTraining;
+    const seeded = contractJson('DATA_SOURCE_LOCAL_SNAPSHOT');
+    lt(seeded).batchOrder = 'BATCH_ORDER_SEEDED_PERMUTATION_V1';
+    const own = (await loadRunDataPlan(joined({ executionContract: seeded }))) as typeof plan;
+    expect(own.maxExamples).toBeNull();
+    expect(datasetFit({ ...SNAPSHOT, recordCount: 500 }, own)).toEqual([]);
   });
 });
 

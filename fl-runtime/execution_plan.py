@@ -254,6 +254,10 @@ def resolve_model_training(recipe_key: str, strategy: str, training_arm: str,
     plan = pb.ModelTraining()
     plan.CopyFrom(build(initial_state_path))
     plan.data.source = DATA_SOURCES[data_source]
+    # A device's own dataset can exceed one batch. The phone trains a first-order update in the reproducible seeded
+    # order (so every multi-batch update stays replayable) and DeComFL as one batch, so only first-order plans change.
+    if data_source == "LOCAL_SNAPSHOT" and plan.update_protocol == pb.UPDATE_TRAINABLE_STATE_F32:
+        plan.local_training.batch_order = pb.BATCH_ORDER_SEEDED_PERMUTATION_V1
     return plan
 
 

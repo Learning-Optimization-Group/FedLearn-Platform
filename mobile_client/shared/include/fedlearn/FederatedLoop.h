@@ -21,6 +21,22 @@
 
 namespace fedlearn {
 
+/**
+ * How a first-order round batches the local dataset (the contract's local_training). The default, batchSize 0, is one
+ * whole-dataset step per epoch: what every single-batch contract states, and what the loop always did. With
+ * seededPermutation (BATCH_ORDER_SEEDED_PERMUTATION_V1), each epoch visits the examples in the order drawn from
+ * (seed, the server's round, epoch) and takes one step per batchSize minibatch, keeping the final partial one.
+ */
+struct LocalBatching {
+  int64_t batchSize = 0;
+  bool seededPermutation = false;
+  uint64_t seed = 0;  // ExecutionContract.seed (0 when absent)
+};
+
+}  // namespace fedlearn
+
+namespace fedlearn {
+
 struct RoundOutcome {
   bool ranTraining = false;   // true if this client trained + submitted this round
   bool shouldStop = false;    // true if the loop must stop (server should_stop / deadline / terminal)
@@ -55,11 +71,13 @@ class FederatedLoop {
   // execution contract; per-round server settings must equal them or the round is refused before upload.
   // FedOpt additionally requires the server to send them. proximalMu is the contract's FedProx
   // coefficient (0 for every other strategy): each step adds mu * (w - w_global), with w_global the
-  // downloaded model, and the server's proximal_mu (absent = 0) must equal it.
+  // downloaded model, and the server's proximal_mu (absent = 0) must equal it. batching is the contract's minibatching
+  // (LocalBatching); the update is always weighted by the whole dataset's example count.
   RoundOutcome firstOrderRound(TrainableExecutorchModel& model, const std::string& runId,
                                const std::string& clientId, const DataBatch& batch,
                                int numLocalSteps, double learningRate,
-                               bool requireServerConfig = false, double proximalMu = 0.0);
+                               bool requireServerConfig = false, double proximalMu = 0.0,
+                               const LocalBatching& batching = {});
 #endif
 
  private:

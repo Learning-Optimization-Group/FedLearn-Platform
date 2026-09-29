@@ -39,6 +39,8 @@ struct RoundConfig {
   std::string torchVersion;        // server's expected torch version (RNG-parity gate)
   std::string initialStateSha256;  // the run's initial trainable state (execution contract)
   double proximalMu = 0.0;         // FedProx's coefficient (execution contract); 0 otherwise
+  int64_t batchSize = 0;           // first-order minibatch size; 0 = the whole dataset as one step per epoch
+  std::string batchSeed;           // decimal uint64 seeding BATCH_ORDER_SEEDED_PERMUTATION_V1; empty = not seeded
 };
 
 struct RoundResult {

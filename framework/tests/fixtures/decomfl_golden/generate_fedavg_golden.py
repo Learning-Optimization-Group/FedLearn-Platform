@@ -57,6 +57,83 @@ class _OneBatchLoader:
         yield self._batch
 
 
+class _SeededMinibatchLoader:
+    """Yields BATCH_ORDER_SEEDED_PERMUTATION_V1 minibatches: each iteration (one LocalTrainer epoch) draws the next
+    epoch's permutation and slices it into ``batch_size`` batches, keeping the last. ``epoch_offset=None`` pins every
+    epoch to epoch 0's order (a plausible implementation bug the golden must be able to reject)."""
+
+    def __init__(self, inputs, targets, batch_size, seed, round_, epoch_offset=0, order=None):
+        self._x, self._y = inputs, targets
+        self._batch_size, self._seed, self._round = batch_size, seed, round_
+        self._epoch, self._pin = 0, epoch_offset is None
+        self._order = order  # a fixed order for every epoch (the sequential control), or None for the seeded one
+        self.dataset = list(range(int(inputs.shape[0])))
+
+    def __iter__(self):
+        from fedlearn.contract.batch_order import batches, seeded_permutation
+        n = int(self._x.shape[0])
+        epoch = 0 if self._pin else self._epoch
+        order = self._order if self._order is not None else seeded_permutation(n, self._seed, self._round, epoch)
+        self._epoch += 1
+        for idx in batches(order, self._batch_size):
+            yield self._x[idx], self._y[idx]
+
+
+# Stage 3 slice C2: a device dataset larger than one batch. 20 examples in batches of 8 (8, 8, then a kept 4) for
+# MINIBATCH_EPOCHS epochs, in the contract's seeded order for (MINIBATCH_SEED, MINIBATCH_ROUND).
+MINIBATCH_EXAMPLES, MINIBATCH_SIZE, MINIBATCH_EPOCHS = 20, 8, 2
+MINIBATCH_SEED, MINIBATCH_ROUND = 42, 1
+
+
+def minibatch_dataset() -> tuple[torch.Tensor, torch.Tensor]:
+    g = torch.Generator().manual_seed(7)
+    x = torch.randn(MINIBATCH_EXAMPLES, 4, generator=g, dtype=torch.float32)
+    y = torch.randint(0, 3, (MINIBATCH_EXAMPLES,), generator=g, dtype=torch.int64)
+    return x, y
+
+
+def compute_minibatch_endpoint(loader) -> np.ndarray:
+    net = build_initial_net()
+    LocalTrainer(net, loader, device="cpu").fit(
+        None, {"learning_rate": str(LR), "local_epochs": str(MINIBATCH_EPOCHS), "proximal_mu": "0"})
+    return flat_params(net).detach().cpu().numpy().astype("<f4")
+
+
+def write_minibatch_endpoint() -> None:
+    """The native minibatch loop must land here; the controls are what a wrong batch order would produce."""
+    x, y = minibatch_dataset()
+    x.numpy().astype("<f4").tofile(os.path.join(HERE, "minibatch_inputs.f32"))
+    y.numpy().astype("<i8").tofile(os.path.join(HERE, "minibatch_targets.i64"))
+    seeded = compute_minibatch_endpoint(
+        _SeededMinibatchLoader(x, y, MINIBATCH_SIZE, MINIBATCH_SEED, MINIBATCH_ROUND))
+    controls = {
+        "sequential_order": compute_minibatch_endpoint(_SeededMinibatchLoader(
+            x, y, MINIBATCH_SIZE, MINIBATCH_SEED, MINIBATCH_ROUND, order=list(range(MINIBATCH_EXAMPLES)))),
+        "one_full_batch": compute_minibatch_endpoint(_SeededMinibatchLoader(
+            x, y, MINIBATCH_EXAMPLES, MINIBATCH_SEED, MINIBATCH_ROUND)),
+        "epoch_zero_order_every_epoch": compute_minibatch_endpoint(_SeededMinibatchLoader(
+            x, y, MINIBATCH_SIZE, MINIBATCH_SEED, MINIBATCH_ROUND, epoch_offset=None)),
+    }
+    separations = {k: float(np.abs(v - seeded).max()) for k, v in controls.items()}
+    seeded.tofile(os.path.join(HERE, "fedavg_minibatch_final.f32"))
+    manifest = {
+        "description": "First-order minibatch golden (Stage 3 C2): LocalTrainer.fit on minibatch_inputs/targets in "
+                       "BATCH_ORDER_SEEDED_PERMUTATION_V1 order, one SGD step per minibatch, final batch kept.",
+        "torch_version": torch.__version__.split("+")[0],
+        "examples": MINIBATCH_EXAMPLES, "batch_size": MINIBATCH_SIZE, "local_epochs": MINIBATCH_EPOCHS,
+        "learning_rate": LR, "seed": MINIBATCH_SEED, "round": MINIBATCH_ROUND,
+        "initial_flat_file": "zo_flat.f32", "inputs_file": "minibatch_inputs.f32",
+        "targets_file": "minibatch_targets.i64", "final_flat_file": "fedavg_minibatch_final.f32",
+        "final_flat_sha256": hashlib.sha256(seeded.tobytes()).hexdigest(),
+        # How far each wrong batch order lands from the golden; the native test's tolerance must sit far below all.
+        "control_separation": separations,
+    }
+    with open(os.path.join(HERE, "fedavg_minibatch_manifest.json"), "w") as fh:
+        json.dump(manifest, fh, indent=2)
+        fh.write("\n")
+    print("minibatch endpoint: control separations", separations)
+
+
 def build_initial_net() -> "TinyNet":
     """manual_seed(0) TinyNet — fc1 == committed zo_flat.f32, fc2 frozen + deterministic."""
     torch.manual_seed(0)
@@ -269,6 +346,7 @@ def main() -> None:
 
     write_contract_endpoint(layout)
     write_fedprox_endpoint(layout, final_flat)
+    write_minibatch_endpoint()
 
     print(f"lr={LR} local_epochs={LOCAL_EPOCHS} d={d} torch={torch.__version__}")
     print("final_flat[:5] =", final_flat[:5].tolist())

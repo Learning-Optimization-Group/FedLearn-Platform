@@ -13,6 +13,7 @@
 #include <ReactCommon/TurboModuleUtils.h>  // react::createPromiseAsJSIValue, react::Promise (RN)
 
 #include "DeviceState.h"
+#include "fedlearn/BatchOrder.h"
 #include "fedlearn/DataLoader.h"
 #include "fedlearn/EvalMetrics.h"
 #include "fedlearn/ModelExecutionError.h"
@@ -135,6 +136,9 @@ RoundConfig roundConfigFromJs(jsi::Runtime& rt, const jsi::Object& o) {
   c.initialStateSha256 = initial.isString() ? initial.asString(rt).utf8(rt) : std::string();
   const jsi::Value proximal = o.getProperty(rt, "proximalMu");
   c.proximalMu = proximal.isNumber() ? proximal.asNumber() : 0.0;
+  // Bridge ABI 2: the contract's first-order minibatching. The seed crosses as a decimal string (64-bit).
+  c.batchSize = static_cast<int64_t>(o.getProperty(rt, "batchSize").asNumber());
+  c.batchSeed = o.getProperty(rt, "batchSeed").asString(rt).utf8(rt);
   c.seed = static_cast<int64_t>(o.getProperty(rt, "seed").asNumber());
   c.torchVersion = o.getProperty(rt, "torchVersion").asString(rt).utf8(rt);
   return c;
@@ -405,9 +409,13 @@ RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const
     // TRUE first-order (MO-4 lift): real backprop (firstOrderRound) + a WEIGHT-blob upload via
     // SubmitModelUpdateStream — what first-order servers aggregate. FedOpt and FedProx require server K/eta;
     // FedProx adds the contract's proximal term.
+    fedlearn::LocalBatching batching;
+    batching.batchSize = cfg.batchSize;
+    batching.seededPermutation = !cfg.batchSeed.empty();
+    batching.seed = batching.seededPermutation ? fedlearn::parseBatchSeed(cfg.batchSeed) : 0;
     fedlearn::RoundOutcome outcome = loop_->firstOrderRound(
         *trainableModel_, runId, clientId_, trainingBatch_, cfg.numLocalSteps, cfg.learningRate,
-        cfg.strategy == "FedOpt" || cfg.strategy == "FedProx", cfg.proximalMu);
+        cfg.strategy == "FedOpt" || cfg.strategy == "FedProx", cfg.proximalMu, batching);
     const auto t1 = std::chrono::steady_clock::now();
     if (outcome.shouldStop) throw std::runtime_error("STOP: " + outcome.note);
     RoundResult r;

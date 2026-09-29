@@ -18,8 +18,13 @@ export type RunDataPlan =
       classNames: string[];
       /** The width of one example, which an imported file's rows must have. */
       inputWidth: number;
-      /** The run's batch size; until minibatching lands a dataset must fit in one batch. */
+      /** The run's batch size. */
       batchSize: number;
+      /**
+       * The most examples a dataset may have: one batch when the contract trains the whole dataset as one step per
+       * epoch, or null when it trains in seeded minibatches (BATCH_ORDER_SEEDED_PERMUTATION_V1).
+       */
+      maxExamples: number | null;
     };
 
 /**
@@ -47,6 +52,7 @@ export async function loadRunDataPlan(joined: JoinedRun, ops?: ContractWaitOps):
     classNames,
     inputWidth: Number(requirement.inputShape[0]),
     batchSize: projection.batchSize,
+    maxExamples: projection.minibatch ? null : projection.batchSize,
   };
 }
 
@@ -62,7 +68,9 @@ const MISMATCH_LABELS: Record<string, string> = {
 export function datasetFit(snapshot: DatasetSnapshot, plan: RunDataPlan): string[] {
   if (plan.source !== 'LOCAL_SNAPSHOT') return [];
   const reasons = snapshotMismatches(snapshot, plan.requirement).map((m) => MISMATCH_LABELS[m] ?? m);
-  if (snapshot.recordCount > plan.batchSize) reasons.push(`more than ${plan.batchSize} examples`);
+  if (plan.maxExamples !== null && snapshot.recordCount > plan.maxExamples) {
+    reasons.push(`more than ${plan.maxExamples} examples`);
+  }
   return reasons;
 }
 

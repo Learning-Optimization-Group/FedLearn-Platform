@@ -23,7 +23,7 @@ jest.mock('../lib/nativeCore', () => ({
     getServerStatus: jest.fn(),
     runDeComFLRound: jest.fn(),
     runFedAvgRound: jest.fn(),
-    getRuntimeCompatibility: jest.fn().mockResolvedValue({ bridgeAbiVersion: 1, protocolVersion: 2 }),
+    getRuntimeCompatibility: jest.fn().mockResolvedValue({ bridgeAbiVersion: 2, protocolVersion: 2 }),
   },
 }));
 
@@ -335,6 +335,43 @@ describe('runTrainingLoop — the execution contract decides', () => {
     expect((provisionTrainingBundle as jest.Mock).mock.calls[0][2]).toEqual({ fixtureData: false });
     expect(nativeCore.setTrainingDataFromFiles).toHaveBeenCalledWith(DATASET.inputsPath, [6, 4], DATASET.targetsPath);
     expect(runFedAvgRound).toHaveBeenCalled();
+  });
+
+  function seededLocalSnapshotContract(): Record<string, unknown> {
+    const contract = localSnapshotContract() as { modelTraining: { localTraining: Record<string, unknown> } };
+    contract.modelTraining.localTraining.batchOrder = 'BATCH_ORDER_SEEDED_PERMUTATION_V1';
+    return contract as unknown as Record<string, unknown>;
+  }
+
+  test('trains a dataset larger than one batch in the contract\'s seeded minibatches', async () => {
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce({
+      ...STAGED_BUNDLE, inputsF32Path: undefined, targetsI64Path: undefined, inputShape: undefined });
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    const { getServerStatus, runFedAvgRound } = oneRound();
+
+    await runTrainingLoop(joined({ executionContract: seededLocalSnapshotContract() }), hooks, {
+      policy: POLICY,
+      ops: { getServerStatus, runFedAvgRound, loadSubmittedRound: async () => null, saveSubmittedRound: async () => {} },
+      dataset: { ...DATASET, recordCount: 20 },
+    });
+
+    expect(nativeCore.setTrainingDataFromFiles).toHaveBeenCalledWith(DATASET.inputsPath, [20, 4], DATASET.targetsPath);
+    expect(runFedAvgRound.mock.calls[0][1]).toMatchObject({ batchSize: 8, batchSeed: '42' });
+  });
+
+  test('trains a single-batch contract as one whole-dataset step, as before', async () => {
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce({
+      ...STAGED_BUNDLE, inputsF32Path: undefined, targetsI64Path: undefined, inputShape: undefined });
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    const { getServerStatus, runFedAvgRound } = oneRound();
+
+    await runTrainingLoop(joined({ executionContract: localSnapshotContract() }), hooks, {
+      policy: POLICY,
+      ops: { getServerStatus, runFedAvgRound, loadSubmittedRound: async () => null, saveSubmittedRound: async () => {} },
+      dataset: DATASET,
+    });
+
+    expect(runFedAvgRound.mock.calls[0][1]).toMatchObject({ batchSize: 0, batchSeed: '' });
   });
 
   test('still refuses a bound dataset larger than one batch', async () => {

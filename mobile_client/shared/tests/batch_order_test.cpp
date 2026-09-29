@@ -83,3 +83,13 @@ TEST(BatchOrder, TheUnbiasedDrawRejectsExactlyTheDrawsAboveItsLimit) {
   }
   EXPECT_EQ(seen, 2);
 }
+
+// The run seed crosses the JS bridge as a decimal string, because it is 64-bit and a JS number is not.
+TEST(BatchOrder, TheBridgeSeedParsesExactlyEveryUnsigned64BitValue) {
+  EXPECT_EQ(fedlearn::parseBatchSeed("0"), 0u);
+  EXPECT_EQ(fedlearn::parseBatchSeed("42"), 42u);
+  EXPECT_EQ(fedlearn::parseBatchSeed("18446744073709551615"), UINT64_MAX);
+  for (const char* bad : {"", "-1", "18446744073709551616", "4 2", "0x2A", "1e3", "999999999999999999999"}) {
+    EXPECT_THROW(fedlearn::parseBatchSeed(bad), std::invalid_argument) << bad;
+  }
+}

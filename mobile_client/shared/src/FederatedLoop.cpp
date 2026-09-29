@@ -3,9 +3,11 @@
 #include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <stdexcept>
 #include <vector>
 
+#include "fedlearn/BatchOrder.h"
 #include "fedlearn/DeComFLClient.h"
 #include "fedlearn/EtZeroOrder.h"
 #include "fedlearn/RandnEngine.h"
@@ -246,8 +248,15 @@ RoundOutcome FederatedLoop::fedAvgRound(ExecutorchModel& model, const std::strin
 RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, const std::string& runId,
                                             const std::string& clientId, const DataBatch& batch,
                                             int numLocalSteps, double learningRate,
-                                            bool requireServerConfig, double proximalMu) {
+                                            bool requireServerConfig, double proximalMu,
+                                            const LocalBatching& batching) {
   RoundOutcome out;
+  if (batching.batchSize < 0 || (batching.seededPermutation && batching.batchSize == 0)) {
+    throw std::runtime_error("invalid first-order batch_size");
+  }
+  if (batch.numSamples < 1 || batch.inputShape.empty() || batch.inputShape[0] != batch.numSamples) {
+    throw std::runtime_error("the local dataset's shape disagrees with its example count");
+  }
   if (net_.shouldStop()) {
     out.shouldStop = true;
     out.note = "abort flag set before round";
@@ -303,14 +312,44 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
 
   const float lr = static_cast<float>(learningRate);
   const float mu = static_cast<float>(proximalMu);
+  // One example's feature count: the product of the input shape past the example dimension.
+  int64_t rowWidth = 1;
+  for (size_t d = 1; d < batch.inputShape.size(); ++d) rowWidth *= batch.inputShape[d];
+  std::vector<float> xs;
+  std::vector<int64_t> ys;
   for (int k = 0; k < numLocalSteps; ++k) {
-    if (net_.shouldStop()) {
-      out.shouldStop = true;
-      out.note = "abort during local SGD";
-      return out;
+    if (!batching.seededPermutation) {
+      if (net_.shouldStop()) {
+        out.shouldStop = true;
+        out.note = "abort during local SGD";
+        return out;
+      }
+      model.trainStep(batch.inputs, batch.inputShape, batch.targets, batch.numSamples, lr,
+                      proximalMu > 0 ? &anchor : nullptr, mu);
+      continue;
     }
-    model.trainStep(batch.inputs, batch.inputShape, batch.targets, batch.numSamples, lr,
-                    proximalMu > 0 ? &anchor : nullptr, mu);
+    // Epoch k: gather each minibatch's rows, in the contract's order, into one contiguous buffer.
+    const auto order = seededPermutation(static_cast<uint64_t>(batch.numSamples), batching.seed,
+                                         static_cast<uint64_t>(currentRound), static_cast<uint64_t>(k));
+    for (const auto& rows : batches(order, static_cast<uint64_t>(batching.batchSize), /*dropLast=*/false)) {
+      if (net_.shouldStop()) {
+        out.shouldStop = true;
+        out.note = "abort during local SGD";
+        return out;
+      }
+      const auto n = static_cast<int64_t>(rows.size());
+      xs.resize(static_cast<size_t>(n * rowWidth));
+      ys.resize(static_cast<size_t>(n));
+      for (int64_t r = 0; r < n; ++r) {
+        const auto src = static_cast<int64_t>(rows[static_cast<size_t>(r)]);
+        std::memcpy(xs.data() + r * rowWidth, batch.inputs + src * rowWidth,
+                    static_cast<size_t>(rowWidth) * sizeof(float));
+        ys[static_cast<size_t>(r)] = batch.targets[src];
+      }
+      std::vector<int64_t> shape = batch.inputShape;
+      shape[0] = n;
+      model.trainStep(xs.data(), shape, ys.data(), n, lr, proximalMu > 0 ? &anchor : nullptr, mu);
+    }
   }
 
   mm_.setFlatParams(model.getFlatParams());   // updated (locally-advanced) weights back into the manager

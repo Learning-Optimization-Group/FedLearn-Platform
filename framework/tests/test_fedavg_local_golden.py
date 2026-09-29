@@ -108,3 +108,29 @@ def test_the_fedprox_golden_is_far_from_the_fedavg_golden_at_its_own_tolerance()
     separation = float(np.abs(prox - plain).max())
     assert separation == man["separation_from_fedavg"]
     assert separation >= 10 * man["endpoint_atol"]
+
+
+# Stage 3 C2: the minibatch golden the native minibatch loop replays.
+
+def _minibatch_manifest():
+    with open(os.path.join(GOLDEN_DIR, "fedavg_minibatch_manifest.json")) as fh:
+        return json.load(fh)
+
+
+def test_the_minibatch_endpoint_reproduces_its_golden():
+    """LocalTrainer.fit in the seeded batch order over the committed 20-example dataset lands on the golden."""
+    import generate_fedavg_golden as g
+    x, y = g.minibatch_dataset()
+    np.testing.assert_array_equal(x.numpy().astype("<f4"),
+                                  np.fromfile(os.path.join(GOLDEN_DIR, "minibatch_inputs.f32"), dtype="<f4").reshape(20, 4))
+    got = g.compute_minibatch_endpoint(g._SeededMinibatchLoader(x, y, g.MINIBATCH_SIZE, g.MINIBATCH_SEED,
+                                                                g.MINIBATCH_ROUND))
+    golden = np.fromfile(os.path.join(GOLDEN_DIR, "fedavg_minibatch_final.f32"), dtype="<f4")
+    assert np.abs(got - golden).max() < 1e-6
+
+
+def test_the_minibatch_golden_is_far_from_every_wrong_batch_order():
+    """The native test's 1e-5 tolerance must reject each plausible wrong order by at least tenfold."""
+    separations = _minibatch_manifest()["control_separation"]
+    assert set(separations) == {"sequential_order", "one_full_batch", "epoch_zero_order_every_epoch"}
+    assert min(separations.values()) > 10 * 1e-5

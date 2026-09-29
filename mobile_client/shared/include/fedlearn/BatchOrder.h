@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace fedlearn {
@@ -28,6 +29,9 @@ uint64_t splitMix(uint64_t z);
 
 /** The order in which a participant visits its n examples in this round's epoch. */
 std::vector<uint64_t> seededPermutation(uint64_t n, uint64_t seed, uint64_t round, uint64_t epoch);
+
+/** A decimal unsigned 64-bit seed as it crosses the JS bridge; throws std::invalid_argument on anything else. */
+uint64_t parseBatchSeed(const std::string& decimal);
 
 /** Consecutive batchSize slices of order; the last, shorter one is kept unless dropLast. */
 std::vector<std::vector<uint64_t>> batches(const std::vector<uint64_t>& order, uint64_t batchSize, bool dropLast);

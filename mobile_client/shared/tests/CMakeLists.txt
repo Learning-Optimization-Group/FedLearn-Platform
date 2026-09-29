@@ -51,6 +51,7 @@ if(FEDLEARN_BUILD_TRAINING)
     execution_contract_projection_test.cpp
     fedavg_firstorder_round_test.cpp
     dynamic_batch_training_test.cpp
+    minibatch_round_test.cpp
   )
 endif()
 

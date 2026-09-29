@@ -43,6 +43,18 @@ std::vector<uint64_t> seededPermutation(uint64_t n, uint64_t seed, uint64_t roun
   return order;
 }
 
+uint64_t parseBatchSeed(const std::string& decimal) {
+  if (decimal.empty() || decimal.size() > 20) throw std::invalid_argument("invalid batch seed");
+  uint64_t value = 0;
+  for (const char c : decimal) {
+    if (c < '0' || c > '9') throw std::invalid_argument("invalid batch seed");
+    const uint64_t digit = static_cast<uint64_t>(c - '0');
+    if (value > (UINT64_MAX - digit) / 10) throw std::invalid_argument("invalid batch seed");
+    value = value * 10 + digit;
+  }
+  return value;
+}
+
 std::vector<std::vector<uint64_t>> batches(const std::vector<uint64_t>& order, uint64_t batchSize, bool dropLast) {
   if (batchSize == 0) throw std::invalid_argument("batches: batchSize must be positive");
   std::vector<std::vector<uint64_t>> out;

@@ -4,6 +4,7 @@
 import { create, toJson } from '@bufbuild/protobuf';
 import {
   ArtifactBackend,
+  BatchOrder,
   ExecutionContractSchema,
   GradientEstimator,
   PerturbationRng,
@@ -190,6 +191,13 @@ function zeroth(contract: ExecutionContract) {
 }
 
 describe('the phone trains DeComFL from its contract', () => {
+  it('projects no minibatching for DeComFL, which trains its dataset as one batch', () => {
+    const contract = decomfl();
+    local(contract).batchOrder = BatchOrder.SEEDED_PERMUTATION_V1;
+    const decision = decide(contract);
+    expect(decision.kind === 'train' && decision.projection.minibatch).toBeUndefined();
+  });
+
   it('projects the zeroth-order training the contract states', () => {
     expect(decide(decomfl())).toMatchObject({
       kind: 'train',
@@ -294,6 +302,28 @@ describe('the phone refuses what it cannot execute', () => {
     const capped = golden();
     local(capped).maxLocalSteps = 2;
     expect(decide(capped)).toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_BATCHING' });
+  });
+
+  // Stage 3 C2: a first-order contract with the reproducible batch order trains a dataset larger than one batch, in
+  // minibatches seeded by the contract's own seed (as an exact string: seeds are 64-bit, JS numbers are not).
+  it('projects seeded minibatching for a first-order contract with the reproducible batch order', () => {
+    const contract = golden();
+    local(contract).batchOrder = BatchOrder.SEEDED_PERMUTATION_V1;
+    contract.seed = 18446744073709551615n;
+    const decision = decide(contract);
+    expect(decision).toMatchObject({ kind: 'train', projection: { minibatch: { seed: '18446744073709551615' } } });
+  });
+
+  it('seeds the minibatches with 0 when the contract states no seed, as the batch order specifies', () => {
+    const contract = golden();
+    local(contract).batchOrder = BatchOrder.SEEDED_PERMUTATION_V1;
+    contract.seed = undefined;
+    expect(decide(contract)).toMatchObject({ kind: 'train', projection: { minibatch: { seed: '0' } } });
+  });
+
+  it('projects no minibatching for a batch order it cannot reproduce', () => {
+    const decision = decide(golden());  // BATCH_ORDER_SHUFFLED_EACH_EPOCH
+    expect(decision.kind === 'train' && decision.projection.minibatch).toBeUndefined();
   });
 
   it('refuses a contract whose portable CPU artifact is for another device', () => {

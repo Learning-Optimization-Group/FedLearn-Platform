@@ -2,7 +2,7 @@
 // run's published contract whether it may train at all, and projects the contract into the settings the native
 // trainer runs with. Android is v1-dependent: a run without a READY contract it can execute exactly is refused
 // with a precise reason, never approximated.
-import { ArtifactBackend, ContractIssueCodeSchema, DataSource, GradientEstimator, PerturbationRng, SecureAggregation, Strategy,
+import { ArtifactBackend, BatchOrder, ContractIssueCodeSchema, DataSource, GradientEstimator, PerturbationRng, SecureAggregation, Strategy,
   UpdateProtocol, type ArtifactVariant, type ExecutionContract, type LocalTraining, type ModelTraining,
 } from '../gen/fedlearn/contract/v1/execution_contract_pb';
 import { MalformedContractError, parseContractJson, validateContract } from './executionContract';
@@ -60,6 +60,12 @@ export interface ContractProjection {
   zerothOrder?: { smoothing: number; numPerturbations: number };
   /** Where the training data comes from: the recipe's fixture served by the run, or a snapshot on this device. */
   dataSource: 'FIXTURE' | 'LOCAL_SNAPSHOT';
+  /**
+   * First-order training in the contract's reproducible batch order (BATCH_ORDER_SEEDED_PERMUTATION_V1): one step per
+   * batchSize minibatch, seeded by the contract's seed (0 when absent) as an exact decimal string. Absent otherwise,
+   * and then the device trains its whole dataset as one batch, so the dataset must fit in one.
+   */
+  minibatch?: { seed: string };
 }
 
 export type ContractDecision =
@@ -193,6 +199,8 @@ export function projectContract(contract: ExecutionContract, contractId: string)
       initialStateSha256: training.initialStateSha256,
       proximalMu: training.fedproxMu ?? 0,
       dataSource: dataSourceOf(training),
+      ...(local.batchOrder === BatchOrder.SEEDED_PERMUTATION_V1
+        ? { minibatch: { seed: (contract.seed ?? 0n).toString() } } : {}),
     },
   };
 }

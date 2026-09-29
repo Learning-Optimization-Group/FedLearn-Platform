@@ -19,7 +19,7 @@ import { allElements, press, pressableByLabel, renderComponent, screenText } fro
 
 const LABELS = 'labels-sha256:4817507d9942bf24635535b19b1588bb44e00d2b51314536926f3580c7f5d896';
 const PLAN = {
-  source: 'LOCAL_SNAPSHOT', classNames: ['c0', 'c1', 'c2'], inputWidth: 4, batchSize: 8,
+  source: 'LOCAL_SNAPSHOT', classNames: ['c0', 'c1', 'c2'], inputWidth: 4, batchSize: 8, maxExamples: 8,
   requirement: { labelSchemaId: LABELS, inputShape: [BigInt(4)], inputDtype: 1, classCount: 3 },
 } as unknown as RunDataPlan;
 
@@ -49,6 +49,12 @@ test('says the run trains on this device\'s own data, and what it takes', () => 
   expect(screenText()).toContain('This run trains on your own data');
   expect(screenText()).toContain('4 numbers with one label');
   expect(screenText()).toContain('c0, c1, c2');
+});
+
+test('states no example cap for a run that trains in minibatches', () => {
+  render({ plan: { ...PLAN, maxExamples: null } as RunDataPlan });
+  expect(screenText()).not.toContain('At most');
+  expect(screenText()).toContain('in batches of 8');
 });
 
 test('a dataset that fits the run can be chosen', async () => {
