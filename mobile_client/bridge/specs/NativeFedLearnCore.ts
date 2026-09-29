@@ -65,7 +65,7 @@ export interface RoundResult {
 
 export interface DeviceMetrics {
   peakRssBytes: number; // native RSS sample (replaces broken resourceMonitor.js, M-H4)
-  thermalState: string; // 'NOMINAL'|'FAIR'|'SERIOUS'|'CRITICAL' (platform thermal API)
+  thermalState: string; // 'NOMINAL'|'FAIR'|'SERIOUS'|'CRITICAL' (platform thermal API), 'UNKNOWN' until sampled
   batteryLevel: number; // 0.0..1.0
   batteryCharging: boolean;
 }

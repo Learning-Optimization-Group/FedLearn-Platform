@@ -86,7 +86,8 @@ export async function collectCapabilityReport(src: CapabilitySources = deviceSou
     appBuild: text(build, 32),
     bridgeAbiVersion: count(compat?.bridgeAbiVersion),
     protocolVersion: count(compat?.protocolVersion),
-    thermalState: text(metrics?.thermalState, 32),
+    // UNKNOWN means the platform has not sampled yet: left out, like any fact that could not be read.
+    thermalState: metrics?.thermalState === 'UNKNOWN' ? undefined : text(metrics?.thermalState, 32),
     batteryPct: battery,
   };
   return Object.fromEntries(Object.entries(report).filter(([, v]) => v !== undefined)) as CapabilityReport;

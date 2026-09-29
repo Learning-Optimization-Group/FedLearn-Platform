@@ -59,6 +59,13 @@ test('values are kept within the bounds the server accepts', async () => {
   expect(report.freeStorageBytes).toBeUndefined();
 });
 
+test('a thermal state the platform has not sampled yet is left out, not reported as healthy', async () => {
+  const report = await collectCapabilityReport(sources({
+    deviceMetrics: async () => ({ peakRssBytes: 1, thermalState: 'UNKNOWN', batteryLevel: -1, batteryCharging: false }),
+  }));
+  expect(report.thermalState).toBeUndefined();
+});
+
 test('an unknown battery level (negative) is left out', async () => {
   const report = await collectCapabilityReport(sources({
     deviceMetrics: async () => ({ peakRssBytes: 1, thermalState: 'NOMINAL', batteryLevel: -1, batteryCharging: false }),
