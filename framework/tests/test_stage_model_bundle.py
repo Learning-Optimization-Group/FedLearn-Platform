@@ -98,3 +98,18 @@ def test_the_manifest_states_the_most_examples_the_staged_programs_take(tmp_path
     _, manifest = _stage(tmp_path)
     with open(os.path.join(REPO, "framework", "tests", "fixtures", "decomfl_golden", "fedavg_pte_manifest.json")) as fh:
         assert manifest["maxBatch"] == json.load(fh)["dynbatch"]["max_batch"] == 8
+
+
+def test_the_recorded_probe_reference_is_what_torch_computes():
+    """Stage 3 D2: the probe a device checks a trainable program against is torch's two steps on the synthetic
+    batch from the program's embedded weights, recomputed here so the recorded numbers cannot drift."""
+    import sys
+    import torch
+    sys.path.insert(0, os.path.join(REPO, "mobile_client", "scripts"))
+    import generate_fedavg_pte as gen
+    with open(os.path.join(REPO, "framework", "tests", "fixtures", "decomfl_golden", "fedavg_pte_manifest.json")) as fh:
+        recorded = json.load(fh)["dynbatch"]["probe"]
+    torch.manual_seed(0)
+    net = gen.TinyNet()
+    assert gen.probe_reference(net, rows=8, classes=3) == recorded
+    assert recorded["loss_step2"] != recorded["loss_step1"]

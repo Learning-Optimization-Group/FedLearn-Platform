@@ -23,7 +23,7 @@ add_library(fedlearn_core STATIC
 # EXECUTORCH_BUILD_EXTENSION_TRAINING=ON. It adds TrainableExecutorchModel + the training libs.
 option(FEDLEARN_BUILD_TRAINING "First-order training (ET training extension + TrainableExecutorchModel)" OFF)
 if(FEDLEARN_BUILD_TRAINING)
-  target_sources(fedlearn_core PRIVATE src/TrainableExecutorchModel.cpp)
+  target_sources(fedlearn_core PRIVATE src/TrainableExecutorchModel.cpp src/Qualification.cpp)
   target_compile_definitions(fedlearn_core PUBLIC FEDLEARN_HAS_TRAINING)
 endif()
 

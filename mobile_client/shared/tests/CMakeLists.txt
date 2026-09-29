@@ -53,6 +53,7 @@ if(FEDLEARN_BUILD_TRAINING)
     fedavg_firstorder_round_test.cpp
     dynamic_batch_training_test.cpp
     minibatch_round_test.cpp
+    qualification_test.cpp
   )
 endif()
 

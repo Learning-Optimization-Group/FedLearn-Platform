@@ -14,6 +14,15 @@
     "infer_file": "tinynet_infer_dynbatch.pte",
     "infer_sha256": "ce80af6d991a5560097f361a4220a75c0b95678f5f5366128ba927b962fdcfe0",
     "trainable_file": "tinynet_trainable_dynbatch.pte",
-    "trainable_sha256": "8df99d447a8883a7a65ace595493a15f40cc6339c1e23553fbf922ef9851f124"
+    "trainable_sha256": "8df99d447a8883a7a65ace595493a15f40cc6339c1e23553fbf922ef9851f124",
+    "probe": {
+      "rows": 8,
+      "width": 4,
+      "classes": 3,
+      "learning_rate": 0.1,
+      "loss_step1": 1.1053780317306519,
+      "loss_step2": 1.0776357650756836,
+      "loss_tolerance": 0.0001
+    }
   }
 }
