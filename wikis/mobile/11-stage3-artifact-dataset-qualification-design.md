@@ -198,6 +198,12 @@ Later progress:
   losses. It was checked live: "Model qualified on this device (probe 7 ms)".
 - Found along the way: `1ac1e89` (server status reports each round's real deadline) and `6fbbe50` (the privacy
   label is true for own-data and DeComFL runs).
+- D1: `4559249`. A device sends a bounded capability report with enrollment (V31, `run_enrollments.capability_report`),
+  informational only, and the shared diagnostics end with it. Checked live, it exposed that thermal state was never
+  sampled before training ("NOMINAL" was a default): fixed in `afbc4fb`, where the holder defaults to UNKNOWN and the
+  app samples on resume.
+
+With D1 every slice of Stage 3 has landed and been checked on a device.
 
 - **A1** Kotlin `ArtifactDownloader` with size cap, streaming hash, atomic promote and quarantine; auth via the shared client. Unit tests use a local HTTP server (resume, mismatch, oversize).
 - **A2** Backend: range, strong ETag and hash-addressed file serving, with tests.
