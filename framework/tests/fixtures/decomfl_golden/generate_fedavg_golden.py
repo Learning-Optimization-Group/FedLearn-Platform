@@ -115,6 +115,11 @@ def write_minibatch_endpoint() -> None:
             x, y, MINIBATCH_SIZE, MINIBATCH_SEED, MINIBATCH_ROUND, epoch_offset=None)),
     }
     separations = {k: float(np.abs(v - seeded).max()) for k, v in controls.items()}
+    # Whole-dataset evaluation at the initial model: what a device's chunked evaluation must reproduce.
+    with torch.no_grad():
+        logits = build_initial_net()(x)
+        initial_loss = float(torch.nn.functional.cross_entropy(logits, y))
+        initial_correct = int((logits.argmax(dim=1) == y).sum())
     seeded.tofile(os.path.join(HERE, "fedavg_minibatch_final.f32"))
     manifest = {
         "description": "First-order minibatch golden (Stage 3 C2): LocalTrainer.fit on minibatch_inputs/targets in "
@@ -127,6 +132,8 @@ def write_minibatch_endpoint() -> None:
         "final_flat_sha256": hashlib.sha256(seeded.tobytes()).hexdigest(),
         # How far each wrong batch order lands from the golden; the native test's tolerance must sit far below all.
         "control_separation": separations,
+        "initial_dataset_loss": initial_loss,
+        "initial_dataset_correct": initial_correct,
     }
     with open(os.path.join(HERE, "fedavg_minibatch_manifest.json"), "w") as fh:
         json.dump(manifest, fh, indent=2)

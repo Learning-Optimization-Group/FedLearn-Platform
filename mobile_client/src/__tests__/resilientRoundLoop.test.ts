@@ -230,6 +230,8 @@ describe('runResilientRoundLoop (MO-8)', () => {
     expect(h.rounds.map((r) => r.round)).toContain(1);
     expect(ops.delay).toHaveBeenCalled(); // backed off before the retry
     expect(ops.rejoin).not.toHaveBeenCalled(); // one blip never escalates to a rejoin
+    // The retry says what failed, so a device's log explains a transient error instead of only counting it.
+    expect(h.logs).toContain('Transient error (attempt 1/2): grpc unavailable; retrying in 10ms…');
   });
 
   it('escalates to a bounded rejoin once consecutive failures exhaust the retry budget', async () => {

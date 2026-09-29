@@ -15,6 +15,7 @@ import { contractPrograms,
   type ContractRefusalCode,
 } from './executionContractGate';
 import { submittedRoundStore } from './submittedRoundStore';
+import { readError } from './errors';
 
 // Server run states that mean "stop looping" (mirrors GetServerStatusResponse.ServerState names).
 const TERMINAL_STATES = new Set(['TRAINING_COMPLETE', 'COMPLETED', 'FINISHED', 'FAILED', 'STOPPED', 'ABORTED']);
@@ -318,7 +319,8 @@ export async function runResilientRoundLoop(
       if (consecutiveFailures <= policy.maxRoundRetries) {
         const backoffMs = policy.baseBackoffMs * 2 ** (consecutiveFailures - 1);
         hooks.onLog(
-          `Transient error (attempt ${consecutiveFailures}/${policy.maxRoundRetries}); retrying in ${backoffMs}ms…`,
+          `Transient error (attempt ${consecutiveFailures}/${policy.maxRoundRetries}): ${readError(e)}; `
+          + `retrying in ${backoffMs}ms…`,
         );
         await ops.delay(backoffMs);
         continue;

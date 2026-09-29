@@ -15,7 +15,7 @@
 #include "DeviceState.h"
 #include "fedlearn/BatchOrder.h"
 #include "fedlearn/DataLoader.h"
-#include "fedlearn/EvalMetrics.h"
+#include "fedlearn/DatasetEvaluation.h"
 #include "fedlearn/ModelExecutionError.h"
 #include "fedlearn/Sha256.h"
 
@@ -344,29 +344,13 @@ ModelInfo FedLearnCoreModule::doLoadModel(const std::string& modelPath,
   return out;
 }
 
-void FedLearnCoreModule::evalBatch(double& outLoss, double& outAccuracy) {
-  // ExecuTorch weights-as-inputs: loss graph -> cross-entropy; infer graph -> logits for argmax.
-  const std::vector<float>& flat = mm_.getFlatParams();
-  const fedlearn::DataBatch& b = trainingBatch_;
-  const int64_t n = b.numSamples;
-
-  // MO-6 bounds guard: an unstaged / 0-sample batch must not reach the model (cross-entropy mean over 0
-  // samples is NaN) nor the accuracy path. Report a neutral (0,0) — "not evaluable" — rather than crash.
-  if (n <= 0 || b.inputs == nullptr || b.targets == nullptr) {
-    outLoss = 0.0;
-    outAccuracy = 0.0;
-    return;
-  }
-
-  outLoss = static_cast<double>(model_->loss(flat, b.inputs, b.inputShape, b.targets, n));
-
-  // REAL accuracy: argmax of the infer logits vs targets (no NaN, no exp(-loss) fake). argmaxCorrect is
-  // bounds-safe — it guards the empty/short/ragged infer output that a naive logits[row*classes] loop
-  // would OOB-read (n>0 but empty logits -> classes 0 -> logits[0] on an empty buffer). See EvalMetrics.h.
-  const std::vector<float> logits = inferModel_->infer(flat, b.inputs, b.inputShape);
-  const fedlearn::AccuracyCount acc = fedlearn::argmaxCorrect(logits, b.targets, n);
-  outAccuracy =
-      acc.scored > 0 ? static_cast<double>(acc.correct) / static_cast<double>(acc.scored) : 0.0;
+void FedLearnCoreModule::evalBatch(double& outLoss, double& outAccuracy, int64_t chunk) {
+  // ExecuTorch weights-as-inputs: loss graph -> cross-entropy; infer graph -> logits for argmax. An unstaged /
+  // 0-sample batch is not evaluable and reports (0, 0) rather than a NaN mean (MO-6); evaluateDataset guards it.
+  const fedlearn::DatasetMetrics m =
+      fedlearn::evaluateDataset(*model_, *inferModel_, mm_.getFlatParams(), trainingBatch_, chunk);
+  outLoss = m.loss;
+  outAccuracy = m.accuracy;
 }
 
 RoundResult FedLearnCoreModule::doRunDeComFLRound(const std::string& runId, const RoundConfig& cfg) {
@@ -424,7 +408,7 @@ RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const
     r.scalarsTransmitted = 0;  // a weight blob is uploaded, not ZO scalars
     r.uplinkBytes = static_cast<int64_t>(mm_.trainableParamCount()) * 4;  // ~ the F32 weight blob
     r.computeMs = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
-    evalBatch(r.loss, r.accuracy);
+    evalBatch(r.loss, r.accuracy, cfg.batchSize);
     return r;
   }
 #endif

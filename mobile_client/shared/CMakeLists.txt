@@ -14,6 +14,7 @@ add_library(fedlearn_core STATIC
   src/DataLoader.cpp
   src/FederatedLoop.cpp
   src/BatchOrder.cpp
+  src/DatasetEvaluation.cpp
 )
 
 # First-order (FedAvg/FedProx) on-device training via the ExecuTorch training extension. OFF by

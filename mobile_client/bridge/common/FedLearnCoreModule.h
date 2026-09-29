@@ -132,7 +132,9 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
                                 const std::string& expectedSha256);
 
   // helpers
-  void evalBatch(double& outLoss, double& outAccuracy);  // one forward pass on trainingBatch_
+  // The whole of trainingBatch_, in chunks of at most `chunk` examples (0 = one call): the programs take at most a
+  // batch per call, so a minibatch run's dataset is evaluated batch by batch.
+  void evalBatch(double& outLoss, double& outAccuracy, int64_t chunk = 0);
   void requireReady() const;                             // model + net + data loaded, else throw
 
   // Async worker tracking: JSI calls run their do* on a worker thread. The threads are KEPT (not

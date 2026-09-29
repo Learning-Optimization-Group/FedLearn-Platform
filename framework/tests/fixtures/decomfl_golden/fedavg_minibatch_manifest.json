@@ -16,5 +16,7 @@
     "sequential_order": 0.029378920793533325,
     "one_full_batch": 0.0422796867787838,
     "epoch_zero_order_every_epoch": 0.005540519952774048
-  }
+  },
+  "initial_dataset_loss": 1.1232997179031372,
+  "initial_dataset_correct": 8
 }
