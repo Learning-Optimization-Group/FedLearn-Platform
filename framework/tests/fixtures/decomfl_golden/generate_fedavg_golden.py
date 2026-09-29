@@ -141,6 +141,78 @@ def write_minibatch_endpoint() -> None:
     print("minibatch endpoint: control separations", separations)
 
 
+# Stage 4 S2: Adam on the device. The laptop's non-TinyNet clients train with torch.optim.Adam, created fresh each round.
+ADAM_LR, ADAM_STEPS = 1e-2, 5
+ADAM_BETAS = (0.9, 0.999)
+
+
+def _manual_adam_endpoint(eps: float, bias_correction: bool = True, eps_inside_sqrt: bool = False,
+                          betas=ADAM_BETAS) -> np.ndarray:
+    """Adam written out step by step, with a toggle for each plausible implementation bug. With no toggle it must
+    equal torch.optim.Adam; each toggled variant is a control the native test's tolerance has to reject."""
+    net = build_initial_net()
+    x, y = load_committed_batch()
+    params = [p for p in net.parameters() if p.requires_grad]
+    m = [torch.zeros_like(p) for p in params]
+    v = [torch.zeros_like(p) for p in params]
+    b1, b2 = betas
+    for t in range(1, ADAM_STEPS + 1):
+        for p in params:
+            p.grad = None
+        torch.nn.functional.cross_entropy(net(x), y).backward()
+        with torch.no_grad():
+            for i, p in enumerate(params):
+                m[i].lerp_(p.grad, 1 - b1)
+                v[i].mul_(b2).addcmul_(p.grad, p.grad, value=1 - b2)
+                bc1 = 1 - b1 ** t if bias_correction else 1.0
+                bc2 = 1 - b2 ** t if bias_correction else 1.0
+                if eps_inside_sqrt:
+                    denom = ((v[i] / bc2) + eps).sqrt()
+                else:
+                    denom = (v[i].sqrt() / (bc2 ** 0.5)).add_(eps)
+                p.addcdiv_(m[i], denom, value=-(ADAM_LR / bc1))
+    return flat_params(net).detach().numpy().astype("<f4")
+
+
+def compute_adam_endpoint(eps: float) -> np.ndarray:
+    """torch.optim.Adam, fresh, for ADAM_STEPS full-batch steps on the committed batch (the laptop client's loop)."""
+    net = build_initial_net()
+    x, y = load_committed_batch()
+    opt = torch.optim.Adam([p for p in net.parameters() if p.requires_grad], lr=ADAM_LR, betas=ADAM_BETAS, eps=eps)
+    for _ in range(ADAM_STEPS):
+        opt.zero_grad()
+        torch.nn.functional.cross_entropy(net(x), y).backward()
+        opt.step()
+    return flat_params(net).detach().numpy().astype("<f4")
+
+
+def write_adam_endpoints() -> None:
+    """Two goldens: eps 1e-8 (the laptop's) and eps 0.1, where eps's placement moves the endpoint visibly."""
+    manifest = {"description": "Adam local-update goldens (Stage 4 S2): torch.optim.Adam, fresh, full-batch steps on "
+                               "the committed TinyNet batch from zo_flat.f32.",
+                "torch_version": torch.__version__.split("+")[0], "learning_rate": ADAM_LR, "steps": ADAM_STEPS,
+                "beta1": ADAM_BETAS[0], "beta2": ADAM_BETAS[1], "goldens": {}}
+    for name, eps in (("adam_local_final.f32", 1e-8), ("adam_eps_local_final.f32", 0.1)):
+        golden = compute_adam_endpoint(eps)
+        manual = _manual_adam_endpoint(eps)
+        if float(np.abs(manual - golden).max()) > 1e-7:
+            raise SystemExit(f"the step-by-step Adam disagrees with torch.optim.Adam at eps {eps}")
+        controls = {
+            "no_bias_correction": _manual_adam_endpoint(eps, bias_correction=False),
+            "eps_inside_sqrt": _manual_adam_endpoint(eps, eps_inside_sqrt=True),
+            "betas_swapped": _manual_adam_endpoint(eps, betas=(ADAM_BETAS[1], ADAM_BETAS[0])),
+        }
+        golden.tofile(os.path.join(HERE, name))
+        manifest["goldens"][name] = {
+            "epsilon": eps, "sha256": hashlib.sha256(golden.tobytes()).hexdigest(),
+            "control_separation": {k: float(np.abs(v - golden).max()) for k, v in controls.items()},
+        }
+    with open(os.path.join(HERE, "adam_local_manifest.json"), "w") as fh:
+        json.dump(manifest, fh, indent=2)
+        fh.write("\n")
+    print("adam goldens:", {k: v["control_separation"] for k, v in manifest["goldens"].items()})
+
+
 def build_initial_net() -> "TinyNet":
     """manual_seed(0) TinyNet — fc1 == committed zo_flat.f32, fc2 frozen + deterministic."""
     torch.manual_seed(0)
@@ -354,6 +426,7 @@ def main() -> None:
     write_contract_endpoint(layout)
     write_fedprox_endpoint(layout, final_flat)
     write_minibatch_endpoint()
+    write_adam_endpoints()
 
     print(f"lr={LR} local_epochs={LOCAL_EPOCHS} d={d} torch={torch.__version__}")
     print("final_flat[:5] =", final_flat[:5].tolist())

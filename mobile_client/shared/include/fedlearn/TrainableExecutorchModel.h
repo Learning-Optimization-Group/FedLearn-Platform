@@ -24,6 +24,17 @@
 
 namespace fedlearn {
 
+/**
+ * torch.optim.Adam's settings (Stage 4 S2). Doubles, as torch holds them: each is cast to float only where the tensor
+ * arithmetic uses it, which keeps the device's steps on torch's.
+ */
+struct AdamSettings {
+  double learningRate = 0.0;
+  double beta1 = 0.9;
+  double beta2 = 0.999;
+  double epsilon = 1e-8;
+};
+
 class TrainableExecutorchModel {
  public:
   // Verifies sha256(ptePath) == expectedSha256, then loads the joint "forward" graph as an ET
@@ -62,10 +73,24 @@ class TrainableExecutorchModel {
                   const int64_t* y, int64_t n, float lr,
                   const std::vector<float>* proximalAnchor = nullptr, float proximalMu = 0.0f);
 
+  // One full-batch Adam step on (x, y), exactly torch.optim.Adam's single-tensor step without weight decay or amsgrad:
+  //   m <- lerp(m, g, 1 - beta1);  v <- beta2 * v + (1 - beta2) * g^2
+  //   p <- p - (lr / (1 - beta1^t)) * m / (sqrt(v) / sqrt(1 - beta2^t) + eps)
+  // The moments and the step count t live in the model and persist across calls until resetOptimizerState(), which
+  // a round calls first (the laptop creates a fresh Adam every round). Returns the loss before the update.
+  float trainStepAdam(const float* x, const std::vector<int64_t>& xShape, const int64_t* y, int64_t n,
+                      const AdamSettings& adam);
+
+  // Forget Adam's moments and step count: the next trainStepAdam starts a fresh optimizer.
+  void resetOptimizerState();
+
   // Total trainable parameter count (sum of the canonical params' numels).
   int64_t flatDim() const;
 
  private:
+  // execute_forward_backward on (x, y); returns the loss at the current parameters, leaving the gradients in place.
+  float forwardBackward(const float* x, const std::vector<int64_t>& xShape, const int64_t* y, int64_t n);
+
   struct Impl;
   std::unique_ptr<Impl> impl_;
 };

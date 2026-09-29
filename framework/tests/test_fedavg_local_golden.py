@@ -134,3 +134,20 @@ def test_the_minibatch_golden_is_far_from_every_wrong_batch_order():
     separations = _minibatch_manifest()["control_separation"]
     assert set(separations) == {"sequential_order", "one_full_batch", "epoch_zero_order_every_epoch"}
     assert min(separations.values()) > 10 * 1e-5
+
+
+# Stage 4 S2: the Adam goldens the native Adam replays.
+
+def test_the_adam_goldens_are_torch_adam_and_far_from_every_control():
+    import generate_fedavg_golden as g
+    with open(os.path.join(GOLDEN_DIR, "adam_local_manifest.json")) as fh:
+        manifest = json.load(fh)
+    nearest = {}
+    for name, entry in manifest["goldens"].items():
+        golden = np.fromfile(os.path.join(GOLDEN_DIR, name), dtype="<f4")
+        assert np.abs(g.compute_adam_endpoint(entry["epsilon"]) - golden).max() < 1e-6
+        for control, separation in entry["control_separation"].items():
+            nearest[control] = max(nearest.get(control, 0.0), separation)
+    # Each plausible bug is visible, far above the native test's 1e-5 tolerance, in at least one golden.
+    assert set(nearest) == {"no_bias_correction", "eps_inside_sqrt", "betas_swapped"}
+    assert min(nearest.values()) > 10 * 1e-5

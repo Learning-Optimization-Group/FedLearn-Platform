@@ -8,6 +8,7 @@
 #include <executorch/runtime/core/evalue.h>
 #include <executorch/runtime/platform/runtime.h>
 
+#include <cmath>
 #include <cstring>
 #include <limits>
 #include <map>
@@ -56,6 +57,9 @@ struct TrainableExecutorchModel::Impl {
   std::vector<std::string> names;       // canonical (framework named_parameters) flat order
   std::vector<int64_t> numels;          // per-name element count, cached from load
   int64_t flat_dim = 0;
+  // Adam's first and second moments per canonical parameter, and its step count (0 = a fresh optimizer).
+  std::vector<std::vector<float>> adamM, adamV;
+  int64_t adamStep = 0;
 
   // Look up a canonical param name in an ET named_* map, failing loudly if absent. Returns a COPY of
   // the Tensor handle (a non-owning view of the same storage), so mutable_data_ptr can write params
@@ -144,13 +148,8 @@ std::vector<float> TrainableExecutorchModel::getFlatParams() const {
   return out;
 }
 
-float TrainableExecutorchModel::trainStep(const float* x, const std::vector<int64_t>& xShape,
-                                          const int64_t* y, int64_t n, float lr,
-                                          const std::vector<float>* proximalAnchor, float proximalMu) {
-  const bool proximal = proximalAnchor != nullptr && proximalMu != 0.0f;
-  if (proximal && static_cast<int64_t>(proximalAnchor->size()) != flatDim()) {
-    throw std::runtime_error("TrainableExecutorchModel: proximal anchor size != flatDim()");
-  }
+float TrainableExecutorchModel::forwardBackward(const float* x, const std::vector<int64_t>& xShape,
+                                                const int64_t* y, int64_t n) {
   std::vector<SizesType> xSizes;
   xSizes.reserve(xShape.size());
   for (int64_t d : xShape) xSizes.push_back(toSize(d));
@@ -170,7 +169,17 @@ float TrainableExecutorchModel::trainStep(const float* x, const std::vector<int6
   if (lossT.scalar_type() != ScalarType::Float || lossT.numel() < 1) {
     throw std::runtime_error("TrainableExecutorchModel: loss output is not a non-empty Float tensor");
   }
-  const float loss = lossT.const_data_ptr<float>()[0];
+  return lossT.const_data_ptr<float>()[0];
+}
+
+float TrainableExecutorchModel::trainStep(const float* x, const std::vector<int64_t>& xShape,
+                                          const int64_t* y, int64_t n, float lr,
+                                          const std::vector<float>* proximalAnchor, float proximalMu) {
+  const bool proximal = proximalAnchor != nullptr && proximalMu != 0.0f;
+  if (proximal && static_cast<int64_t>(proximalAnchor->size()) != flatDim()) {
+    throw std::runtime_error("TrainableExecutorchModel: proximal anchor size != flatDim()");
+  }
+  const float loss = forwardBackward(x, xShape, y, n);
 
   // In-place SGD: p <- p - lr * grad(p) for every trainable param — exactly torch.optim.SGD(lr) with
   // no momentum/weight-decay (the FedAvg client). Gradients are fresh from THIS forward_backward.
@@ -202,6 +211,66 @@ float TrainableExecutorchModel::trainStep(const float* x, const std::vector<int6
       for (int64_t j = 0; j < k; ++j) pd[j] -= lr * gd[j];
     }
     offset += k;
+  }
+  return loss;
+}
+
+void TrainableExecutorchModel::resetOptimizerState() {
+  impl_->adamM.clear();
+  impl_->adamV.clear();
+  impl_->adamStep = 0;
+}
+
+float TrainableExecutorchModel::trainStepAdam(const float* x, const std::vector<int64_t>& xShape, const int64_t* y,
+                                              int64_t n, const AdamSettings& adam) {
+  if (!(adam.learningRate > 0) || !(adam.beta1 >= 0 && adam.beta1 < 1) || !(adam.beta2 >= 0 && adam.beta2 < 1) ||
+      !(adam.epsilon > 0)) {
+    throw std::runtime_error("TrainableExecutorchModel: invalid Adam settings");
+  }
+  const float loss = forwardBackward(x, xShape, y, n);
+  if (impl_->adamStep == 0) {
+    impl_->adamM.assign(impl_->names.size(), {});
+    impl_->adamV.assign(impl_->names.size(), {});
+    for (size_t i = 0; i < impl_->names.size(); ++i) {
+      impl_->adamM[i].assign(static_cast<size_t>(impl_->numels[i]), 0.0f);
+      impl_->adamV[i].assign(static_cast<size_t>(impl_->numels[i]), 0.0f);
+    }
+  }
+  const int64_t t = ++impl_->adamStep;
+
+  // torch's _single_tensor_adam, in its order and precisions: the bias corrections and the step size are doubles,
+  // cast to float where they meet the float tensors.
+  const float lerpWeight = static_cast<float>(1.0 - adam.beta1);
+  const float beta2 = static_cast<float>(adam.beta2);
+  const float oneMinusBeta2 = static_cast<float>(1.0 - adam.beta2);
+  const double biasCorrection1 = 1.0 - std::pow(adam.beta1, static_cast<double>(t));
+  const double biasCorrection2 = 1.0 - std::pow(adam.beta2, static_cast<double>(t));
+  const float stepSize = static_cast<float>(adam.learningRate / biasCorrection1);
+  const float biasCorrection2Sqrt = static_cast<float>(std::sqrt(biasCorrection2));
+  const float eps = static_cast<float>(adam.epsilon);
+
+  auto gradsRes = impl_->mod->named_gradients("forward");
+  if (!gradsRes.ok()) fail("named_gradients(forward) failed", gradsRes.error());
+  auto paramsRes = impl_->mod->named_parameters("forward");
+  if (!paramsRes.ok()) fail("named_parameters(forward) failed", paramsRes.error());
+  for (size_t i = 0; i < impl_->names.size(); ++i) {
+    Tensor p = Impl::lookup(paramsRes.get(), impl_->names[i], "named_parameters");
+    const Tensor g = Impl::lookup(gradsRes.get(), impl_->names[i], "named_gradients");
+    const auto k = static_cast<size_t>(impl_->numels[i]);
+    if (static_cast<size_t>(g.numel()) != k) {
+      throw std::runtime_error("TrainableExecutorchModel: gradient numel != parameter numel for '" +
+                               impl_->names[i] + "'");
+    }
+    float* pd = p.mutable_data_ptr<float>();
+    const float* gd = g.const_data_ptr<float>();
+    float* m = impl_->adamM[i].data();
+    float* v = impl_->adamV[i].data();
+    for (size_t j = 0; j < k; ++j) {
+      m[j] = m[j] + lerpWeight * (gd[j] - m[j]);        // exp_avg.lerp_(grad, 1 - beta1), weight < 0.5
+      v[j] = v[j] * beta2 + oneMinusBeta2 * gd[j] * gd[j];  // exp_avg_sq.mul_(beta2).addcmul_(g, g, 1 - beta2)
+      const float denom = std::sqrt(v[j]) / biasCorrection2Sqrt + eps;
+      pd[j] = pd[j] + (-stepSize) * (m[j] / denom);      // param.addcdiv_(exp_avg, denom, value=-step_size)
+    }
   }
   return loss;
 }

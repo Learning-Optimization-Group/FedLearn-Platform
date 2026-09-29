@@ -54,6 +54,7 @@ if(FEDLEARN_BUILD_TRAINING)
     dynamic_batch_training_test.cpp
     minibatch_round_test.cpp
     qualification_test.cpp
+    adam_parity_test.cpp
   )
 endif()
 
