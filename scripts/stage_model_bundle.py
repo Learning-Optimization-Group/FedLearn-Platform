@@ -115,6 +115,16 @@ def stage_bundle(run_id: str, out_root: Path, fixture: Path = DEFAULT_FIXTURE) -
         # bundle that states no maxBatch, publishes no contract rather than one a device's data would fail.
         if dyn:
             contract_fields["maxBatch"] = dyn["max_batch"]
+        # The qualification probe the device runs against the trainable program before its first round (Stage 3
+        # D2): the exporter's reference for this exact program, with the declared probe time budget.
+        probe = (dyn or {}).get("probe")
+        if probe and trainable_meta:
+            trainable_meta["trainableProbe"] = {
+                "rows": probe["rows"], "width": probe["width"], "classes": probe["classes"],
+                "learningRate": probe["learning_rate"], "lossStep1": probe["loss_step1"],
+                "lossStep2": probe["loss_step2"], "lossTolerance": probe["loss_tolerance"],
+                "maxProbeMs": envelope["probeMs"],
+            }
 
     manifest = {
         "runId": run_id,

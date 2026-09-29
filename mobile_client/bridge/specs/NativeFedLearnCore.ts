@@ -105,6 +105,28 @@ export interface ModelManifest {
   trainableParamNames?: string[];
 }
 
+// The qualification probe for the trainable program (Stage 3 D2): the exporter's two-step reference. Bridge ABI 3.
+export interface TrainableProbe {
+  rows: number;
+  width: number;
+  classes: number;
+  learningRate: number;
+  lossStep1: number;
+  lossStep2: number;
+  lossTolerance: number;
+  maxProbeMs: number;
+}
+
+// passed, or the first failed check (SPEC, LOAD, LOSS_MISMATCH, STALE_WEIGHTS, TOO_SLOW) and why.
+export interface QualificationReport {
+  passed: boolean;
+  failedCheck: string;
+  detail: string;
+  lossStep1: number;
+  lossStep2: number;
+  wallMs: number;
+}
+
 export interface Spec extends TurboModule {
   getRuntimeCompatibility(): Promise<RuntimeCompatibility>;
   // ---- gRPC lifecycle ----
@@ -143,6 +165,9 @@ export interface Spec extends TurboModule {
   // ---- one round (the bridge runs ONE round per call; the RN layer loops + checks deadline) ----
   runDeComFLRound(runId: string, config: RoundConfig): Promise<RoundResult>;
   runFedAvgRound(runId: string, config: RoundConfig): Promise<RoundResult>;
+  // Run the qualification probe against the provisioned trainable program (set by setModelManifest), in a fresh
+  // instance, so the run's model is untouched. Resolves with the report; a failed check is a report, not a rejection.
+  qualifyTrainable(probe: TrainableProbe): Promise<QualificationReport>;
 
   // ---- inference (Model Testing screen) — REAL softmax, not exp(-loss) (C5 §3) ----
   infer(inputJson: string): Promise<InferResult>;
@@ -187,6 +212,7 @@ const fallbackCore: Spec = {
   stageBundleFile: unavailable,
   runDeComFLRound: unavailable,
   runFedAvgRound: unavailable,
+  qualifyTrainable: unavailable,
   infer: unavailable,
   getDeviceMetrics: unavailable,
 };

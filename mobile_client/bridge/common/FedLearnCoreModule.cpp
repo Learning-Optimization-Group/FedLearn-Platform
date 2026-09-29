@@ -95,6 +95,16 @@ jsi::Value toJs(jsi::Runtime& rt, const RoundResult& r) {
   o.setProperty(rt, "reverted", r.reverted);
   return o;
 }
+jsi::Value toJs(jsi::Runtime& rt, const fedlearn::QualificationReport& q) {
+  jsi::Object o(rt);
+  o.setProperty(rt, "passed", q.passed);
+  o.setProperty(rt, "failedCheck", jsi::String::createFromUtf8(rt, q.failedCheck));
+  o.setProperty(rt, "detail", jsi::String::createFromUtf8(rt, q.detail));
+  o.setProperty(rt, "lossStep1", q.lossStep1);
+  o.setProperty(rt, "lossStep2", q.lossStep2);
+  o.setProperty(rt, "wallMs", static_cast<double>(q.wallMs));
+  return o;
+}
 jsi::Value toJs(jsi::Runtime& rt, const ModelInfo& m) {
   jsi::Object o(rt);
   o.setProperty(rt, "paramCount", static_cast<double>(m.paramCount));
@@ -703,6 +713,45 @@ jsi::Value FedLearnCoreModule::loadModel(jsi::Runtime& rt, jsi::String modelPath
   return runOnWorker(
       rt, [this, path, sha]() { return doLoadModel(path, sha); },
       [](jsi::Runtime& r, const ModelInfo& v) { return toJs(r, v); });
+}
+
+jsi::Value FedLearnCoreModule::qualifyTrainable(jsi::Runtime& rt, jsi::Object probe) {
+  fedlearn::ProbeSpec spec;
+  spec.rows = static_cast<int64_t>(probe.getProperty(rt, "rows").asNumber());
+  spec.width = static_cast<int64_t>(probe.getProperty(rt, "width").asNumber());
+  spec.classes = static_cast<int64_t>(probe.getProperty(rt, "classes").asNumber());
+  spec.learningRate = static_cast<float>(probe.getProperty(rt, "learningRate").asNumber());
+  spec.expectedLossStep1 = probe.getProperty(rt, "lossStep1").asNumber();
+  spec.expectedLossStep2 = probe.getProperty(rt, "lossStep2").asNumber();
+  spec.lossTolerance = probe.getProperty(rt, "lossTolerance").asNumber();
+  spec.maxProbeMs = static_cast<int64_t>(probe.getProperty(rt, "maxProbeMs").asNumber());
+  return runOnWorker(
+      rt, [this, spec]() { return doQualifyTrainable(spec); },
+      [](jsi::Runtime& r, const fedlearn::QualificationReport& v) { return toJs(r, v); });
+}
+
+fedlearn::QualificationReport FedLearnCoreModule::doQualifyTrainable(const fedlearn::ProbeSpec& spec) {
+  std::string path, sha;
+  std::vector<std::string> names;
+  {
+    std::lock_guard<std::mutex> lk(stateMutex_);
+    path = manifest_.trainablePtePath;
+    sha = manifest_.trainableSha256;
+    names = manifest_.trainableParamNames;
+  }
+  fedlearn::QualificationReport r;
+  if (path.empty()) {
+    r.failedCheck = "LOAD";
+    r.detail = "no trainable program is provisioned";
+    return r;
+  }
+#ifdef FEDLEARN_HAS_TRAINING
+  return fedlearn::qualifyTrainable(path, sha, names, spec);
+#else
+  r.failedCheck = "LOAD";
+  r.detail = "this build has no training extension";
+  return r;
+#endif
 }
 
 jsi::Value FedLearnCoreModule::runDeComFLRound(jsi::Runtime& rt, jsi::String runId, jsi::Object config) {

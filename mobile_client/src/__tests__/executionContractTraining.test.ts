@@ -22,8 +22,9 @@ jest.mock('../lib/nativeCore', () => ({
     setTrainingDataFromFiles: jest.fn(),
     getServerStatus: jest.fn(),
     runDeComFLRound: jest.fn(),
+    qualifyTrainable: jest.fn(),
     runFedAvgRound: jest.fn(),
-    getRuntimeCompatibility: jest.fn().mockResolvedValue({ bridgeAbiVersion: 2, protocolVersion: 2 }),
+    getRuntimeCompatibility: jest.fn().mockResolvedValue({ bridgeAbiVersion: 3, protocolVersion: 2 }),
   },
 }));
 
@@ -91,12 +92,19 @@ const STAGED_BUNDLE = {
   inputsF32Path: 'inputs.f32',
   inputShape: [8, 4],
   targetsI64Path: 'targets.i64',
+  trainableProbe: { rows: 8, width: 4, classes: 3, learningRate: 0.1, lossStep1: 1.1054, lossStep2: 1.0776,
+    lossTolerance: 1e-4, maxProbeMs: 2000 },
 };
+
+const QUALIFIED = { passed: true, failedCheck: '', detail: '', lossStep1: 1.1054, lossStep2: 1.0776, wallMs: 3 };
 
 const hooks = { onLog: jest.fn(), onRound: jest.fn(), shouldStop: () => false };
 const POLICY = { maxRoundRetries: 0, maxRejoins: 0, baseBackoffMs: 1, pacingMs: 0, rejoinRecoveryRounds: 1 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  (nativeCore.qualifyTrainable as jest.Mock).mockResolvedValue(QUALIFIED);
+});
 
 function oneRound() {
   const getServerStatus = jest.fn()
@@ -194,12 +202,56 @@ describe('runTrainingLoop — the execution contract decides', () => {
     });
 
     expect(runFedAvgRound).not.toHaveBeenCalled();
+    expect(nativeCore.qualifyTrainable).not.toHaveBeenCalled();  // DeComFL trains with the loss program only
     expect(runDeComFLRound.mock.calls[0][1]).toMatchObject({
       strategy: 'DeComFL', learningRate: 0.001, mu: 0.002, numLocalSteps: 1, numPerturbations: 10,
       gradEstimateMethod: 'forward',
       // The native round starts only from the initial model the contract binds.
       initialStateSha256: (contract.modelTraining as unknown as { initialStateSha256: string }).initialStateSha256,
     });
+  });
+
+  // Stage 3 D2: a first-order run trains with the trainable program, which the device must first qualify on.
+  test('qualifies the trainable program before a first-order round, with the bundle\'s probe', async () => {
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce(STAGED_BUNDLE);
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    const { getServerStatus, runFedAvgRound } = oneRound();
+
+    await runTrainingLoop(joined(), hooks, {
+      policy: POLICY,
+      ops: { getServerStatus, runFedAvgRound, loadSubmittedRound: async () => null, saveSubmittedRound: async () => {} },
+    });
+
+    expect(nativeCore.qualifyTrainable).toHaveBeenCalledWith(STAGED_BUNDLE.trainableProbe);
+    expect(runFedAvgRound).toHaveBeenCalled();
+  });
+
+  test('refuses to train when the device does not qualify, before staging any data', async () => {
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce(STAGED_BUNDLE);
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    (nativeCore.qualifyTrainable as jest.Mock).mockResolvedValueOnce(
+      { ...QUALIFIED, passed: false, failedCheck: 'LOSS_MISMATCH', detail: 'step 1 loss 2.0, expected 1.1054' });
+    const { getServerStatus, runFedAvgRound } = oneRound();
+
+    const run = runTrainingLoop(joined(), hooks, { policy: POLICY, ops: { getServerStatus, runFedAvgRound } });
+
+    await expect(run).rejects.toMatchObject({ name: 'ExecutionContractRefusedError', code: 'QUALIFICATION_FAILED' });
+    await expect(run).rejects.toThrow(/LOSS_MISMATCH/);
+    expect(nativeCore.setTrainingDataFromFiles).not.toHaveBeenCalled();
+    expect(runFedAvgRound).not.toHaveBeenCalled();
+  });
+
+  test('refuses a first-order run whose trainable program comes without a probe', async () => {
+    const { trainableProbe: _none, ...noProbe } = STAGED_BUNDLE;
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce(noProbe);
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    const { getServerStatus, runFedAvgRound } = oneRound();
+
+    const run = runTrainingLoop(joined(), hooks, { policy: POLICY, ops: { getServerStatus, runFedAvgRound } });
+
+    await expect(run).rejects.toMatchObject({ code: 'QUALIFICATION_FAILED' });
+    await expect(run).rejects.toThrow(/NO_PROBE/);
+    expect(runFedAvgRound).not.toHaveBeenCalled();
   });
 
   test('refuses a run with no published contract before touching the device', async () => {

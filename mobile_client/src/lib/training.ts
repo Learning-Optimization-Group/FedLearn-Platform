@@ -16,6 +16,7 @@ import { contractPrograms,
 } from './executionContractGate';
 import { submittedRoundStore } from './submittedRoundStore';
 import { readError } from './errors';
+import { qualificationStore, qualifyTrainableProgram, type QualificationStore } from './qualification';
 
 // Server run states that mean "stop looping" (mirrors GetServerStatusResponse.ServerState names).
 const TERMINAL_STATES = new Set(['TRAINING_COMPLETE', 'COMPLETED', 'FINISHED', 'FAILED', 'STOPPED', 'ABORTED']);
@@ -76,7 +77,8 @@ export class MobileSecureAggregationUnsupportedError extends Error {
  */
 export class ExecutionContractRefusedError extends Error {
   constructor(
-    readonly code: ContractRefusalCode | 'CONTRACT_TIMEOUT' | 'BUNDLE_MISMATCH' | 'DATASET_REQUIRED' | 'DATASET_INCOMPATIBLE',
+    readonly code: ContractRefusalCode | 'CONTRACT_TIMEOUT' | 'BUNDLE_MISMATCH' | 'DATASET_REQUIRED' | 'DATASET_INCOMPATIBLE'
+      | 'QUALIFICATION_FAILED',
     message: string,
   ) {
     super(message);
@@ -362,7 +364,10 @@ export async function runTrainingLoop(
   hooks: TrainingHooks,
   // policy / ops / contract exist so tests can inject them; dataset is the snapshot the user bound for a run on the
   // device's own data (a LOCAL_SNAPSHOT contract).
-  overrides?: { policy?: ResiliencePolicy; ops?: Partial<RoundOps>; contract?: ContractWaitOps; dataset?: DatasetSnapshot },
+  overrides?: {
+    policy?: ResiliencePolicy; ops?: Partial<RoundOps>; contract?: ContractWaitOps; dataset?: DatasetSnapshot;
+    qualificationStore?: QualificationStore;
+  },
 ): Promise<void> {
   // One legacy refusal stays ahead of the contract, because it names the real obstacle better than a missing
   // contract would: a secure-aggregation run the phone cannot mask for.
@@ -433,6 +438,18 @@ export async function runTrainingLoop(
   await nativeCore.setModelManifest(bundle.manifest);
   const info = await nativeCore.loadModel(bundle.lossPtePath, bundle.lossSha256);
   hooks.onLog(`Model loaded — ${info.trainableParamCount} trainable params (tier ${info.tier}).`);
+
+  // Stage 3 D2: a first-order round trains with the trainable program, so the device first proves it runs that
+  // program correctly (cached per device, app build and program). DeComFL trains with the loss program only.
+  if (isFirstOrder && bundle.manifest.trainablePtePath && bundle.manifest.trainableSha256) {
+    const q = await qualifyTrainableProgram(bundle.manifest.trainableSha256, bundle.trainableProbe, {
+      store: overrides?.qualificationStore ?? qualificationStore, native: nativeCore });
+    if (!q.passed) {
+      throw new ExecutionContractRefusedError('QUALIFICATION_FAILED',
+        `This device did not qualify to run this run's model (${q.failedCheck}: ${q.detail}).`);
+    }
+    hooks.onLog(`Model qualified on this device (probe ${q.wallMs} ms).`);
+  }
 
   await nativeCore.setTrainingDataFromFiles(staged.inputsPath, staged.shape, staged.targetsPath);
   hooks.onLog('On-device data staged. Training starts — your data never leaves this device.');

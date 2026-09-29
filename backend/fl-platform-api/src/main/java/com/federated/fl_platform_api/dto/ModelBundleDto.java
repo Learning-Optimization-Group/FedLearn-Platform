@@ -30,9 +30,17 @@ public record ModelBundleDto(
         List<String> trainableParamNames,    // canonical base.<name> order the phone re-maps ET's map onto
         // The recipe's class names, in label-index order. A phone imports its own data against them; the snapshot's
         // labels-sha256 of this list must equal the contract's labelSchemaId. Empty when the recipe is unknown.
-        List<String> classNames) {
+        List<String> classNames,
+        // The qualification probe for the trainable program (Stage 3 D2): the exporter's two-step reference the
+        // device checks the program against before its first round. null when the bundle carries none.
+        TrainableProbe trainableProbe) {
 
     /** One trainable tensor's layout (mirrors the mobile ModelManifest.ParamSpec). */
     public record ParamSpec(String name, List<Integer> shape) {
+    }
+
+    /** The probe: batch shape, step size, torch's two step losses, tolerance, and the declared time budget. */
+    public record TrainableProbe(int rows, int width, int classes, double learningRate, double lossStep1,
+                                 double lossStep2, double lossTolerance, long maxProbeMs) {
     }
 }

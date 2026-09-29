@@ -18,6 +18,8 @@ export type {
   InferResult,
   ParamSpec,
   ModelManifest,
+  TrainableProbe,
+  QualificationReport,
 } from '../../bridge/specs/NativeFedLearnCore';
 
 export const nativeCore = NativeFedLearnCore;

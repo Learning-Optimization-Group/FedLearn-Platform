@@ -34,6 +34,7 @@
 #include <react/renderer/components/NativeFedLearnCoreSpec/NativeFedLearnCoreSpecJSI.h>
 
 #include "BridgeTypes.h"
+#include "fedlearn/Qualification.h"
 #include "fedlearn/DataLoader.h"   // OwnedBatch (owns trainingBatch_'s backing storage)
 #include "fedlearn/ExecutorchModel.h"
 #ifdef FEDLEARN_HAS_TRAINING
@@ -53,7 +54,7 @@ namespace react = facebook::react;
 // The protocol version this client speaks (must equal the server's; RegisterClient rejects on
 // mismatch — E1 / 04 §10.1.2). Bump on any breaking contract change.
 inline constexpr int kProtocolVersion = 2;
-inline constexpr int kBridgeAbiVersion = 2;
+inline constexpr int kBridgeAbiVersion = 3;
 
 class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreModule> {
  public:
@@ -110,6 +111,7 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
   jsi::Value loadModel(jsi::Runtime& rt, jsi::String modelPath, jsi::String expectedSha256);
   jsi::Value runDeComFLRound(jsi::Runtime& rt, jsi::String runId, jsi::Object config);
   jsi::Value runFedAvgRound(jsi::Runtime& rt, jsi::String runId, jsi::Object config);
+  jsi::Value qualifyTrainable(jsi::Runtime& rt, jsi::Object probe);
   jsi::Value infer(jsi::Runtime& rt, jsi::String inputJson);
   jsi::Value getDeviceMetrics(jsi::Runtime& rt);
 
@@ -121,6 +123,7 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
   ServerStatus doGetServerStatus(const std::string& runId);
   void doStop();
   ModelInfo doLoadModel(const std::string& modelPath, const std::string& expectedSha256);
+  fedlearn::QualificationReport doQualifyTrainable(const fedlearn::ProbeSpec& spec);
   RoundResult doRunDeComFLRound(const std::string& runId, const RoundConfig& cfg);
   RoundResult doRunFedAvgRound(const std::string& runId, const RoundConfig& cfg);
   InferResult doInfer(const std::string& inputJson);

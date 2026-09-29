@@ -113,3 +113,16 @@ def test_the_recorded_probe_reference_is_what_torch_computes():
     net = gen.TinyNet()
     assert gen.probe_reference(net, rows=8, classes=3) == recorded
     assert recorded["loss_step2"] != recorded["loss_step1"]
+
+
+def test_the_manifest_carries_the_trainable_programs_probe_with_the_declared_budget(tmp_path):
+    """The device runs this probe against the staged trainable program before its first round."""
+    _, manifest = _stage(tmp_path)
+    with open(os.path.join(REPO, "framework", "tests", "fixtures", "decomfl_golden", "fedavg_pte_manifest.json")) as fh:
+        recorded = json.load(fh)["dynbatch"]["probe"]
+    assert manifest["modelManifest"]["trainableProbe"] == {
+        "rows": recorded["rows"], "width": recorded["width"], "classes": recorded["classes"],
+        "learningRate": recorded["learning_rate"], "lossStep1": recorded["loss_step1"],
+        "lossStep2": recorded["loss_step2"], "lossTolerance": recorded["loss_tolerance"],
+        "maxProbeMs": manifest["resourceEnvelope"]["probeMs"],
+    }

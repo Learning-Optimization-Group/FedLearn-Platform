@@ -453,12 +453,22 @@ public class RunService {
                 fixture ? ds.path("inputsSha256").asText() : null, inputShape,
                 fixture ? base + ds.path("targetsFile").asText("targets.i64") : null,
                 fixture ? ds.path("targetsSha256").asText() : null,
-                trainablePteUrl, trainableSha256, trainableParamNames, recipeClassNames(run));
+                trainablePteUrl, trainableSha256, trainableParamNames, recipeClassNames(run), trainableProbe(mm.path("trainableProbe")));
     }
 
     /** True when the run's intent trains on each participant's own dataset snapshot rather than the fixture batch. */
     private static boolean trainsOnOwnData(Run run) {
         return run.getIntent().map(RunIntent::dataSource).orElse(null) == TrainingDataSource.LOCAL_SNAPSHOT;
+    }
+
+    /** The staged trainable program's qualification probe, or null when the bundle carries none. */
+    private static ModelBundleDto.TrainableProbe trainableProbe(JsonNode p) {
+        if (p == null || !p.isObject()) {
+            return null;
+        }
+        return new ModelBundleDto.TrainableProbe(p.path("rows").asInt(), p.path("width").asInt(),
+                p.path("classes").asInt(), p.path("learningRate").asDouble(), p.path("lossStep1").asDouble(),
+                p.path("lossStep2").asDouble(), p.path("lossTolerance").asDouble(), p.path("maxProbeMs").asLong());
     }
 
     /** The class names of the run's recipe, in label-index order; empty when the catalog does not know it. */

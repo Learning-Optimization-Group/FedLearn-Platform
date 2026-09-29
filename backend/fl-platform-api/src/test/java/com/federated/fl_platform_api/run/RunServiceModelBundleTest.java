@@ -250,6 +250,35 @@ class RunServiceModelBundleTest {
         when(membershipRepository.findByIdProjectIdAndIdUserId(projectId, 7L)).thenReturn(Optional.of(m));
     }
 
+    // Stage 3 D2: the device checks the trainable program against the exporter's probe before its first round.
+    @Test
+    void getModelBundle_carriesTheTrainableProgramsQualificationProbe() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        stageWithTrainable(rid);
+        Path manifest = modelsDir.resolve(rid.toString()).resolve("manifest.json");
+        ObjectMapper om = new ObjectMapper();
+        var m = (com.fasterxml.jackson.databind.node.ObjectNode) om.readTree(Files.readString(manifest));
+        ((com.fasterxml.jackson.databind.node.ObjectNode) m.get("modelManifest")).putObject("trainableProbe")
+                .put("rows", 8).put("width", 4).put("classes", 3).put("learningRate", 0.1)
+                .put("lossStep1", 1.1053780317306519).put("lossStep2", 1.0776357650756836)
+                .put("lossTolerance", 1e-4).put("maxProbeMs", 2000);
+        Files.writeString(manifest, om.writeValueAsString(m));
+        mockParticipant(rid, pid);
+
+        ModelBundleDto.TrainableProbe probe = runService.getModelBundle(rid).trainableProbe();
+
+        assertEquals(new ModelBundleDto.TrainableProbe(8, 4, 3, 0.1, 1.1053780317306519, 1.0776357650756836, 1e-4,
+                2000), probe);
+    }
+
+    @Test
+    void getModelBundle_withoutAProbe_carriesNone() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        stageWithTrainable(rid);
+        mockParticipant(rid, pid);
+        assertNull(runService.getModelBundle(rid).trainableProbe());
+    }
+
     @Test
     void getModelBundle_withTrainable_carriesTrainableUrlShaAndNames() throws Exception {
         UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();

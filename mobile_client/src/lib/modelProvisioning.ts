@@ -5,7 +5,7 @@
 // (sha256-verified before writing, MO-7). Returns the local paths training.ts feeds to loadModel /
 // setTrainingDataFromFiles.
 import { api } from './restClient';
-import nativeCore, { type ModelManifest, type ParamSpec } from './nativeCore';
+import nativeCore, { type ModelManifest, type ParamSpec, type TrainableProbe } from './nativeCore';
 import { readError } from './errors';
 import { fetchArtifact } from './artifactService';
 
@@ -18,6 +18,9 @@ export interface ModelBundle {
   inputShape?: number[];
   targetsI64Path?: string; // int64 labels
   classNames: string[]; // the run's classes in label order; a device's own dataset is imported against them
+  // The trainable program's qualification probe (Stage 3 D2); absent when no trainable program is listed or the
+  // bundle carries none.
+  trainableProbe?: TrainableProbe;
 }
 
 // The backend ModelBundleDto (RunController#modelBundle). File fields are URLs under /api/runs/{id}/files.
@@ -41,6 +44,7 @@ interface ModelBundleDto {
   trainableSha256?: string | null;
   trainableParamNames?: string[] | null;
   classNames?: string[] | null;
+  trainableProbe?: TrainableProbe | null;
 }
 
 /** Thrown when the model/data bundle can't be fetched/staged (distinguished so the UI can show a precise
@@ -163,6 +167,7 @@ export async function provisionTrainingBundle(
     inputShape: fixtureData ? dto.inputShape : undefined,
     targetsI64Path,
     classNames: dto.classNames ?? [],
+    ...(trainable && dto.trainableProbe ? { trainableProbe: dto.trainableProbe } : {}),
   };
 }
 
