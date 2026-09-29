@@ -99,11 +99,18 @@ Each recipe gets:
 - a live phone-only run with a bit-exact replay and wrong-hypothesis controls;
 - then a mixed phone + laptop run.
 
-## Decisions needed before implementation
+## Decisions (taken 2026-09-29)
 
-1. **Dropout** (section C): seeded masks (recommended), dropout off, or accept non-reproducibility.
-2. **Image input** (section D): raw pixels first (recommended), or decode image files from the start.
-3. **Scope**: MLP and CNN in Stage 4, with pneumonia CNN deferred to measured budgets (recommended), or all four.
+1. **Dropout:** seeded masks (section C).
+2. **Image input:** raw pixels first (section D).
+3. **Scope: all four recipes.** This overrides the deferral in *Scope* above. Order: MLP, then CNN, then
+   `CIFAR_RESNET18` (same 32×32 image path as CNN), then `PNEUMONIA_CNN` (224×224 grayscale).
+   - The two large recipes still go through qualification: its time budget must be measured on the device, and a
+     phone that cannot meet the round deadline refuses (`QUALIFICATION_FAILED`, `TOO_SLOW`) rather than stalling a
+     round.
+   - `CIFAR_RESNET18`'s catalog `mobile_safe: false` is revisited with that measurement, not flipped by hand.
+   - Each large recipe's upload size (ResNet-18 ~45 MB, pneumonia CNN ~103 MB per float32 update) is recorded with
+     its live run.
 
 ## Slices (each test-first, each its own commit)
 
@@ -114,6 +121,9 @@ Each recipe gets:
 - **S4** MLP end to end, live on the vivo with a replay.
 - **S5** Image package, `ScaleToUnit`/`Normalize`/`ToChw` transforms, and a Kotlin importer with a cross-language golden.
 - **S6** CNN end to end, live on the vivo with a replay; then a mixed run.
+- **S7** `CIFAR_RESNET18`: export, qualification budget measured on the vivo, a live run with a replay, and the upload
+  size recorded.
+- **S8** `PNEUMONIA_CNN`: 224×224 grayscale packages, then the same as S7.
 
 ## Risks
 

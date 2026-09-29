@@ -19,8 +19,8 @@ DeComFL's zeroth-order training is designed and recorded in [08](08-decomfl-cont
 FedProx, the last strategy the phone refused, is planned and tracked in [09](09-fedprox-contract-plan.md).
 The procedure for a live phone + laptop run on one contract is the [live-run runbook](10-live-run-runbook.md).
 Stage 3 (artifact delivery, on-device datasets, portable-CPU qualification) is designed and delivered, slice by slice,
-in [11](11-stage3-artifact-dataset-qualification-design.md). Stage 4 (the MLP and CNN recipes on phones) is designed,
-pending three decisions, in [12](12-stage4-vector-and-image-recipes-design.md).
+in [11](11-stage3-artifact-dataset-qualification-design.md). Stage 4 (the MLP, CNN, ResNet-18 and
+pneumonia CNN recipes on phones) is designed, with its decisions taken, in [12](12-stage4-vector-and-image-recipes-design.md).
 
 > **Design system: Ledger, not Ember.** `src/theme/tokens.generated.ts` and `src/theme/global.css` are **generated** by `design/build-tokens.mjs` from `design/tokens.json` and both carry the Ledger palette (canvas `#F6F3EE`, surface `#FFFFFF`, ink `#191A1C`, muted `#6B6760`, navy accent `#1C314D` / hover `#14243A`; dark family `#0B1622` / `#4F8AC9`). Ledger landed in `2c50672` and rolled onto mobile in `3d54484`, superseding **Ember**, which had superseded *Instrument*. `src/theme/tokens.ts` is now a thin re-export kept only so older import paths resolve — do not hand-edit either generated file; CI's "Design tokens in sync with source of truth" step (`scripts/check_design_tokens.sh`, unconditional in `ci.yml`) fails on drift. The shipped brand fonts are **Hanken Grotesk** (sans *and* display) + **JetBrains Mono** (`src/assets/fonts/`); Bricolage Grotesque was Ember-era and is gone.
 
