@@ -438,9 +438,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             server_state = State.WAITING_FOR_CLIENTS
         else:
             server_state = State.TRAINING
-        # A rolling deadline (now + per-round timeout) so a client's status poll never implies an
-        # infinite wait (v2 §6.2). A precise per-round start-stamp can replace this post-MVP.
-        round_deadline_unix_ms = int((time.time() + self.coordinator.round_timeout_s) * 1000)
+        # The round's real deadline (its start plus the per-round timeout), which the coordinator enforces. It
+        # used to be now + timeout on every poll, so a client's countdown never advanced.
+        round_deadline_unix_ms = self.coordinator.round_deadline_unix_ms()
         return fedlearn_pb2.GetServerStatusResponse(
             server_state=server_state,
             current_round=status["current_round"],

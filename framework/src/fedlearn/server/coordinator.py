@@ -123,8 +123,10 @@ class FLCoordinator:
         self.last_round_message: Optional[str] = None
 
         # Monotonic timestamp marking when the current round began. Used to
-        # enforce round_timeout_s independently of wall-clock adjustments.
+        # enforce round_timeout_s independently of wall-clock adjustments. The wall-clock start is
+        # kept beside it only to report the deadline to clients (round_deadline_unix_ms).
         self._round_started_at = time.monotonic()
+        self._round_started_wall = time.time()
 
         # P2-2: set by the gRPC servicer, which owns the per-round secure-aggregation sessions.
         # The coordinator needs to reach the current round's session on the deadline path, but it
@@ -137,6 +139,7 @@ class FLCoordinator:
         with self._lock:
             self._client_updates_received.clear()  # Prevent stale state leakage across rounds
             self._round_started_at = time.monotonic()  # Reset the dropout deadline for this round
+            self._round_started_wall = time.time()
         self._round_complete_event.clear()
 
     def wait_for_round_to_complete(self):
@@ -162,6 +165,15 @@ class FLCoordinator:
                     break
                 with self._lock:
                     self._round_started_at = time.monotonic()
+                    self._round_started_wall = time.time()
+
+    def round_deadline_unix_ms(self) -> int:
+        """When the current round's dropout deadline passes, as Unix milliseconds: its start plus round_timeout_s.
+
+        The same deadline the coordinator enforces, so a client's countdown advances between status polls.
+        """
+        with self._lock:
+            return int((self._round_started_wall + self.round_timeout_s) * 1000)
 
     def set_secure_session_provider(self, provider) -> None:
         """Register how to reach a round's secure-aggregation session (P2-2).
