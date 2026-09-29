@@ -120,7 +120,16 @@ public final class ExecutionContractValidator {
             tinyNetFirstOrder(Strategy.STRATEGY_FEDPROX_VALUE),
             List.of(Recipe.RECIPE_TINYNET_GOLDEN_VALUE, Strategy.STRATEGY_DECOMFL_VALUE,
                     Arm.ARM_FULL_VALUE, Task.TASK_VECTOR_CLASSIFICATION_VALUE,
-                    Objective.OBJECTIVE_CROSS_ENTROPY_VALUE, UpdateProtocol.UPDATE_DECOMFL_SCALAR_VALUE));
+                    Objective.OBJECTIVE_CROSS_ENTROPY_VALUE, UpdateProtocol.UPDATE_DECOMFL_SCALAR_VALUE),
+            // MLP (Stage 4): first-order training under the strategies whose servers send no client settings.
+            mlpFirstOrder(Strategy.STRATEGY_FEDAVG_VALUE),
+            mlpFirstOrder(Strategy.STRATEGY_ROBUST_VALUE));
+
+    private static List<Integer> mlpFirstOrder(int strategy) {
+        return List.of(Recipe.RECIPE_MLP_VALUE, strategy, Arm.ARM_FULL_VALUE,
+                Task.TASK_VECTOR_CLASSIFICATION_VALUE, Objective.OBJECTIVE_CROSS_ENTROPY_VALUE,
+                UpdateProtocol.UPDATE_TRAINABLE_STATE_F32_VALUE);
+    }
 
     private static List<Integer> tinyNetFirstOrder(int strategy) {
         return List.of(Recipe.RECIPE_TINYNET_GOLDEN_VALUE, strategy, Arm.ARM_FULL_VALUE,

@@ -273,6 +273,8 @@ def build_conformance() -> dict:
               lambda d: d[MT].update({"dropout": [
                   {"module": "dropout1", "rate": 0.3, "masks": "DROPOUT_MASKS_SEEDED_V1"},
                   {"module": "dropout2", "rate": 0.0, "masks": "DROPOUT_MASKS_SEEDED_V1"}]})),
+        _json("mlp_fedavg", "MLP under FedAvg: first-order training (Stage 4).",
+              lambda d: d.update({"recipe": "RECIPE_MLP"})),
         _json("zero_retries_explicit", "An explicit zero retry budget is legal.",
               lambda d: d["round"].update({"maxTransientRetries": 0})),
         _json("central_dp_valid", "A valid central-DP disclosure.",
@@ -359,6 +361,9 @@ def build_conformance() -> dict:
               lambda d: d.pop(MT), ("MISSING_FIELD", MT)),
         _json("unsupported_recipe", "A recipe outside the v1 matrix.",
               lambda d: d.update({"recipe": "RECIPE_CNN"}), ("UNSUPPORTED_COMBINATION", "")),
+        _json("mlp_fedopt_unsupported", "MLP under FedOpt is outside the v1 matrix (no plan states it yet).",
+              lambda d: d.update({"recipe": "RECIPE_MLP", "strategy": "STRATEGY_FEDOPT"}),
+              ("UNSUPPORTED_COMBINATION", "")),
         _json("fedopt_tinynet", "FedOpt on TinyNet: first-order client training, adaptation on the server.",
               lambda d: d.update({"strategy": "STRATEGY_FEDOPT"})),
         _json("robust_tinynet", "Robust on TinyNet: first-order client training, robust aggregation on the server.",

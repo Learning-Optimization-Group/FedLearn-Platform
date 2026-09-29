@@ -350,7 +350,7 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
 
 
 def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=None,
-          proximal_mu: float = 0.0, global_params=None, learning_rate_override=None):
+          proximal_mu: float = 0.0, global_params=None, learning_rate_override=None, dropout_masks=None):
     """
     Train the model with dataset-specific hyperparameters.
 
@@ -572,6 +572,9 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
             #     torch.nn.utils.clip_grad_norm_(net.parameters(), LLM_MAX_GRAD_NORM)
 
             optimizer.step()
+            # A contract's seeded dropout masks are per local step (contracted_dropout.SeededDropoutMasks).
+            if dropout_masks is not None:
+                dropout_masks.advance()
             if i == 0 and USE_LLM and not USE_LLM_LORA:
                 ref_weight_after = net.model.decoder.final_layer_norm.weight
                 weight_change = (ref_weight_after - ref_weight_before).abs().mean().item()
@@ -624,6 +627,17 @@ def _coerce_local_epochs(config: dict, default) -> int:
         return int(raw)
     except (TypeError, ValueError):
         raise ValueError(f"invalid local_epochs in server config: {raw!r} (expected an integer)")
+
+
+def _contracted_dropout(net, server_round):
+    """The round's seeded dropout masks when the run's contract states dropout layers; a no-op context otherwise."""
+    import contextlib
+    if EXECUTION_CONTRACT is None or not EXECUTION_CONTRACT.model_training.dropout:
+        return contextlib.nullcontext()
+    from contracted_dropout import SeededDropoutMasks
+    layers = [(d.module, d.rate) for d in EXECUTION_CONTRACT.model_training.dropout]
+    seed = EXECUTION_CONTRACT.seed if EXECUTION_CONTRACT.HasField("seed") else 0
+    return SeededDropoutMasks(net, layers, seed=seed, round_=int(server_round))
 
 
 def _refuse_round_outside_contract(config: dict) -> None:
@@ -969,17 +983,20 @@ class ZOSLClient(fl.Client):
             [p.detach().clone() for p in self.net.parameters()] if proximal_mu > 0.0 else None
         )
 
-        # Train with progress updates
-        train(
-            self.net,
-            self.trainloader,
-            epochs=local_epochs,
-            dataset_name=self.dataset_name,
-            progress_callback=progress_callback,
-            proximal_mu=proximal_mu,
-            global_params=global_params,
-            learning_rate_override=learning_rate_override,
-        )
+        # Train with progress updates. Under a contract that states dropout, the masks come from its seeded stream for
+        # this round, exactly as the device draws them, instead of torch's RNG.
+        with _contracted_dropout(self.net, server_round) as dropout_masks:
+            train(
+                self.net,
+                self.trainloader,
+                epochs=local_epochs,
+                dataset_name=self.dataset_name,
+                progress_callback=progress_callback,
+                proximal_mu=proximal_mu,
+                global_params=global_params,
+                learning_rate_override=learning_rate_override,
+                dropout_masks=dropout_masks,
+            )
 
         # DEBUG: Check if parameters changed (skip for LLM_LORA — adapter key namespaces
         # differ between the compacted peft upload form and net.state_dict(), causing KeyError)

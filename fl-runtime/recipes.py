@@ -323,6 +323,8 @@ RECIPE_METADATA = [
     {
         "key": "MLP",
         "supported_arms": ["FULL"],
+        # The device trains its own ECG snapshot under an MLP contract (Stage 4); the fixture is the laptop's shard.
+        "supported_data_sources": ["FIXTURE", "LOCAL_SNAPSHOT"],
         "trainable_spec": {"FULL": None},
         "display_name": "ECG heartbeat (Normal/Abnormal)",
         "input_kind": "vector",

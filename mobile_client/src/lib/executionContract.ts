@@ -105,6 +105,17 @@ const APPROVED_MATRIX: ReadonlySet<string> = new Set([
     Objective.CROSS_ENTROPY,
     UpdateProtocol.UPDATE_DECOMFL_SCALAR,
   ].join(','),
+  // MLP (Stage 4): first-order training under the strategies whose servers send no client settings.
+  ...[Strategy.FEDAVG, Strategy.ROBUST].map((strategy) =>
+    [
+      Recipe.MLP,
+      strategy,
+      Arm.FULL,
+      Task.VECTOR_CLASSIFICATION,
+      Objective.CROSS_ENTROPY,
+      UpdateProtocol.UPDATE_TRAINABLE_STATE_F32,
+    ].join(','),
+  ),
 ]);
 
 const CLASSIFICATION_TASKS: ReadonlySet<number> = new Set([

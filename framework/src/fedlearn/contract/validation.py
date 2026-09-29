@@ -65,6 +65,11 @@ APPROVED_MATRIX = frozenset({
     # DeComFL: zeroth-order training, gradient scalars instead of weights.
     (pb.RECIPE_TINYNET_GOLDEN, pb.STRATEGY_DECOMFL, pb.ARM_FULL, pb.TASK_VECTOR_CLASSIFICATION,
      pb.OBJECTIVE_CROSS_ENTROPY, pb.UPDATE_DECOMFL_SCALAR),
+} | {
+    # MLP (Stage 4): first-order training under the strategies whose servers send no client settings.
+    (pb.RECIPE_MLP, strategy, pb.ARM_FULL, pb.TASK_VECTOR_CLASSIFICATION, pb.OBJECTIVE_CROSS_ENTROPY,
+     pb.UPDATE_TRAINABLE_STATE_F32)
+    for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_ROBUST)
 })
 
 _CLASSIFICATION_TASKS = frozenset({pb.TASK_VECTOR_CLASSIFICATION, pb.TASK_IMAGE_CLASSIFICATION,

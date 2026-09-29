@@ -39,7 +39,7 @@ CLIENT_PROTOCOL_VERSION = 2
 _PLAN_FIELDS = (("model_id", "modelId"), ("arm", "arm"), ("task", "task"), ("objective", "objective"),
                 ("update_protocol", "updateProtocol"), ("trainable", "trainable"),
                 ("frozen_state_sha256", "frozenStateSha256"), ("local_training", "localTraining"),
-                ("data", "data"), ("fedprox_mu", "fedproxMu"))
+                ("data", "data"), ("fedprox_mu", "fedproxMu"), ("dropout", "dropout"))
 
 
 class NotRepresentable(Exception):
@@ -215,6 +215,64 @@ def _tinynet_full(update_protocol, local_training, initial_state_path=None) -> p
     return plan
 
 
+def _dropout_layers(model) -> list:
+    """The model's dropout layers in forward (named_modules) order, each drawing DROPOUT_MASKS_SEEDED_V1 masks."""
+    import torch.nn as nn
+    return [pb.DropoutLayer(module=name, rate=float(m.p), masks=pb.DROPOUT_MASKS_SEEDED_V1)
+            for name, m in model.named_modules() if isinstance(m, nn.Dropout)]
+
+
+def _mlp_first_order_full(initial_state_path=None) -> pb.ModelTraining:
+    """MLP (ECG) under FedAvg or Robust on the FULL arm, as client.py trains it.
+
+    - Optimizer: client.train() builds a fresh torch.optim.Adam over every parameter at the ECG config's rate, with
+      PyTorch's defaults otherwise; these servers send no settings to override it.
+    - Step budget: the ECG config's local_epochs (the server sends none).
+    - Batching: recipes.load_ecg_client_data's loader, shuffled batches of the config's batch_size_train, keeping the
+      final batch.
+    - Dropout: the recipe's two Dropout(0.3) layers, whose masks every participant draws from the contract's
+      seeded stream, so an update stays reproducible.
+    """
+    from config import get_dataset_config
+    ecg = get_dataset_config("ecg")
+    recipe = recipes.get_recipe("MLP")
+    model = recipe.build_model("cpu")
+    width = model.fc1.in_features
+    layout = _trainable_layout(model)
+    local = pb.LocalTraining(
+        local_epochs=ecg.local_epochs,
+        adam=pb.Adam(learning_rate=ecg.learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8, weight_decay=0.0,
+                     amsgrad=False),
+        reset_optimizer_each_round=True,
+        batch_size=ecg.batch_size_train,
+        drop_last=False,
+        batch_order=pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH,
+    )
+    plan = pb.ModelTraining(
+        model_id=recipe.base_models[0],
+        arm=pb.ARM_FULL,
+        task=pb.TASK_VECTOR_CLASSIFICATION,
+        objective=_OBJECTIVES[recipes.ARM_OBJECTIVES["FULL"]],
+        update_protocol=pb.UPDATE_TRAINABLE_STATE_F32,
+        trainable=layout,
+        frozen_state_sha256=_frozen_state_sha256(model, layout),
+        local_training=local,
+        data=pb.DataRequirement(
+            task=pb.TASK_VECTOR_CLASSIFICATION,
+            input_shape=[width],
+            input_dtype=pb.DTYPE_F32,
+            class_count=len(recipe.classes),
+            label_schema_id=label_schema_id(recipe.classes),
+            transforms=[pb.Transform(identity_vector=pb.IdentityVector(width=width))],
+            source=pb.DATA_SOURCE_FIXTURE,
+        ),
+        dropout=_dropout_layers(model),
+    )
+    if initial_state_path is not None:
+        plan.initial_state_sha256 = _initial_state_sha256(initial_state_path, "MLP", "FULL", layout)
+    return plan
+
+
 # client.py's CNN_LEARNING_RATE and one epoch: what a client trains when its server sends no settings.
 _CLIENT_DEFAULT_RATE, _CLIENT_DEFAULT_EPOCHS = 0.001, 1
 
@@ -228,11 +286,28 @@ _PLANS = {
     ("TINYNET_GOLDEN", "FedProx", "FULL"): _tinynet_fedprox_full,
     # DeComFL: zeroth-order training; the update is gradient scalars.
     ("TINYNET_GOLDEN", "DeComFL", "FULL"): _tinynet_decomfl_full,
+    # MLP (Stage 4): Adam and seeded dropout masks. Robust aggregates on the server, so its clients train as FedAvg's.
+    ("MLP", "FedAvg", "FULL"): _mlp_first_order_full,
+    ("MLP", "Robust", "FULL"): _mlp_first_order_full,
 }
 
 
 # The run intent's TrainingDataSource names, as the backend passes them.
 DATA_SOURCES = {"FIXTURE": pb.DATA_SOURCE_FIXTURE, "LOCAL_SNAPSHOT": pb.DATA_SOURCE_LOCAL_SNAPSHOT}
+
+
+# Runs a recipe's plan table covers only by saying why they have no plan yet.
+_REFUSALS = {
+    ("MLP", "FedOpt", "FULL"): (
+        "MLP under FedOpt has no v1 plan: the server's client rate (0.01) is ignored by the laptop's MLP, which trains "
+        "at its ECG rate, while a contracted laptop refuses a server rate that differs from the contract"),
+    ("MLP", "FedProx", "FULL"): (
+        "MLP under FedProx has no v1 plan: it adds the proximal term to Adam's gradient, which the device's Adam does "
+        "not implement yet"),
+    ("MLP", "DeComFL", "FULL"): (
+        "MLP under DeComFL has no v1 plan: its zeroth-order forward passes would meet dropout, whose masks no "
+        "zeroth-order plan states yet"),
+}
 
 
 def resolve_model_training(recipe_key: str, strategy: str, training_arm: str,
@@ -246,6 +321,9 @@ def resolve_model_training(recipe_key: str, strategy: str, training_arm: str,
     """
     if data_source not in DATA_SOURCES:
         raise ValueError(f"unknown data source {data_source!r}")
+    refusal = _REFUSALS.get((recipe_key, strategy, training_arm))
+    if refusal is not None:
+        raise NotRepresentable(refusal)
     build = _PLANS.get((recipe_key, strategy, training_arm))
     if build is None:
         raise NotRepresentable(

@@ -367,6 +367,72 @@ def test_the_plan_completes_a_valid_contract():
     assert validate_contract(contract, reader_protocol_version=2) == []
 
 
+# --- Stage 4 S0: the MLP (ECG) recipe ------------------------------------------------------------------------
+
+@pytest.mark.parametrize("strategy", ["FedAvg", "Robust"])
+def test_the_mlp_plan_states_what_the_laptop_trains(strategy):
+    """client.py trains the MLP with a fresh torch.optim.Adam at the ECG config's rate (servers for FedAvg and
+    Robust send no settings), one epoch, the ECG loader's shuffled batches of 128, and two Dropout(0.3) layers."""
+    plan = execution_plan.resolve_model_training("MLP", strategy, "FULL")
+    assert plan.model_id == "ecg_mlp"
+    assert plan.arm == pb.ARM_FULL and plan.task == pb.TASK_VECTOR_CLASSIFICATION
+    assert plan.objective == pb.OBJECTIVE_CROSS_ENTROPY
+    assert plan.update_protocol == pb.UPDATE_TRAINABLE_STATE_F32
+    local = plan.local_training
+    assert local.WhichOneof("optimizer") == "adam"
+    assert (local.adam.learning_rate, local.adam.beta1, local.adam.beta2, local.adam.epsilon) == (1e-3, 0.9, 0.999,
+                                                                                                    1e-8)
+    assert local.adam.weight_decay == 0.0 and local.adam.amsgrad is False
+    assert (local.local_epochs, local.batch_size, local.drop_last) == (1, 128, False)
+    assert local.batch_order == pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH
+    assert local.reset_optimizer_each_round is True
+    assert [(t.name, list(t.shape)) for t in plan.trainable] == [
+        ("fc1.weight", [64, 140]), ("fc1.bias", [64]), ("fc2.weight", [64, 64]), ("fc2.bias", [64]),
+        ("fc3.weight", [2, 64]), ("fc3.bias", [2])]
+    assert [(d.module, d.rate, d.masks) for d in plan.dropout] == [
+        ("dropout1", 0.3, pb.DROPOUT_MASKS_SEEDED_V1), ("dropout2", 0.3, pb.DROPOUT_MASKS_SEEDED_V1)]
+    data = plan.data
+    assert list(data.input_shape) == [140] and data.class_count == 2
+    assert data.label_schema_id == execution_plan.label_schema_id(["Normal", "Abnormal"])
+    assert [t.identity_vector.width for t in data.transforms] == [140]
+
+
+def test_an_mlp_run_on_participants_own_data_trains_in_the_reproducible_batch_order():
+    plan = execution_plan.resolve_model_training("MLP", "FedAvg", "FULL", data_source="LOCAL_SNAPSHOT")
+    assert plan.local_training.batch_order == pb.BATCH_ORDER_SEEDED_PERMUTATION_V1
+    assert plan.data.source == pb.DATA_SOURCE_LOCAL_SNAPSHOT
+
+
+def test_the_mlp_plan_completes_a_valid_contract():
+    with open(GOLDEN_CONTRACT, "rb") as fh:
+        contract = parse_contract_binary(fh.read())
+    contract.recipe = pb.RECIPE_MLP
+    plan = execution_plan.resolve_model_training("MLP", "FedAvg", "FULL")
+    training = contract.model_training
+    for field in ("model_id", "arm", "task", "objective", "update_protocol", "frozen_state_sha256"):
+        setattr(training, field, getattr(plan, field))
+    for field in ("trainable", "dropout"):
+        training.ClearField(field)
+        getattr(training, field).extend(getattr(plan, field))
+    training.local_training.CopyFrom(plan.local_training)
+    training.data.CopyFrom(plan.data)
+    assert validate_contract(contract, reader_protocol_version=2) == []
+
+
+@pytest.mark.parametrize("strategy, reason", [
+    # The FedOpt server sends its client rate (0.01), which the laptop MLP ignores for its own 1e-3; under a contract
+    # the laptop refuses a server rate that differs, so no single plan states what both do.
+    ("FedOpt", "server's client rate"),
+    # FedProx adds the proximal term to Adam's gradient; the device's Adam has no proximal term yet.
+    ("FedProx", "proximal term"),
+    # DeComFL's zeroth-order forward passes would meet dropout, whose masks no zeroth-order plan states yet.
+    ("DeComFL", "dropout"),
+])
+def test_the_mlp_strategies_without_a_plan_say_why(strategy, reason):
+    with pytest.raises(execution_plan.NotRepresentable, match=reason):
+        execution_plan.resolve_model_training("MLP", strategy, "FULL")
+
+
 @pytest.mark.parametrize("recipe, strategy, arm", [
     ("CNN", "FedAvg", "FULL"),
     ("CNN", "FedProx", "FULL"),
