@@ -112,6 +112,8 @@ def main() -> None:
         "flat_dim": int(flat(net).size), "pte_file": "mlp_trainable_masked_dynbatch.pte",
         "pte_sha256": hashlib.sha256(pte).hexdigest(), "max_batch": BATCH,
         "final_flat_file": "mlp_masked_adam_final.f32", "endpoint_atol": ATOL, "control_separation": separation,
+        # The qualification probe of the masked program: two SGD steps with every mask all ones (Stage 4 S1).
+        "probe": pte_export.probe_reference(build_net(), rows=BATCH, width=WIDTH, classes=2),
     }
     with open(os.path.join(HERE, "mlp_manifest.json"), "w") as fh:
         json.dump(manifest, fh, indent=2)

@@ -23,8 +23,8 @@ fedlearn::ProbeSpec spec() {
   s.width = 4;
   s.classes = 3;
   s.learningRate = 0.1f;
-  s.expectedLossStep1 = 1.1053780317306519;
-  s.expectedLossStep2 = 1.0776357650756836;
+  s.expectedLossStep1 = 1.1156879663467407;
+  s.expectedLossStep2 = 1.108156442642212;
   s.lossTolerance = 1e-4;
   s.maxProbeMs = 2000;
   return s;
@@ -83,4 +83,37 @@ TEST(Qualification, AMalformedSpecDoesNotQualify) {
   const auto r = fedlearn::qualifyTrainable(fedtest::goldenPath(kPte), kSha, kNames, s);
   EXPECT_FALSE(r.passed);
   EXPECT_EQ(r.failedCheck, "SPEC");
+}
+
+// Stage 4 S1: a masked-dropout program (the MLP's) takes one mask per dropout layer after (x, y). The probe feeds every
+// mask as all ones, so dropout passes activations through, as the exporter's reference does (mlp_manifest.json probe).
+namespace {
+
+std::string mlpPath(const std::string& file) { return std::string(MLP_DIR) + "/" + file; }
+
+constexpr const char* kMlpSha = "237ce3dae80fa8374e34fde0bbc328c265df2818c6de10e1a98b62d25f22c297";
+const std::vector<std::string> kMlpNames = {"base.fc1.weight", "base.fc1.bias", "base.fc2.weight",
+                                            "base.fc2.bias", "base.fc3.weight", "base.fc3.bias"};
+
+fedlearn::ProbeSpec mlpSpec() {
+  fedlearn::ProbeSpec s;
+  s.rows = 8;
+  s.width = 140;
+  s.classes = 2;
+  s.learningRate = 0.1f;
+  s.expectedLossStep1 = 0.6020075082778931;
+  s.expectedLossStep2 = 1.0412771701812744;
+  s.lossTolerance = 1e-4;
+  s.maxProbeMs = 2000;
+  return s;
+}
+
+}  // namespace
+
+TEST(Qualification, AMaskedDropoutProgramQualifiesWithItsMasksAllOnes) {
+  const auto r = fedlearn::qualifyTrainable(mlpPath("mlp_trainable_masked_dynbatch.pte"), kMlpSha, kMlpNames,
+                                            mlpSpec());
+  EXPECT_TRUE(r.passed) << r.failedCheck << ": " << r.detail;
+  EXPECT_NEAR(r.lossStep1, mlpSpec().expectedLossStep1, 1e-6);
+  EXPECT_NEAR(r.lossStep2, mlpSpec().expectedLossStep2, 1e-6);
 }

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <exception>
 #include <memory>
+#include <stdexcept>
 #include <utility>
 
 #include "fedlearn/TrainableExecutorchModel.h"
@@ -20,13 +21,12 @@ QualificationReport fail(QualificationReport r, const char* check, std::string d
 }
 
 void probeBatch(int step, const ProbeSpec& s, std::vector<float>& x, std::vector<int64_t>& y) {
-  x.assign(static_cast<size_t>(s.rows * s.width), 0.0f);
+  x.resize(static_cast<size_t>(s.rows * s.width));
   y.resize(static_cast<size_t>(s.rows));
   for (int64_t i = 0; i < s.rows; ++i) {
     y[static_cast<size_t>(i)] = i % s.classes;
-    if (step == 1) continue;
     for (int64_t j = 0; j < s.width; ++j) {
-      x[static_cast<size_t>(i * s.width + j)] = static_cast<float>((i * s.width + j) % 7 - 3) / 4.0f;
+      x[static_cast<size_t>(i * s.width + j)] = static_cast<float>((31 * i + 7 * j + 3 * step) % 17 - 8) / 8.0f;
     }
   }
 }
@@ -51,13 +51,29 @@ QualificationReport qualifyTrainable(const std::string& ptePath, const std::stri
   std::vector<int64_t> y;
   std::vector<float> before;
   std::vector<float> afterStep1;
+  // A masked-dropout program takes one mask per dropout layer after (x, y); every mask is all ones, so dropout passes
+  // activations through unchanged, as in the exporter's reference.
+  std::vector<std::vector<float>> maskData;
+  std::vector<InputTensor> masks;
   try {
+    for (auto shape : model->extraInputShapes()) {
+      if (shape.empty()) throw std::runtime_error("a mask input has no batch dimension");
+      shape[0] = spec.rows;
+      int64_t numel = 1;
+      for (int64_t d : shape) numel *= d;
+      maskData.emplace_back(static_cast<size_t>(numel), 1.0f);
+      masks.push_back({nullptr, shape});
+    }
+    for (size_t k = 0; k < masks.size(); ++k) masks[k].data = maskData[k].data();
+    const std::vector<InputTensor>* extra = masks.empty() ? nullptr : &masks;
     before = model->getFlatParams();
     probeBatch(1, spec, x, y);
-    r.lossStep1 = model->trainStep(x.data(), {spec.rows, spec.width}, y.data(), spec.rows, spec.learningRate);
+    r.lossStep1 = model->trainStep(x.data(), {spec.rows, spec.width}, y.data(), spec.rows, spec.learningRate,
+                                   nullptr, 0.0f, extra);
     afterStep1 = model->getFlatParams();
     probeBatch(2, spec, x, y);
-    r.lossStep2 = model->trainStep(x.data(), {spec.rows, spec.width}, y.data(), spec.rows, spec.learningRate);
+    r.lossStep2 = model->trainStep(x.data(), {spec.rows, spec.width}, y.data(), spec.rows, spec.learningRate,
+                                   nullptr, 0.0f, extra);
   } catch (const std::exception& e) {
     return fail(r, "LOAD", e.what());
   }

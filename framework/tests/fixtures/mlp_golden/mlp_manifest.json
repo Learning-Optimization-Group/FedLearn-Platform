@@ -88,5 +88,14 @@
     "step_counter_reset_each_epoch": 0.0038914037868380547,
     "layers_swapped": 0.010242611169815063,
     "wrong_seed": 0.010889574885368347
+  },
+  "probe": {
+    "rows": 8,
+    "width": 140,
+    "classes": 2,
+    "learning_rate": 0.1,
+    "loss_step1": 0.6020075082778931,
+    "loss_step2": 1.0412771701812744,
+    "loss_tolerance": 0.0001
   }
 }

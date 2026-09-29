@@ -53,7 +53,8 @@ def stage_bundle(run_id: str, out_root: Path, fixture: Path = DEFAULT_FIXTURE) -
     # dataset; the static goldens refuse any count but 8 at runtime. Staged when the fixture ships them.
     dyn_path = fixture / "fedavg_pte_manifest.json"
     dyn = json.loads(dyn_path.read_text()).get("dynbatch") if dyn_path.exists() else None
-    if dyn:
+    # A recipe export stages its programs under their own names and states only the bound and probe here.
+    if dyn and "loss_file" in dyn:
         src = {**src,
                "pte_file": dyn["loss_file"], "pte_sha256": dyn["loss_sha256"],
                "infer_file": dyn["infer_file"], "infer_sha256": dyn["infer_sha256"],

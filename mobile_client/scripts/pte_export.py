@@ -255,3 +255,64 @@ def export_trainable_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, t
                 dynamic_shapes=None if batch is None else ({0: batch}, {0: batch}))
     ep = _export_forward_backward(ep)
     return to_edge(ep).to_executorch().buffer
+
+
+def dropout_mask_shapes(model: nn.Module, example_x: torch.Tensor) -> list[tuple[int, ...]]:
+    """The per-example activation shape at each dropout layer, in dropout_layers() order: the masks a masked program
+    takes, read from one forward pass rather than from the architecture."""
+    shapes: list[tuple[int, ...]] = []
+    hooks = [m.register_forward_hook(lambda _m, _i, out: shapes.append(tuple(out.shape[1:])))
+             for _, m in model.named_modules() if isinstance(m, nn.Dropout)]
+    was_training = model.training
+    try:
+        # Eval mode, so the pass neither draws from torch's RNG (dropout) nor moves BatchNorm running statistics.
+        model.eval()
+        with torch.no_grad():
+            model(example_x[:1])
+    finally:
+        model.train(was_training)
+        for h in hooks:
+            h.remove()
+    return shapes
+
+
+PROBE_LEARNING_RATE = 0.1
+
+
+def probe_batch(step: int, rows: int, width: int, classes: int) -> tuple[torch.Tensor, torch.Tensor]:
+    """The qualification probe's synthetic batch for step 1 or 2: x[i][j] = ((31 i + 7 j + 3 step) mod 17 - 8) / 8,
+    labels i mod classes. The native probe builds the same batch.
+
+    Every value is exact in float32. Rows differ from one another (31 is coprime to 17) for up to 17 rows whatever the
+    width, and no input is all zeros, so a step moves every layer even of a model whose biases start at zero.
+    """
+    x = torch.tensor([[((31 * i + 7 * j + 3 * step) % 17 - 8) / 8 for j in range(width)] for i in range(rows)],
+                     dtype=torch.float32)
+    return x, torch.tensor([i % classes for i in range(rows)], dtype=torch.int64)
+
+
+def probe_reference(model: nn.Module, rows: int, width: int, classes: int) -> dict:
+    """What a trainable program must report on the probe: two SGD steps from its embedded (export-time) weights.
+
+    A masked-dropout program is probed with every mask all ones, so its dropout layers pass activations through
+    unchanged; the device does the same. The probe is a property of the artifact, not of a run, so a device can cache
+    its result per program digest.
+    """
+    mask_shapes = dropout_mask_shapes(model, probe_batch(1, rows, width, classes)[0])
+    wrapper = _MaskedTrainingGraph(model)
+    params = [p for p in wrapper.parameters() if p.requires_grad]
+    opt = torch.optim.SGD(params, lr=PROBE_LEARNING_RATE)
+    losses = []
+    for step in (1, 2):
+        x, y = probe_batch(step, rows, width, classes)
+        masks = tuple(torch.ones(rows, *shape) for shape in mask_shapes)
+        opt.zero_grad()
+        loss, _ = wrapper(x, y, masks)
+        loss.backward()
+        opt.step()
+        losses.append(float(loss))
+    return {"rows": rows, "width": width, "classes": classes, "learning_rate": PROBE_LEARNING_RATE,
+            "loss_step1": losses[0], "loss_step2": losses[1],
+            # ExecuTorch's portable kernels agree with torch to ~1e-7 on these graphs; the tolerance leaves room for
+            # other CPUs while rejecting a program that computes something else.
+            "loss_tolerance": 1e-4}

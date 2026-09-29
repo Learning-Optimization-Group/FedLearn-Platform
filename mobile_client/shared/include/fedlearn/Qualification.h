@@ -1,8 +1,8 @@
 // Qualification.h — the portable-CPU qualification probe (Stage 3 D2).
 //
 // Before a device trains a run it proves it can run the run's trainable program correctly: two SGD steps on a
-// synthetic batch from the program's embedded weights (zeros, then the fixed pattern
-// x[i][j] = ((i * width + j) mod 7 - 3) / 4; labels i mod classes), each step's loss matching the exporter's reference,
+// synthetic batch from the program's embedded weights (at step s, x[i][j] = ((31 i + 7 j + 3 s) mod 17 - 8) / 8; labels
+// i mod classes), each step's loss matching the exporter's reference,
 // the parameters changing, and the whole probe finishing within its budget. The probe is a property of the program,
 // so a device caches its result by program digest.
 #pragma once

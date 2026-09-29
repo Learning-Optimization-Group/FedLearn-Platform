@@ -23,6 +23,7 @@ import torch
 import torch.nn as nn
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # this dir -> pte_export
+import pte_export  # noqa: E402
 from pte_export import (export_functional_infer_pte, export_functional_pte, export_trainable_pte,
                         training_trainable_names)
 
@@ -42,43 +43,9 @@ class TinyNet(nn.Module):
         return self.fc2(torch.relu(self.fc1(x)))
 
 
-PROBE_LEARNING_RATE = 0.1
-
-
-def probe_batch(step: int, rows: int, width: int, classes: int) -> tuple[torch.Tensor, torch.Tensor]:
-    """The qualification probe's synthetic batch (Stage 3 D2): zeros at step 1, then the fixed pattern
-    x[i][j] = ((i * width + j) mod 7 - 3) / 4; labels i mod classes. The native probe builds the same batch."""
-    if step == 1:
-        x = torch.zeros(rows, width, dtype=torch.float32)
-    else:
-        x = torch.tensor([[((i * width + j) % 7 - 3) / 4 for j in range(width)] for i in range(rows)],
-                         dtype=torch.float32)
-    return x, torch.tensor([i % classes for i in range(rows)], dtype=torch.int64)
-
-
 def probe_reference(net: nn.Module, rows: int, classes: int) -> dict:
-    """What the trainable program must report on the probe: two SGD steps from its embedded (export-time) weights.
-
-    The probe is a property of the artifact, not of a run, so a device can cache its result per program digest.
-    """
-    import copy
-    model = copy.deepcopy(net)
-    width = model.fc1.in_features
-    params = [p for p in model.parameters() if p.requires_grad]
-    opt = torch.optim.SGD(params, lr=PROBE_LEARNING_RATE)
-    losses = []
-    for step in (1, 2):
-        x, y = probe_batch(step, rows, width, classes)
-        opt.zero_grad()
-        loss = torch.nn.functional.cross_entropy(model(x), y)
-        loss.backward()
-        opt.step()
-        losses.append(float(loss))
-    return {"rows": rows, "width": width, "classes": classes, "learning_rate": PROBE_LEARNING_RATE,
-            "loss_step1": losses[0], "loss_step2": losses[1],
-            # ExecuTorch's portable kernels agree with torch to ~1e-7 on this graph; the tolerance leaves room for
-            # other CPUs while rejecting a program that computes something else.
-            "loss_tolerance": 1e-4}
+    """TinyNet's qualification probe: pte_export.probe_reference over its 4 input features."""
+    return pte_export.probe_reference(net, rows=rows, width=net.fc1.in_features, classes=classes)
 
 
 def main(golden_dir: str) -> None:
