@@ -259,6 +259,20 @@ class ExecutionContractPublisherTest {
     }
 
     @Test
+    void aRegistryModelWrittenToItsCacheAfterTheRunStartedIsStillDigested() throws Exception {
+        // The registry writes its content-addressed blob to the cache on first use, which for a continued run is after
+        // the run was created. Its name is its sha256, so it cannot have changed: the run still gets a contract.
+        Path head = Files.writeString(dir.resolve("head.npz"), "registry head");
+        Files.setLastModifiedTime(head, FileTime.from(Instant.now().plusSeconds(60)));
+        when(registry.resolveModelPath(project)).thenReturn(Optional.of(head.toString()));
+
+        publisher.onStaged(run.getId());
+
+        verify(resolver).resolve("TINYNET_GOLDEN", "FedAvg", "FULL", TrainingDataSource.FIXTURE, head);
+        verify(store, never()).markUnavailable(any(), any(), anyString());
+    }
+
+    @Test
     void anInitialModelChangedAfterTheRunStartedIsNotRepresentable() throws Exception {
         Files.setLastModifiedTime(initialModel, FileTime.from(Instant.now()));
 

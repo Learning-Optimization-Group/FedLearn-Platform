@@ -90,14 +90,18 @@ public class ExecutionContractPublisher implements ModelBundleStagingListener {
             decide(run, ContractUnavailableReason.STAGING_FAILED, e.getMessage());
             return;
         }
-        String initialModelPath = registry.resolveModelPath(project).orElse(project.getModelPath());
+        Optional<String> registryModel = registry.resolveModelPath(project);
+        String initialModelPath = registryModel.orElse(project.getModelPath());
         if (initialModelPath == null) {
             decide(run, ContractUnavailableReason.NOT_REPRESENTABLE, "the project has no initial model file");
             return;
         }
         Path initialModel = Path.of(initialModelPath);
         try {
-            if (changedSince(initialModel, run.getCreatedAt())) {
+            // Only the project's own model file can be overwritten under a run. A registry model is content-addressed
+            // (named by its sha256, verified on read) and is written to its cache on first use, often after the run was
+            // created, so its modification time says nothing about whether it changed.
+            if (registryModel.isEmpty() && changedSince(initialModel, run.getCreatedAt())) {
                 decide(run, ContractUnavailableReason.NOT_REPRESENTABLE,
                         "the initial model file changed after the run started");
                 return;
