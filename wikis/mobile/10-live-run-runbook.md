@@ -78,6 +78,7 @@ docker run -d --name fedlearn-live-pg -e POSTGRES_USER=federance -e POSTGRES_PAS
   -e POSTGRES_DB=federance -p 127.0.0.1:5438:5432 postgres:16.6-alpine
 mkdir -p $WORK/models
 cd $REPO/backend/fl-platform-api && \
+SPRING_APPLICATION_JSON="{\"app.model-bundle.autostage.python\":\"$REPO/.venv/bin/python\"}" \
 SPRING_PROFILES_ACTIVE=dev SERVER_PORT=8084 \
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5438/federance \
 SPRING_DATASOURCE_USERNAME=federance SPRING_DATASOURCE_PASSWORD=federance \
@@ -93,6 +94,7 @@ Every variable is load-bearing:
 | Variable | Why |
 | --- | --- |
 | `FEDLEARN_PYTHON` | the spawned FL server and scripts otherwise use the global `python3` |
+| `app.model-bundle.autostage.python` | the interpreter that stages a run's model bundle. It is separate from `FEDLEARN_PYTHON` and defaults to `python3`. TinyNet stages from committed files, but every other recipe is exported with ExecuTorch, which fails with `No module named 'executorch'` (contract `STAGING_FAILED`) unless this names the venv |
 | `FEDLEARN_ROUND_TIMEOUT_S=900` | the default 120 s is too short to join a phone by hand |
 | `APP_MODEL_BUNDLE_DIR` | the default `/var/models` is not writable on macOS; staging fails and the run gets no contract |
 | `FL_SERVER_GRPC_HOST=127.0.0.1` | on the dev profile the backend auto-advertises a Tailscale or LAN IP instead of `localhost`, and the phone then bypasses the USB tunnel |
