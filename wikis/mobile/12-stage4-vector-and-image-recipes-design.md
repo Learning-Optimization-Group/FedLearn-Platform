@@ -133,3 +133,29 @@ Each recipe gets:
   pins the resolved numbers before and after.
 - **Snapshot size for images.** Float snapshots are 4× the uint8 source. Snapshots could store uint8 and transform
   per batch; that is deferred until a dataset needs it.
+
+## Progress
+
+**MLP (S0–S4): done and verified live, 2026-09-30.**
+
+The vivo trained the ECG MLP on 300 of its own examples under a FedAvg contract:
+- Adam, seeded minibatches of 128, two seeded Dropout(0.3) layers;
+- three rounds of 129–207 ms, 52 KB uploaded per round;
+- qualification passed in 52 ms.
+
+A replay of the contract reproduces the phone's saved model within 1.4e-6. It also predicts every displayed loss to
+4 dp. Seven wrong-hypothesis controls land 8.5e-3 or further away.
+
+Getting there fixed three defects the design did not anticipate:
+- **The strategy.** Both the FL server and the CLI client forced every MLP run onto DeComFL whatever its strategy,
+  and the client's first-order path could not load ECG data (`f77f41b`).
+- **The exporter's interpreter.** The bundle stager runs the exporter under its own interpreter setting
+  (`app.model-bundle.autostage.python`), now in the runbook.
+- **Continued runs.** A run continuing from a project's registry model got no contract, because the registry blob's
+  first materialization tripped the publisher's modification-time check (`5d8df8d`).
+
+Not done yet:
+- a mixed phone + laptop MLP run (laptops refuse own-data runs);
+- MLP under FedOpt, FedProx and DeComFL (refused with reasons, see `execution_plan._REFUSALS`).
+
+Next: S5, image packages.
