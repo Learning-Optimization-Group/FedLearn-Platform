@@ -18,16 +18,29 @@ class DatasetSources(
     private val scratchRoot: File,
     private val limits: DatasetImporter.Limits = DatasetImporter.Limits(),
 ) {
+    fun import(displayName: String, open: () -> InputStream, classNames: List<String>, shape: DataShape): Snapshot =
+        when (shape) {
+            is DataShape.Vector -> import(displayName, open, classNames, shape.width)
+            is DataShape.Image -> {
+                if (!displayName.lowercase().endsWith(".zip")) {
+                    throw DatasetImportException("DATASET_UNSUPPORTED_FORMAT", "images come as a zipped dataset package")
+                }
+                importZip(open) { meta, records -> importer.importImagePackage(meta, records, classNames, shape) }
+            }
+        }
+
     fun import(displayName: String, open: () -> InputStream, classNames: List<String>, inputWidth: Int): Snapshot {
         val name = displayName.lowercase()
         return when {
             name.endsWith(".csv") -> open().use { importer.importCsv(it, classNames, inputWidth) }
-            name.endsWith(".zip") -> importZip(open, classNames, inputWidth)
+            name.endsWith(".zip") -> importZip(open) { meta, records ->
+                importer.importPackage(meta, records, classNames, inputWidth)
+            }
             else -> throw DatasetImportException("DATASET_UNSUPPORTED_FORMAT", "choose a .csv file or a zipped dataset package")
         }
     }
 
-    private fun importZip(open: () -> InputStream, classNames: List<String>, inputWidth: Int): Snapshot {
+    private fun importZip(open: () -> InputStream, importPackage: (InputStream, InputStream) -> Snapshot): Snapshot {
         scratchRoot.mkdirs()
         val dir = File(scratchRoot, "unzip-${UUID.randomUUID()}").apply { mkdirs() }
         try {
@@ -71,7 +84,7 @@ class DatasetSources(
             val meta = datasetJson ?: bad("the package has no dataset.json")
             val records = recordsJsonl ?: bad("the package has no records.jsonl")
             return meta.inputStream().use { m ->
-                records.inputStream().use { r -> importer.importPackage(m, r, classNames, inputWidth) }
+                records.inputStream().use { r -> importPackage(m, r) }
             }
         } finally {
             dir.deleteRecursively()

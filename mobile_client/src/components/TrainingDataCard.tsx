@@ -2,7 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { Check, FileUp } from 'lucide-react-native';
 
-import type { DatasetSnapshot } from '../lib/datasetService';
+import type { DataShape, DatasetSnapshot } from '../lib/datasetService';
 import { datasetFit, type RunDataPlan } from '../lib/runDataPlan';
 import { useThemeTokens } from '../theme/useThemeTokens';
 import { ErrorBanner } from './ErrorBanner';
@@ -25,6 +25,12 @@ const shortId = (snapshotId: string) => snapshotId.slice(0, 8);
  * marked usable for this run or with the reasons it is not, and imports a file against the run's classes. The data
  * never leaves the phone; only the model update does.
  */
+/** One example, in words: "140 numbers", or "a 32×32 color image" packaged with its raw pixels. */
+function describeExample(shape: DataShape): string {
+  if (shape.kind === 'vector') return `${shape.width} numbers`;
+  return `a ${shape.height}×${shape.width} ${shape.channels === 1 ? 'grayscale' : 'color'} image (a .zip image package)`;
+}
+
 export function TrainingDataCard({
   plan, datasets, selectedId, onSelect, onImport, importing, importError,
 }: TrainingDataCardProps) {
@@ -37,7 +43,7 @@ export function TrainingDataCard({
     <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
       <Text className="text-label font-sans font-semibold text-fg">This run trains on your own data</Text>
       <Text className="mt-1 text-caption font-sans text-fg-muted">
-        {`Each example is ${plan.inputWidth} numbers with one label: ${plan.classNames.join(', ')}. `
+        {`Each example is ${describeExample(plan.shape)} with one label: ${plan.classNames.join(', ')}. `
           + (plan.maxExamples === null
             ? `Any number of examples, trained in batches of ${plan.batchSize}. `
             : `At most ${plan.maxExamples} examples. `)

@@ -26,8 +26,13 @@ data class Snapshot(
     val recordCount: Int,
     val inputsSha256: String,
     val targetsSha256: String,
+    /** How an image snapshot's values were prepared ([DataShape.Image.transformsId]); null for vectors. */
+    val transforms: String? = null,
 ) {
-    internal fun contentFields(): Map<String, Any> = mapOf(
+    internal fun contentFields(): Map<String, Any> = baseFields() +
+        (if (transforms != null) mapOf("transforms" to transforms) else emptyMap())
+
+    private fun baseFields(): Map<String, Any> = mapOf(
         "schemaVersion" to SCHEMA_VERSION,
         "modality" to modality,
         "inputShape" to inputShape,

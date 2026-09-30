@@ -29,7 +29,7 @@ class DatasetServiceModule(private val ctx: ReactApplicationContext) : ReactCont
 
   private var pending: PendingPick? = null
 
-  private class PendingPick(val promise: Promise, val classNames: List<String>, val inputWidth: Int)
+  private class PendingPick(val promise: Promise, val classNames: List<String>, val shape: DataShape)
 
   private val results = object : BaseActivityEventListener() {
     override fun onActivityResult(activity: Activity, requestCode: Int, resultCode: Int, data: Intent?) {
@@ -54,6 +54,28 @@ class DatasetServiceModule(private val ctx: ReactApplicationContext) : ReactCont
   /** Open the system picker for a .csv or a zipped package, and import the chosen file against the run's classes. */
   @ReactMethod
   fun pickAndImport(classNames: ReadableArray, inputWidth: Double, promise: Promise) {
+    pick(classNames, DataShape.Vector(inputWidth.toInt()), promise)
+  }
+
+  /**
+   * Open the system picker for a zipped image package, and import it against the run's classes, preparing each image
+   * as the run's contract states: [height] x [width] x [channels], normalised by [mean] and [std] when given.
+   */
+  @ReactMethod
+  fun pickAndImportImage(classNames: ReadableArray, height: Double, width: Double, channels: Double,
+                         mean: ReadableArray?, std: ReadableArray?, promise: Promise) {
+    val shape = try {
+      DataShape.Image(height.toInt(), width.toInt(), channels.toInt(), mean?.let(::floats), std?.let(::floats))
+    } catch (e: IllegalArgumentException) {
+      promise.reject("DATASET_BAD_REQUEST", "the run's image requirement is not one this app can import")
+      return
+    }
+    pick(classNames, shape, promise)
+  }
+
+  private fun floats(array: ReadableArray): List<Float> = (0 until array.size()).map { array.getDouble(it).toFloat() }
+
+  private fun pick(classNames: ReadableArray, shape: DataShape, promise: Promise) {
     val activity = currentActivity
     if (activity == null) {
       promise.reject("DATASET_PICK_UNAVAILABLE", "the app is not in the foreground")
@@ -63,7 +85,7 @@ class DatasetServiceModule(private val ctx: ReactApplicationContext) : ReactCont
       promise.reject("DATASET_PICK_BUSY", "a file is already being chosen")
       return
     }
-    pending = PendingPick(promise, (0 until classNames.size()).map { classNames.getString(it) ?: "" }, inputWidth.toInt())
+    pending = PendingPick(promise, (0 until classNames.size()).map { classNames.getString(it) ?: "" }, shape)
     val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
       addCategory(Intent.CATEGORY_OPENABLE)
       type = "*/*"
@@ -102,7 +124,7 @@ class DatasetServiceModule(private val ctx: ReactApplicationContext) : ReactCont
       } ?: uri.lastPathSegment ?: ""
       val snapshot = sources.import(name, {
         resolver.openInputStream(uri) ?: throw DatasetImportException("DATASET_UNREADABLE", "the file could not be opened")
-      }, pick.classNames, pick.inputWidth)
+      }, pick.classNames, pick.shape)
       pick.promise.resolve(toMap(snapshot))
     } catch (e: DatasetImportException) {
       pick.promise.reject(e.code, e.message)
@@ -120,6 +142,7 @@ class DatasetServiceModule(private val ctx: ReactApplicationContext) : ReactCont
     putString("labelSchemaId", s.labelSchemaId)
     putString("inputsPath", File(s.dir, "inputs.f32").absolutePath)
     putString("targetsPath", File(s.dir, "targets.i64").absolutePath)
+    s.transforms?.let { putString("transforms", it) }
   }
 
   private companion object {

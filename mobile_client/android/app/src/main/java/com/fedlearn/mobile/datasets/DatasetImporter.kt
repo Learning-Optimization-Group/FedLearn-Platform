@@ -18,6 +18,7 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.DigestOutputStream
 import java.security.MessageDigest
+import java.util.Base64
 import java.util.UUID
 
 /**
@@ -125,19 +126,92 @@ class DatasetImporter(
             }
         }
 
-    private fun build(classNames: List<String>, inputWidth: Int, fill: (Writer) -> Unit): Snapshot {
-        require(inputWidth > 0 && classNames.isNotEmpty())
+    /**
+     * An image package (Stage 4 S5): `dataset.json` states `modality` "image", the `height`, `width` and `channels`,
+     * the classes and the record count; each `records.jsonl` line is `{"label": ..., "pixels": base64}`, the pixels an
+     * 8-bit HWC image. Each image is prepared by the run's transforms ([shape]) as it is written, so the snapshot holds
+     * exactly the tensors the model takes.
+     */
+    fun importImagePackage(datasetJson: InputStream, recordsJsonl: InputStream, classNames: List<String>,
+                           shape: DataShape.Image): Snapshot =
+        build(classNames, shape) { writer ->
+            val meta = try {
+                JsonParser.parseReader(utf8Reader(Bounded(datasetJson, limits.maxSourceBytes))).asJsonObject
+            } catch (e: CharacterCodingException) {
+                throw DatasetImportException("DATASET_NOT_UTF8", "dataset.json is not UTF-8")
+            } catch (e: RuntimeException) {
+                throw DatasetImportException("DATASET_BAD_PACKAGE", "dataset.json is not a JSON object")
+            }
+            if (meta.get("schemaVersion")?.asIntOrNull() != 1) {
+                throw DatasetImportException("DATASET_BAD_PACKAGE", "unsupported package schemaVersion")
+            }
+            if (meta.get("modality")?.asStringOrNull() != "image") {
+                throw DatasetImportException("DATASET_SCHEMA_MISMATCH", "this run's model takes images")
+            }
+            val stated = listOf("height", "width", "channels").map { meta.get(it)?.asIntOrNull() }
+            if (stated != listOf(shape.height, shape.width, shape.channels)) {
+                throw DatasetImportException("DATASET_SCHEMA_MISMATCH",
+                    "images of ${stated.joinToString("x")}; this run's model takes " +
+                        "${shape.height}x${shape.width}x${shape.channels}")
+            }
+            val declaredClasses = meta.get("classNames")?.takeIf { it.isJsonArray }?.asJsonArray?.map { it.asStringOrNull() }
+            if (declaredClasses != classNames) {
+                throw DatasetImportException("DATASET_SCHEMA_MISMATCH", "the package's classes are not this run's")
+            }
+            val declaredCount = meta.get("recordCount")?.asIntOrNull()
+                ?: throw DatasetImportException("DATASET_BAD_PACKAGE", "recordCount is missing")
+            val reader = utf8Reader(Bounded(recordsJsonl, limits.maxSourceBytes))
+            val decoder = Base64.getDecoder()
+            while (true) {
+                val line = readLineOrNull(reader) ?: break
+                if (line.isBlank()) continue
+                val n = writer.count + 1
+                val record = try {
+                    JsonParser.parseString(line).asJsonObject
+                } catch (e: RuntimeException) {
+                    throw DatasetImportException("DATASET_BAD_ROW", "record $n is not a JSON object")
+                }
+                val label = record.get("label")?.asStringOrNull()
+                    ?: throw DatasetImportException("DATASET_BAD_ROW", "record $n has no label")
+                val encoded = record.get("pixels")?.asStringOrNull()
+                    ?: throw DatasetImportException("DATASET_BAD_ROW", "record $n has no pixels")
+                val pixels = try {
+                    decoder.decode(encoded)
+                } catch (e: IllegalArgumentException) {
+                    throw DatasetImportException("DATASET_BAD_ROW", "record $n's pixels are not base64")
+                }
+                if (pixels.size != shape.elementCount) {
+                    throw DatasetImportException("DATASET_BAD_ROW",
+                        "record $n has ${pixels.size} pixel values; the images are ${shape.elementCount}")
+                }
+                writer.add(ImageTransforms.toTensor(pixels, shape), labelIndex(label, classNames))
+            }
+            if (writer.count != declaredCount) {
+                throw DatasetImportException("DATASET_BAD_PACKAGE", "dataset.json declares $declaredCount records; found ${writer.count}")
+            }
+        }
+
+    private fun build(classNames: List<String>, inputWidth: Int, fill: (Writer) -> Unit): Snapshot =
+        build(classNames, DataShape.Vector(inputWidth), fill)
+
+    private fun build(classNames: List<String>, shape: DataShape, fill: (Writer) -> Unit): Snapshot {
+        require(shape.elementCount > 0 && classNames.isNotEmpty())
         if (usableSpace() < limits.minFreeBytes) {
             throw DatasetImportException("INSUFFICIENT_STORAGE", "not enough free storage to import")
         }
         datasets.mkdirs()
         val tmp = File(datasets, "tmp-${UUID.randomUUID()}").apply { mkdirs() }
         try {
-            val writer = Writer(tmp, inputWidth)
+            val writer = Writer(tmp, shape.elementCount)
             writer.use { fill(it) }
             if (writer.count == 0) throw DatasetImportException("DATASET_EMPTY", "no records")
-            val draft = Snapshot("", tmp, "vector", listOf(inputWidth), "f32", classNames, LabelSchema.id(classNames),
-                writer.count, writer.inputsSha256(), writer.targetsSha256())
+            val draft = when (shape) {
+                is DataShape.Vector -> Snapshot("", tmp, "vector", listOf(shape.width), "f32", classNames,
+                    LabelSchema.id(classNames), writer.count, writer.inputsSha256(), writer.targetsSha256())
+                is DataShape.Image -> Snapshot("", tmp, "image", listOf(shape.channels, shape.height, shape.width),
+                    "f32", classNames, LabelSchema.id(classNames), writer.count, writer.inputsSha256(),
+                    writer.targetsSha256(), transforms = shape.transformsId)
+            }
             val id = Snapshot.idOf(draft.contentFields())
             val target = File(datasets, id)
             val snapshot = draft.copy(snapshotId = id, dir = target)
@@ -278,6 +352,7 @@ class DatasetStore(root: File) {
                 recordCount = meta.get("recordCount").asInt,
                 inputsSha256 = meta.get("inputsSha256").asString,
                 targetsSha256 = meta.get("targetsSha256").asString,
+                transforms = meta.get("transforms")?.asString,
             )
         } catch (e: RuntimeException) {
             throw DatasetImportException("DATASET_CORRUPT", "snapshot.json is malformed")

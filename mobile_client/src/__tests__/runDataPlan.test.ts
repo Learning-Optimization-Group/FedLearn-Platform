@@ -1,11 +1,13 @@
 // Stage 3 B2: before Start, the phone reads the run's contract to learn whether it trains on the device's own data,
 // and if so what a dataset must look like; each dataset on the device is then shown as usable or not, with why.
-import { toJson } from '@bufbuild/protobuf';
-import { ExecutionContractSchema } from '@/gen/fedlearn/contract/v1/execution_contract_pb';
+import { create, toJson } from '@bufbuild/protobuf';
+import {
+  DataRequirementSchema, DType, ExecutionContractSchema, Task, TransformSchema,
+} from '@/gen/fedlearn/contract/v1/execution_contract_pb';
 import { parseContractBinary } from '@/lib/executionContract';
 import { api } from '../lib/restClient';
 import { datasetFit, importForRun, loadRunDataPlan, type RunDataPlan } from '../lib/runDataPlan';
-import { pickAndImportDataset } from '../lib/datasetService';
+import { pickAndImportDataset, requirementShape, transformsId } from '../lib/datasetService';
 import type { JoinedRun, RunManifest } from '../lib/runJoin';
 import type { DatasetSnapshot } from '../lib/datasetService';
 
@@ -59,7 +61,8 @@ describe('loadRunDataPlan', () => {
     async () => {
       const plan = await loadRunDataPlan(joined());
 
-      expect(plan).toMatchObject({ source: 'LOCAL_SNAPSHOT', classNames: ['c0', 'c1', 'c2'], inputWidth: 4 });
+      expect(plan).toMatchObject({ source: 'LOCAL_SNAPSHOT', classNames: ['c0', 'c1', 'c2'],
+        shape: { kind: 'vector', width: 4 } });
       const own = plan as Extract<RunDataPlan, { source: 'LOCAL_SNAPSHOT' }>;
       expect(own.requirement.labelSchemaId).toBe(TINYNET_LABELS);
       expect(own.batchSize).toBeGreaterThan(0);
@@ -129,6 +132,29 @@ describe('datasetFit', () => {
   });
 });
 
+// Stage 4 S5: no image recipe is approved yet (S6 adds CNN), so this plan is built by hand rather than loaded.
+describe('datasetFit for an image run', () => {
+  const requirement = create(DataRequirementSchema, {
+    task: Task.IMAGE_CLASSIFICATION, inputShape: [3n, 32n, 32n], inputDtype: DType.DTYPE_F32, classCount: 3,
+    labelSchemaId: TINYNET_LABELS,
+    transforms: [
+      create(TransformSchema, { operation: { case: 'imageToUnitTensor', value: { height: 32, width: 32, channels: 3 } } }),
+      create(TransformSchema, { operation: { case: 'normalizeChannels', value: { mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5] } } }),
+    ],
+  });
+  const plan: RunDataPlan = { source: 'LOCAL_SNAPSHOT', requirement, classNames: ['c0', 'c1', 'c2'],
+    shape: requirementShape(requirement)!, batchSize: 32, maxExamples: null };
+  const image = { ...SNAPSHOT, inputShape: [3, 32, 32] };
+
+  test('an image dataset prepared as the run states is usable', () => {
+    expect(datasetFit({ ...image, transforms: transformsId(plan.shape) }, plan)).toEqual([]);
+  });
+
+  test('one prepared differently is not, and says so', () => {
+    expect(datasetFit({ ...image, transforms: 'image:32x32x3' }, plan)).toEqual(['different image preparation']);
+  });
+});
+
 describe('importForRun', () => {
   let plan: Extract<RunDataPlan, { source: 'LOCAL_SNAPSHOT' }>;
   beforeEach(async () => {
@@ -136,10 +162,10 @@ describe('importForRun', () => {
     mPick.mockReset();
   });
 
-  test('imports the picked file against the run\'s classes and example width', async () => {
+  test('imports the picked file against the run\'s classes and example shape', async () => {
     mPick.mockResolvedValue(SNAPSHOT);
     expect(await importForRun(plan)).toEqual({ snapshot: SNAPSHOT });
-    expect(mPick).toHaveBeenCalledWith(['c0', 'c1', 'c2'], 4);
+    expect(mPick).toHaveBeenCalledWith(['c0', 'c1', 'c2'], { kind: 'vector', width: 4 });
   });
 
   test('choosing no file is not an error', async () => {

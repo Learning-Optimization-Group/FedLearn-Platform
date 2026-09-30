@@ -19,8 +19,12 @@ import { allElements, press, pressableByLabel, renderComponent, screenText } fro
 
 const LABELS = 'labels-sha256:4817507d9942bf24635535b19b1588bb44e00d2b51314536926f3580c7f5d896';
 const PLAN = {
-  source: 'LOCAL_SNAPSHOT', classNames: ['c0', 'c1', 'c2'], inputWidth: 4, batchSize: 8, maxExamples: 8,
-  requirement: { labelSchemaId: LABELS, inputShape: [BigInt(4)], inputDtype: 1, classCount: 3 },
+  source: 'LOCAL_SNAPSHOT', classNames: ['c0', 'c1', 'c2'], shape: { kind: 'vector', width: 4 }, batchSize: 8,
+  maxExamples: 8,
+  requirement: {
+    labelSchemaId: LABELS, inputShape: [BigInt(4)], inputDtype: 1, classCount: 3,
+    transforms: [{ operation: { case: 'identityVector', value: { width: 4 } } }],
+  },
 } as unknown as RunDataPlan;
 
 function snapshot(id: string, over: Partial<DatasetSnapshot> = {}): DatasetSnapshot {
