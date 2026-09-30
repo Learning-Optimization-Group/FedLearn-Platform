@@ -15,8 +15,11 @@ import com.fedlearn.contract.v1.DataSource;
 import com.fedlearn.contract.v1.DataRequirement;
 import com.fedlearn.contract.v1.ExecutionContract;
 import com.fedlearn.contract.v1.GradientEstimator;
+import com.fedlearn.contract.v1.IdentityVector;
+import com.fedlearn.contract.v1.ImageToUnitTensor;
 import com.fedlearn.contract.v1.LocalTraining;
 import com.fedlearn.contract.v1.ModelTraining;
+import com.fedlearn.contract.v1.NormalizeChannels;
 import com.fedlearn.contract.v1.Objective;
 import com.fedlearn.contract.v1.Partitioning;
 import com.fedlearn.contract.v1.PerturbationRng;
@@ -88,6 +91,7 @@ public final class ExecutionContractValidator {
     static final long MAX_BATCH_SIZE = 65_536;
     static final long MAX_CLASSES = 1_000_000;
     static final int MAX_TRANSFORMS = 16;
+    static final long MAX_IMAGE_SIDE = 4096;
     static final int MAX_VARIANTS = 16;
     static final int MAX_FILES = 64;
     static final int MAX_OPERATORS = 4096;
@@ -549,19 +553,18 @@ public final class ExecutionContractValidator {
             for (int i = 0; i < transforms.size(); i++) {
                 Transform transform = transforms.get(i);
                 String at = p + ".transforms[" + i + "]";
-                if (transform.getOperationCase() == Transform.OperationCase.OPERATION_NOT_SET) {
-                    add(ISSUE_MISSING_FIELD, at + ".operation");
-                    continue;
-                }
-                long width = Integer.toUnsignedLong(transform.getIdentityVector().getWidth());
-                String widthPath = at + ".identityVector.width";
-                if (width < 1 || width > MAX_ELEMENTS) {
-                    add(ISSUE_OUT_OF_RANGE, widthPath);
-                } else if (taskKnown && (task != Task.TASK_VECTOR_CLASSIFICATION_VALUE
-                        || (shapeOk && !data.getInputShapeList().equals(List.of(width))))) {
-                    add(ISSUE_INVALID_DATA_REQUIREMENT, widthPath);
+                switch (transform.getOperationCase()) {
+                    case OPERATION_NOT_SET -> add(ISSUE_MISSING_FIELD, at + ".operation");
+                    case IDENTITY_VECTOR -> identityVector(transform.getIdentityVector(), data, taskKnown, shapeOk, at);
+                    case IMAGE_TO_UNIT_TENSOR ->
+                            imageToUnitTensor(transform.getImageToUnitTensor(), data, taskKnown, shapeOk, i, at);
+                    case NORMALIZE_CHANNELS ->
+                            normalizeChannels(transform.getNormalizeChannels(), data, taskKnown, i, at);
                 }
             }
+        }
+        if (shapeOk && task == Task.TASK_IMAGE_CLASSIFICATION_VALUE && data.getInputShapeCount() != 3) {
+            add(ISSUE_INVALID_DATA_REQUIREMENT, p + ".inputShape");
         }
         boolean hasTokenizer = data.hasTokenizer();
         if (TEXT_TASKS.contains(task) && !hasTokenizer) {
@@ -571,6 +574,65 @@ public final class ExecutionContractValidator {
         }
         if (hasTokenizer) {
             artifactRef(data.getTokenizer(), p + ".tokenizer");
+        }
+    }
+
+    private void identityVector(IdentityVector identity, DataRequirement data, boolean taskKnown, boolean shapeOk,
+                                String at) {
+        long width = Integer.toUnsignedLong(identity.getWidth());
+        String path = at + ".identityVector.width";
+        if (width < 1 || width > MAX_ELEMENTS) {
+            add(ISSUE_OUT_OF_RANGE, path);
+        } else if (taskKnown && (data.getTaskValue() != Task.TASK_VECTOR_CLASSIFICATION_VALUE
+                || (shapeOk && !data.getInputShapeList().equals(List.of(width))))) {
+            add(ISSUE_INVALID_DATA_REQUIREMENT, path);
+        }
+    }
+
+    /** First in an image task, its [channels, height, width] the input shape. */
+    private void imageToUnitTensor(ImageToUnitTensor image, DataRequirement data, boolean taskKnown, boolean shapeOk,
+                                   int index, String at) {
+        String path = at + ".imageToUnitTensor";
+        long height = Integer.toUnsignedLong(image.getHeight());
+        long width = Integer.toUnsignedLong(image.getWidth());
+        long channels = Integer.toUnsignedLong(image.getChannels());
+        boolean inRange = true;
+        if (height < 1 || height > MAX_IMAGE_SIDE) {
+            add(ISSUE_OUT_OF_RANGE, path + ".height");
+            inRange = false;
+        }
+        if (width < 1 || width > MAX_IMAGE_SIDE) {
+            add(ISSUE_OUT_OF_RANGE, path + ".width");
+            inRange = false;
+        }
+        if (channels != 1 && channels != 3) {
+            add(ISSUE_OUT_OF_RANGE, path + ".channels");
+            inRange = false;
+        }
+        if (taskKnown && (data.getTaskValue() != Task.TASK_IMAGE_CLASSIFICATION_VALUE || index != 0
+                || (inRange && shapeOk && !data.getInputShapeList().equals(List.of(channels, height, width))))) {
+            add(ISSUE_INVALID_DATA_REQUIREMENT, path);
+        }
+    }
+
+    /** Directly after the image conversion, one finite mean and one finite, positive std per channel. */
+    private void normalizeChannels(NormalizeChannels norm, DataRequirement data, boolean taskKnown, int index,
+                                   String at) {
+        String path = at + ".normalizeChannels";
+        for (int k = 0; k < norm.getMeanCount(); k++) {
+            check(Float.isFinite(norm.getMean(k)), ISSUE_OUT_OF_RANGE, path + ".mean[" + k + "]");
+        }
+        for (int k = 0; k < norm.getStdCount(); k++) {
+            float std = norm.getStd(k);
+            check(Float.isFinite(std) && std > 0, ISSUE_OUT_OF_RANGE, path + ".std[" + k + "]");
+        }
+        Transform first = data.getTransforms(0);
+        boolean followsImage = index == 1
+                && first.getOperationCase() == Transform.OperationCase.IMAGE_TO_UNIT_TENSOR;
+        if (taskKnown && (data.getTaskValue() != Task.TASK_IMAGE_CLASSIFICATION_VALUE || !followsImage
+                || norm.getMeanCount() != norm.getStdCount()
+                || norm.getMeanCount() != Integer.toUnsignedLong(first.getImageToUnitTensor().getChannels()))) {
+            add(ISSUE_INVALID_DATA_REQUIREMENT, path);
         }
     }
 

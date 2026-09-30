@@ -467,16 +467,38 @@ class DataRequirement(_message.Message):
     def __init__(self, task: _Optional[_Union[Task, str]] = ..., input_shape: _Optional[_Iterable[int]] = ..., input_dtype: _Optional[_Union[DType, str]] = ..., class_count: _Optional[int] = ..., label_schema_id: _Optional[str] = ..., transforms: _Optional[_Iterable[_Union[Transform, _Mapping]]] = ..., tokenizer: _Optional[_Union[ArtifactRef, _Mapping]] = ..., source: _Optional[_Union[DataSource, str]] = ...) -> None: ...
 
 class Transform(_message.Message):
-    __slots__ = ("identity_vector",)
+    __slots__ = ("identity_vector", "image_to_unit_tensor", "normalize_channels")
     IDENTITY_VECTOR_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_TO_UNIT_TENSOR_FIELD_NUMBER: _ClassVar[int]
+    NORMALIZE_CHANNELS_FIELD_NUMBER: _ClassVar[int]
     identity_vector: IdentityVector
-    def __init__(self, identity_vector: _Optional[_Union[IdentityVector, _Mapping]] = ...) -> None: ...
+    image_to_unit_tensor: ImageToUnitTensor
+    normalize_channels: NormalizeChannels
+    def __init__(self, identity_vector: _Optional[_Union[IdentityVector, _Mapping]] = ..., image_to_unit_tensor: _Optional[_Union[ImageToUnitTensor, _Mapping]] = ..., normalize_channels: _Optional[_Union[NormalizeChannels, _Mapping]] = ...) -> None: ...
 
 class IdentityVector(_message.Message):
     __slots__ = ("width",)
     WIDTH_FIELD_NUMBER: _ClassVar[int]
     width: int
     def __init__(self, width: _Optional[int] = ...) -> None: ...
+
+class ImageToUnitTensor(_message.Message):
+    __slots__ = ("height", "width", "channels")
+    HEIGHT_FIELD_NUMBER: _ClassVar[int]
+    WIDTH_FIELD_NUMBER: _ClassVar[int]
+    CHANNELS_FIELD_NUMBER: _ClassVar[int]
+    height: int
+    width: int
+    channels: int
+    def __init__(self, height: _Optional[int] = ..., width: _Optional[int] = ..., channels: _Optional[int] = ...) -> None: ...
+
+class NormalizeChannels(_message.Message):
+    __slots__ = ("mean", "std")
+    MEAN_FIELD_NUMBER: _ClassVar[int]
+    STD_FIELD_NUMBER: _ClassVar[int]
+    mean: _containers.RepeatedScalarFieldContainer[float]
+    std: _containers.RepeatedScalarFieldContainer[float]
+    def __init__(self, mean: _Optional[_Iterable[float]] = ..., std: _Optional[_Iterable[float]] = ...) -> None: ...
 
 class ArtifactRef(_message.Message):
     __slots__ = ("relative_path", "sha256", "byte_size")

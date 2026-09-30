@@ -9,6 +9,8 @@ import {
   type ArtifactRef,
   type ArtifactVariant,
   type DataRequirement,
+  type ImageToUnitTensor,
+  type NormalizeChannels,
   type ExecutionContract,
   type LocalTraining,
   type ModelTraining,
@@ -62,6 +64,7 @@ const MAX_PERTURBATIONS = 10_000;
 const MAX_BATCH_SIZE = 65_536;
 const MAX_CLASSES = 1_000_000;
 const MAX_TRANSFORMS = 16;
+const MAX_IMAGE_SIDE = 4096;
 const MAX_VARIANTS = 16;
 const MAX_FILES = 64;
 const MAX_OPERATORS = 4096;
@@ -541,22 +544,23 @@ class Validator {
     } else {
       data.transforms.forEach((transform, i) => {
         const at = `${p}.transforms[${i}]`;
-        if (transform.operation.case !== 'identityVector') {
-          this.add(ContractIssueCode.ISSUE_MISSING_FIELD, `${at}.operation`);
-          return;
-        }
-        const width = transform.operation.value.width;
-        const widthPath = `${at}.identityVector.width`;
-        if (width < 1 || BigInt(width) > MAX_ELEMENTS) {
-          this.add(ContractIssueCode.ISSUE_OUT_OF_RANGE, widthPath);
-        } else if (
-          taskKnown &&
-          (task !== Task.VECTOR_CLASSIFICATION ||
-            (shapeOk && !(data.inputShape.length === 1 && data.inputShape[0] === BigInt(width))))
-        ) {
-          this.add(ContractIssueCode.ISSUE_INVALID_DATA_REQUIREMENT, widthPath);
+        switch (transform.operation.case) {
+          case 'identityVector':
+            this.identityVector(transform.operation.value.width, data, taskKnown, shapeOk, at);
+            break;
+          case 'imageToUnitTensor':
+            this.imageToUnitTensor(transform.operation.value, data, taskKnown, shapeOk, i, at);
+            break;
+          case 'normalizeChannels':
+            this.normalizeChannels(transform.operation.value, data, taskKnown, i, at);
+            break;
+          default:
+            this.add(ContractIssueCode.ISSUE_MISSING_FIELD, `${at}.operation`);
         }
       });
+    }
+    if (shapeOk && task === Task.IMAGE_CLASSIFICATION && data.inputShape.length !== 3) {
+      this.add(ContractIssueCode.ISSUE_INVALID_DATA_REQUIREMENT, `${p}.inputShape`);
     }
     const hasTokenizer = data.tokenizer !== undefined;
     if (TEXT_TASKS.has(task) && !hasTokenizer) {
@@ -566,6 +570,60 @@ class Validator {
     }
     if (data.tokenizer !== undefined) {
       this.artifactRef(data.tokenizer, `${p}.tokenizer`);
+    }
+  }
+
+  private identityVector(width: number, data: DataRequirement, taskKnown: boolean, shapeOk: boolean, at: string): void {
+    const path = `${at}.identityVector.width`;
+    if (width < 1 || BigInt(width) > MAX_ELEMENTS) {
+      this.add(ContractIssueCode.ISSUE_OUT_OF_RANGE, path);
+    } else if (
+      taskKnown &&
+      (data.task !== Task.VECTOR_CLASSIFICATION ||
+        (shapeOk && !(data.inputShape.length === 1 && data.inputShape[0] === BigInt(width))))
+    ) {
+      this.add(ContractIssueCode.ISSUE_INVALID_DATA_REQUIREMENT, path);
+    }
+  }
+
+  /** First in an image task, its [channels, height, width] the input shape. */
+  private imageToUnitTensor(image: ImageToUnitTensor, data: DataRequirement, taskKnown: boolean, shapeOk: boolean,
+    index: number, at: string): void {
+    const path = `${at}.imageToUnitTensor`;
+    let inRange = true;
+    for (const [field, ok] of [
+      ['height', image.height >= 1 && image.height <= MAX_IMAGE_SIDE],
+      ['width', image.width >= 1 && image.width <= MAX_IMAGE_SIDE],
+      ['channels', image.channels === 1 || image.channels === 3],
+    ] as const) {
+      if (!ok) {
+        this.add(ContractIssueCode.ISSUE_OUT_OF_RANGE, `${path}.${field}`);
+        inRange = false;
+      }
+    }
+    const expected = [image.channels, image.height, image.width].map(BigInt);
+    const shapeMatches = data.inputShape.length === 3 && data.inputShape.every((n, k) => n === expected[k]);
+    if (taskKnown && (data.task !== Task.IMAGE_CLASSIFICATION || index !== 0 || (inRange && shapeOk && !shapeMatches))) {
+      this.add(ContractIssueCode.ISSUE_INVALID_DATA_REQUIREMENT, path);
+    }
+  }
+
+  /** Directly after the image conversion, one finite mean and one finite, positive std per channel. */
+  private normalizeChannels(norm: NormalizeChannels, data: DataRequirement, taskKnown: boolean, index: number,
+    at: string): void {
+    const path = `${at}.normalizeChannels`;
+    norm.mean.forEach((mean, k) => {
+      this.check(Number.isFinite(mean), ContractIssueCode.ISSUE_OUT_OF_RANGE, `${path}.mean[${k}]`);
+    });
+    norm.std.forEach((std, k) => {
+      this.check(Number.isFinite(std) && std > 0, ContractIssueCode.ISSUE_OUT_OF_RANGE, `${path}.std[${k}]`);
+    });
+    const first = data.transforms[0]!.operation;
+    const followsImage = index === 1 && first.case === 'imageToUnitTensor';
+    const channels = first.case === 'imageToUnitTensor' ? first.value.channels : 0;
+    if (taskKnown && (data.task !== Task.IMAGE_CLASSIFICATION || !followsImage
+      || norm.mean.length !== norm.std.length || norm.mean.length !== channels)) {
+      this.add(ContractIssueCode.ISSUE_INVALID_DATA_REQUIREMENT, path);
     }
   }
 

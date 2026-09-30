@@ -35,6 +35,8 @@ MAX_PERTURBATIONS = 10_000
 MAX_BATCH_SIZE = 65_536
 MAX_CLASSES = 1_000_000
 MAX_TRANSFORMS = 16
+MAX_IMAGE_SIDE = 4096
+IMAGE_CHANNELS = (1, 3)
 MAX_VARIANTS = 16
 MAX_FILES = 64
 MAX_OPERATORS = 4096
@@ -439,17 +441,17 @@ class _Validator:
         else:
             for i, transform in enumerate(data.transforms):
                 at = f"{p}.transforms[{i}]"
-                if transform.WhichOneof("operation") is None:
+                operation = transform.WhichOneof("operation")
+                if operation is None:
                     self.add(pb.ISSUE_MISSING_FIELD, at + ".operation")
-                    continue
-                width = transform.identity_vector.width
-                width_path = at + ".identityVector.width"
-                if not 1 <= width <= MAX_ELEMENTS:
-                    self.add(pb.ISSUE_OUT_OF_RANGE, width_path)
-                elif task_known and (
-                        data.task != pb.TASK_VECTOR_CLASSIFICATION
-                        or (shape_ok and list(data.input_shape) != [width])):
-                    self.add(pb.ISSUE_INVALID_DATA_REQUIREMENT, width_path)
+                elif operation == "identity_vector":
+                    self.identity_vector(transform.identity_vector, data, task_known, shape_ok, at)
+                elif operation == "image_to_unit_tensor":
+                    self.image_to_unit_tensor(transform.image_to_unit_tensor, data, task_known, shape_ok, i, at)
+                else:
+                    self.normalize_channels(transform.normalize_channels, data, task_known, i, at)
+        if shape_ok and data.task == pb.TASK_IMAGE_CLASSIFICATION and len(data.input_shape) != 3:
+            self.add(pb.ISSUE_INVALID_DATA_REQUIREMENT, p + ".inputShape")
         has_tokenizer = data.HasField("tokenizer")
         if data.task in _TEXT_TASKS and not has_tokenizer:
             self.add(pb.ISSUE_MISSING_FIELD, p + ".tokenizer")
@@ -457,6 +459,44 @@ class _Validator:
             self.add(pb.ISSUE_INVALID_DATA_REQUIREMENT, p + ".tokenizer")
         if has_tokenizer:
             self.artifact_ref(data.tokenizer, p + ".tokenizer")
+
+    def identity_vector(self, identity, data, task_known: bool, shape_ok: bool, at: str) -> None:
+        width, path = identity.width, at + ".identityVector.width"
+        if not 1 <= width <= MAX_ELEMENTS:
+            self.add(pb.ISSUE_OUT_OF_RANGE, path)
+        elif task_known and (data.task != pb.TASK_VECTOR_CLASSIFICATION
+                             or (shape_ok and list(data.input_shape) != [width])):
+            self.add(pb.ISSUE_INVALID_DATA_REQUIREMENT, path)
+
+    def image_to_unit_tensor(self, image, data, task_known: bool, shape_ok: bool, index: int, at: str) -> None:
+        """First in an image task, its [channels, height, width] the input shape."""
+        path = at + ".imageToUnitTensor"
+        in_range = True
+        for field, ok in (("height", 1 <= image.height <= MAX_IMAGE_SIDE),
+                          ("width", 1 <= image.width <= MAX_IMAGE_SIDE),
+                          ("channels", image.channels in IMAGE_CHANNELS)):
+            if not ok:
+                self.add(pb.ISSUE_OUT_OF_RANGE, f"{path}.{field}")
+                in_range = False
+        if task_known and (data.task != pb.TASK_IMAGE_CLASSIFICATION or index != 0 or (
+                in_range and shape_ok and list(data.input_shape) != [image.channels, image.height, image.width])):
+            self.add(pb.ISSUE_INVALID_DATA_REQUIREMENT, path)
+
+    def normalize_channels(self, norm, data, task_known: bool, index: int, at: str) -> None:
+        """Directly after the image conversion, one finite mean and one finite, positive std per channel."""
+        path = at + ".normalizeChannels"
+        for k, mean in enumerate(norm.mean):
+            if not math.isfinite(mean):
+                self.add(pb.ISSUE_OUT_OF_RANGE, f"{path}.mean[{k}]")
+        for k, std in enumerate(norm.std):
+            if not (math.isfinite(std) and std > 0):
+                self.add(pb.ISSUE_OUT_OF_RANGE, f"{path}.std[{k}]")
+        first = data.transforms[0]
+        follows_image = index == 1 and first.WhichOneof("operation") == "image_to_unit_tensor"
+        if task_known and (data.task != pb.TASK_IMAGE_CLASSIFICATION or not follows_image
+                           or len(norm.mean) != len(norm.std)
+                           or len(norm.mean) != first.image_to_unit_tensor.channels):
+            self.add(pb.ISSUE_INVALID_DATA_REQUIREMENT, path)
 
     def artifact_ref(self, ref, p: str) -> bool:
         """Checks one reference; True when its byte size is in range."""

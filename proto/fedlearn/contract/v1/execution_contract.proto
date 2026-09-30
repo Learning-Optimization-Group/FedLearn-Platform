@@ -363,12 +363,36 @@ enum DataSource {
 message Transform {
   oneof operation {
     IdentityVector identity_vector = 1;
+    ImageToUnitTensor image_to_unit_tensor = 2;
+    NormalizeChannels normalize_channels = 3;
   }
 }
 
 // The sample is already a float vector of exactly `width` elements.
 message IdentityVector {
   uint32 width = 1;
+}
+
+// The sample is an 8-bit image of `height` x `width` x `channels` values, stored row-major with the channel
+// innermost (HWC). It becomes a float32 tensor [channels, height, width] (CHW) whose element (c, y, x) is
+//   float32(p) / float32(255)   with p the value at (y, x, c),
+// one IEEE-754 binary32 division rounded to nearest-even: torchvision's ToTensor on a uint8 image. An image task
+// states it first, and its [channels, height, width] must equal the requirement's input_shape.
+message ImageToUnitTensor {
+  uint32 height = 1;
+  uint32 width = 2;
+  // 1 (grayscale) or 3 (RGB, in that order).
+  uint32 channels = 3;
+}
+
+// Per-channel normalisation of a CHW float32 tensor: element (c, y, x) becomes
+//   (v - mean[c]) / std[c]
+// as one binary32 subtraction then one binary32 division, each rounded to nearest-even, with mean and std the
+// binary32 values stated here (torchvision's Normalize). Allowed only directly after ImageToUnitTensor, with one
+// finite mean and one finite, positive std per channel.
+message NormalizeChannels {
+  repeated float mean = 1;
+  repeated float std = 2;
 }
 
 message ArtifactRef {

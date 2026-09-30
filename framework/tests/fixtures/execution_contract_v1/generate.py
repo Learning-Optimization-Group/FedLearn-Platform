@@ -241,6 +241,18 @@ def _binary_with(mutate) -> bytes:
     return to_binary(contract)
 
 
+RGB_32 = {"imageToUnitTensor": {"height": 32, "width": 32, "channels": 3}}
+NORM_HALF = {"normalizeChannels": {"mean": [0.5, 0.5, 0.5], "std": [0.5, 0.5, 0.5]}}
+UNAPPROVED = ("UNSUPPORTED_COMBINATION", "")
+
+
+def _image(doc, shape, transforms):
+    """Make the contract an image-classification one with this input shape and these transforms."""
+    doc[MT]["task"] = "TASK_IMAGE_CLASSIFICATION"
+    doc[MT]["data"].update({"task": "TASK_IMAGE_CLASSIFICATION", "inputShape": [str(n) for n in shape],
+                            "transforms": transforms})
+
+
 VALID_ADAM = {"learningRate": 0.001, "beta1": 0.9, "beta2": 0.999, "epsilon": 1e-08,
               "weightDecay": 0.0, "amsgrad": False}
 VALID_RMSPROP = {"learningRate": 0.01, "alpha": 0.99, "epsilon": 1e-08, "weightDecay": 0.0,
@@ -646,6 +658,7 @@ def build_conformance() -> dict:
         _json("data_task_differs", "The data task disagrees with the training task.",
               lambda d: d[MT]["data"].update({"task": "TASK_IMAGE_CLASSIFICATION"}),
               ("INVALID_DATA_REQUIREMENT", DATA + ".task"),
+              ("INVALID_DATA_REQUIREMENT", DATA + ".inputShape"),
               ("INVALID_DATA_REQUIREMENT", DATA + ".transforms[0].identityVector.width")),
         _json("data_task_unknown", "An unknown data task; task-dependent rules are skipped.",
               lambda d: d[MT]["data"].update({"task": "TASK_FUTURE"}),
@@ -703,6 +716,58 @@ def build_conformance() -> dict:
               ("INVALID_DATA_REQUIREMENT", DATA + ".classCount"),
               ("MISSING_FIELD", DATA + ".tokenizer"),
               ("INVALID_DATA_REQUIREMENT", DATA + ".transforms[0].identityVector.width")),
+        # --- image data (Stage 4 S5): no image recipe is approved yet, so each also reports the combination ---
+        _json("image_rgb_normalized_data_rules", "A normalised RGB image requirement breaks no data rule.",
+              lambda d: _image(d, [3, 32, 32], [RGB_32, NORM_HALF]), UNAPPROVED),
+        _json("image_grayscale_data_rules", "A grayscale image without normalisation breaks no data rule.",
+              lambda d: _image(d, [1, 224, 224], [{"imageToUnitTensor": {"height": 224, "width": 224,
+                                                                           "channels": 1}}]), UNAPPROVED),
+        _json("image_shape_differs", "The image's [channels, height, width] must equal the input shape.",
+              lambda d: _image(d, [3, 28, 28], [RGB_32]), UNAPPROVED,
+              ("INVALID_DATA_REQUIREMENT", DATA + ".transforms[0].imageToUnitTensor")),
+        _json("image_input_shape_rank_one", "An image sample has three dimensions.",
+              lambda d: _image(d, [3072], [RGB_32]), UNAPPROVED,
+              ("INVALID_DATA_REQUIREMENT", DATA + ".inputShape"),
+              ("INVALID_DATA_REQUIREMENT", DATA + ".transforms[0].imageToUnitTensor")),
+        _json("image_channels_two", "An image has one or three channels.",
+              lambda d: _image(d, [2, 32, 32], [{"imageToUnitTensor": {"height": 32, "width": 32,
+                                                                         "channels": 2}}]), UNAPPROVED,
+              ("OUT_OF_RANGE", DATA + ".transforms[0].imageToUnitTensor.channels")),
+        _json("image_height_absent", "An image has a height.",
+              lambda d: _image(d, [3, 32, 32], [{"imageToUnitTensor": {"width": 32, "channels": 3}}]),
+              UNAPPROVED, ("OUT_OF_RANGE", DATA + ".transforms[0].imageToUnitTensor.height")),
+        _json("image_width_too_large", "An image side is at most 4096.",
+              lambda d: _image(d, [3, 32, 4097], [{"imageToUnitTensor": {"height": 32, "width": 4097,
+                                                                           "channels": 3}}]), UNAPPROVED,
+              ("OUT_OF_RANGE", DATA + ".transforms[0].imageToUnitTensor.width")),
+        _json("image_normalize_first", "Normalisation follows the image conversion, never precedes it.",
+              lambda d: _image(d, [3, 32, 32], [NORM_HALF, RGB_32]), UNAPPROVED,
+              ("INVALID_DATA_REQUIREMENT", DATA + ".transforms[0].normalizeChannels"),
+              ("INVALID_DATA_REQUIREMENT", DATA + ".transforms[1].imageToUnitTensor")),
+        _json("image_normalize_repeated", "An image is normalised at most once.",
+              lambda d: _image(d, [3, 32, 32], [RGB_32, NORM_HALF, NORM_HALF]), UNAPPROVED,
+              ("INVALID_DATA_REQUIREMENT", DATA + ".transforms[2].normalizeChannels")),
+        _json("image_normalize_channel_count", "One mean and one std per channel.",
+              lambda d: _image(d, [3, 32, 32], [RGB_32, {"normalizeChannels": {"mean": [0.5], "std": [0.5]}}]),
+              UNAPPROVED, ("INVALID_DATA_REQUIREMENT", DATA + ".transforms[1].normalizeChannels")),
+        _json("image_normalize_std_zero", "A std must be positive.",
+              lambda d: _image(d, [3, 32, 32], [RGB_32, {"normalizeChannels": {"mean": [0.5, 0.5, 0.5],
+                                                                               "std": [0.5, 0.0, 0.5]}}]),
+              UNAPPROVED, ("OUT_OF_RANGE", DATA + ".transforms[1].normalizeChannels.std[1]")),
+        _json("image_normalize_mean_nan", "A mean must be finite.",
+              lambda d: _image(d, [3, 32, 32], [RGB_32, {"normalizeChannels": {"mean": ["NaN", 0.5, 0.5],
+                                                                               "std": [0.5, 0.5, 0.5]}}]),
+              UNAPPROVED, ("OUT_OF_RANGE", DATA + ".transforms[1].normalizeChannels.mean[0]")),
+        _json("image_task_with_identity_vector", "An image task takes no identity vector.",
+              lambda d: _image(d, [3, 32, 32], [{"identityVector": {"width": 3072}}]), UNAPPROVED,
+              ("INVALID_DATA_REQUIREMENT", DATA + ".transforms[0].identityVector.width")),
+        _json("vector_task_with_image_transform", "A vector task takes no image conversion.",
+              lambda d: d[MT]["data"].update({"transforms": [
+                  {"imageToUnitTensor": {"height": 2, "width": 2, "channels": 1}}]}),
+              ("INVALID_DATA_REQUIREMENT", DATA + ".transforms[0].imageToUnitTensor")),
+        _json("vector_task_with_normalization", "A vector task takes no channel normalisation.",
+              lambda d: d[MT]["data"]["transforms"].append({"normalizeChannels": {"mean": [0.0], "std": [1.0]}}),
+              ("INVALID_DATA_REQUIREMENT", DATA + ".transforms[1].normalizeChannels")),
         # --- artifacts ----------------------------------------------------------------------------
         _json("artifacts_absent", "No artifact variant.",
               lambda d: d[MT].pop("artifacts"), ("MISSING_ARTIFACT", ART)),
