@@ -158,4 +158,27 @@ Not done yet:
 - a mixed phone + laptop MLP run (laptops refuse own-data runs);
 - MLP under FedOpt, FedProx and DeComFL (refused with reasons, see `execution_plan._REFUSALS`).
 
-Next: S5, image packages.
+**Image data (S5): done, 2026-09-30. Not yet exercised end to end.**
+
+The contract gains two transforms:
+- **`ImageToUnitTensor{height, width, channels}`**: 8-bit HWC to float32 CHW, `p / 255`.
+- **`NormalizeChannels{mean[], std[]}`**: `(v - mean) / std` in float32.
+
+Design change from section D: scaling and the HWC-to-CHW layout change are one operation, torchvision's `ToTensor`,
+because separate steps would only admit invalid orderings.
+
+- **Readers.** Python, Java and TypeScript share 15 corpus cases for the new rules.
+- **Reference.** `fedlearn.contract.image_transforms` is bit-identical to torchvision's `to_tensor` and `normalize`,
+  and writes `image_transforms_v1.golden`.
+- **Importer.** The Kotlin importer takes zipped image packages (a `dataset.json`, and one record per image with its
+  raw pixels in base64). It reproduces the golden bit for bit.
+- **Preparation is recorded.** Image snapshots record how their values were prepared, so a snapshot normalised
+  differently from a run is refused although its shape and classes agree.
+- **Not yet exercised.** The gate refuses every image contract until S6 approves a CNN plan.
+
+Next: S6, CNN end to end:
+- plans, and CNN's approval in the matrix;
+- the export;
+- a shaped qualification probe (today's probe feeds a flat vector);
+- a tool that writes image packages;
+- a live run with a replay.
