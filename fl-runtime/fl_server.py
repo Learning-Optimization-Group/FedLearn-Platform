@@ -218,7 +218,19 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ECG_DATASET_PATH = os.path.join(SCRIPT_DIR, "ecg_data", "ecg.csv")  # Hardcoded ECG dataset path
 ECG_DATASET_NAME = "ecg"
 ECG_NUM_CLIENTS = 3  # Hardcoded number of clients for ECG
-ECG_STRATEGY = "DeComFL"  # Hardcoded strategy for MLP
+
+
+def apply_ecg_run_settings(args):
+    """The MLP recipe's ECG dataset settings: (dataset path, client count), with ``args.dataset`` set to ECG.
+
+    Only the dataset is the recipe's. The strategy stays the run's: this used to force DeComFL onto every MLP run,
+    so an MLP FedAvg run aggregated zeroth-order scalars and a phone's weight upload failed. Other recipes get
+    (None, None) and are left untouched.
+    """
+    if (getattr(args, "model_type", None) or "").upper() != "MLP":
+        return None, None
+    args.dataset = ECG_DATASET_NAME
+    return ECG_DATASET_PATH, ECG_NUM_CLIENTS
 
 
 def perplexity_from_loss(avg_loss):
@@ -627,14 +639,9 @@ def main():
     # print(f"[OVERRIDE] Setting min_clients to 1 for LLM+DeComFL testing")
 
     is_mlp = args.model_type == 'MLP'
+    dataset_path, num_clients = apply_ecg_run_settings(args)
 
     if is_mlp:
-        # Override with hardcoded ECG values
-        args.dataset = ECG_DATASET_NAME
-        args.strategy = ECG_STRATEGY
-        dataset_path = ECG_DATASET_PATH
-        num_clients = ECG_NUM_CLIENTS
-
         print(f"\n{'='*60}")
         print(f"MLP MODEL DETECTED - Using Hardcoded ECG Configuration")
         print(f"{'='*60}")
@@ -643,9 +650,6 @@ def main():
         print(f"  Strategy: {args.strategy}")
         print(f"  Num clients: {num_clients}")
         print(f"{'='*60}\n")
-    else:
-        dataset_path = None
-        num_clients = None
 
     logging.info(f"--- Starting gRPC FedLearn Server for Project: {args.project_id} ---")
 

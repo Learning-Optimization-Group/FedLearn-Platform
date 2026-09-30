@@ -239,6 +239,12 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
         import recipes
         return recipes.get_recipe("FROZEN_DEMO").load_client_data(
             partition_id=partition_id, num_clients=num_clients, batch_size=BATCH_SIZE)
+    if USE_MLP:
+        # The ECG shard, as the DeComFL branch of main() builds it. The first-order path had no branch here, because
+        # the MLP was always forced onto DeComFL, so it fell through to the default text dataset.
+        import recipes
+        return recipes.get_recipe("MLP").load_client_data(
+            partition_id=partition_id, num_clients=num_clients, dataset_path=dataset_path)
     if USE_LLM:
         from pathlib import Path
         import pickle
@@ -1060,7 +1066,19 @@ class ZOSLClient(fl.Client):
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ECG_DATASET_PATH = os.path.join(SCRIPT_DIR, "ecg_data", "ecg.csv")  # Hardcoded ECG dataset path
 ECG_NUM_CLIENTS = 5  # Hardcoded number of clients for ECG
-ECG_STRATEGY = "DeComFL"  # Hardcoded strategy for MLP
+
+
+def apply_ecg_run_settings(args):
+    """The MLP recipe's ECG dataset settings: (dataset path, client count), with ``args.dataset`` set to "ecg".
+
+    Only the dataset is the recipe's. The strategy stays the run's: this used to force DeComFL onto every MLP run,
+    after the execution contract had already been accepted for the run's own strategy. Other recipes get
+    (None, None) and are left untouched.
+    """
+    if (getattr(args, "model_type", None) or "").upper() != "MLP":
+        return None, None
+    args.dataset = "ecg"
+    return ECG_DATASET_PATH, ECG_NUM_CLIENTS
 
 
 def _resolve_decomfl_golden_fixture_dir():
@@ -1290,10 +1308,7 @@ def main():
 
     # === HARDCODED ECG/MLP OVERRIDE ===
     if USE_MLP:
-        args.dataset = "ecg"
-        dataset_path = ECG_DATASET_PATH
-        num_clients = ECG_NUM_CLIENTS
-        args.strategy = ECG_STRATEGY  # Override strategy for MLP
+        dataset_path, num_clients = apply_ecg_run_settings(args)
 
         print(f"\n{'='*60}")
         print(f"MLP MODEL DETECTED - Using Hardcoded ECG Configuration")
