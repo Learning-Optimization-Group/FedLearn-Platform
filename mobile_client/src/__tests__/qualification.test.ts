@@ -1,6 +1,6 @@
 // Stage 3 D2: before a device first trains with a trainable program it runs the exporter's probe on it, once per
-// (device, app build, bridge, program). A pass is cached; a failure refuses and quarantines that key until the app
-// or the program changes, so a device never retries a program it cannot run.
+// (device, app build, bridge, program, probe). A pass is cached; a failure refuses and quarantines that key until the
+// app, the program or its probe changes, so a device never retries a program it cannot run.
 jest.mock('react-native-device-info', () => ({
   getModel: () => 'vivo 1805', getSystemVersion: () => '9', getVersion: () => '2.1.0', getBuildNumber: () => '7',
 }));
@@ -44,11 +44,29 @@ test('a failure is remembered too: the device does not rerun a program it cannot
 });
 
 test('another program, or another app build, is qualified afresh', () => {
-  const key = qualificationKey(SHA);
-  expect(qualificationKey('d'.repeat(64))).not.toBe(key);
+  const key = qualificationKey(SHA, PROBE);
+  expect(qualificationKey('d'.repeat(64), PROBE)).not.toBe(key);
   expect(key).toContain('vivo 1805');
   expect(key).toContain('2.1.0+7');
   expect(key).toContain(SHA);
+});
+
+test('the same program under another probe is qualified afresh: a failure against a defective probe is not final',
+  async () => {
+    // Stage 4 S7: the first ResNet-18 probe could not certify a correct program, and its re-export keeps the program's
+    // digest. The probe is part of what a result is about.
+    const corrected: TrainableProbe = { ...PROBE, lossStep1: 2.3581, lossStep2: 2.9957 };
+    expect(qualificationKey(SHA, corrected)).not.toBe(qualificationKey(SHA, PROBE));
+    const store = new QualificationStore(memory());
+    const native = { qualifyTrainable: jest.fn().mockResolvedValueOnce(FAIL).mockResolvedValueOnce(PASS) };
+    await expect(qualifyTrainableProgram(SHA, PROBE, { store, native })).resolves.toMatchObject({ passed: false });
+    await expect(qualifyTrainableProgram(SHA, corrected, { store, native })).resolves.toMatchObject({ passed: true });
+    expect(native.qualifyTrainable).toHaveBeenCalledTimes(2);
+  });
+
+test('the key does not depend on the order the probe\'s fields arrive in', () => {
+  const reordered = Object.fromEntries(Object.entries(PROBE).reverse()) as unknown as TrainableProbe;
+  expect(qualificationKey(SHA, reordered)).toBe(qualificationKey(SHA, PROBE));
 });
 
 test('a program with no probe does not qualify', async () => {

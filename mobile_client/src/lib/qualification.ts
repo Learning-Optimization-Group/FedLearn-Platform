@@ -7,8 +7,8 @@ import { readError } from './errors';
 
 // Stage 3 D2: before a device first trains with a trainable program, it runs the exporter's qualification probe on it
 // (two SGD steps on a synthetic batch, checked against the exporter's losses). The result is a property of the
-// device, the app build, the native bridge and the program, so it is cached under that key: a pass is not rerun, and
-// a failure quarantines the key until the app or the program changes.
+// device, the app build, the native bridge, the program and the probe, so it is cached under that key: a pass is not
+// rerun, and a failure quarantines the key until the app, the program or its probe changes.
 
 const KEY = 'fedlearn.qualification.v1';
 const MAX_ENTRIES = 64;
@@ -20,11 +20,16 @@ interface Storage {
 
 type Entries = Record<string, QualificationReport & { at: string }>;
 
-/** The cache key: device model and OS, app version and build, bridge ABI, program digest, and the CPU backend. */
-export function qualificationKey(programSha256: string): string {
+/**
+ * The cache key: device model and OS, app version and build, bridge ABI, program digest, the probe (its fields in a
+ * fixed order: a re-export can correct a probe while keeping the program's digest), and the CPU backend.
+ */
+export function qualificationKey(programSha256: string, probe: TrainableProbe): string {
+  const fields = probe as unknown as Record<string, unknown>;
+  const probeId = JSON.stringify(Object.keys(fields).sort().map((k) => [k, fields[k]]));
   return [DeviceInfo.getModel(), `android ${DeviceInfo.getSystemVersion()}`,
-    `${DeviceInfo.getVersion()}+${DeviceInfo.getBuildNumber()}`, `abi ${BRIDGE_ABI_VERSION}`, programSha256, 'cpu']
-    .join('|');
+    `${DeviceInfo.getVersion()}+${DeviceInfo.getBuildNumber()}`, `abi ${BRIDGE_ABI_VERSION}`, programSha256, probeId,
+    'cpu'].join('|');
 }
 
 export class QualificationStore {
@@ -70,7 +75,7 @@ export async function qualifyTrainableProgram(
   if (!probe) {
     return { passed: false, failedCheck: 'NO_PROBE', detail: 'the run\'s trainable program has no probe', ...empty };
   }
-  const key = qualificationKey(programSha256);
+  const key = qualificationKey(programSha256, probe);
   const cached = await deps.store.get(key);
   if (cached) return cached;
   let report: QualificationReport;
