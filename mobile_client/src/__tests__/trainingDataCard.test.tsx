@@ -96,3 +96,10 @@ test('says when no dataset on the device fits yet', () => {
   expect(screenText()).toContain('different classes');
   expect(screenText()).toContain('No dataset on this phone fits this run yet');
 });
+
+test('an image run asks for an image package, not a .csv', () => {
+  const imagePlan = { ...PLAN, shape: { kind: 'image', height: 32, width: 32, channels: 3 } } as unknown as RunDataPlan;
+  render({ plan: imagePlan, datasets: [] });
+  expect(screenText()).toContain('Import a zipped image package.');
+  expect(screenText()).not.toContain('.csv');
+});

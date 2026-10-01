@@ -176,9 +176,33 @@ because separate steps would only admit invalid orderings.
   differently from a run is refused although its shape and classes agree.
 - **Not yet exercised.** The gate refuses every image contract until S6 approves a CNN plan.
 
-Next: S6, CNN end to end:
-- plans, and CNN's approval in the matrix;
-- the export;
-- a shaped qualification probe (today's probe feeds a flat vector);
-- a tool that writes image packages;
-- a live run with a replay.
+**CNN (S6): done, live on the vivo, 2026-10-01.**
+
+- **The run.** 320 CIFAR-10 training-split images, imported as a raw-pixel package. Three rounds of Adam over seeded
+  minibatches of 32, about 3.4 s and 242 KB per round. The image-shaped qualification probe passed in 240 ms.
+- **Learning.** Server accuracy on the 10,000-image CIFAR-10 test split rose 14.9 → 19.4% over the first run and
+  21.95 → 22.73% over the second.
+- **Verification.**
+  - The phone's snapshot bytes equal the laptop's reference transform.
+  - A host-native ExecuTorch replay reproduces the phone's model to 6e-7.
+  - A torch replay predicts every phone loss and rejects seven wrong hypotheses by at least 32x. It lands 4.3e-4 from
+    the phone, above the tolerance fixed in advance: ExecuTorch-trained Adam is about 1000x further from a float64
+    reference than torch's on this run. With SGD the two agree.
+
+Fixes the live run forced:
+- `libexecutorch` force-linked, so the prim ops (`et_view`, `sym_size`) that the CNN's flatten and dynamic batch need
+  reach the APK;
+- evaluation chunked within each program's real bound (ExecuTorch planned the CNN's loss and infer programs for 15
+  examples, though they were exported for 32);
+- a model failure arriving as a plain object is no longer retried.
+
+Not done:
+- the cause of the torch-vs-ExecuTorch Adam gap (a ReLU-threshold flip is supported, not proven);
+- a mixed phone + laptop CNN run;
+- strategies other than FedAvg and Robust.
+
+Next: S7, `CIFAR_RESNET18`:
+- export with BatchNorm;
+- a qualification budget measured on the vivo;
+- a live run;
+- the upload size recorded.

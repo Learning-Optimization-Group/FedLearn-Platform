@@ -78,7 +78,9 @@ export function TrainingDataCard({
       })}
       {!anyFits && (
         <Text className="mt-2 text-caption font-sans text-fg-subtle">
-          No dataset on this phone fits this run yet. Import a .csv file, or a zipped dataset package.
+          {plan.shape.kind === 'image'
+            ? 'No dataset on this phone fits this run yet. Import a zipped image package.'
+            : 'No dataset on this phone fits this run yet. Import a .csv file, or a zipped dataset package.'}
         </Text>
       )}
 
