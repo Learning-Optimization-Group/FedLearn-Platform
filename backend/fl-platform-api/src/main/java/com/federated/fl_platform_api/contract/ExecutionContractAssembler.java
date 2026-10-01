@@ -138,7 +138,7 @@ public final class ExecutionContractAssembler {
         if (plan.getInitialStateSha256().isEmpty()) {
             throw new NotRepresentableException("the resolved plan has no initial-state digest");
         }
-        requireLayoutAgreement(plan.getTrainableList(), bundle.paramLayout());
+        requireLayoutAgreement(plan.getTrainableList(), plan.getBatchNormList(), bundle.paramLayout());
         requireBatchFits(plan.getLocalTraining().getBatchSize(), bundle.maxBatch());
         List<StagedBundle.ModelFile> programs = programs(bundle,
                 plan.getUpdateProtocol() == UpdateProtocol.UPDATE_TRAINABLE_STATE_F32);
@@ -172,11 +172,22 @@ public final class ExecutionContractAssembler {
         }
     }
 
-    private static void requireLayoutAgreement(List<TensorSpec> planned, List<StagedBundle.LayoutEntry> staged)
+    /**
+     * The staged layout is the federated state: the trainable tensors, then (training-mode BatchNorm) each layer's
+     * running mean and running variance, as BATCH_NORM_RUNNING_STATS_V1 federates them.
+     */
+    private static void requireLayoutAgreement(List<TensorSpec> planned,
+                                               List<com.fedlearn.contract.v1.BatchNormLayer> batchNorm,
+                                               List<StagedBundle.LayoutEntry> staged)
             throws NotRepresentableException {
         List<StagedBundle.LayoutEntry> expected = new ArrayList<>();
         for (TensorSpec spec : planned) {
             expected.add(new StagedBundle.LayoutEntry(spec.getName(), spec.getShapeList()));
+        }
+        for (com.fedlearn.contract.v1.BatchNormLayer layer : batchNorm) {
+            List<Long> shape = List.of(Integer.toUnsignedLong(layer.getNumFeatures()));
+            expected.add(new StagedBundle.LayoutEntry(layer.getModule() + ".running_mean", shape));
+            expected.add(new StagedBundle.LayoutEntry(layer.getModule() + ".running_var", shape));
         }
         if (!expected.equals(staged)) {
             throw new NotRepresentableException("the staged bundle's trainable layout " + staged

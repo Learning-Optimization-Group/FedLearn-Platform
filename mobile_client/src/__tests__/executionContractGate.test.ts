@@ -578,3 +578,34 @@ describe('a contract with training-mode BatchNorm', () => {
     expect(projectContract(contract, 'a'.repeat(64))).toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_BATCH_NORM' });
   });
 });
+
+describe('a staged bundle for a model with training-mode BatchNorm', () => {
+  // The federated state is the trainable layout, then each layer's running mean and variance; the bundle stages it.
+  function withBatchNorm(): ExecutionContract {
+    const contract = golden();
+    if (contract.workload.case !== 'modelTraining') throw new Error('the golden contract trains a model');
+    contract.workload.value.batchNorm = [create(BatchNormLayerSchema, {
+      module: 'bn1', numFeatures: 5, momentum: 0.1, eps: 1e-5, valuesPerExample: 4,
+      runningStats: BatchNormStats.BATCH_NORM_RUNNING_STATS_V1,
+    })];
+    return contract;
+  }
+  const programs = (contract: ExecutionContract) => {
+    const files = contractPrograms(contract);
+    const digest = (name: string) => files.find((f) => f.relativePath === name)?.sha256 ?? '';
+    return { lossSha256: digest('loss.pte'), inferSha256: digest('infer.pte'), trainableSha256: digest('trainable.pte') };
+  };
+  const trainable = [{ name: 'fc1.weight', shape: [5, 4] }, { name: 'fc1.bias', shape: [5] }];
+
+  it('agrees when the running statistics follow the parameters', () => {
+    const contract = withBatchNorm();
+    expect(checkBundleAgainstContract(contract, { ...programs(contract), paramLayout: [
+      ...trainable, { name: 'bn1.running_mean', shape: [5] }, { name: 'bn1.running_var', shape: [5] }] })).toEqual([]);
+  });
+
+  it('reports a layout without them', () => {
+    const contract = withBatchNorm();
+    expect(checkBundleAgainstContract(contract, { ...programs(contract), paramLayout: trainable }))
+      .toContain('trainable parameter layout');
+  });
+});

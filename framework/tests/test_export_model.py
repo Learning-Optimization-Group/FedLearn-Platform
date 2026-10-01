@@ -232,3 +232,52 @@ def test_max_batch_is_the_trainable_programs_real_bound(cnn_bundle, mlp_bundle):
     cnn_dest, cnn_manifest = cnn_bundle
     assert _input_bound(cnn_dest / "loss.pte", 1) <= cnn_manifest["maxBatch"]
     assert _input_bound(cnn_dest / "infer.pte", 1) <= cnn_manifest["maxBatch"]
+
+
+# Stage 4 S7: CIFAR_RESNET18, the whole model with training-mode BatchNorm. Slow: three 45 MB programs and the
+# ImageNet weights, so CI deselects it (-m "not slow"); run it with -m slow.
+
+@pytest.fixture(scope="module")
+def resnet_bundle(exporter, tmp_path_factory):
+    dest = exporter.export_recipe_bundle(RUN_ID, "CIFAR_RESNET18", tmp_path_factory.mktemp("resnet"))
+    with open(dest / "manifest.json") as fh:
+        return dest, json.load(fh)
+
+
+@pytest.mark.slow
+def test_the_resnet_bundle_stages_the_federated_state_and_a_batch_norm_program(resnet_bundle):
+    import recipes
+    dest, manifest = resnet_bundle
+    model = recipes.get_recipe("CIFAR_RESNET18").build_model("cpu")
+    layout = [(p["name"], p["shape"]) for p in manifest["modelManifest"]["paramLayout"]]
+    params = [(n, list(p.shape)) for n, p in model.named_parameters()]
+    stats = [(f"{n}.{s}", [m.num_features]) for n, m in model.named_modules()
+             if isinstance(m, torch.nn.BatchNorm2d) for s in ("running_mean", "running_var")]
+    assert layout == params + stats
+    assert manifest["maxBatch"] == 32 == _input_bound(dest / "trainable.pte", 0)
+    used = set().union(*(_operators(dest / name) for name in MODEL_FILES))
+    assert manifest["requiredOperators"] == sorted(used)
+    assert not any("batch_norm" in op for op in _operators(dest / "trainable.pte"))
+
+
+@pytest.mark.slow
+def test_the_resnet_evaluation_programs_take_the_running_statistics(resnet_bundle):
+    from executorch.runtime import Runtime
+    dest, manifest = resnet_bundle
+    total = sum(int(np.prod(p["shape"])) for p in manifest["modelManifest"]["paramLayout"])
+    loss = Runtime.get().load_program(str(dest / "loss.pte")).load_method("forward")
+    assert tuple(loss.metadata.input_tensor_meta(0).sizes()) == (total,)
+
+
+@pytest.mark.slow
+def test_the_resnet_probe_is_torchs_training_mode_batch_norm(resnet_bundle):
+    sys.path.insert(0, os.path.join(REPO, "mobile_client", "scripts"))
+    import pte_export
+    import recipes
+    _, manifest = resnet_bundle
+    probe = manifest["modelManifest"]["trainableProbe"]
+    assert probe["inputShape"] == [3, 112, 112] and probe["classes"] == 10
+    torch.manual_seed(0)
+    reference = pte_export.probe_reference(recipes.get_recipe("CIFAR_RESNET18").build_model("cpu").eval(), rows=8,
+                                           width=3 * 112 * 112, classes=10, input_shape=(3, 112, 112))
+    assert (probe["lossStep1"], probe["lossStep2"]) == (reference["loss_step1"], reference["loss_step2"])

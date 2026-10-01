@@ -55,6 +55,7 @@ EXAMPLE_SHAPES = {
     "TINYNET_GOLDEN": (4,),
     "MLP": (140,),
     "CNN": (3, 32, 32),
+    "CIFAR_RESNET18": (3, 112, 112),  # the 112 x 112 images its recipe resizes to; a package carries them
     "BLOOD_CNN": (3, 28, 28),
     "PNEUMONIA_CNN": (1, 224, 224),
 }
@@ -64,6 +65,15 @@ EXAMPLE_SHAPES = {
 # (probeMs). They are declarations, not measurements. A recipe with none declared gets no contract fields, so the
 # backend publishes no contract for it rather than one with invented budgets.
 ENVELOPES = {
+    "CIFAR_RESNET18": {
+        "peakMemoryBytes": 2 * 1024 * 1024 * 1024,
+        "probeMs": 600000,
+        "trainMs": 7200000,
+        "basis": "Declared budgets, not measurements. ResNet-18 has 11,181,642 parameters (45 MB as float32) and trains "
+                 "batches of at most 32 images of 3 x 112 x 112. On the portable CPU kernels the host measured 16.9 s "
+                 "for two 8-image steps on an M4 Max, so a phone round can take tens of minutes; qualification "
+                 "measures a device against probeMs. Storage is the staged model files' total size.",
+    },
     "CNN": {
         "peakMemoryBytes": 128 * 1024 * 1024,
         "probeMs": 5000,
@@ -124,9 +134,12 @@ def build_recipe_model(recipe_key: str) -> tuple[torch.nn.Module, int]:
         # functional but deliberately off-catalog (recipes.py:364) -> get_recipe() raises; build directly.
         return recipes.build_blood_cnn().eval(), 8
     recipe = recipes.get_recipe(key)
-    if not recipe.is_functional:
-        raise SystemExit(f"recipe {key} is not functional (no build_model); cannot export")
-    return recipe.build_model(device="cpu").eval(), len(recipe.classes)
+    # Export needs only the model. (is_functional says whether the model AND its data live in recipes.py, which
+    # CIFAR_RESNET18's do not count as, although its build_model does.)
+    try:
+        return recipe.build_model(device="cpu").eval(), len(recipe.classes)
+    except NotImplementedError as exc:
+        raise SystemExit(f"recipe {key} has no build_model; cannot export ({exc})") from exc
 
 
 def _load_init_state(model: torch.nn.Module, path: Path) -> None:
@@ -178,9 +191,13 @@ def export_recipe_bundle(
     if num_samples > max_batch:
         raise SystemExit(f"{num_samples} example rows exceed the programs' batch bound {max_batch}")
 
+    # A model with BatchNorm trains it in training mode on a device (Stage 4 S7): its running statistics are federated
+    # state, so the loss and infer programs take them in their flat input after the parameters (federated_flat).
+    has_batch_norm = bool(pte_export.batch_norm_layers(model))
+
     # Weight-free graphs. pte_export bakes frozen params as constants; trainable params are the flat input.
-    loss_pte = pte_export.export_functional_pte(model, (x, y), max_batch=max_batch)
-    infer_pte = pte_export.export_functional_infer_pte(model, x, max_batch=max_batch)
+    loss_pte = pte_export.export_functional_pte(model, (x, y), max_batch=max_batch, include_buffers=has_batch_norm)
+    infer_pte = pte_export.export_functional_infer_pte(model, x, max_batch=max_batch, include_buffers=has_batch_norm)
 
     # First-order (FedAvg) trainable graph: forward(x, y) -> (cross_entropy, prediction) with a CAPTURED
     # backward pass, loadable by ET's TrainingModule on the phone (execute_forward_backward + SGD). This is
@@ -193,7 +210,10 @@ def export_recipe_bundle(
     trainable_pte: bytes | None = None
     trainable_param_names: list[str] = []
     try:
-        if pte_export.dropout_layers(model):
+        if has_batch_norm:
+            # Training-mode BatchNorm rebuilt from primitive ops, returning each step's batch statistics.
+            trainable_pte = pte_export.export_bn_trainable_pte(model, (x, y), max_batch=max_batch)
+        elif pte_export.dropout_layers(model):
             trainable_pte = pte_export.export_masked_trainable_pte(
                 model, (x, y), mask_shapes=pte_export.dropout_mask_shapes(model, x), max_batch=max_batch)
         else:
@@ -213,6 +233,11 @@ def export_recipe_bundle(
 
     # Sanity: the flat layout the phone will perturb must equal the server's aggregation order.
     assert trainable == sum(pl["numel"] for pl in param_layout), "trainable flat != sum(param_layout)"
+    # The staged layout is the federated state: after the parameters, each BatchNorm layer's running statistics.
+    if has_batch_norm:
+        buffers = dict(model.named_buffers())
+        param_layout += [{"name": n, "shape": list(buffers[n].shape), "numel": buffers[n].numel()}
+                         for n in pte_export.federated_buffer_names(model)]
 
     # Reference metrics on the example batch (reporting only).
     with torch.no_grad():

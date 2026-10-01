@@ -381,7 +381,10 @@ export function checkBundleAgainstContract(contract: ExecutionContract, bundle: 
       mismatched.push(name);
     }
   }
-  const stated = training.trainable.map(t => `${t.name}:${t.shape.join(',')}`).join('|');
+  // The federated state: the trainable tensors, then each training-mode BatchNorm layer's running mean and variance.
+  const runningStats = training.batchNorm.flatMap(b => [`${b.module}.running_mean:${b.numFeatures}`,
+    `${b.module}.running_var:${b.numFeatures}`]);
+  const stated = [...training.trainable.map(t => `${t.name}:${t.shape.join(',')}`), ...runningStats].join('|');
   const staged = bundle.paramLayout.map(p => `${p.name}:${p.shape.join(',')}`).join('|');
   if (stated !== staged) {
     mismatched.push('trainable parameter layout');

@@ -399,7 +399,9 @@ def probe_reference(model: nn.Module, rows: int, width: int, classes: int,
         return x.view(rows, *shape), y
 
     mask_shapes = dropout_mask_shapes(model, batch(1)[0])
-    wrapper = _MaskedTrainingGraph(model)
+    # Training mode, as the device program trains: BatchNorm normalises with each batch's statistics (dropout is
+    # replaced by all-ones masks either way).
+    wrapper = _MaskedTrainingGraph(model).train()
     params = [p for p in wrapper.parameters() if p.requires_grad]
     opt = torch.optim.SGD(params, lr=PROBE_LEARNING_RATE)
     losses = []

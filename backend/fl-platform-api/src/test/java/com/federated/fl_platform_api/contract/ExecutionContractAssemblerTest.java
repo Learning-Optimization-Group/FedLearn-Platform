@@ -208,6 +208,34 @@ class ExecutionContractAssemblerTest {
                 .isInstanceOf(NotRepresentableException.class).hasMessageContaining("layout");
     }
 
+    // Stage 4 S7: with training-mode BatchNorm, the federated state is the trainable layout followed by each layer's
+    // running mean and running variance, and that is the layout a bundle stages.
+    private static ModelTraining planWithBatchNorm() throws Exception {
+        return plan().toBuilder().addBatchNorm(com.fedlearn.contract.v1.BatchNormLayer.newBuilder()
+                .setModule("bn1").setNumFeatures(5).setMomentum(0.1).setEps(1e-5).setValuesPerExample(4)
+                .setRunningStats(com.fedlearn.contract.v1.BatchNormStats.BATCH_NORM_RUNNING_STATS_V1)).build();
+    }
+
+    private static StagedBundle withLayout(StagedBundle b, List<StagedBundle.LayoutEntry> layout) {
+        return new StagedBundle(b.modelFiles(), b.requiredOperators(), b.envelope(), layout, b.maxBatch());
+    }
+
+    @Test
+    void aBundleCarryingTheBatchNormRunningStatisticsAfterTheParametersAgrees() throws Exception {
+        StagedBundle b = bundle();
+        List<StagedBundle.LayoutEntry> federated = new java.util.ArrayList<>(b.paramLayout());
+        federated.add(new StagedBundle.LayoutEntry("bn1.running_mean", List.of(5L)));
+        federated.add(new StagedBundle.LayoutEntry("bn1.running_var", List.of(5L)));
+        assertThat(assemble(run(intent(true, true), "FedAvg"), planWithBatchNorm(), withLayout(b, federated))
+                .getModelTraining().getBatchNormCount()).isEqualTo(1);
+    }
+
+    @Test
+    void aBundleWithoutTheBatchNormRunningStatisticsIsNotRepresentable() throws Exception {
+        assertThatThrownBy(() -> assemble(run(intent(true, true), "FedAvg"), planWithBatchNorm(), bundle()))
+                .isInstanceOf(NotRepresentableException.class).hasMessageContaining("layout");
+    }
+
     // A device trains each step of batch_size examples through the staged programs, which take at most maxBatch.
     @Test
     void aPlanWhoseBatchExceedsWhatTheStagedProgramsTakeIsNotRepresentable() throws Exception {
