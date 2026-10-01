@@ -14,6 +14,7 @@ import { contractPrograms,
   type ContractProjection,
   type ContractRefusalCode,
 } from './executionContractGate';
+import { runHasEnded } from './projectsApi';
 import { submittedRoundStore } from './submittedRoundStore';
 import { readError } from './errors';
 import { qualificationStore, qualifyTrainableProgram, type QualificationStore } from './qualification';
@@ -177,6 +178,8 @@ export interface RoundOps {
   delay: (ms: number) => Promise<void>;
   loadSubmittedRound: (runId: string) => Promise<number | null>;
   saveSubmittedRound: (runId: string, round: number) => Promise<void>;
+  /** Whether the backend says the run has ended (asked when the server stops answering). */
+  runEnded: (runId: string) => Promise<boolean>;
 }
 
 export interface ResiliencePolicy {
@@ -327,6 +330,12 @@ export async function runResilientRoundLoop(
       }
       const modelFailure = modelExecutionDetail(e);
       if (modelFailure !== undefined) throw new ModelExecutionFailedError(modelFailure);
+      // A server exits shortly after its last round; a device still busy then finds it gone. Ask the backend
+      // before treating that as a network failure. If it cannot be asked, retry as for any blip.
+      if (await ops.runEnded(runId).catch(() => false)) {
+        hooks.onLog('Run ended.');
+        return;
+      }
 
       consecutiveSuccesses = 0; // a failure breaks the stability streak
       consecutiveFailures += 1;
@@ -479,6 +488,7 @@ export async function runTrainingLoop(
     delay,
     loadSubmittedRound: (runId) => submittedRoundStore.load(runId),
     saveSubmittedRound: (runId, round) => submittedRoundStore.save(runId, round),
+    runEnded: (runId) => runHasEnded(joined.projectId, runId),
     ...overrides?.ops,
   };
 

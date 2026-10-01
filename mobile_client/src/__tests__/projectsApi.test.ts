@@ -1,5 +1,5 @@
 import { api } from '../lib/restClient';
-import { listProjects, joinProject, annotateEligibility } from '../lib/projectsApi';
+import { listProjects, joinProject, annotateEligibility, runHasEnded } from '../lib/projectsApi';
 import type { DeviceCapabilities } from '../lib/deviceCapabilities.types';
 
 jest.mock('../lib/restClient', () => ({ api: { get: jest.fn(), post: jest.fn() } }));
@@ -60,6 +60,34 @@ describe('projectsApi', () => {
       const { result } = annotateEligibility(projects, { ...caps, ramGb: 2 })[0]!;
       expect(result.eligible).toBe(false);
       expect(result.hardFailures).toEqual(['Needs 4 GB RAM, device has 2.0 GB']);
+    });
+  });
+
+  describe('runHasEnded', () => {
+    const project = (activeRun?: { runId: string; status: string }) =>
+      ({ data: { projectId: 'p', name: 'P', modelType: 'CIFAR_RESNET18', status: 'RUNNING', visibility: 'PRIVATE', activeRun } });
+
+    test('asks the backend for the project and reads its active run', async () => {
+      mApi.get.mockResolvedValue(project({ runId: 'r', status: 'RUNNING' }));
+      await expect(runHasEnded('p', 'r')).resolves.toBe(false);
+      expect(mApi.get).toHaveBeenCalledWith('/api/client/projects/p');
+    });
+
+    test.each(['COMPLETED', 'FAILED', 'STOPPED'])('a run the backend calls %s has ended', async (status) => {
+      mApi.get.mockResolvedValue(project({ runId: 'r', status }));
+      await expect(runHasEnded('p', 'r')).resolves.toBe(true);
+    });
+
+    test('a project whose active run is another one, or none, has ended this one', async () => {
+      mApi.get.mockResolvedValue(project({ runId: 'newer', status: 'RUNNING' }));
+      await expect(runHasEnded('p', 'r')).resolves.toBe(true);
+      mApi.get.mockResolvedValue(project(undefined));
+      await expect(runHasEnded('p', 'r')).resolves.toBe(true);
+    });
+
+    test('a run still starting has not ended', async () => {
+      mApi.get.mockResolvedValue(project({ runId: 'r', status: 'STARTING' }));
+      await expect(runHasEnded('p', 'r')).resolves.toBe(false);
     });
   });
 });

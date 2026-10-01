@@ -81,6 +81,7 @@ function baseOps(over: Partial<RoundOps> = {}): RoundOps {
     delay: jest.fn().mockResolvedValue(undefined),
     loadSubmittedRound: jest.fn().mockResolvedValue(null),
     saveSubmittedRound: jest.fn().mockResolvedValue(undefined),
+    runEnded: jest.fn().mockResolvedValue(false),
     ...over,
   };
 }
@@ -360,5 +361,45 @@ describe('runResilientRoundLoop (MO-8)', () => {
 
     expect(ops.rejoin).not.toHaveBeenCalled();
     expect(h.rounds.map((r) => r.round)).toEqual([1, 2]);
+  });
+
+  describe('a server gone because the run finished (Stage 4 S7)', () => {
+    // The ResNet-18 run's last round returned ~53 s after its upload (the phone evaluated its images), after the server
+    // had reported completion for its 3 s drain and exited. The phone saw UNAVAILABLE, rejoined into a 403 and showed a
+    // completed run as an error. A failure now first asks the backend whether this run has ended.
+    const gone = () => {
+      const statuses = [{ serverState: 'TRAINING', currentRound: 2 }];
+      return jest.fn().mockImplementation(async () => {
+        const next = statuses.shift();
+        if (next) return next;
+        throw new Error('GetServerStatus failed: gRPC code 14: UNAVAILABLE');
+      });
+    };
+
+    it('ends cleanly when the backend says the run ended', async () => {
+      const ops = baseOps({ getServerStatus: gone(), runFedAvgRound: jest.fn().mockResolvedValue(round(2)),
+                            runEnded: jest.fn().mockResolvedValue(true) });
+      const h = hooks();
+      await runResilientRoundLoop({ runId: 'r', isFedAvg: true, cfg: CFG }, ops, POLICY, h);
+      expect(h.rounds.map((r) => r.round)).toEqual([2]);
+      expect(ops.runEnded).toHaveBeenCalledWith('r');
+      expect(ops.rejoin).not.toHaveBeenCalled();
+      expect(h.logs).toContain('Run ended.');
+    });
+
+    it('retries as before while the run is still going', async () => {
+      const ops = baseOps({ getServerStatus: gone(), runFedAvgRound: jest.fn().mockResolvedValue(round(2)) });
+      await expect(runResilientRoundLoop({ runId: 'r', isFedAvg: true, cfg: CFG }, ops, POLICY, hooks()))
+        .rejects.toThrow('UNAVAILABLE');
+      expect(ops.rejoin).toHaveBeenCalledTimes(POLICY.maxRejoins);
+    });
+
+    it('retries as before when the backend cannot be asked', async () => {
+      const ops = baseOps({ getServerStatus: gone(), runFedAvgRound: jest.fn().mockResolvedValue(round(2)),
+                            runEnded: jest.fn().mockRejectedValue(new Error('network down')) });
+      await expect(runResilientRoundLoop({ runId: 'r', isFedAvg: true, cfg: CFG }, ops, POLICY, hooks()))
+        .rejects.toThrow('UNAVAILABLE');
+      expect(ops.rejoin).toHaveBeenCalledTimes(POLICY.maxRejoins);
+    });
   });
 });
