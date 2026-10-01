@@ -13,7 +13,12 @@ DatasetMetrics evaluateDataset(ExecutorchModel& lossModel, ExecutorchModel& infe
   if (n <= 0 || data.inputs == nullptr || data.targets == nullptr || data.inputShape.empty()) return out;
   int64_t rowWidth = 1;
   for (size_t d = 1; d < data.inputShape.size(); ++d) rowWidth *= data.inputShape[d];
-  const int64_t step = chunk > 0 ? chunk : n;
+  // Never ask a program for more examples than it states it takes (its planned bound can be below its training batch).
+  int64_t step = chunk > 0 ? chunk : n;
+  for (const ExecutorchModel* model : {&lossModel, &inferModel}) {
+    const int64_t bound = model->maxExamplesPerCall();
+    if (bound > 0) step = std::min(step, bound);
+  }
 
   double weightedLoss = 0.0;
   int64_t scored = 0, correct = 0;

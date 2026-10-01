@@ -75,6 +75,7 @@ struct ExecutorchModel::Impl {
   std::unique_ptr<MemoryManager> mm;
   std::unique_ptr<Method> method;
   int64_t flat_dim = 0;
+  int64_t max_examples = 0;  // x's declared batch dimension (input 1); 0 when the program has no x
 };
 
 ExecutorchModel::ExecutorchModel(const std::string& ptePath, const std::string& expectedSha256)
@@ -112,6 +113,10 @@ ExecutorchModel::ExecutorchModel(const std::string& ptePath, const std::string& 
     for (int32_t d : in0.get().sizes()) n *= d;
     impl_->flat_dim = n;
   }
+  if (meta.num_inputs() > 1) {
+    auto in1 = meta.input_tensor_meta(1);
+    if (in1.ok() && !in1.get().sizes().empty()) impl_->max_examples = in1.get().sizes()[0];
+  }
 
   // Planned memory buffers (sized from the method metadata). reserve() so planned_spans' storage
   // does not reallocate — HierarchicalAllocator below captures planned_spans.data() as a raw,
@@ -140,6 +145,8 @@ ExecutorchModel::ExecutorchModel(const std::string& ptePath, const std::string& 
 ExecutorchModel::~ExecutorchModel() = default;
 
 int64_t ExecutorchModel::flatDim() const { return impl_->flat_dim; }
+
+int64_t ExecutorchModel::maxExamplesPerCall() const { return impl_->max_examples; }
 
 float ExecutorchModel::loss(const std::vector<float>& flat,
                             const float* x, const std::vector<int64_t>& xShape,

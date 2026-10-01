@@ -94,6 +94,17 @@ def main() -> None:
     loss_pte = pte_export.export_functional_pte(build_net().eval(), (x[:BATCH], y[:BATCH]), max_batch=BATCH)
     with open(os.path.join(HERE, "cnn_loss_dynbatch.pte"), "wb") as fh:
         fh.write(loss_pte)
+    # The loss and infer programs exported for 32 examples, as a run's bundle exports them. ExecuTorch plans them for 15:
+    # the bound the live phone's evaluation ran into. The native test evaluates with them to pin that it respects it.
+    bound32 = {}
+    for name, program in (
+            ("cnn_loss_bound32.pte", pte_export.export_functional_pte(build_net().eval(), (x[:BATCH], y[:BATCH]),
+                                                                      max_batch=32)),
+            ("cnn_infer_bound32.pte", pte_export.export_functional_infer_pte(build_net().eval(), x[:BATCH],
+                                                                             max_batch=32))):
+        with open(os.path.join(HERE, name), "wb") as fh:
+            fh.write(program)
+        bound32[name] = hashlib.sha256(program).hexdigest()
     manifest = {
         "description": "CNN image training golden (Stage 4 S6).",
         "torch_version": torch.__version__.split("+")[0],
@@ -105,6 +116,7 @@ def main() -> None:
         "pte_file": "cnn_trainable_dynbatch.pte", "pte_sha256": hashlib.sha256(trainable).hexdigest(),
         "loss_pte_file": "cnn_loss_dynbatch.pte", "loss_pte_sha256": hashlib.sha256(loss_pte).hexdigest(),
         "final_flat_file": "cnn_adam_final.f32", "endpoint_atol": ATOL, "control_separation": separation,
+        "exported_for_32": bound32,
         "probe": pte_export.probe_reference(build_net(), rows=BATCH, width=3072, classes=10, input_shape=(3, 32, 32)),
     }
     with open(os.path.join(HERE, "cnn_manifest.json"), "w") as fh:

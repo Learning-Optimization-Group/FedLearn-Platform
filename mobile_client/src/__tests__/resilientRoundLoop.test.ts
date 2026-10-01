@@ -205,6 +205,21 @@ describe('runResilientRoundLoop (MO-8)', () => {
       expect(h.logs.some((l) => l.startsWith('Transient error'))).toBe(false);
     });
 
+  // Stage 4 S6: on the live phone the rejection arrived as a plain object carrying `message`, not an Error instance.
+  // The loop read it as "[object Object]", missed the prefix, and retried a deterministic failure three times.
+  it('stops at once when the model-execution rejection is not an Error instance', async () => {
+    const cause = { code: 'E', message: 'MODEL_EXECUTION: ExecutorchModel: set_input(x) failed (error 16)' };
+    const ops = baseOps({ runFedAvgRound: jest.fn().mockRejectedValue(cause) });
+    const h = hooks();
+
+    const run = runResilientRoundLoop({ runId: 'r', isFedAvg: true, cfg: CFG }, ops, POLICY, h);
+
+    await expect(run).rejects.toBeInstanceOf(ModelExecutionFailedError);
+    await expect(run).rejects.toThrow(/set_input\(x\) failed \(error 16\)/);
+    expect(ops.runFedAvgRound).toHaveBeenCalledTimes(1);
+    expect(h.logs.some((l) => l.startsWith('Transient error'))).toBe(false);
+  });
+
   it('cooperative stop ends the loop before any work', async () => {
     const ops = baseOps();
     const h = { ...hooks(), shouldStop: () => true };

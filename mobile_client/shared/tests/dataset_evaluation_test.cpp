@@ -46,10 +46,19 @@ TEST(DatasetEvaluation, ChunkLossesAreWeightedByTheirExampleCounts) {
   EXPECT_NEAR(whole8.loss, by4.loss, 1e-6);
 }
 
-TEST(DatasetEvaluation, AProgramThatCannotTakeTheWholeDatasetInOneCallIsWhyItChunks) {
+// Stage 4 S6: a program states how many examples one call takes, and the CNN's loss and infer programs take fewer than
+// its training batch (ExecuTorch planned them for 15 although they were exported for 32). Evaluation therefore never asks a
+// program for more than it states: a larger chunk, or the whole dataset, is cut to the programs' own bound.
+TEST(DatasetEvaluation, AChunkLargerThanTheProgramsTakeIsCutToTheirBound) {
   Fixture f;
-  EXPECT_THROW(fedlearn::evaluateDataset(f.loss, f.infer, f.flat, f.data(), /*chunk=*/0),
-               fedlearn::ModelExecutionError);
+  ASSERT_EQ(f.loss.maxExamplesPerCall(), 8);
+  ASSERT_EQ(f.infer.maxExamplesPerCall(), 8);
+  const auto by8 = fedlearn::evaluateDataset(f.loss, f.infer, f.flat, f.data(), 8);
+  for (int64_t chunk : {int64_t{0}, int64_t{20}, int64_t{32}}) {
+    const auto m = fedlearn::evaluateDataset(f.loss, f.infer, f.flat, f.data(), chunk);
+    EXPECT_EQ(m.loss, by8.loss) << "chunk " << chunk;
+    EXPECT_EQ(m.accuracy, by8.accuracy) << "chunk " << chunk;
+  }
 }
 
 TEST(DatasetEvaluation, AnEmptyDatasetIsNotEvaluable) {

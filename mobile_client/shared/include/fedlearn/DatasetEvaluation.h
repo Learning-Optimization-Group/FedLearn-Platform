@@ -18,7 +18,10 @@ struct DatasetMetrics {
   double accuracy = 0.0;
 };
 
-/** chunk <= 0 evaluates the whole dataset in one call. An empty dataset is not evaluable and reports (0, 0). */
+/**
+ * chunk <= 0 asks for the whole dataset in one call. Either way a chunk is cut to the most examples each program states
+ * it takes (ExecutorchModel::maxExamplesPerCall). An empty dataset is not evaluable and reports (0, 0).
+ */
 DatasetMetrics evaluateDataset(ExecutorchModel& lossModel, ExecutorchModel& inferModel,
                                const std::vector<float>& flat, const DataBatch& data, int64_t chunk);
 

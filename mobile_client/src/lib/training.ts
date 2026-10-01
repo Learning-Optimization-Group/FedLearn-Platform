@@ -218,7 +218,9 @@ export class ModelExecutionFailedError extends Error {
 }
 
 function modelExecutionDetail(e: unknown): string | undefined {
-  const message = e instanceof Error ? e.message : String(e);
+  // Read the message as the log does: a native rejection can arrive as a plain object carrying `message`, which
+  // String() would turn into "[object Object]" and so hide the prefix.
+  const message = readError(e);
   const at = message.indexOf(MODEL_EXECUTION_PREFIX);
   return at < 0 ? undefined : message.slice(at + MODEL_EXECUTION_PREFIX.length);
 }

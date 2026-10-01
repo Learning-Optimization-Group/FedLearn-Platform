@@ -3,6 +3,8 @@
 // minibatches with the final partial one kept. The uploaded update must land on torch training the same model eagerly
 // (framework/tests/fixtures/cnn_golden/cnn_manifest.json), within a tolerance far below every wrong-training control.
 // This is also the first test of a Conv/MaxPool backward pass through ExecuTorch's training module.
+#include "fedlearn/DatasetEvaluation.h"
+#include "fedlearn/ExecutorchModel.h"
 #include "fedlearn/FederatedLoop.h"
 #include "fedlearn/IFedLearnClient.h"
 #include "fedlearn/ModelManager.h"
@@ -145,4 +147,25 @@ TEST(CnnRound, AProbeShapeThatDoesNotHoldItsWidthIsRefused) {
   const auto r = fedlearn::qualifyTrainable(cnnPath("cnn_trainable_dynbatch.pte"), kPteSha, kNames, s);
   EXPECT_FALSE(r.passed);
   EXPECT_EQ(r.failedCheck, "SPEC");
+}
+
+TEST(CnnRound, EvaluationRespectsTheBoundExecuTorchPlannedTheProgramsFor) {
+  // The live phone run's failure. The run's loss and infer programs were exported for 32 examples, but ExecuTorch planned
+  // them for 15, so evaluating a dataset in chunks of the training batch (32) failed every round with
+  // set_input(x) error 16. Evaluation asks each program for its bound instead.
+  fedlearn::ExecutorchModel loss(cnnPath("cnn_loss_bound32.pte"),
+                                 "dc64e8c0328c4934b0f88eab2258aa138b5143657bafe5275183b50cfa1a2ab0");
+  fedlearn::ExecutorchModel infer(cnnPath("cnn_infer_bound32.pte"),
+                                  "aedbeb084fe11f0452ff41137c54404b59bf963ce107a2d9783837b764d58f8a");
+  EXPECT_EQ(loss.maxExamplesPerCall(), 15);
+  EXPECT_EQ(infer.maxExamplesPerCall(), 15);
+  const auto flat = fedtest::readF32(cnnPath("cnn_init.f32"));
+  const auto x = fedtest::readF32(cnnPath("cnn_inputs.f32"));
+  const auto y = fedtest::readI64(cnnPath("cnn_targets.i64"));
+  const fedlearn::DataBatch data{x.data(), {kExamples, 3, 32, 32}, y.data(), kExamples};
+  const auto asked32 = fedlearn::evaluateDataset(loss, infer, flat, data, 32);
+  const auto by10 = fedlearn::evaluateDataset(loss, infer, flat, data, 10);
+  EXPECT_NEAR(asked32.loss, by10.loss, 1e-6);
+  EXPECT_EQ(asked32.accuracy, by10.accuracy);
+  std::printf("[cnn] dataset loss %.6f accuracy %.3f with programs bounded at 15\n", asked32.loss, asked32.accuracy);
 }

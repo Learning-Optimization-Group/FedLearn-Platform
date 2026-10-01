@@ -216,3 +216,19 @@ def test_a_probe_shape_that_does_not_hold_its_width_is_refused():
     with pytest.raises(ValueError):
         pte_export.probe_reference(recipes.get_recipe("CNN").build_model("cpu"), rows=8, width=3000, classes=10,
                                    input_shape=(3, 32, 32))
+
+
+def _input_bound(path, index):
+    from executorch.runtime import Runtime
+    method = Runtime.get().load_program(str(path)).load_method("forward")
+    return tuple(method.metadata.input_tensor_meta(index).sizes())[0]
+
+
+def test_max_batch_is_the_trainable_programs_real_bound(cnn_bundle, mlp_bundle):
+    """maxBatch is what the backend checks a contract's batch against: the training program's bound, as ExecuTorch
+    planned it. (The CNN's loss and infer programs are planned for fewer, 15; evaluation reads each program's own.)"""
+    for dest, manifest in (cnn_bundle, mlp_bundle):
+        assert _input_bound(dest / "trainable.pte", 0) == manifest["maxBatch"]
+    cnn_dest, cnn_manifest = cnn_bundle
+    assert _input_bound(cnn_dest / "loss.pte", 1) <= cnn_manifest["maxBatch"]
+    assert _input_bound(cnn_dest / "infer.pte", 1) <= cnn_manifest["maxBatch"]
