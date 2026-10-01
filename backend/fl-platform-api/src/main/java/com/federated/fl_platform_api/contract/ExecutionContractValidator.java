@@ -382,6 +382,7 @@ public final class ExecutionContractValidator {
         }
         artifacts(mt.getArtifactsList());
         dropout(mt.getDropoutList());
+        batchNorm(mt.getBatchNormList());
         int strategy = contract.getStrategyValue();
         if (strategy == Strategy.STRATEGY_FEDPROX_VALUE) {
             if (!mt.hasFedproxMu()) {
@@ -412,6 +413,32 @@ public final class ExecutionContractValidator {
             check(Double.isFinite(layer.getRate()) && layer.getRate() >= 0 && layer.getRate() < 1, ISSUE_OUT_OF_RANGE,
                     at + ".rate");
             enumValue(com.fedlearn.contract.v1.DropoutMasks::forNumber, layer.getMasksValue(), at + ".masks");
+        }
+    }
+
+    private void batchNorm(List<com.fedlearn.contract.v1.BatchNormLayer> layers) {
+        String p = "modelTraining.batchNorm";
+        if (layers.size() > MAX_TENSORS) {
+            add(ISSUE_MALFORMED_LAYOUT, p);
+            return;
+        }
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < layers.size(); i++) {
+            com.fedlearn.contract.v1.BatchNormLayer layer = layers.get(i);
+            String at = p + "[" + i + "]";
+            boolean nameOk = layer.getModule().length() <= MAX_TENSOR_NAME_LENGTH
+                    && matches(TENSOR_NAME, layer.getModule());
+            check(nameOk && !seen.contains(layer.getModule()), ISSUE_MALFORMED_LAYOUT, at + ".module");
+            seen.add(layer.getModule());
+            long features = Integer.toUnsignedLong(layer.getNumFeatures());
+            check(features >= 1 && features <= MAX_ELEMENTS, ISSUE_OUT_OF_RANGE, at + ".numFeatures");
+            check(Double.isFinite(layer.getMomentum()) && layer.getMomentum() > 0 && layer.getMomentum() <= 1,
+                    ISSUE_OUT_OF_RANGE, at + ".momentum");
+            check(positiveFinite(layer.getEps()), ISSUE_OUT_OF_RANGE, at + ".eps");
+            long values = Integer.toUnsignedLong(layer.getValuesPerExample());
+            check(values >= 1 && values <= MAX_ELEMENTS, ISSUE_OUT_OF_RANGE, at + ".valuesPerExample");
+            enumValue(com.fedlearn.contract.v1.BatchNormStats::forNumber, layer.getRunningStatsValue(),
+                    at + ".runningStats");
         }
     }
 

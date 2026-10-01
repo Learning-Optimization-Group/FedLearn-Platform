@@ -28,6 +28,7 @@ export type ContractRefusalCode =
   | 'UNSUPPORTED_OPTIMIZER'
   | 'UNSUPPORTED_BATCHING'
   | 'UNSUPPORTED_DROPOUT'
+  | 'UNSUPPORTED_BATCH_NORM'
   | 'MISSING_CPU_ARTIFACT'
   | 'FIXTURE_DATA_REFUSED'
   | 'UNSUPPORTED_DATA_SOURCE';
@@ -191,6 +192,12 @@ export function projectContract(contract: ExecutionContract, contractId: string)
   const dropout = unsupportedDropout(training);
   if (dropout) {
     return refuse('UNSUPPORTED_DROPOUT', dropout);
+  }
+  // Training-mode BatchNorm needs the native trainer to update the running statistics it federates; until it does, a
+  // contract stating BatchNorm layers is refused rather than trained with frozen statistics.
+  if (training.batchNorm.length > 0) {
+    return refuse('UNSUPPORTED_BATCH_NORM',
+      'This run trains BatchNorm layers whose running statistics this app does not update yet.');
   }
   // The native trainer takes one step per local epoch over the whole local dataset, so it can reproduce a contract
   // whose every epoch is a single batch, keeping the final batch. The dataset's size is checked against batchSize

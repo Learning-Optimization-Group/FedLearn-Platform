@@ -297,6 +297,7 @@ class _Validator:
             self.add(pb.ISSUE_MISSING_FIELD, p + ".data")
         self.artifacts(mt.artifacts)
         self.dropout(mt.dropout)
+        self.batch_norm(mt.batch_norm)
         if self.c.strategy == pb.STRATEGY_FEDPROX:
             if not mt.HasField("fedprox_mu"):
                 self.add(pb.ISSUE_MISSING_FIELD, p + ".fedproxMu")
@@ -319,6 +320,27 @@ class _Validator:
             seen.add(layer.module)
             self.check(math.isfinite(layer.rate) and 0 <= layer.rate < 1, pb.ISSUE_OUT_OF_RANGE, at + ".rate")
             self.enum(pb.DropoutMasks.DESCRIPTOR, layer.masks, at + ".masks")
+
+    def batch_norm(self, layers) -> None:
+        """Each BatchNorm layer names a module once, has channels, a momentum in (0, 1], a positive eps, at least one
+        value per example, and states how its running statistics update."""
+        p = "modelTraining.batchNorm"
+        if len(layers) > MAX_TENSORS:
+            self.add(pb.ISSUE_MALFORMED_LAYOUT, p)
+            return
+        seen: set[str] = set()
+        for i, layer in enumerate(layers):
+            at = f"{p}[{i}]"
+            name_ok = len(layer.module) <= MAX_TENSOR_NAME_LENGTH and _matches(_TENSOR_NAME, layer.module)
+            self.check(name_ok and layer.module not in seen, pb.ISSUE_MALFORMED_LAYOUT, at + ".module")
+            seen.add(layer.module)
+            self.check(1 <= layer.num_features <= MAX_ELEMENTS, pb.ISSUE_OUT_OF_RANGE, at + ".numFeatures")
+            self.check(math.isfinite(layer.momentum) and 0 < layer.momentum <= 1, pb.ISSUE_OUT_OF_RANGE,
+                       at + ".momentum")
+            self.check(_positive_finite(layer.eps), pb.ISSUE_OUT_OF_RANGE, at + ".eps")
+            self.check(1 <= layer.values_per_example <= MAX_ELEMENTS, pb.ISSUE_OUT_OF_RANGE,
+                       at + ".valuesPerExample")
+            self.enum(pb.BatchNormStats.DESCRIPTOR, layer.running_stats, at + ".runningStats")
 
     def trainable(self, tensors) -> None:
         p = "modelTraining.trainable"

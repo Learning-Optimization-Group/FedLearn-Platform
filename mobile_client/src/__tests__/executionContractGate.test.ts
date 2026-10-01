@@ -6,6 +6,8 @@ import {
   AdamSchema,
   ArtifactBackend,
   BatchOrder,
+  BatchNormLayerSchema,
+  BatchNormStats,
   DropoutLayerSchema,
   DropoutMasks,
   Recipe,
@@ -562,5 +564,17 @@ describe('the phone trains the CNN on images', () => {
     });
     const decision = decide(cnnContract());
     expect(decision.kind === 'train' && decision.projection.dropout).toBeUndefined();
+  });
+});
+
+describe('a contract with training-mode BatchNorm', () => {
+  it('is refused until the app updates BatchNorm running statistics', () => {
+    const contract = golden();
+    if (contract.workload.case !== 'modelTraining') throw new Error('the golden contract trains a model');
+    contract.workload.value.batchNorm = [create(BatchNormLayerSchema, {
+      module: 'bn1', numFeatures: 8, momentum: 0.1, eps: 1e-5, valuesPerExample: 16,
+      runningStats: BatchNormStats.BATCH_NORM_RUNNING_STATS_V1,
+    })];
+    expect(projectContract(contract, 'a'.repeat(64))).toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_BATCH_NORM' });
   });
 });

@@ -17,6 +17,7 @@ import {
   type RoundPolicy,
   type SecurityPolicy,
   type TensorSpec,
+  type BatchNormLayer,
   type DropoutLayer,
   ArmSchema,
   ArtifactBackend,
@@ -25,6 +26,7 @@ import {
   ClientAuthSchema,
   ContractIssueCode,
   DTypeSchema,
+  BatchNormStatsSchema,
   DropoutMasksSchema,
   DataSourceSchema,
   GradientEstimatorSchema,
@@ -396,6 +398,7 @@ class Validator {
     }
     this.artifacts(mt.artifacts);
     this.dropout(mt.dropout);
+    this.batchNorm(mt.batchNorm);
     const strategy = this.c.strategy;
     if (strategy === Strategy.FEDPROX) {
       if (mt.fedproxMu === undefined) {
@@ -424,6 +427,29 @@ class Validator {
       this.check(Number.isFinite(layer.rate) && layer.rate >= 0 && layer.rate < 1, ContractIssueCode.ISSUE_OUT_OF_RANGE,
         `${at}.rate`);
       this.enumValue(DropoutMasksSchema, layer.masks, `${at}.masks`);
+    });
+  }
+
+  private batchNorm(layers: readonly BatchNormLayer[]): void {
+    const p = 'modelTraining.batchNorm';
+    if (layers.length > MAX_TENSORS) {
+      this.add(ContractIssueCode.ISSUE_MALFORMED_LAYOUT, p);
+      return;
+    }
+    const seen = new Set<string>();
+    layers.forEach((layer, i) => {
+      const at = `${p}[${i}]`;
+      const nameOk = layer.module.length <= MAX_TENSOR_NAME_LENGTH && TENSOR_NAME.test(layer.module);
+      this.check(nameOk && !seen.has(layer.module), ContractIssueCode.ISSUE_MALFORMED_LAYOUT, `${at}.module`);
+      seen.add(layer.module);
+      this.check(layer.numFeatures >= 1 && BigInt(layer.numFeatures) <= MAX_ELEMENTS, ContractIssueCode.ISSUE_OUT_OF_RANGE,
+        `${at}.numFeatures`);
+      this.check(Number.isFinite(layer.momentum) && layer.momentum > 0 && layer.momentum <= 1,
+        ContractIssueCode.ISSUE_OUT_OF_RANGE, `${at}.momentum`);
+      this.check(Number.isFinite(layer.eps) && layer.eps > 0, ContractIssueCode.ISSUE_OUT_OF_RANGE, `${at}.eps`);
+      this.check(layer.valuesPerExample >= 1 && BigInt(layer.valuesPerExample) <= MAX_ELEMENTS,
+        ContractIssueCode.ISSUE_OUT_OF_RANGE, `${at}.valuesPerExample`);
+      this.enumValue(BatchNormStatsSchema, layer.runningStats, `${at}.runningStats`);
     });
   }
 

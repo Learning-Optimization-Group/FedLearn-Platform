@@ -97,6 +97,11 @@ class BatchOrder(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     BATCH_ORDER_SHUFFLED_EACH_EPOCH: _ClassVar[BatchOrder]
     BATCH_ORDER_SEEDED_PERMUTATION_V1: _ClassVar[BatchOrder]
 
+class BatchNormStats(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    BATCH_NORM_STATS_UNSPECIFIED: _ClassVar[BatchNormStats]
+    BATCH_NORM_RUNNING_STATS_V1: _ClassVar[BatchNormStats]
+
 class DropoutMasks(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     DROPOUT_MASKS_UNSPECIFIED: _ClassVar[DropoutMasks]
@@ -192,6 +197,8 @@ BATCH_ORDER_UNSPECIFIED: BatchOrder
 BATCH_ORDER_SEQUENTIAL: BatchOrder
 BATCH_ORDER_SHUFFLED_EACH_EPOCH: BatchOrder
 BATCH_ORDER_SEEDED_PERMUTATION_V1: BatchOrder
+BATCH_NORM_STATS_UNSPECIFIED: BatchNormStats
+BATCH_NORM_RUNNING_STATS_V1: BatchNormStats
 DROPOUT_MASKS_UNSPECIFIED: DropoutMasks
 DROPOUT_MASKS_SEEDED_V1: DropoutMasks
 ESTIMATOR_UNSPECIFIED: GradientEstimator
@@ -289,7 +296,7 @@ class CentralDp(_message.Message):
     def __init__(self, target_epsilon: _Optional[float] = ..., delta: _Optional[float] = ..., clip_norm: _Optional[float] = ...) -> None: ...
 
 class ModelTraining(_message.Message):
-    __slots__ = ("model_id", "model_revision", "arm", "task", "objective", "update_protocol", "trainable", "frozen_state_sha256", "initial_state_sha256", "local_training", "data", "artifacts", "fedprox_mu", "dropout")
+    __slots__ = ("model_id", "model_revision", "arm", "task", "objective", "update_protocol", "trainable", "frozen_state_sha256", "initial_state_sha256", "local_training", "data", "artifacts", "fedprox_mu", "dropout", "batch_norm")
     MODEL_ID_FIELD_NUMBER: _ClassVar[int]
     MODEL_REVISION_FIELD_NUMBER: _ClassVar[int]
     ARM_FIELD_NUMBER: _ClassVar[int]
@@ -304,6 +311,7 @@ class ModelTraining(_message.Message):
     ARTIFACTS_FIELD_NUMBER: _ClassVar[int]
     FEDPROX_MU_FIELD_NUMBER: _ClassVar[int]
     DROPOUT_FIELD_NUMBER: _ClassVar[int]
+    BATCH_NORM_FIELD_NUMBER: _ClassVar[int]
     model_id: str
     model_revision: str
     arm: Arm
@@ -318,7 +326,24 @@ class ModelTraining(_message.Message):
     artifacts: _containers.RepeatedCompositeFieldContainer[ArtifactVariant]
     fedprox_mu: float
     dropout: _containers.RepeatedCompositeFieldContainer[DropoutLayer]
-    def __init__(self, model_id: _Optional[str] = ..., model_revision: _Optional[str] = ..., arm: _Optional[_Union[Arm, str]] = ..., task: _Optional[_Union[Task, str]] = ..., objective: _Optional[_Union[Objective, str]] = ..., update_protocol: _Optional[_Union[UpdateProtocol, str]] = ..., trainable: _Optional[_Iterable[_Union[TensorSpec, _Mapping]]] = ..., frozen_state_sha256: _Optional[str] = ..., initial_state_sha256: _Optional[str] = ..., local_training: _Optional[_Union[LocalTraining, _Mapping]] = ..., data: _Optional[_Union[DataRequirement, _Mapping]] = ..., artifacts: _Optional[_Iterable[_Union[ArtifactVariant, _Mapping]]] = ..., fedprox_mu: _Optional[float] = ..., dropout: _Optional[_Iterable[_Union[DropoutLayer, _Mapping]]] = ...) -> None: ...
+    batch_norm: _containers.RepeatedCompositeFieldContainer[BatchNormLayer]
+    def __init__(self, model_id: _Optional[str] = ..., model_revision: _Optional[str] = ..., arm: _Optional[_Union[Arm, str]] = ..., task: _Optional[_Union[Task, str]] = ..., objective: _Optional[_Union[Objective, str]] = ..., update_protocol: _Optional[_Union[UpdateProtocol, str]] = ..., trainable: _Optional[_Iterable[_Union[TensorSpec, _Mapping]]] = ..., frozen_state_sha256: _Optional[str] = ..., initial_state_sha256: _Optional[str] = ..., local_training: _Optional[_Union[LocalTraining, _Mapping]] = ..., data: _Optional[_Union[DataRequirement, _Mapping]] = ..., artifacts: _Optional[_Iterable[_Union[ArtifactVariant, _Mapping]]] = ..., fedprox_mu: _Optional[float] = ..., dropout: _Optional[_Iterable[_Union[DropoutLayer, _Mapping]]] = ..., batch_norm: _Optional[_Iterable[_Union[BatchNormLayer, _Mapping]]] = ...) -> None: ...
+
+class BatchNormLayer(_message.Message):
+    __slots__ = ("module", "num_features", "momentum", "eps", "values_per_example", "running_stats")
+    MODULE_FIELD_NUMBER: _ClassVar[int]
+    NUM_FEATURES_FIELD_NUMBER: _ClassVar[int]
+    MOMENTUM_FIELD_NUMBER: _ClassVar[int]
+    EPS_FIELD_NUMBER: _ClassVar[int]
+    VALUES_PER_EXAMPLE_FIELD_NUMBER: _ClassVar[int]
+    RUNNING_STATS_FIELD_NUMBER: _ClassVar[int]
+    module: str
+    num_features: int
+    momentum: float
+    eps: float
+    values_per_example: int
+    running_stats: BatchNormStats
+    def __init__(self, module: _Optional[str] = ..., num_features: _Optional[int] = ..., momentum: _Optional[float] = ..., eps: _Optional[float] = ..., values_per_example: _Optional[int] = ..., running_stats: _Optional[_Union[BatchNormStats, str]] = ...) -> None: ...
 
 class DropoutLayer(_message.Message):
     __slots__ = ("module", "rate", "masks")

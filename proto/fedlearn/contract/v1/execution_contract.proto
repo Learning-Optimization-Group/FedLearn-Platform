@@ -208,6 +208,35 @@ message ModelTraining {
   // The model's dropout layers in forward order, and how each draws its masks. Empty when the model has none. A
   // participant applies exactly these masks, so a training step is reproducible from the contract and the data.
   repeated DropoutLayer dropout = 14;
+  // The model's BatchNorm layers in forward (named_modules) order, when it trains with BatchNorm in training mode. Each
+  // normalises with its batch's statistics, and its running statistics are federated state updated as `running_stats`
+  // states: after the trainable tensors, the federated state carries each layer's "<module>.running_mean" then
+  // "<module>.running_var", both float32 [num_features]. Empty when the model has no BatchNorm or freezes it.
+  repeated BatchNormLayer batch_norm = 15;
+}
+
+message BatchNormLayer {
+  // The BatchNorm module's name in the model (named_modules()), e.g. "layer1.0.bn1".
+  string module = 1;
+  // Channels, the length of its weight, bias and running statistics.
+  uint32 num_features = 2;
+  // The running statistics' update weight, in (0, 1].
+  double momentum = 3;
+  // Added to the variance before its inverse square root; finite and positive.
+  double eps = 4;
+  // Values each channel's statistics average over per example (the layer input's height x width). A step over `rows`
+  // examples averages over n = rows * values_per_example values.
+  uint32 values_per_example = 5;
+  BatchNormStats running_stats = 6;
+}
+
+enum BatchNormStats {
+  BATCH_NORM_STATS_UNSPECIFIED = 0;
+  // After each local step, with the step's batch mean and biased batch variance and n values per channel:
+  //   running_mean <- (1 - momentum) * running_mean + momentum * batch_mean
+  //   running_var  <- (1 - momentum) * running_var  + momentum * batch_var * n / (n - 1)
+  // computed in float64 and rounded to float32 once (torch's CPU BatchNorm). num_batches_tracked is not federated.
+  BATCH_NORM_RUNNING_STATS_V1 = 1;
 }
 
 message DropoutLayer {

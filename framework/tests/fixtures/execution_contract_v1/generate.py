@@ -253,6 +253,11 @@ def _image(doc, shape, transforms):
                             "transforms": transforms})
 
 
+BN1 = {"module": "bn1", "numFeatures": 64, "momentum": 0.1, "eps": 1e-05, "valuesPerExample": 3136,
+       "runningStats": "BATCH_NORM_RUNNING_STATS_V1"}
+BN2 = {**BN1, "module": "layer1.0.bn1", "valuesPerExample": 784}
+
+
 VALID_ADAM = {"learningRate": 0.001, "beta1": 0.9, "beta2": 0.999, "epsilon": 1e-08,
               "weightDecay": 0.0, "amsgrad": False}
 VALID_RMSPROP = {"learningRate": 0.01, "alpha": 0.99, "epsilon": 1e-08, "weightDecay": 0.0,
@@ -586,6 +591,33 @@ def build_conformance() -> dict:
         _json("batch_size_over_limit", "A batch above v1's limit.",
               lambda d: d[MT]["localTraining"].update({"batchSize": 65537}),
               ("OUT_OF_RANGE", LT + ".batchSize")),
+        # --- batch norm (Stage 4 S7) ------------------------------------------------------------------
+        _json("batch_norm_running_stats", "BatchNorm layers whose running statistics are federated are valid.",
+              lambda d: d[MT].update({"batchNorm": [dict(BN1), dict(BN2)]})),
+        _json("batch_norm_module_repeated", "A BatchNorm module is named once.",
+              lambda d: d[MT].update({"batchNorm": [dict(BN1), dict(BN1)]}),
+              ("MALFORMED_LAYOUT", MT + ".batchNorm[1].module")),
+        _json("batch_norm_module_malformed", "A BatchNorm module name follows the tensor-name rules.",
+              lambda d: d[MT].update({"batchNorm": [{**BN1, "module": "bn 1"}]}),
+              ("MALFORMED_LAYOUT", MT + ".batchNorm[0].module")),
+        _json("batch_norm_features_absent", "A BatchNorm layer has channels.",
+              lambda d: d[MT].update({"batchNorm": [{k: v for k, v in BN1.items() if k != "numFeatures"}]}),
+              ("OUT_OF_RANGE", MT + ".batchNorm[0].numFeatures")),
+        _json("batch_norm_momentum_zero", "A momentum of 0 would never update the statistics.",
+              lambda d: d[MT].update({"batchNorm": [{**BN1, "momentum": 0.0}]}),
+              ("OUT_OF_RANGE", MT + ".batchNorm[0].momentum")),
+        _json("batch_norm_momentum_above_one", "A momentum is at most 1.",
+              lambda d: d[MT].update({"batchNorm": [{**BN1, "momentum": 1.5}]}),
+              ("OUT_OF_RANGE", MT + ".batchNorm[0].momentum")),
+        _json("batch_norm_eps_zero", "An eps must be positive.",
+              lambda d: d[MT].update({"batchNorm": [{**BN1, "eps": 0.0}]}),
+              ("OUT_OF_RANGE", MT + ".batchNorm[0].eps")),
+        _json("batch_norm_values_absent", "A layer averages over at least one value per example.",
+              lambda d: d[MT].update({"batchNorm": [{k: v for k, v in BN1.items() if k != "valuesPerExample"}]}),
+              ("OUT_OF_RANGE", MT + ".batchNorm[0].valuesPerExample")),
+        _json("batch_norm_stats_unspecified", "A BatchNorm layer must say how its running statistics update.",
+              lambda d: d[MT].update({"batchNorm": [{k: v for k, v in BN1.items() if k != "runningStats"}]}),
+              ("UNKNOWN_ENUM", MT + ".batchNorm[0].runningStats")),
         _json("dropout_rate_one", "A dropout rate must be below 1.",
               lambda d: d[MT].update({"dropout": [{"module": "dropout1", "rate": 1.0,
                                                    "masks": "DROPOUT_MASKS_SEEDED_V1"}]}),
