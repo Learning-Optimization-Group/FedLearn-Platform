@@ -42,6 +42,24 @@ def trainable_flat(model: nn.Module) -> torch.Tensor:
     return torch.cat([p.detach().reshape(-1) for n, p in model.named_parameters() if p.requires_grad])
 
 
+def batch_norm_layers(model: nn.Module) -> list[tuple[str, int, float, float]]:
+    """(module name, channels, momentum, eps) of each BatchNorm2d, in named_modules order: the order a training
+    program returns their batch statistics in and a device's state carries their running statistics in."""
+    return [(name, m.num_features, float(m.momentum), float(m.eps)) for name, m in model.named_modules()
+            if isinstance(m, (nn.BatchNorm2d, TrainBatchNorm2d))]
+
+
+def federated_buffer_names(model: nn.Module) -> list[str]:
+    """The BatchNorm running statistics a FULL-arm participant federates: each layer's mean, then its variance."""
+    return [f"{name}.{stat}" for name, _n, _m, _e in batch_norm_layers(model) for stat in ("running_mean", "running_var")]
+
+
+def federated_flat(model: nn.Module) -> torch.Tensor:
+    """The trainable parameters, then the federated BatchNorm running statistics (federated_buffer_names order)."""
+    buffers = dict(model.named_buffers())
+    return torch.cat([trainable_flat(model)] + [buffers[n].detach().reshape(-1) for n in federated_buffer_names(model)])
+
+
 def _unflatten_params(
     base: nn.Module,
     frozen: dict,
@@ -64,12 +82,15 @@ class _FunctionalLoss(nn.Module):
     frozen params are constants. The base model is hidden in a list so its parameters are NOT
     registered on this wrapper (the exported graph has zero module params)."""
 
-    def __init__(self, base: nn.Module):
+    def __init__(self, base: nn.Module, include_buffers: bool = False):
         super().__init__()
         self._base = [base]  # list hides base from nn.Module param registration
-        self._names = trainable_names(base)
-        self._shapes = [base.get_parameter(n).shape for n in self._names]
-        self._numel = [base.get_parameter(n).numel() for n in self._names]
+        # With include_buffers, the flat input continues with the BatchNorm running statistics (federated_flat), so
+        # a device's evaluation uses the statistics it has trained, not the ones baked in at export.
+        self._names = trainable_names(base) + (federated_buffer_names(base) if include_buffers else [])
+        tensors = dict(base.named_parameters()) | dict(base.named_buffers())
+        self._shapes = [tensors[n].shape for n in self._names]
+        self._numel = [tensors[n].numel() for n in self._names]
         # Frozen params captured as constants (detached, not registered as state).
         self._frozen = {n: p.detach().clone() for n, p in base.named_parameters() if not p.requires_grad}
 
@@ -87,12 +108,15 @@ class _FunctionalInfer(nn.Module):
     The base model is hidden in a list so its parameters are NOT registered on this wrapper
     (the exported graph has zero module params)."""
 
-    def __init__(self, base: nn.Module):
+    def __init__(self, base: nn.Module, include_buffers: bool = False):
         super().__init__()
         self._base = [base]  # list hides base from nn.Module param registration
-        self._names = trainable_names(base)
-        self._shapes = [base.get_parameter(n).shape for n in self._names]
-        self._numel = [base.get_parameter(n).numel() for n in self._names]
+        # With include_buffers, the flat input continues with the BatchNorm running statistics (federated_flat), so
+        # a device's evaluation uses the statistics it has trained, not the ones baked in at export.
+        self._names = trainable_names(base) + (federated_buffer_names(base) if include_buffers else [])
+        tensors = dict(base.named_parameters()) | dict(base.named_buffers())
+        self._shapes = [tensors[n].shape for n in self._names]
+        self._numel = [tensors[n].numel() for n in self._names]
         # Frozen params captured as constants (detached, not registered as state).
         self._frozen = {n: p.detach().clone() for n, p in base.named_parameters() if not p.requires_grad}
 
@@ -104,31 +128,32 @@ class _FunctionalInfer(nn.Module):
 
 
 def export_functional_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, torch.Tensor],
-                          max_batch: int | None = None) -> bytes:
+                          max_batch: int | None = None, include_buffers: bool = False) -> bytes:
     """Return .pte bytes for forward(flat_trainable, x, y) -> cross_entropy.
 
     ``max_batch`` makes the example count dynamic (1..max_batch); None keeps it static at the example's."""
     from executorch.exir import to_edge
 
     model = model.eval()
-    wrapper = _FunctionalLoss(model).eval()
+    wrapper = _FunctionalLoss(model, include_buffers).eval()
     assert sum(p.numel() for p in wrapper.parameters()) == 0, "wrapper must register 0 params"
     x, y = example_inputs
-    ex = (trainable_flat(model), x, y)
+    ex = (federated_flat(model) if include_buffers else trainable_flat(model), x, y)
     batch = _batch_dim(max_batch)
     ep = export(wrapper, ex, dynamic_shapes=None if batch is None else (None, {0: batch}, {0: batch}))
     return to_edge(ep).to_executorch().buffer
 
 
-def export_functional_infer_pte(model: nn.Module, example_x: torch.Tensor, max_batch: int | None = None) -> bytes:
+def export_functional_infer_pte(model: nn.Module, example_x: torch.Tensor, max_batch: int | None = None,
+                                include_buffers: bool = False) -> bytes:
     """Return .pte bytes for forward(flat_trainable, x) -> logits (``max_batch`` as in export_functional_pte)."""
     from executorch.exir import to_edge
 
     model = model.eval()
-    wrapper = _FunctionalInfer(model).eval()
+    wrapper = _FunctionalInfer(model, include_buffers).eval()
     assert sum(p.numel() for p in wrapper.parameters()) == 0, "wrapper must register 0 params"
     batch = _batch_dim(max_batch)
-    ep = export(wrapper, (trainable_flat(model), example_x),
+    ep = export(wrapper, (federated_flat(model) if include_buffers else trainable_flat(model), example_x),
                 dynamic_shapes=None if batch is None else (None, {0: batch}))
     return to_edge(ep).to_executorch().buffer
 
@@ -160,6 +185,70 @@ class _TrainingGraph(nn.Module):
     def forward(self, x: torch.Tensor, y: torch.Tensor):
         out = self.base(x)
         return self.loss(out, y), out.detach().argmax(1)
+
+
+class TrainBatchNorm2d(nn.Module):
+    """Training-mode BatchNorm2d from primitive ops, for a mobile training program.
+
+    ExecuTorch cannot lower training-mode BatchNorm, so a program normalises with the batch's own statistics through
+    mean, multiply and rsqrt (the biased variance, as torch's training mode does) and returns them, so the device can
+    update the running statistics by BATCH_NORM_RUNNING_STATS_V1. It shares the original layer's weight and bias and
+    keeps its running buffers for the record; it never updates them itself.
+    """
+
+    def __init__(self, bn: nn.BatchNorm2d):
+        super().__init__()
+        self.weight, self.bias = bn.weight, bn.bias
+        self.register_buffer("running_mean", bn.running_mean.detach().clone())
+        self.register_buffer("running_var", bn.running_var.detach().clone())
+        self.num_features, self.eps, self.momentum = bn.num_features, bn.eps, bn.momentum
+        self.stats = None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        mean = x.mean(dim=(0, 2, 3))
+        centered = x - mean[None, :, None, None]
+        var = (centered * centered).mean(dim=(0, 2, 3))
+        self.stats = (mean.detach(), var.detach())
+        scale = torch.rsqrt(var + self.eps) * self.weight
+        return centered * scale[None, :, None, None] + self.bias[None, :, None, None]
+
+
+class _BatchNormTrainingGraph(nn.Module):
+    """forward(x, y) -> (loss, prediction, mean_0, var_0, mean_1, var_1, ...): every BatchNorm2d of the base model is a
+    TrainBatchNorm2d, and the batch statistics follow the loss in batch_norm_layers order."""
+
+    def __init__(self, base: nn.Module):
+        super().__init__()
+        self.base = copy.deepcopy(base)
+        for name, module in list(self.base.named_modules()):
+            if isinstance(module, nn.BatchNorm2d):
+                parent_name, _, child = name.rpartition(".")
+                parent = self.base.get_submodule(parent_name) if parent_name else self.base
+                setattr(parent, child, TrainBatchNorm2d(module))
+        self.layers = [m for m in self.base.modules() if isinstance(m, TrainBatchNorm2d)]
+        self.loss = nn.CrossEntropyLoss()
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor):
+        out = self.base(x)
+        stats = [t for layer in self.layers for t in layer.stats]
+        return (self.loss(out, y), out.detach().argmax(1), *stats)
+
+
+def export_bn_trainable_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, torch.Tensor],
+                            max_batch: int | None = None) -> bytes:
+    """A trainable graph for a model with BatchNorm: forward(x, y) -> (loss, prediction, batch statistics...), with
+    training-mode BatchNorm rebuilt from primitive ops. Trainable parameter names and order are export_trainable_pte's."""
+    from executorch.exir import to_edge
+    from torch.export.experimental import _export_forward_backward
+
+    wrapper = _BatchNormTrainingGraph(model)
+    if not wrapper.layers:
+        raise ValueError("the model has no BatchNorm2d; use export_trainable_pte")
+    x, y = example_inputs
+    batch = _batch_dim(max_batch)
+    ep = export(wrapper, (x, y), strict=True, dynamic_shapes=None if batch is None else ({0: batch}, {0: batch}))
+    ep = _export_forward_backward(ep)
+    return to_edge(ep).to_executorch().buffer
 
 
 class _DropoutMaskSlot(nn.Module):
