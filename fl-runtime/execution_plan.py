@@ -39,7 +39,8 @@ CLIENT_PROTOCOL_VERSION = 2
 _PLAN_FIELDS = (("model_id", "modelId"), ("arm", "arm"), ("task", "task"), ("objective", "objective"),
                 ("update_protocol", "updateProtocol"), ("trainable", "trainable"),
                 ("frozen_state_sha256", "frozenStateSha256"), ("local_training", "localTraining"),
-                ("data", "data"), ("fedprox_mu", "fedproxMu"), ("dropout", "dropout"))
+                ("data", "data"), ("fedprox_mu", "fedproxMu"), ("dropout", "dropout"),
+                ("batch_norm", "batchNorm"))
 
 
 class NotRepresentable(Exception):
@@ -58,10 +59,16 @@ def state_sha256(tensors) -> str:
     return hashlib.sha256(save_safetensors(list(tensors))).hexdigest()
 
 
-def _frozen_state_sha256(model, layout) -> str:
-    """Digest of every state tensor outside the trainable layout, in state_dict order."""
+def _frozen_state_sha256(model, layout, batch_norm=()) -> str:
+    """Digest of every state tensor outside the federated state, in state_dict order.
+
+    The federated state is the trainable layout and, for training-mode BatchNorm, each layer's running statistics. A
+    federated BatchNorm layer's num_batches_tracked is a counter that is neither federated nor frozen, so it is left
+    out too."""
     import torch
     trainable = {spec.name for spec in layout}
+    trainable |= {name for layer in batch_norm for name in _running_stat_names(layer.module)}
+    trainable |= {f"{layer.module}.num_batches_tracked" for layer in batch_norm}
     frozen = []
     for name, tensor in model.state_dict().items():
         if name in trainable:
@@ -70,6 +77,39 @@ def _frozen_state_sha256(model, layout) -> str:
             raise NotRepresentable(f"frozen tensor {name} is {tensor.dtype}; v1 describes float32 state only")
         frozen.append((name, tensor.detach().cpu().numpy()))
     return state_sha256(frozen)
+
+
+def _running_stat_names(module: str) -> list:
+    return [f"{module}.running_mean", f"{module}.running_var"]
+
+
+def _batch_norm_layers(model, input_shape) -> list:
+    """The model's BatchNorm2d layers in forward (named_modules) order, each federating its running statistics by
+    BATCH_NORM_RUNNING_STATS_V1, with the height x width of its input for one example of ``input_shape``."""
+    import torch
+    import torch.nn as nn
+    sizes = {}
+    hooks = [m.register_forward_hook(lambda m, i, o, key=n: sizes.__setitem__(key, int(i[0].shape[2] * i[0].shape[3])))
+             for n, m in model.named_modules() if isinstance(m, nn.BatchNorm2d)]
+    was_training = model.training
+    try:
+        model.eval()
+        with torch.no_grad():
+            model(torch.zeros(1, *input_shape))
+    finally:
+        model.train(was_training)
+        for h in hooks:
+            h.remove()
+    return [pb.BatchNormLayer(module=n, num_features=m.num_features, momentum=float(m.momentum), eps=float(m.eps),
+                              values_per_example=sizes[n], running_stats=pb.BATCH_NORM_RUNNING_STATS_V1)
+            for n, m in model.named_modules() if isinstance(m, nn.BatchNorm2d)]
+
+
+def _federated_layout(layout, batch_norm) -> list:
+    """The trainable layout, then each BatchNorm layer's running mean and running variance: the federated state."""
+    stats = [pb.TensorSpec(name=name, shape=[layer.num_features], dtype=pb.DTYPE_F32)
+             for layer in batch_norm for name in _running_stat_names(layer.module)]
+    return list(layout) + stats
 
 
 def _initial_state_sha256(path, recipe_key, training_arm, layout) -> str:
@@ -331,6 +371,68 @@ def _cnn_first_order_full(initial_state_path=None) -> pb.ModelTraining:
     return plan
 
 
+def _resnet18_image_transforms() -> list:
+    """CIFAR_RESNET18's preparation from its 112 x 112 pixels: ToTensor, then ImageNet's Normalize.
+
+    The recipe first resizes CIFAR's 32 x 32 images to 112 x 112 with PIL. PIL's resize yields 8-bit pixels, so the
+    112 x 112 image is an exact intermediate: a package carries it (scripts/make_image_package.py --resize), and the
+    contract starts from there rather than stating a resize, which runtimes do not compute identically.
+    """
+    import torchvision.transforms as T
+    steps = recipes._resnet18_transform().transforms
+    if [type(t) for t in steps] != [T.Resize, T.ToTensor, T.Normalize]:
+        raise NotRepresentable(f"CIFAR_RESNET18's transform {steps} is not Resize, ToTensor, Normalize")
+    side = recipes.RESNET18_IMG_SIZE
+    if tuple(steps[0].size) != (side, side):
+        raise NotRepresentable(f"CIFAR_RESNET18 resizes to {steps[0].size}, not {side} x {side}")
+    normalize = steps[2]
+    return [pb.Transform(image_to_unit_tensor=pb.ImageToUnitTensor(height=side, width=side, channels=3)),
+            pb.Transform(normalize_channels=pb.NormalizeChannels(mean=list(normalize.mean), std=list(normalize.std)))]
+
+
+def _resnet18_first_order_full(initial_state_path=None) -> pb.ModelTraining:
+    """CIFAR_RESNET18 (ImageNet-pretrained ResNet-18, 10-class head) under FedAvg or Robust on the FULL arm, as
+    client.py trains it: a fresh Adam at the CNN rate every round, one epoch, shuffled batches of CNN_BATCH_SIZE,
+    and BatchNorm in training mode, its running statistics federated with the parameters."""
+    recipe = recipes.get_recipe("CIFAR_RESNET18")
+    model = recipe.build_model("cpu")
+    side = recipes.RESNET18_IMG_SIZE
+    layout = _trainable_layout(model)
+    batch_norm = _batch_norm_layers(model, (3, side, side))
+    plan = pb.ModelTraining(
+        model_id=recipe.base_models[0],
+        arm=pb.ARM_FULL,
+        task=pb.TASK_IMAGE_CLASSIFICATION,
+        objective=_OBJECTIVES[recipes.ARM_OBJECTIVES["FULL"]],
+        update_protocol=pb.UPDATE_TRAINABLE_STATE_F32,
+        trainable=layout,
+        frozen_state_sha256=_frozen_state_sha256(model, layout, batch_norm),
+        local_training=pb.LocalTraining(
+            local_epochs=1,
+            adam=pb.Adam(learning_rate=_CLIENT_DEFAULT_RATE, beta1=0.9, beta2=0.999, epsilon=1e-8, weight_decay=0.0,
+                         amsgrad=False),
+            reset_optimizer_each_round=True,
+            batch_size=recipes.CNN_BATCH_SIZE,
+            drop_last=False,
+            batch_order=pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH,
+        ),
+        data=pb.DataRequirement(
+            task=pb.TASK_IMAGE_CLASSIFICATION,
+            input_shape=[3, side, side],
+            input_dtype=pb.DTYPE_F32,
+            class_count=len(recipe.classes),
+            label_schema_id=label_schema_id(recipe.classes),
+            transforms=_resnet18_image_transforms(),
+            source=pb.DATA_SOURCE_FIXTURE,
+        ),
+        batch_norm=batch_norm,
+    )
+    if initial_state_path is not None:
+        plan.initial_state_sha256 = _initial_state_sha256(initial_state_path, "CIFAR_RESNET18", "FULL",
+                                                          _federated_layout(layout, batch_norm))
+    return plan
+
+
 # client.py's CNN_LEARNING_RATE and one epoch: what a client trains when its server sends no settings.
 _CLIENT_DEFAULT_RATE, _CLIENT_DEFAULT_EPOCHS = 0.001, 1
 
@@ -350,6 +452,9 @@ _PLANS = {
     # CNN (Stage 4): Adam on images prepared exactly as torchvision prepares them.
     ("CNN", "FedAvg", "FULL"): _cnn_first_order_full,
     ("CNN", "Robust", "FULL"): _cnn_first_order_full,
+    # CIFAR_RESNET18 (Stage 4): the whole model, BatchNorm in training mode with its running statistics federated.
+    ("CIFAR_RESNET18", "FedAvg", "FULL"): _resnet18_first_order_full,
+    ("CIFAR_RESNET18", "Robust", "FULL"): _resnet18_first_order_full,
 }
 
 
@@ -371,6 +476,14 @@ _REFUSALS = {
     ("CNN", "FedProx", "FULL"): (
         "CNN under FedProx has no v1 plan: it adds the proximal term to Adam's gradient, which the device's Adam does "
         "not implement yet"),
+    ("CIFAR_RESNET18", "FedOpt", "FULL"): (
+        "CIFAR_RESNET18 under FedOpt has no v1 plan: the server's client rate is ignored by the laptop, which trains at "
+        "its own 1e-3, while a contracted laptop refuses a server rate that differs from the contract"),
+    ("CIFAR_RESNET18", "FedProx", "FULL"): (
+        "CIFAR_RESNET18 under FedProx has no v1 plan: it adds the proximal term to Adam's gradient, which the device's "
+        "Adam does not implement yet"),
+    ("CIFAR_RESNET18", "DeComFL", "FULL"): (
+        "CIFAR_RESNET18 under DeComFL has no v1 plan: zeroth-order training of 11 million parameters is not offered"),
     ("CNN", "DeComFL", "FULL"): (
         "CNN under DeComFL has no v1 plan yet: its zeroth-order settings have not been resolved from its server"),
     ("MLP", "DeComFL", "FULL"): (

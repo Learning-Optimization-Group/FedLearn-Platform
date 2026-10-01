@@ -291,6 +291,7 @@ RECIPE_METADATA = [
         # average, and each client keeps its own. running_mean/running_var are float32 and are
         # still federated, so this is a wire fix and not FedBN.
         "supported_arms": ["FULL", "FROZEN_HEAD", "OVA_LP"],
+        "supported_data_sources": ["FIXTURE", "LOCAL_SNAPSHOT"],
         # torchvision's ResNet head is `fc`; everything else is the ImageNet-pretrained backbone.
         # OVA_LP trains the same parameters as FROZEN_HEAD -- it differs only in the objective, so
         # the two are a controlled contrast.

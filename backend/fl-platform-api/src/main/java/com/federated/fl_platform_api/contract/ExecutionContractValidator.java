@@ -130,7 +130,16 @@ public final class ExecutionContractValidator {
             mlpFirstOrder(Strategy.STRATEGY_ROBUST_VALUE),
             // CNN (Stage 4): the same first-order training on images, prepared by the contract's image transforms.
             cnnFirstOrder(Strategy.STRATEGY_FEDAVG_VALUE),
-            cnnFirstOrder(Strategy.STRATEGY_ROBUST_VALUE));
+            cnnFirstOrder(Strategy.STRATEGY_ROBUST_VALUE),
+            // CIFAR_RESNET18 (Stage 4): the whole model, BatchNorm in training mode with federated running statistics.
+            resnet18FirstOrder(Strategy.STRATEGY_FEDAVG_VALUE),
+            resnet18FirstOrder(Strategy.STRATEGY_ROBUST_VALUE));
+
+    private static List<Integer> resnet18FirstOrder(int strategy) {
+        return List.of(Recipe.RECIPE_CIFAR_RESNET18_VALUE, strategy, Arm.ARM_FULL_VALUE,
+                Task.TASK_IMAGE_CLASSIFICATION_VALUE, Objective.OBJECTIVE_CROSS_ENTROPY_VALUE,
+                UpdateProtocol.UPDATE_TRAINABLE_STATE_F32_VALUE);
+    }
 
     private static List<Integer> cnnFirstOrder(int strategy) {
         return List.of(Recipe.RECIPE_CNN_VALUE, strategy, Arm.ARM_FULL_VALUE,

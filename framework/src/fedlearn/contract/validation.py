@@ -77,6 +77,11 @@ APPROVED_MATRIX = frozenset({
     (pb.RECIPE_CNN, strategy, pb.ARM_FULL, pb.TASK_IMAGE_CLASSIFICATION, pb.OBJECTIVE_CROSS_ENTROPY,
      pb.UPDATE_TRAINABLE_STATE_F32)
     for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_ROBUST)
+} | {
+    # CIFAR_RESNET18 (Stage 4): the whole model, BatchNorm in training mode with its running statistics federated.
+    (pb.RECIPE_CIFAR_RESNET18, strategy, pb.ARM_FULL, pb.TASK_IMAGE_CLASSIFICATION, pb.OBJECTIVE_CROSS_ENTROPY,
+     pb.UPDATE_TRAINABLE_STATE_F32)
+    for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_ROBUST)
 })
 
 _CLASSIFICATION_TASKS = frozenset({pb.TASK_VECTOR_CLASSIFICATION, pb.TASK_IMAGE_CLASSIFICATION,

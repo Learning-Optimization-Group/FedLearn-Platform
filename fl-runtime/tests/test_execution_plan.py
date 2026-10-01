@@ -507,8 +507,99 @@ def test_the_cnn_strategies_without_a_plan_say_why(strategy, reason):
         execution_plan.resolve_model_training("CNN", strategy, "FULL")
 
 
+# Stage 4 S7: CIFAR_RESNET18, the whole model, BatchNorm in training mode as laptops train it.
+
+def _resnet_bn_input_sizes():
+    import torch
+    import torch.nn as nn
+    model = recipes.get_recipe("CIFAR_RESNET18").build_model("cpu").eval()
+    sizes = {}
+    hooks = [m.register_forward_hook(lambda m, i, o, key=n: sizes.__setitem__(key, i[0].shape[2] * i[0].shape[3]))
+             for n, m in model.named_modules() if isinstance(m, nn.BatchNorm2d)]
+    with torch.no_grad():
+        model(torch.zeros(1, 3, recipes.RESNET18_IMG_SIZE, recipes.RESNET18_IMG_SIZE))
+    for h in hooks:
+        h.remove()
+    return model, sizes
+
+
+@pytest.mark.parametrize("strategy", ["FedAvg", "Robust"])
+def test_the_resnet_plan_states_what_the_laptop_trains(strategy):
+    """client.py trains CIFAR_RESNET18 like the CNN: a fresh Adam at CNN_LEARNING_RATE, one epoch, shuffled batches of
+    CNN_BATCH_SIZE. Its BatchNorm trains in training mode and its running statistics are federated."""
+    import client
+    import torch.nn as nn
+    plan = execution_plan.resolve_model_training("CIFAR_RESNET18", strategy, "FULL")
+    local = plan.local_training
+    assert local.WhichOneof("optimizer") == "adam" and local.adam.learning_rate == client.CNN_LEARNING_RATE
+    assert (local.local_epochs, local.batch_size, local.drop_last) == (1, recipes.CNN_BATCH_SIZE, False)
+    assert local.batch_order == pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH and local.reset_optimizer_each_round
+    assert plan.task == pb.TASK_IMAGE_CLASSIFICATION and plan.update_protocol == pb.UPDATE_TRAINABLE_STATE_F32
+    model, sizes = _resnet_bn_input_sizes()
+    assert [(t.name, list(t.shape)) for t in plan.trainable] == [
+        (n, list(p.shape)) for n, p in model.named_parameters() if p.requires_grad]
+    expected = [(n, m.num_features, m.momentum, m.eps, sizes[n]) for n, m in model.named_modules()
+                if isinstance(m, nn.BatchNorm2d)]
+    assert [(b.module, b.num_features, b.momentum, b.eps, b.values_per_example) for b in plan.batch_norm] == [
+        (n, f, pytest.approx(mo), pytest.approx(e), v) for n, f, mo, e, v in expected]
+    assert all(b.running_stats == pb.BATCH_NORM_RUNNING_STATS_V1 for b in plan.batch_norm)
+    assert len(plan.batch_norm) == 20
+
+
+def test_the_resnet_plan_prepares_112_pixel_images_with_imagenet_statistics():
+    """The recipe resizes CIFAR's 32x32 to 112x112 with PIL before ToTensor. PIL's resize yields 8-bit pixels, so the
+    112x112 image is an exact intermediate: a package carries it, and the contract starts from there."""
+    import torchvision.transforms as T
+    steps = recipes._resnet18_transform().transforms
+    normalize = steps[2]
+    image, norm = execution_plan.resolve_model_training("CIFAR_RESNET18", "FedAvg", "FULL").data.transforms
+    assert (image.image_to_unit_tensor.height, image.image_to_unit_tensor.width,
+            image.image_to_unit_tensor.channels) == (112, 112, 3)
+    assert list(norm.normalize_channels.mean) == pytest.approx(list(normalize.mean))
+    assert list(norm.normalize_channels.std) == pytest.approx(list(normalize.std))
+    assert isinstance(steps[0], T.Resize) and tuple(steps[0].size) == (112, 112)
+
+
+def test_the_resnet_plan_completes_a_valid_contract():
+    with open(GOLDEN_CONTRACT, "rb") as fh:
+        contract = parse_contract_binary(fh.read())
+    contract.recipe = pb.RECIPE_CIFAR_RESNET18
+    plan = execution_plan.resolve_model_training("CIFAR_RESNET18", "FedAvg", "FULL")
+    training = contract.model_training
+    for field in ("model_id", "arm", "task", "objective", "update_protocol", "frozen_state_sha256"):
+        setattr(training, field, getattr(plan, field))
+    for field in ("trainable", "dropout", "batch_norm"):
+        training.ClearField(field)
+        getattr(training, field).extend(getattr(plan, field))
+    training.local_training.CopyFrom(plan.local_training)
+    training.data.CopyFrom(plan.data)
+    assert validate_contract(contract, reader_protocol_version=2) == []
+
+
+def test_the_resnet_initial_state_digest_covers_its_running_statistics(tmp_path):
+    """The server federates the parameters and the BatchNorm running statistics, so the contract's initial state does."""
+    import numpy as np
+    from fedlearn.estimators.params import federable_state
+    model, _ = _resnet_bn_input_sizes()
+    state = federable_state(model.state_dict())
+    path = tmp_path / "init.npz"
+    np.savez(path, **{k.replace(".", "__DOT__"): v.numpy() for k, v in state.items()})
+    plan = execution_plan.resolve_model_training("CIFAR_RESNET18", "FedAvg", "FULL", initial_state_path=str(path))
+    import torch.nn as nn
+    order = [t.name for t in plan.trainable] + [f"{n}.{stat}" for n, m in model.named_modules()
+                                                if isinstance(m, nn.BatchNorm2d)
+                                                for stat in ("running_mean", "running_var")]
+    assert plan.initial_state_sha256 == execution_plan.state_sha256((n, state[n].numpy()) for n in order)
+
+
+@pytest.mark.parametrize("strategy", ["FedOpt", "FedProx", "DeComFL"])
+def test_the_resnet_strategies_without_a_plan_say_why(strategy):
+    with pytest.raises(execution_plan.NotRepresentable):
+        execution_plan.resolve_model_training("CIFAR_RESNET18", strategy, "FULL")
+
+
 @pytest.mark.parametrize("recipe, strategy, arm", [
-    ("CIFAR_RESNET18", "FedAvg", "FULL"),
+    ("CIFAR_RESNET18", "FedAvg", "FROZEN_HEAD"),
     ("CNN", "FedAvg", "FROZEN_HEAD"),
 ])
 def test_a_run_without_a_v1_plan_is_not_representable(recipe, strategy, arm):
@@ -544,12 +635,12 @@ def test_the_cli_refuses_a_data_source_outside_its_vocabulary():
 
 
 def test_the_cli_reports_an_unrepresentable_run_without_failing():
-    out = _cli("--recipe", "CIFAR_RESNET18", "--strategy", "FedAvg", "--training-arm", "FULL")
+    out = _cli("--recipe", "CIFAR_RESNET18", "--strategy", "FedAvg", "--training-arm", "FROZEN_HEAD")
     assert out["representable"] is False
     assert "CIFAR_RESNET18" in out["reason"]
 
 
-@pytest.mark.parametrize("recipe", ["TINYNET_GOLDEN", "MLP", "CNN"])
+@pytest.mark.parametrize("recipe", ["TINYNET_GOLDEN", "MLP", "CNN", "CIFAR_RESNET18"])
 def test_the_cli_writes_nothing_but_its_json(recipe):
     """The backend parses this output. A plan that imports a module which prints (client.py does) would corrupt it."""
     assert _cli("--recipe", recipe, "--strategy", "FedAvg", "--training-arm", "FULL")["representable"] is True
