@@ -30,4 +30,36 @@ describe('projectsApi', () => {
     expect(rows.find(r => r.project.projectId === 'a')!.result.eligible).toBe(false); // 4 < 8
     expect(rows.find(r => r.project.projectId === 'b')!.result.eligible).toBe(true);  // 4 >= 2
   });
+
+  describe('a model not yet cleared for phones', () => {
+    const caps: DeviceCapabilities = { ramGb: 8, osName: 'android', osVersion: '30' };
+    const projects = [{ projectId: 'r', name: 'R', modelType: 'CIFAR_RESNET18', status: 'RUNNING', visibility: 'PRIVATE',
+                        requirements: { mobileSafe: false, minRamGb: 4 } }];
+    const g = globalThis as unknown as { __DEV__: boolean };
+    let dev: boolean;
+    beforeEach(() => { dev = g.__DEV__; });
+    afterEach(() => { g.__DEV__ = dev; });
+
+    test('is refused by a release build', () => {
+      g.__DEV__ = false;
+      const { result } = annotateEligibility(projects, caps)[0]!;
+      expect(result.eligible).toBe(false);
+      expect(result.hardFailures).toEqual(['This model is not supported on phones']);
+    });
+
+    test('can be joined by a development build, which says it is not cleared, so it can be measured', () => {
+      g.__DEV__ = true;
+      const { result } = annotateEligibility(projects, caps)[0]!;
+      expect(result.eligible).toBe(true);
+      expect(result.hardFailures).toEqual([]);
+      expect(result.softWarnings).toEqual(['Not cleared for phones yet: a development build may train it to measure it']);
+    });
+
+    test('still fails a development build on every other requirement', () => {
+      g.__DEV__ = true;
+      const { result } = annotateEligibility(projects, { ...caps, ramGb: 2 })[0]!;
+      expect(result.eligible).toBe(false);
+      expect(result.hardFailures).toEqual(['Needs 4 GB RAM, device has 2.0 GB']);
+    });
+  });
 });
