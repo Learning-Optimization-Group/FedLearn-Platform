@@ -40,7 +40,14 @@ public record ModelBundleDto(
     }
 
     /** The probe: batch shape, step size, torch's two step losses, tolerance, and the declared time budget. */
+    /**
+     * {@code inputShape} is one example's shape when it has more than one dimension (an image's [channels, height,
+     * width]); absent (and omitted from the JSON) for a vector, whose shape is [width].
+     */
     public record TrainableProbe(int rows, int width, int classes, double learningRate, double lossStep1,
-                                 double lossStep2, double lossTolerance, long maxProbeMs) {
+                                 double lossStep2, double lossTolerance, long maxProbeMs,
+                                 @com.fasterxml.jackson.annotation.JsonInclude(
+                                         com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                                 java.util.List<Integer> inputShape) {
     }
 }

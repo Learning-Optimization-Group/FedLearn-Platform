@@ -291,27 +291,39 @@ def probe_batch(step: int, rows: int, width: int, classes: int) -> tuple[torch.T
     return x, torch.tensor([i % classes for i in range(rows)], dtype=torch.int64)
 
 
-def probe_reference(model: nn.Module, rows: int, width: int, classes: int) -> dict:
+def probe_reference(model: nn.Module, rows: int, width: int, classes: int,
+                    input_shape: tuple[int, ...] | None = None) -> dict:
     """What a trainable program must report on the probe: two SGD steps from its embedded (export-time) weights.
 
+    The batch is the flat [rows, width] pattern, viewed as [rows, *input_shape] for a model whose examples have more
+    than one dimension (an image's [channels, height, width]); the device builds the same values in the same order.
     A masked-dropout program is probed with every mask all ones, so its dropout layers pass activations through
     unchanged; the device does the same. The probe is a property of the artifact, not of a run, so a device can cache
     its result per program digest.
     """
-    mask_shapes = dropout_mask_shapes(model, probe_batch(1, rows, width, classes)[0])
+    shape = tuple(input_shape) if input_shape else (width,)
+    if int(torch.tensor(shape).prod()) != width:
+        raise ValueError(f"input shape {shape} does not hold {width} values")
+
+    def batch(step):
+        x, y = probe_batch(step, rows, width, classes)
+        return x.view(rows, *shape), y
+
+    mask_shapes = dropout_mask_shapes(model, batch(1)[0])
     wrapper = _MaskedTrainingGraph(model)
     params = [p for p in wrapper.parameters() if p.requires_grad]
     opt = torch.optim.SGD(params, lr=PROBE_LEARNING_RATE)
     losses = []
     for step in (1, 2):
-        x, y = probe_batch(step, rows, width, classes)
-        masks = tuple(torch.ones(rows, *shape) for shape in mask_shapes)
+        x, y = batch(step)
+        masks = tuple(torch.ones(rows, *mask) for mask in mask_shapes)
         opt.zero_grad()
         loss, _ = wrapper(x, y, masks)
         loss.backward()
         opt.step()
         losses.append(float(loss))
     return {"rows": rows, "width": width, "classes": classes, "learning_rate": PROBE_LEARNING_RATE,
+            **({"input_shape": list(shape)} if len(shape) > 1 else {}),
             "loss_step1": losses[0], "loss_step2": losses[1],
             # ExecuTorch's portable kernels agree with torch to ~1e-7 on these graphs; the tolerance leaves room for
             # other CPUs while rejecting a program that computes something else.

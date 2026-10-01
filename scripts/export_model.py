@@ -64,6 +64,14 @@ EXAMPLE_SHAPES = {
 # (probeMs). They are declarations, not measurements. A recipe with none declared gets no contract fields, so the
 # backend publishes no contract for it rather than one with invented budgets.
 ENVELOPES = {
+    "CNN": {
+        "peakMemoryBytes": 128 * 1024 * 1024,
+        "probeMs": 5000,
+        "trainMs": 120000,
+        "basis": "Declared budgets, not measurements. The CNN has 62,006 parameters (248 KB as float32) and trains "
+                 "batches of at most 32 images of 3 x 32 x 32, so these bound it generously; portable-CPU "
+                 "qualification measures a device against probeMs. Storage is the staged model files' total size.",
+    },
     "MLP": {
         "peakMemoryBytes": 64 * 1024 * 1024,
         "probeMs": 2000,
@@ -258,10 +266,11 @@ def export_recipe_bundle(
                 "resourceEnvelope": envelope,
             }, indent=2) + "\n")
             dynbatch = {"max_batch": max_batch}
-            # The probe feeds a flat [rows, width] batch, so it covers vector inputs; image inputs need a shaped probe.
-            if trainable_pte is not None and len(feat) == 1:
+            # The probe's batch takes each example's shape (an image's [channels, height, width]).
+            if trainable_pte is not None:
                 dynbatch["probe"] = pte_export.probe_reference(
-                    model, rows=min(PROBE_ROWS, max_batch), width=feat[0], classes=num_classes)
+                    model, rows=min(PROBE_ROWS, max_batch), width=int(np.prod(feat)), classes=num_classes,
+                    input_shape=feat)
             (fx / "fedavg_pte_manifest.json").write_text(json.dumps({"dynbatch": dynbatch}, indent=2) + "\n")
         dest = stage_model_bundle.stage_bundle(run_id, out_root, fixture=fx)
 

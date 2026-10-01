@@ -160,3 +160,59 @@ def test_a_recipe_without_a_declared_envelope_gets_no_contract_fields(exporter, 
     manifest = json.loads((dest / "manifest.json").read_text())
     for field in ("modelFiles", "requiredOperators", "resourceEnvelope", "maxBatch"):
         assert field not in manifest
+
+
+# Stage 4 S6: the CNN on images. Its programs take [batch, 3, 32, 32], so the probe states each example's shape.
+
+@pytest.fixture(scope="module")
+def cnn_bundle(exporter, tmp_path_factory):
+    dest = exporter.export_recipe_bundle(RUN_ID, "CNN", tmp_path_factory.mktemp("cnn"))
+    with open(dest / "manifest.json") as fh:
+        return dest, json.load(fh)
+
+
+def test_the_cnn_bundle_states_its_batch_bound_operators_and_envelope(cnn_bundle):
+    import execution_plan
+    dest, manifest = cnn_bundle
+    assert manifest["maxBatch"] == execution_plan.resolve_model_training("CNN", "FedAvg", "FULL").local_training.batch_size
+    used = set().union(*(_operators(dest / name) for name in MODEL_FILES))
+    assert manifest["requiredOperators"] == sorted(used)
+    assert manifest["resourceEnvelope"]["storageBytes"] == sum((dest / n).stat().st_size for n in MODEL_FILES)
+
+
+def test_the_cnn_probe_is_shaped_like_an_image_and_is_what_torch_computes(cnn_bundle):
+    sys.path.insert(0, os.path.join(REPO, "mobile_client", "scripts"))
+    import pte_export
+    import recipes
+
+    _, manifest = cnn_bundle
+    probe = manifest["modelManifest"]["trainableProbe"]
+    assert probe["inputShape"] == [3, 32, 32] and probe["width"] == 3072 and probe["classes"] == 10
+    torch.manual_seed(0)
+    reference = pte_export.probe_reference(recipes.get_recipe("CNN").build_model("cpu"), rows=8, width=3072,
+                                           classes=10, input_shape=(3, 32, 32))
+    assert (probe["lossStep1"], probe["lossStep2"]) == (reference["loss_step1"], reference["loss_step2"])
+
+
+def test_the_probe_moves_every_cnn_parameter_at_both_steps():
+    sys.path.insert(0, os.path.join(REPO, "mobile_client", "scripts"))
+    import pte_export
+    import recipes
+
+    torch.manual_seed(0)
+    model = recipes.get_recipe("CNN").build_model("cpu")
+    for step in (1, 2):
+        x, y = pte_export.probe_batch(step, 8, 3072, 10)
+        model.zero_grad()
+        torch.nn.functional.cross_entropy(model(x.view(8, 3, 32, 32)), y).backward()
+        for name, p in model.named_parameters():
+            assert p.grad is not None and p.grad.abs().max() > 0, f"step {step}: no gradient on {name}"
+
+
+def test_a_probe_shape_that_does_not_hold_its_width_is_refused():
+    sys.path.insert(0, os.path.join(REPO, "mobile_client", "scripts"))
+    import pte_export
+    import recipes
+    with pytest.raises(ValueError):
+        pte_export.probe_reference(recipes.get_recipe("CNN").build_model("cpu"), rows=8, width=3000, classes=10,
+                                   input_shape=(3, 32, 32))

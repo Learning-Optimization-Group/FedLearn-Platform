@@ -482,9 +482,17 @@ public class RunService {
         if (p == null || !p.isObject()) {
             return null;
         }
+        java.util.List<Integer> inputShape = null;
+        if (p.path("inputShape").isArray()) {
+            inputShape = new java.util.ArrayList<>();
+            for (JsonNode d : p.path("inputShape")) {
+                inputShape.add(d.asInt());
+            }
+        }
         return new ModelBundleDto.TrainableProbe(p.path("rows").asInt(), p.path("width").asInt(),
                 p.path("classes").asInt(), p.path("learningRate").asDouble(), p.path("lossStep1").asDouble(),
-                p.path("lossStep2").asDouble(), p.path("lossTolerance").asDouble(), p.path("maxProbeMs").asLong());
+                p.path("lossStep2").asDouble(), p.path("lossTolerance").asDouble(), p.path("maxProbeMs").asLong(),
+                inputShape);
     }
 
     /** The class names of the run's recipe, in label-index order; empty when the catalog does not know it. */

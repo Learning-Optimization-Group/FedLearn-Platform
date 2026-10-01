@@ -126,6 +126,9 @@ export interface TrainableProbe {
   lossStep2: number;
   lossTolerance: number;
   maxProbeMs: number;
+  // One example's shape when it has more than one dimension (an image's [channels, height, width]); its product is
+  // width. Absent for a vector. Read by the native probe since Stage 4 S6.
+  inputShape?: number[];
 }
 
 // passed, or the first failed check (SPEC, LOAD, LOSS_MISMATCH, STALE_WEIGHTS, TOO_SLOW) and why.

@@ -57,10 +57,14 @@ endforeach()
 # executables linking fedlearn_core inherit the force-load.
 find_library(ET_PORTABLE_OPS_LIB NAMES portable_ops_lib libportable_ops_lib
   PATHS "${ET_BUILD}" PATH_SUFFIXES . lib kernels/portable NO_DEFAULT_PATH REQUIRED)
+# libexecutorch registers the prim ops the same way (kernels/prim_ops/register_prim_ops.cpp:
+# executorch_prim::et_view, aten::sym_size and the scalar arithmetic a program with a dynamic shape or a flatten
+# emits). Nothing references them by symbol, so without the force-load the linker drops them and a program that
+# needs one fails to load with OperatorMissing (error 20). TinyNet and the MLP needed none; the CNN's flatten does.
 if(APPLE)
-  set(_force_ops "-Wl,-force_load,${ET_PORTABLE_OPS_LIB}")
+  set(_force_ops "-Wl,-force_load,${ET_PORTABLE_OPS_LIB}" "-Wl,-force_load,${ET_LIB_executorch}")
 else()
-  set(_force_ops "-Wl,--whole-archive" "${ET_PORTABLE_OPS_LIB}" "-Wl,--no-whole-archive")
+  set(_force_ops "-Wl,--whole-archive" "${ET_PORTABLE_OPS_LIB}" "${ET_LIB_executorch}" "-Wl,--no-whole-archive")
 endif()
 
 get_filename_component(ET_SRC_PARENT "${ET_SRC}" DIRECTORY)

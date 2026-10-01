@@ -40,6 +40,18 @@ QualificationReport qualifyTrainable(const std::string& ptePath, const std::stri
       !std::isfinite(spec.expectedLossStep1) || !std::isfinite(spec.expectedLossStep2) || !(spec.lossTolerance > 0)) {
     return fail(r, "SPEC", "the probe specification is incomplete");
   }
+  std::vector<int64_t> xShape{spec.rows};
+  if (spec.inputShape.empty()) {
+    xShape.push_back(spec.width);
+  } else {
+    int64_t numel = 1;
+    for (int64_t d : spec.inputShape) {
+      if (d < 1) return fail(r, "SPEC", "the probe's input shape has an empty dimension");
+      numel *= d;
+      xShape.push_back(d);
+    }
+    if (numel != spec.width) return fail(r, "SPEC", "the probe's input shape does not hold its width");
+  }
   const auto t0 = std::chrono::steady_clock::now();
   std::unique_ptr<TrainableExecutorchModel> model;
   try {
@@ -68,11 +80,11 @@ QualificationReport qualifyTrainable(const std::string& ptePath, const std::stri
     const std::vector<InputTensor>* extra = masks.empty() ? nullptr : &masks;
     before = model->getFlatParams();
     probeBatch(1, spec, x, y);
-    r.lossStep1 = model->trainStep(x.data(), {spec.rows, spec.width}, y.data(), spec.rows, spec.learningRate,
+    r.lossStep1 = model->trainStep(x.data(), xShape, y.data(), spec.rows, spec.learningRate,
                                    nullptr, 0.0f, extra);
     afterStep1 = model->getFlatParams();
     probeBatch(2, spec, x, y);
-    r.lossStep2 = model->trainStep(x.data(), {spec.rows, spec.width}, y.data(), spec.rows, spec.learningRate,
+    r.lossStep2 = model->trainStep(x.data(), xShape, y.data(), spec.rows, spec.learningRate,
                                    nullptr, 0.0f, extra);
   } catch (const std::exception& e) {
     return fail(r, "LOAD", e.what());

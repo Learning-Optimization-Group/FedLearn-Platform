@@ -268,7 +268,29 @@ class RunServiceModelBundleTest {
         ModelBundleDto.TrainableProbe probe = runService.getModelBundle(rid).trainableProbe();
 
         assertEquals(new ModelBundleDto.TrainableProbe(8, 4, 3, 0.1, 1.1053780317306519, 1.0776357650756836, 1e-4,
-                2000), probe);
+                2000, null), probe);
+    }
+
+    @Test
+    void getModelBundle_carriesAnImageProbesInputShape() throws Exception {
+        // Stage 4 S6: a CNN program takes [rows, 3, 32, 32], so its probe states each example's shape.
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        stageWithTrainable(rid);
+        Path manifest = modelsDir.resolve(rid.toString()).resolve("manifest.json");
+        ObjectMapper om = new ObjectMapper();
+        var m = (com.fasterxml.jackson.databind.node.ObjectNode) om.readTree(Files.readString(manifest));
+        var probeNode = ((com.fasterxml.jackson.databind.node.ObjectNode) m.get("modelManifest")).putObject("trainableProbe")
+                .put("rows", 8).put("width", 3072).put("classes", 10).put("learningRate", 0.1)
+                .put("lossStep1", 2.2907896041870117).put("lossStep2", 2.2854325771331787)
+                .put("lossTolerance", 1e-4).put("maxProbeMs", 5000);
+        probeNode.putArray("inputShape").add(3).add(32).add(32);
+        Files.writeString(manifest, om.writeValueAsString(m));
+        mockParticipant(rid, pid);
+
+        ModelBundleDto.TrainableProbe probe = runService.getModelBundle(rid).trainableProbe();
+
+        assertEquals(java.util.List.of(3, 32, 32), probe.inputShape());
+        assertEquals(3072, probe.width());
     }
 
     @Test

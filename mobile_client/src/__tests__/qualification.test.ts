@@ -74,3 +74,12 @@ test('a corrupt cache is treated as empty rather than trusted', async () => {
     .resolves.toMatchObject({ passed: true });
   expect(native.qualifyTrainable).toHaveBeenCalledTimes(1);
 });
+
+test('an image program\'s probe reaches the device with each example\'s shape', async () => {
+  // Stage 4 S6: the CNN takes [rows, 3, 32, 32]; the native probe builds that batch from the stated shape.
+  const store = new QualificationStore(memory());
+  const native = { qualifyTrainable: jest.fn().mockResolvedValue(PASS) };
+  const image: TrainableProbe = { ...PROBE, width: 3072, classes: 10, inputShape: [3, 32, 32] };
+  await qualifyTrainableProgram('d'.repeat(64), image, { store, native });
+  expect(native.qualifyTrainable).toHaveBeenCalledWith(expect.objectContaining({ inputShape: [3, 32, 32] }));
+});

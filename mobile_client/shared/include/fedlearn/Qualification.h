@@ -17,6 +17,9 @@ namespace fedlearn {
 struct ProbeSpec {
   int64_t rows = 0;
   int64_t width = 0;
+  // One example's shape when it has more than one dimension (an image's [channels, height, width]); its product must be
+  // width. Empty means [width]. The batch values are the same flat pattern either way.
+  std::vector<int64_t> inputShape;
   int64_t classes = 0;
   float learningRate = 0.0f;
   double expectedLossStep1 = 0.0;

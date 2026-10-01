@@ -754,6 +754,14 @@ jsi::Value FedLearnCoreModule::qualifyTrainable(jsi::Runtime& rt, jsi::Object pr
   spec.expectedLossStep2 = probe.getProperty(rt, "lossStep2").asNumber();
   spec.lossTolerance = probe.getProperty(rt, "lossTolerance").asNumber();
   spec.maxProbeMs = static_cast<int64_t>(probe.getProperty(rt, "maxProbeMs").asNumber());
+  // Optional: one example's shape when it has more than one dimension (an image's [channels, height, width]).
+  const jsi::Value shape = probe.getProperty(rt, "inputShape");
+  if (shape.isObject() && shape.asObject(rt).isArray(rt)) {
+    const jsi::Array dims = shape.asObject(rt).asArray(rt);
+    for (size_t i = 0; i < dims.size(rt); ++i) {
+      spec.inputShape.push_back(static_cast<int64_t>(dims.getValueAtIndex(rt, i).asNumber()));
+    }
+  }
   return runOnWorker(
       rt, [this, spec]() { return doQualifyTrainable(spec); },
       [](jsi::Runtime& r, const fedlearn::QualificationReport& v) { return toJs(r, v); });

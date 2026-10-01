@@ -125,6 +125,8 @@ def stage_bundle(run_id: str, out_root: Path, fixture: Path = DEFAULT_FIXTURE) -
                 "learningRate": probe["learning_rate"], "lossStep1": probe["loss_step1"],
                 "lossStep2": probe["loss_step2"], "lossTolerance": probe["loss_tolerance"],
                 "maxProbeMs": envelope["probeMs"],
+                # The shape of one example when it has more than one dimension; absent means [width].
+                **({"inputShape": probe["input_shape"]} if "input_shape" in probe else {}),
             }
 
     manifest = {
