@@ -1,0 +1,28 @@
+diff --git a/kernels/portable/cpu/op_max_pool2d_with_indices_backward.cpp b/kernels/portable/cpu/op_max_pool2d_with_indices_backward.cpp
+index 99dc8a8..a316bd2 100644
+--- a/kernels/portable/cpu/op_max_pool2d_with_indices_backward.cpp
++++ b/kernels/portable/cpu/op_max_pool2d_with_indices_backward.cpp
+@@ -9,6 +9,8 @@
+ #include <executorch/kernels/portable/cpu/util/kernel_ops_util.h>
+ #include <executorch/runtime/kernel/kernel_includes.h>
+ 
++#include <cstring>
++
+ namespace torch {
+ namespace executor {
+ namespace native {
+@@ -171,6 +173,14 @@ Tensor& max_pool2d_with_indices_backward_out(
+ 
+   static constexpr auto name = "max_pool2d_with_indices_backward.grad_input";
+ 
++  // max_pool_backward_impl SCATTER-ADDS into grad_input (`grad_input_ptr[maxindex] +=`), touching
++  // only the argmax positions, so every non-argmax element is left at whatever the buffer already
++  // held. resize_tensor does not clear it and the memory planner recycles arena buffers across ops
++  // and iterations, so the accumulation lands on stale bytes. ATen avoids this with an explicit
++  // gradInput.zero_() in max_pool2d_with_indices_backward_out_cpu before dispatching the identical
++  // loop; that zeroing was not carried over here. Restore it.
++  memset(grad_input.mutable_data_ptr(), 0, grad_input.nbytes());
++
+   ET_SWITCH_FLOATHBF16_TYPES(input.scalar_type(), ctx, name, CTYPE, [&]() {
+     max_pool_backward_impl<CTYPE, false>(grad_input, grad_output, indices);
+   });
