@@ -27,9 +27,27 @@ public record ModelBundleDto(
         // first-order) — the mobile client treats a null trainablePteUrl exactly as "DeComFL-only".
         String trainablePteUrl,
         String trainableSha256,
-        List<String> trainableParamNames) {  // canonical base.<name> order the phone re-maps ET's map onto
+        List<String> trainableParamNames,    // canonical base.<name> order the phone re-maps ET's map onto
+        // The recipe's class names, in label-index order. A phone imports its own data against them; the snapshot's
+        // labels-sha256 of this list must equal the contract's labelSchemaId. Empty when the recipe is unknown.
+        List<String> classNames,
+        // The qualification probe for the trainable program (Stage 3 D2): the exporter's two-step reference the
+        // device checks the program against before its first round. null when the bundle carries none.
+        TrainableProbe trainableProbe) {
 
     /** One trainable tensor's layout (mirrors the mobile ModelManifest.ParamSpec). */
     public record ParamSpec(String name, List<Integer> shape) {
+    }
+
+    /** The probe: batch shape, step size, torch's two step losses, tolerance, and the declared time budget. */
+    /**
+     * {@code inputShape} is one example's shape when it has more than one dimension (an image's [channels, height,
+     * width]); absent (and omitted from the JSON) for a vector, whose shape is [width].
+     */
+    public record TrainableProbe(int rows, int width, int classes, double learningRate, double lossStep1,
+                                 double lossStep2, double lossTolerance, long maxProbeMs,
+                                 @com.fasterxml.jackson.annotation.JsonInclude(
+                                         com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                                 java.util.List<Integer> inputShape) {
     }
 }

@@ -221,6 +221,20 @@ def trainable_prefixes(recipe_key, arm):
     return spec.get(arm, None)
 
 
+def federates_trainable_subset(recipe_key, arm):
+    """True when the federated wire carries only ``trainable_state(net)``, not the full state_dict.
+
+    Two ways a run federates a subset: the ARM freezes modules (FROZEN_HEAD / OVA_LP), or the
+    RECIPE freezes them by construction regardless of arm (TINYNET_GOLDEN's fc2). The second is
+    invisible to ``trainable_prefixes``, which is None for such a recipe on FULL -- which is how a
+    FedAvg CLI client came to upload 43 params and then fail to load the server's 25.
+    """
+    arm = validate_arm(recipe_key, arm)
+    if _METADATA_BY_KEY[recipe_key].get("frozen_by_construction", False):
+        return True
+    return trainable_prefixes(recipe_key, arm) is not None
+
+
 def arm_stamp(recipe_key, arm):
     """JSON-serializable provenance for a result's ``meta`` block.
 
@@ -254,6 +268,7 @@ RECIPE_METADATA = [
     {
         "key": "CNN",
         "supported_arms": ["FULL", "FROZEN_HEAD"],
+        "supported_data_sources": ["FIXTURE", "LOCAL_SNAPSHOT"],
         # CnnNet is conv1/conv2/fc1/fc2/fc3 — it has NO "classifier." module, so the prefix this
         # entry originally declared matched nothing and FROZEN_HEAD raised at model build. fc3 is
         # the final classification layer, i.e. the actual head.
@@ -309,6 +324,8 @@ RECIPE_METADATA = [
     {
         "key": "MLP",
         "supported_arms": ["FULL"],
+        # The device trains its own ECG snapshot under an MLP contract (Stage 4); the fixture is the laptop's shard.
+        "supported_data_sources": ["FIXTURE", "LOCAL_SNAPSHOT"],
         "trainable_spec": {"FULL": None},
         "display_name": "ECG heartbeat (Normal/Abnormal)",
         "input_kind": "vector",
@@ -357,6 +374,14 @@ RECIPE_METADATA = [
         # on-device golden encodes.
         "supported_arms": ["FULL"],
         "trainable_spec": {"FULL": None},
+        # Frozen-by-construction means the wire carries trainable_state(net), not the full state,
+        # even on FULL. Declared here so the client and server read one fact instead of each
+        # matching on the recipe name (they had drifted: the server knew, the CLI client did not).
+        "frozen_by_construction": True,
+        # Where participants' training data may come from: the recipe's committed fixture batch, or each device's
+        # own dataset snapshot, checked on the device against the contract's data requirement. A recipe offers
+        # LOCAL_SNAPSHOT only with an execution plan that can state it. Absent means FIXTURE only.
+        "supported_data_sources": ["FIXTURE", "LOCAL_SNAPSHOT"],
         "display_name": "On-device DeComFL demo (TinyNet)",
         "input_kind": "vector",
         "classes": ["c0", "c1", "c2"],

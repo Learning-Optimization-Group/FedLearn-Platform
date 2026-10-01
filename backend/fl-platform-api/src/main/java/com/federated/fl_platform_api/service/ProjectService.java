@@ -3,6 +3,7 @@ package com.federated.fl_platform_api.service;
 import com.federated.fl_platform_api.audit.Auditable;
 import com.federated.fl_platform_api.dto.*;
 import com.federated.fl_platform_api.exception.ProjectStateException;
+import com.federated.fl_platform_api.model.TrainingDataSource;
 import com.federated.fl_platform_api.model.TrainingArm;
 import com.federated.fl_platform_api.model.RobustAggregationSettings;
 import com.federated.fl_platform_api.model.RobustMethod;
@@ -192,6 +193,38 @@ public class ProjectService {
      * update.
      */
     static final int MIN_SECURE_AGG_THRESHOLD = 2;
+
+    /**
+     * Where a start's participants take their training data from: the fixture unless the start asks otherwise. The
+     * recipe is looked up only for a start that asks for participants' own data.
+     *
+     * <p>Refuses, with a 400, a run on participants' own data for a recipe whose catalog entry does not offer it
+     * (only a recipe with an execution plan that states a local snapshot can tell a device what data to bring), and a
+     * secure-aggregation run on participants' own data, which only phones train and phones cannot join yet.
+     */
+    static TrainingDataSource resolveDataSource(StartProject request,
+                                                java.util.function.Supplier<Optional<ModelRecipeDto>> recipe,
+                                                String modelType) {
+        if (request == null || request.getDataSource() == null) {
+            return TrainingDataSource.FIXTURE;
+        }
+        TrainingDataSource source = TrainingDataSource.valueOf(request.getDataSource());
+        if (source != TrainingDataSource.LOCAL_SNAPSHOT) {
+            return source;
+        }
+        List<String> offered = recipe.get().map(ModelRecipeDto::supportedDataSources).orElse(null);
+        if (offered == null || !offered.contains(source.name())) {
+            throw new IllegalArgumentException(String.format(
+                    "Recipe %s can't train on participants' own data: it has no on-device plan that states what "
+                            + "data a device must bring. Start it on the fixture data instead.", modelType));
+        }
+        if (Boolean.TRUE.equals(request.getSecureAggregation())) {
+            throw new IllegalArgumentException(
+                    "Secure aggregation can't be combined with participants' own data yet. Only phones train on "
+                            + "their own snapshots, and phones can't join a secure run, so no round could complete.");
+        }
+        return source;
+    }
 
     /**
      * The secure-aggregation reconstruction threshold for a start, or null when secure aggregation is off.
@@ -452,6 +485,9 @@ public class ProjectService {
         Integer secureAggThreshold = resolveSecureAggThreshold(strategyToUse, minClients, clientsPerRound, request,
                 flServerManager::isClientAuthRequired);
 
+        TrainingDataSource dataSource = resolveDataSource(request, () -> project.getModelType() != null
+                ? modelRecipeService.findByKey(project.getModelType()) : Optional.empty(), project.getModelType());
+
         Integer numRoundsToUse;
         if (request != null && request.getNumRounds() != null && request.getNumRounds() > 0) {
             numRoundsToUse = request.getNumRounds();
@@ -479,7 +515,7 @@ public class ProjectService {
             Run run = null;
             try {
                 run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
-                        robustSettings, secureAggThreshold);
+                        robustSettings, secureAggThreshold, dataSource);
                 project.setActiveRunId(run.getId());
                 projectRepository.save(project);
 

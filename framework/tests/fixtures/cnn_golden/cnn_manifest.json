@@ -1,0 +1,143 @@
+{
+  "description": "CNN image training golden (Stage 4 S6).",
+  "torch_version": "2.12.0",
+  "examples": 20,
+  "input_shape": [
+    3,
+    32,
+    32
+  ],
+  "batch_size": 8,
+  "local_epochs": 2,
+  "learning_rate": 0.001,
+  "seed": 42,
+  "round": 1,
+  "normalize": {
+    "mean": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "std": [
+      0.5,
+      0.5,
+      0.5
+    ]
+  },
+  "param_layout": [
+    [
+      "conv1.weight",
+      [
+        6,
+        3,
+        5,
+        5
+      ]
+    ],
+    [
+      "conv1.bias",
+      [
+        6
+      ]
+    ],
+    [
+      "conv2.weight",
+      [
+        16,
+        6,
+        5,
+        5
+      ]
+    ],
+    [
+      "conv2.bias",
+      [
+        16
+      ]
+    ],
+    [
+      "fc1.weight",
+      [
+        120,
+        400
+      ]
+    ],
+    [
+      "fc1.bias",
+      [
+        120
+      ]
+    ],
+    [
+      "fc2.weight",
+      [
+        84,
+        120
+      ]
+    ],
+    [
+      "fc2.bias",
+      [
+        84
+      ]
+    ],
+    [
+      "fc3.weight",
+      [
+        10,
+        84
+      ]
+    ],
+    [
+      "fc3.bias",
+      [
+        10
+      ]
+    ]
+  ],
+  "param_names_flat_order": [
+    "base.conv1.weight",
+    "base.conv1.bias",
+    "base.conv2.weight",
+    "base.conv2.bias",
+    "base.fc1.weight",
+    "base.fc1.bias",
+    "base.fc2.weight",
+    "base.fc2.bias",
+    "base.fc3.weight",
+    "base.fc3.bias"
+  ],
+  "flat_dim": 62006,
+  "max_batch": 8,
+  "pte_file": "cnn_trainable_dynbatch.pte",
+  "pte_sha256": "471f222d1c2d530da58cb5ee3801ca5ef3453ad52c3c272649dcb07bb4c0a190",
+  "loss_pte_file": "cnn_loss_dynbatch.pte",
+  "loss_pte_sha256": "5c945589ae5a39cb46035a646719dbd2a002e91348c3d9ae20c31a09039e4ba8",
+  "final_flat_file": "cnn_adam_final.f32",
+  "endpoint_atol": 0.0001,
+  "control_separation": {
+    "sequential_order": 0.009668339043855667,
+    "round_zero_order": 0.009549679234623909,
+    "one_full_batch": 0.007419731467962265,
+    "sgd_not_adam": 0.005966998636722565,
+    "unnormalized_images": 0.010547123849391937
+  },
+  "exported_for_32": {
+    "cnn_loss_bound32.pte": "dc64e8c0328c4934b0f88eab2258aa138b5143657bafe5275183b50cfa1a2ab0",
+    "cnn_infer_bound32.pte": "aedbeb084fe11f0452ff41137c54404b59bf963ce107a2d9783837b764d58f8a"
+  },
+  "probe": {
+    "rows": 8,
+    "width": 3072,
+    "classes": 10,
+    "learning_rate": 0.1,
+    "input_shape": [
+      3,
+      32,
+      32
+    ],
+    "loss_step1": 2.2907896041870117,
+    "loss_step2": 2.2854325771331787,
+    "loss_tolerance": 0.0001
+  }
+}

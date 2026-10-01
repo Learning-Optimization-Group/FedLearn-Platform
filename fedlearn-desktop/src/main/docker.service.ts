@@ -21,6 +21,7 @@
 import Docker from 'dockerode';
 import { app, BrowserWindow } from 'electron';
 import { ChildProcess, spawn } from 'child_process';
+import { CONTAINER_EXECUTION_CONTRACT_PATH } from './executionContract';
 import { CONTAINER_ROOT_CERT_PATH } from './grpcTls';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -45,6 +46,10 @@ export interface TrainingConfig {
   // has the client upload the full state dict against a head-only server.
   // Optional so a payload from a backend predating P1 still type-checks.
   trainingArm?: string;
+  // Execution contract v1: a READY contract written by the launcher (executionContract.ts) and the run it belongs
+  // to. Forwarded as --execution-contract/--run-id; absent on a legacy launch.
+  executionContractPath?: string;
+  runId?: string;
   // Backend-minted FL connection token (from GET /client/projects/{id}/connection).
   // Optional so the legacy no-auth flow still type-checks; required in practice once
   // the FL server is fail-closed (app.fl.require-client-auth=true).
@@ -80,6 +85,10 @@ export function buildContainerEnv(config: TrainingConfig): string[] {
   }
   if (config.connectionToken) {
     env.push(`FEDLEARN_CONNECTION_TOKEN=${config.connectionToken}`);
+  }
+  if (config.executionContractPath && config.runId) {
+    // The host file is mounted read-only at this path (buildContainerBinds); entrypoint.sh forwards both.
+    env.push(`EXECUTION_CONTRACT=${CONTAINER_EXECUTION_CONTRACT_PATH}`, `RUN_ID=${config.runId}`);
   }
   if (config.grpcTls) {
     env.push('FEDLEARN_GRPC_USE_TLS=1');
@@ -118,11 +127,17 @@ export function withGrpcTlsEnv(base: NodeJS.ProcessEnv, config: TrainingConfig):
     : { ...base, FEDLEARN_GRPC_USE_TLS: '1' };
 }
 
-/** Container binds: the dataset, plus the server certificate, read-only, when the client verifies against it. */
+/**
+ * Container binds: the dataset, plus, read-only, the server certificate when the client verifies against it and the
+ * execution contract when the run published one.
+ */
 export function buildContainerBinds(config: TrainingConfig): string[] {
   const binds = [`${config.datasetPath}:/data`];
   if (config.grpcTls && config.grpcServerCertPath) {
     binds.push(`${config.grpcServerCertPath}:${CONTAINER_ROOT_CERT_PATH}:ro`);
+  }
+  if (config.executionContractPath && config.runId) {
+    binds.push(`${config.executionContractPath}:${CONTAINER_EXECUTION_CONTRACT_PATH}:ro`);
   }
   return binds;
 }
@@ -373,6 +388,11 @@ export class DockerService {
 
     if (config.strategy) {
       args.push('--strategy', config.strategy);
+    }
+
+    // Execution contract v1: the client refuses to train unless it would execute this contract exactly.
+    if (config.executionContractPath && config.runId) {
+      args.push('--execution-contract', config.executionContractPath, '--run-id', config.runId);
     }
 
     // DE-2: forward the user-selected local dataset directory to the native

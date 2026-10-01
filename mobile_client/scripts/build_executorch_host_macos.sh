@@ -28,6 +28,8 @@
 # (The gRPC-gated tests — grpc_marshal_test — additionally need FEDLEARN_BUILD_GRPC=ON + a gRPC/protobuf
 #  install + the buf-generated C++ stubs; the gRPC-free parity/roundtrip suite runs without them.)
 set -euo pipefail
+# Resolved before any cd: the script may be invoked by a relative path.
+ET_PATCH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/patches/executorch-1.3.1-maxpool-backward-zero-init.patch"
 
 ET_VERSION="${ET_VERSION:-1.3.1}"
 ET_SRC="${ET_SRC:-$HOME/executorch-host/executorch}"
@@ -45,6 +47,17 @@ cd "$ET_SRC"
 echo "[2/4] submodules"
 git submodule sync
 git submodule update --init --recursive --depth 1
+# The portable max_pool2d_with_indices_backward never zeroes grad_input before scatter-adding into it, so a Conv->MaxPool
+# model trains on stale arena bytes (wrong gradients; NaN at worst). ATen zeroes first; this restores it. Without it, CNN
+# training is wrong wherever this runtime is built, which CI's native tests catch.
+if git apply --check "$ET_PATCH" 2>/dev/null; then
+  git apply "$ET_PATCH"
+elif git apply --reverse --check "$ET_PATCH" 2>/dev/null; then
+  echo "ExecuTorch patch already applied: $(basename "$ET_PATCH")"
+else
+  echo "ERROR: $(basename "$ET_PATCH") does not apply to this ExecuTorch source" >&2
+  exit 1
+fi
 echo "[3/4] cmake configure (explicit python; optimized kernels OFF for macOS)"
 cmake -S . -B cmake-out -G Ninja \
   -DPYTHON_EXECUTABLE="$PYEXE" \

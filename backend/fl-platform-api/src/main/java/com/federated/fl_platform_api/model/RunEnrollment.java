@@ -23,6 +23,14 @@ public class RunEnrollment {
     @Column(name = "token_issued_at")
     private Instant tokenIssuedAt;
 
+    /** The device's capability report as JSON (V31); informational, never an approval to train. */
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "capability_report", columnDefinition = "jsonb")
+    private String capabilityReport;
+
+    @Column(name = "capability_reported_at")
+    private Instant capabilityReportedAt;
+
     public RunEnrollment() {}
 
     public RunEnrollment(RunEnrollmentId id, int partitionId, ClientKind clientKind, Instant enrolledAt) {
@@ -42,4 +50,18 @@ public class RunEnrollment {
     public void setEnrolledAt(Instant enrolledAt) { this.enrolledAt = enrolledAt; }
     public Instant getTokenIssuedAt() { return tokenIssuedAt; }
     public void setTokenIssuedAt(Instant tokenIssuedAt) { this.tokenIssuedAt = tokenIssuedAt; }
+
+    public String getCapabilityReport() {
+        return capabilityReport;
+    }
+
+    public Instant getCapabilityReportedAt() {
+        return capabilityReportedAt;
+    }
+
+    /** Records the report and when it arrived; a null report clears both. */
+    public void setCapabilityReport(String report, Instant reportedAt) {
+        this.capabilityReport = report;
+        this.capabilityReportedAt = report == null ? null : reportedAt;
+    }
 }

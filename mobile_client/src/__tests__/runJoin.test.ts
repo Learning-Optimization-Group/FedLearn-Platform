@@ -40,7 +40,9 @@ describe('joinRun (slice 1b connect/enroll/register)', () => {
     const out = await joinRun({ projectId: 'p1' });
     expect(mApi.get).toHaveBeenCalledWith('/api/client/projects/p1');
     expect(mApi.get).toHaveBeenCalledWith('/api/runs/r1/status');
-    expect(mApi.post).toHaveBeenCalledWith('/api/runs/r1/enroll');
+    // Stage 3 D1: the device's capability report rides along with enrollment (informational only).
+    expect(mApi.post).toHaveBeenCalledWith('/api/runs/r1/enroll',
+      { capabilityReport: expect.objectContaining({ platform: expect.any(String) }) });
     expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', false, '');
     expect(out.runId).toBe('r1');
     expect(out.partitionId).toBe(2);
@@ -112,7 +114,7 @@ describe('joinRun (slice 1b connect/enroll/register)', () => {
     active = 'r2'; // owner ends r1 and starts a new run
     const second = await joinRun({ projectId: 'p1' });
     expect(second.runId).toBe('r2'); // re-resolved to the CURRENT run, not the stale r1
-    expect(mApi.post).toHaveBeenCalledWith('/api/runs/r2/enroll'); // the second join enrolled the NEW run
+    expect(mApi.post).toHaveBeenCalledWith('/api/runs/r2/enroll', expect.anything()); // enrolled the NEW run
   });
 });
 

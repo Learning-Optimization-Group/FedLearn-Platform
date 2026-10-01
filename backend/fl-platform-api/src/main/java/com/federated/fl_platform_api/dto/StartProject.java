@@ -50,6 +50,14 @@ public class StartProject {
     )
     private String trainingArm;
 
+    /**
+     * V30: where this run's training data comes from, as a {@link com.federated.fl_platform_api.model.TrainingDataSource}
+     * name. Omitted means {@code FIXTURE}, the recipe's committed data (unchanged behaviour). {@code LOCAL_SNAPSHOT}
+     * trains each participant's own dataset imported on its device, and the server then serves no training data.
+     */
+    @Pattern(regexp = "FIXTURE|LOCAL_SNAPSHOT", message = "dataSource must be one of: FIXTURE, LOCAL_SNAPSHOT")
+    private String dataSource;
+
     @Min(value = 1, message = "numRounds must be at least 1")
     @Max(value = 100, message = "numRounds must be at most 100")
     private Integer numRounds;
@@ -155,6 +163,14 @@ public class StartProject {
 
     public void setTrainingArm(String trainingArm) {
         this.trainingArm = trainingArm;
+    }
+
+    public String getDataSource() {
+        return dataSource;
+    }
+
+    public void setDataSource(String dataSource) {
+        this.dataSource = dataSource;
     }
 
     public String getRobustMethod() {

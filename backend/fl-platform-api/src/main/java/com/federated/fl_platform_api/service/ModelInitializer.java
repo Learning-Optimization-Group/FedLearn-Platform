@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.service;
 
+import com.federated.fl_platform_api.orchestration.ProcessTrees;
 import com.federated.fl_platform_api.exception.ServerProcessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,7 +66,7 @@ public class ModelInitializer {
 
         boolean finished = process.waitFor(initTimeoutSeconds, TimeUnit.SECONDS);
         if (!finished) {
-            process.destroyForcibly();
+            ProcessTrees.destroyForcibly(process);
             throw new ServerProcessException(
                     "Model initialization timed out after " + initTimeoutSeconds + "s for " + outputPath
                             + " (killed the process)");

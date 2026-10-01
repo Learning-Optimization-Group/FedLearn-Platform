@@ -217,7 +217,7 @@ class ProjectServiceTest {
 
         Run run = mock(Run.class);
         lenient().when(run.getId()).thenReturn(UUID.randomUUID());
-        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any())).thenReturn(run);
+        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any())).thenReturn(run);
 
         // Model the FlServerManager runningServers map: a spawn flips it "running" and briefly
         // holds — widening the check-then-act window the race would otherwise exploit.
@@ -272,7 +272,7 @@ class ProjectServiceTest {
         lenient().when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
         Run run = mock(Run.class);
         lenient().when(run.getId()).thenReturn(UUID.randomUUID());
-        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any())).thenReturn(run);
+        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any())).thenReturn(run);
         lenient().when(flServerManager.isServerRunning(projectId)).thenReturn(false);
         lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any()))
                 .thenReturn(Optional.of(50000));
@@ -477,7 +477,7 @@ class ProjectServiceTest {
         lenient().when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
         Run run = mock(Run.class);
         lenient().when(run.getId()).thenReturn(UUID.randomUUID());
-        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any())).thenReturn(run);
+        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any())).thenReturn(run);
         lenient().when(flServerManager.isServerRunning(projectId)).thenReturn(false);
         lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any()))
                 .thenReturn(Optional.of(50000));
@@ -493,7 +493,7 @@ class ProjectServiceTest {
     }
 
     private void assertNothingCreatedOrSpawned() {
-        verify(runService, never()).createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any());
+        verify(runService, never()).createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any());
         verify(flServerManager, never()).startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any());
     }
 
@@ -505,7 +505,7 @@ class ProjectServiceTest {
         RobustAggregationSettings expected = new RobustAggregationSettings(RobustMethod.BULYAN, 0.2, null, null);
         ArgumentCaptor<RobustAggregationSettings> persisted = ArgumentCaptor.forClass(RobustAggregationSettings.class);
         ArgumentCaptor<RobustAggregationSettings> spawned = ArgumentCaptor.forClass(RobustAggregationSettings.class);
-        verify(runService).createForStart(eq(testProject), eq("Robust"), anyInt(), eq(20), anyInt(), persisted.capture(), isNull());
+        verify(runService).createForStart(eq(testProject), eq("Robust"), anyInt(), eq(20), anyInt(), persisted.capture(), isNull(), any());
         verify(flServerManager).startServerForProject(eq(testProject), eq("Robust"), anyInt(), eq(20), spawned.capture(), isNull(), eq(20));
         assertEquals(expected, persisted.getValue());
         assertEquals(expected, spawned.getValue());
@@ -569,7 +569,7 @@ class ProjectServiceTest {
     void robustStartWithoutSettings_passesNoneSoTheServerDefaultAndArgvAreUnchanged() throws Exception {
         arrangeRobustStart();
         projectService.startServerForProject(testProject.getId(), startRequest("Robust", null, null, 2));
-        verify(runService).createForStart(eq(testProject), eq("Robust"), anyInt(), eq(2), anyInt(), isNull(), isNull());
+        verify(runService).createForStart(eq(testProject), eq("Robust"), anyInt(), eq(2), anyInt(), isNull(), isNull(), any());
         verify(flServerManager).startServerForProject(eq(testProject), eq("Robust"), anyInt(), eq(2), isNull(), isNull(), eq(2));
     }
 
@@ -585,7 +585,7 @@ class ProjectServiceTest {
         lenient().when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
         Run run = mock(Run.class);
         lenient().when(run.getId()).thenReturn(UUID.randomUUID());
-        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any())).thenReturn(run);
+        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any())).thenReturn(run);
         lenient().when(flServerManager.isServerRunning(projectId)).thenReturn(false);
         lenient().when(flServerManager.isClientAuthRequired()).thenReturn(clientAuthRequired);
         lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any()))
@@ -602,7 +602,7 @@ class ProjectServiceTest {
     }
 
     private void assertNoSecureRunCreatedOrSpawned() {
-        verify(runService, never()).createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any());
+        verify(runService, never()).createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any());
         verify(flServerManager, never()).startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any());
     }
 
@@ -610,7 +610,7 @@ class ProjectServiceTest {
     void secureStart_onDeComFL_persistsAndSpawnsTheSameThreshold() throws Exception {
         arrangeSecureStart(true);
         projectService.startServerForProject(testProject.getId(), secureStart("DeComFL", true, 3, 5));
-        verify(runService).createForStart(eq(testProject), eq("DeComFL"), anyInt(), eq(5), anyInt(), isNull(), eq(3));
+        verify(runService).createForStart(eq(testProject), eq("DeComFL"), anyInt(), eq(5), anyInt(), isNull(), eq(3), any());
         verify(flServerManager).startServerForProject(eq(testProject), eq("DeComFL"), anyInt(), eq(5), isNull(), eq(3), eq(5));
     }
 
@@ -664,7 +664,7 @@ class ProjectServiceTest {
     void plainDeComFLStart_carriesNoSecureAggregationAndNeedsNoClientAuth() throws Exception {
         arrangeSecureStart(false);
         projectService.startServerForProject(testProject.getId(), secureStart("DeComFL", false, null, 2));
-        verify(runService).createForStart(eq(testProject), eq("DeComFL"), anyInt(), eq(2), anyInt(), isNull(), isNull());
+        verify(runService).createForStart(eq(testProject), eq("DeComFL"), anyInt(), eq(2), anyInt(), isNull(), isNull(), any());
         verify(flServerManager).startServerForProject(eq(testProject), eq("DeComFL"), anyInt(), eq(2), isNull(), isNull(), eq(2));
     }
 
@@ -685,15 +685,57 @@ class ProjectServiceTest {
     void roundSize_defaultsToMinClients_andReachesTheSpawn() throws Exception {
         arrangeSecureStart(true);
         projectService.startServerForProject(testProject.getId(), roundSizeStart("DeComFL", 3, null));
-        verify(runService).createForStart(eq(testProject), eq("DeComFL"), anyInt(), eq(3), eq(3), isNull(), isNull());
+        verify(runService).createForStart(eq(testProject), eq("DeComFL"), anyInt(), eq(3), eq(3), isNull(), isNull(), any());
         verify(flServerManager).startServerForProject(eq(testProject), eq("DeComFL"), anyInt(), eq(3), isNull(), isNull(), eq(3));
+    }
+
+    @Test
+    void aStartRecordsTheDataSourceItAsksFor() throws Exception {
+        arrangeSecureStart(true);
+        catalogOffers("TINYNET_GOLDEN", List.of("FIXTURE", "LOCAL_SNAPSHOT"));
+        StartProject own = roundSizeStart("FedAvg", 2, null);
+        own.setDataSource("LOCAL_SNAPSHOT");
+        projectService.startServerForProject(testProject.getId(), own);
+        verify(runService).createForStart(eq(testProject), eq("FedAvg"), anyInt(), eq(2), eq(2), isNull(), isNull(),
+                eq(com.federated.fl_platform_api.model.TrainingDataSource.LOCAL_SNAPSHOT));
+    }
+
+    @Test
+    void aStartOnParticipantsOwnDataIsRefusedBeforeAnythingIsCreated_whenTheRecipeDoesNotOfferIt() {
+        arrangeSecureStart(true);
+        catalogOffers("CNN", null);
+        StartProject own = roundSizeStart("FedAvg", 2, null);
+        own.setDataSource("LOCAL_SNAPSHOT");
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                projectService.startServerForProject(testProject.getId(), own));
+        assertTrue(ex.getMessage().contains("own data"), ex.getMessage());
+        verify(runService, never()).createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any());
+        verify(flServerManager, never()).isServerRunning(any());
+    }
+
+    /** The test project's recipe is {@code key}, and the catalog says it offers {@code sources}. */
+    private void catalogOffers(String key, List<String> sources) {
+        testProject.setModelType(key);
+        com.federated.fl_platform_api.service.ModelRecipeService recipes =
+                mock(com.federated.fl_platform_api.service.ModelRecipeService.class);
+        when(recipes.findByKey(key)).thenReturn(Optional.of(new com.federated.fl_platform_api.dto.ModelRecipeDto(
+                key, key, "vector", List.of(), List.of(), List.of(), null, null, null, sources)));
+        org.springframework.test.util.ReflectionTestUtils.setField(projectService, "modelRecipeService", recipes);
+    }
+
+    @Test
+    void aStartThatNamesNoDataSourceTrainsTheFixture() throws Exception {
+        arrangeSecureStart(true);
+        projectService.startServerForProject(testProject.getId(), roundSizeStart("FedAvg", 2, null));
+        verify(runService).createForStart(eq(testProject), eq("FedAvg"), anyInt(), eq(2), eq(2), isNull(), isNull(),
+                eq(com.federated.fl_platform_api.model.TrainingDataSource.FIXTURE));
     }
 
     @Test
     void roundSize_aboveTheMinimum_isPersistedAndSpawned() throws Exception {
         arrangeSecureStart(true);
         projectService.startServerForProject(testProject.getId(), roundSizeStart("FedAvg", 3, 5));
-        verify(runService).createForStart(eq(testProject), eq("FedAvg"), anyInt(), eq(3), eq(5), isNull(), isNull());
+        verify(runService).createForStart(eq(testProject), eq("FedAvg"), anyInt(), eq(3), eq(5), isNull(), isNull(), any());
         verify(flServerManager).startServerForProject(eq(testProject), eq("FedAvg"), anyInt(), eq(3), isNull(), isNull(), eq(5));
     }
 

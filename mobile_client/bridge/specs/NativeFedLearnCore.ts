@@ -5,7 +5,7 @@
 import type { TurboModule } from 'react-native';
 import { TurboModuleRegistry } from 'react-native';
 
-export type Strategy = 'DeComFL' | 'FedAvg';
+export type Strategy = 'DeComFL' | 'FedAvg' | 'FedOpt' | 'Robust' | 'FedProx';
 export type GradEstimateMethod = 'forward' | 'central';
 
 export interface RegisterResult {
@@ -24,6 +24,11 @@ export interface ServerStatus {
   roundDeadlineUnixMs: number;
 }
 
+export interface RuntimeCompatibility {
+  bridgeAbiVersion: number;
+  protocolVersion: number;
+}
+
 export interface RoundConfig {
   strategy: Strategy;
   learningRate: number; // eta
@@ -31,6 +36,29 @@ export interface RoundConfig {
   numPerturbations: number; // P  (1..256, 04 §4.2)
   numLocalSteps: number; // K  (1..1000)
   gradEstimateMethod: GradEstimateMethod; // default 'forward' (B1-H2)
+  // The run's initial trainable state (execution contract). A DeComFL round starts only from the server's model
+  // proven to be this one. Empty when unset.
+  initialStateSha256: string;
+  // FedProx's proximal coefficient (execution contract); 0 for every other strategy. A first-order round adds
+  // proximalMu * (w - w_global) to each gradient and refuses a server whose proximal_mu differs.
+  proximalMu: number;
+  // First-order minibatching (execution contract local_training). batchSize 0 trains the whole dataset as one step
+  // per epoch; otherwise each epoch takes one step per batchSize minibatch, visiting the examples in
+  // BATCH_ORDER_SEEDED_PERMUTATION_V1 order seeded by batchSeed (the contract's seed as a decimal string, since it is
+  // 64-bit). Added in bridge ABI 2.
+  batchSize: number;
+  batchSeed: string;
+  // The first-order optimizer (execution contract local_training): 'sgd', or 'adam' (fresh each round, no weight decay
+  // or AMSGrad) at learningRate with these moment settings. Added in bridge ABI 4.
+  optimizer: string;
+  adamBeta1: number;
+  adamBeta2: number;
+  adamEpsilon: number;
+  // The model's dropout layers (execution contract dropout): their rates in forward order, masks drawn from
+  // DROPOUT_MASKS_SEEDED_V1 seeded by dropoutSeed (the contract's seed as a decimal string). Empty for a model without
+  // dropout. Added in bridge ABI 4.
+  dropoutRates: ReadonlyArray<number>;
+  dropoutSeed: string;
   seed: number; // optimizer seed (distinct from data seed)
   torchVersion: string; // must match server's GetDeComFLConfigResponse.torch_version
 }
@@ -48,7 +76,7 @@ export interface RoundResult {
 
 export interface DeviceMetrics {
   peakRssBytes: number; // native RSS sample (replaces broken resourceMonitor.js, M-H4)
-  thermalState: string; // 'NOMINAL'|'FAIR'|'SERIOUS'|'CRITICAL' (platform thermal API)
+  thermalState: string; // 'NOMINAL'|'FAIR'|'SERIOUS'|'CRITICAL' (platform thermal API), 'UNKNOWN' until sampled
   batteryLevel: number; // 0.0..1.0
   batteryCharging: boolean;
 }
@@ -88,7 +116,33 @@ export interface ModelManifest {
   trainableParamNames?: string[];
 }
 
+// The qualification probe for the trainable program (Stage 3 D2): the exporter's two-step reference. Bridge ABI 3.
+export interface TrainableProbe {
+  rows: number;
+  width: number;
+  classes: number;
+  learningRate: number;
+  lossStep1: number;
+  lossStep2: number;
+  lossTolerance: number;
+  maxProbeMs: number;
+  // One example's shape when it has more than one dimension (an image's [channels, height, width]); its product is
+  // width. Absent for a vector. Read by the native probe since Stage 4 S6.
+  inputShape?: number[];
+}
+
+// passed, or the first failed check (SPEC, LOAD, LOSS_MISMATCH, STALE_WEIGHTS, TOO_SLOW) and why.
+export interface QualificationReport {
+  passed: boolean;
+  failedCheck: string;
+  detail: string;
+  lossStep1: number;
+  lossStep2: number;
+  wallMs: number;
+}
+
 export interface Spec extends TurboModule {
+  getRuntimeCompatibility(): Promise<RuntimeCompatibility>;
   // ---- gRPC lifecycle ----
   registerClient(
     serverAddress: string,
@@ -125,6 +179,9 @@ export interface Spec extends TurboModule {
   // ---- one round (the bridge runs ONE round per call; the RN layer loops + checks deadline) ----
   runDeComFLRound(runId: string, config: RoundConfig): Promise<RoundResult>;
   runFedAvgRound(runId: string, config: RoundConfig): Promise<RoundResult>;
+  // Run the qualification probe against the provisioned trainable program (set by setModelManifest), in a fresh
+  // instance, so the run's model is untouched. Resolves with the report; a failed check is a report, not a rejection.
+  qualifyTrainable(probe: TrainableProbe): Promise<QualificationReport>;
 
   // ---- inference (Model Testing screen) — REAL softmax, not exp(-loss) (C5 §3) ----
   infer(inputJson: string): Promise<InferResult>;
@@ -159,6 +216,7 @@ function unavailable(): Promise<never> {
 // Typed no-op core used when the native module is absent. Keeps the default-export type exactly `Spec`
 // so callers and tsc are unaffected; only actual training/gRPC calls fail (loudly, with the message).
 const fallbackCore: Spec = {
+  getRuntimeCompatibility: unavailable,
   registerClient: unavailable,
   getServerStatus: unavailable,
   stop: unavailable,
@@ -168,6 +226,7 @@ const fallbackCore: Spec = {
   stageBundleFile: unavailable,
   runDeComFLRound: unavailable,
   runFedAvgRound: unavailable,
+  qualifyTrainable: unavailable,
   infer: unavailable,
   getDeviceMetrics: unavailable,
 };

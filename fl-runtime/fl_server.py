@@ -33,6 +33,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 import fedlearn as fl
 from fedlearn.server import DeComFL, FedLoRA, FedProx, FedOpt, RobustAggregator  # Import strategies from framework
+import strategy_client_settings
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from init_model import get_model
@@ -217,7 +218,19 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ECG_DATASET_PATH = os.path.join(SCRIPT_DIR, "ecg_data", "ecg.csv")  # Hardcoded ECG dataset path
 ECG_DATASET_NAME = "ecg"
 ECG_NUM_CLIENTS = 3  # Hardcoded number of clients for ECG
-ECG_STRATEGY = "DeComFL"  # Hardcoded strategy for MLP
+
+
+def apply_ecg_run_settings(args):
+    """The MLP recipe's ECG dataset settings: (dataset path, client count), with ``args.dataset`` set to ECG.
+
+    Only the dataset is the recipe's. The strategy stays the run's: this used to force DeComFL onto every MLP run,
+    so an MLP FedAvg run aggregated zeroth-order scalars and a phone's weight upload failed. Other recipes get
+    (None, None) and are left untouched.
+    """
+    if (getattr(args, "model_type", None) or "").upper() != "MLP":
+        return None, None
+    args.dataset = ECG_DATASET_NAME
+    return ECG_DATASET_PATH, ECG_NUM_CLIENTS
 
 
 def perplexity_from_loss(avg_loss):
@@ -277,12 +290,12 @@ def evaluation_load_is_strict(model_type, training_arm, withheld=0):
         # BatchNorm models for FULL would immediately fail evaluation on the very keys the wire
         # was told not to carry.
         return False
-    if str(model_type).upper() == "TINYNET_GOLDEN":
-        # Syncs only its 25 trainable fc1 params; the frozen fc2 exists only in the fresh net.
-        return False
     try:
-        return recipes.trainable_prefixes(model_type, training_arm) is None
-    except ValueError:
+        # One definition shared with the client (recipes.federates_trainable_subset). It covers both
+        # a subset ARM and a recipe frozen by construction -- TINYNET_GOLDEN syncs only its 25
+        # trainable fc1 params, and the frozen fc2 exists only in the fresh net.
+        return not recipes.federates_trainable_subset(model_type, training_arm)
+    except (ValueError, KeyError):
         return True        # unknown recipe/arm: keep the stricter behaviour
 
 
@@ -417,8 +430,9 @@ def select_strategy(args, initial_parameters, evaluate_fn):
     elif args.strategy.lower() == 'fedprox':
         # FR-11: FedProx. Server aggregation is identical to FedAvg; the proximal term lives in
         # the client objective and is shipped via get_client_config. Default μ=0.1 gives a mild
-        # anti-drift pull (μ=0 would be bitwise-identical to FedAvg).
-        proximal_mu = 0.1
+        # anti-drift pull (μ=0 would be bitwise-identical to FedAvg). The execution contract states
+        # the same client settings, from the same constants.
+        proximal_mu = strategy_client_settings.FEDPROX_CLIENT_PROXIMAL_MU
         logging.info(f"Using FedProx strategy (proximal μ={proximal_mu})")
         strategy = FedProx(
             initial_parameters=initial_parameters,
@@ -426,6 +440,8 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             min_fit_clients=args.min_clients,
             clients_per_round=clients_per_round,
             proximal_mu=proximal_mu,
+            learning_rate=strategy_client_settings.FEDPROX_CLIENT_LEARNING_RATE,
+            local_epochs=strategy_client_settings.FEDPROX_CLIENT_LOCAL_EPOCHS,
         )
     elif args.strategy.lower() == 'fedopt':
         # FR-11: server-side adaptive optimisation (FedAdam by default). Standard FedAdam
@@ -445,6 +461,9 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             beta2=beta2,
             tau=tau,
             variant=fedopt_variant,
+            # The client training the execution contract publishes for FedOpt runs; one source for both.
+            learning_rate=strategy_client_settings.FEDOPT_CLIENT_LEARNING_RATE,
+            local_epochs=strategy_client_settings.FEDOPT_CLIENT_LOCAL_EPOCHS,
         )
     elif args.strategy.lower() == 'robust':
         # FR-12: Byzantine-robust aggregation. The METHOD is selectable -- median and
@@ -620,14 +639,9 @@ def main():
     # print(f"[OVERRIDE] Setting min_clients to 1 for LLM+DeComFL testing")
 
     is_mlp = args.model_type == 'MLP'
+    dataset_path, num_clients = apply_ecg_run_settings(args)
 
     if is_mlp:
-        # Override with hardcoded ECG values
-        args.dataset = ECG_DATASET_NAME
-        args.strategy = ECG_STRATEGY
-        dataset_path = ECG_DATASET_PATH
-        num_clients = ECG_NUM_CLIENTS
-
         print(f"\n{'='*60}")
         print(f"MLP MODEL DETECTED - Using Hardcoded ECG Configuration")
         print(f"{'='*60}")
@@ -636,9 +650,6 @@ def main():
         print(f"  Strategy: {args.strategy}")
         print(f"  Num clients: {num_clients}")
         print(f"{'='*60}\n")
-    else:
-        dataset_path = None
-        num_clients = None
 
     logging.info(f"--- Starting gRPC FedLearn Server for Project: {args.project_id} ---")
 

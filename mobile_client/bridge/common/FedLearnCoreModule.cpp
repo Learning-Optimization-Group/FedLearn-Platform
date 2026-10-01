@@ -13,8 +13,10 @@
 #include <ReactCommon/TurboModuleUtils.h>  // react::createPromiseAsJSIValue, react::Promise (RN)
 
 #include "DeviceState.h"
+#include "fedlearn/BatchOrder.h"
 #include "fedlearn/DataLoader.h"
-#include "fedlearn/EvalMetrics.h"
+#include "fedlearn/DatasetEvaluation.h"
+#include "fedlearn/ModelExecutionError.h"
 #include "fedlearn/Sha256.h"
 
 namespace fedlearn::bridge {
@@ -93,6 +95,16 @@ jsi::Value toJs(jsi::Runtime& rt, const RoundResult& r) {
   o.setProperty(rt, "reverted", r.reverted);
   return o;
 }
+jsi::Value toJs(jsi::Runtime& rt, const fedlearn::QualificationReport& q) {
+  jsi::Object o(rt);
+  o.setProperty(rt, "passed", q.passed);
+  o.setProperty(rt, "failedCheck", jsi::String::createFromUtf8(rt, q.failedCheck));
+  o.setProperty(rt, "detail", jsi::String::createFromUtf8(rt, q.detail));
+  o.setProperty(rt, "lossStep1", q.lossStep1);
+  o.setProperty(rt, "lossStep2", q.lossStep2);
+  o.setProperty(rt, "wallMs", static_cast<double>(q.wallMs));
+  return o;
+}
 jsi::Value toJs(jsi::Runtime& rt, const ModelInfo& m) {
   jsi::Object o(rt);
   o.setProperty(rt, "paramCount", static_cast<double>(m.paramCount));
@@ -130,6 +142,21 @@ RoundConfig roundConfigFromJs(jsi::Runtime& rt, const jsi::Object& o) {
   c.numPerturbations = static_cast<int>(o.getProperty(rt, "numPerturbations").asNumber());
   c.numLocalSteps = static_cast<int>(o.getProperty(rt, "numLocalSteps").asNumber());
   c.gradEstimateMethod = o.getProperty(rt, "gradEstimateMethod").asString(rt).utf8(rt);
+  const jsi::Value initial = o.getProperty(rt, "initialStateSha256");
+  c.initialStateSha256 = initial.isString() ? initial.asString(rt).utf8(rt) : std::string();
+  const jsi::Value proximal = o.getProperty(rt, "proximalMu");
+  c.proximalMu = proximal.isNumber() ? proximal.asNumber() : 0.0;
+  // Bridge ABI 2: the contract's first-order minibatching. The seed crosses as a decimal string (64-bit).
+  c.batchSize = static_cast<int64_t>(o.getProperty(rt, "batchSize").asNumber());
+  c.batchSeed = o.getProperty(rt, "batchSeed").asString(rt).utf8(rt);
+  // Bridge ABI 4: the contract's optimizer and dropout layers. Required: a JS layer that omits them is not ABI 4.
+  c.optimizer = o.getProperty(rt, "optimizer").asString(rt).utf8(rt);
+  c.adamBeta1 = o.getProperty(rt, "adamBeta1").asNumber();
+  c.adamBeta2 = o.getProperty(rt, "adamBeta2").asNumber();
+  c.adamEpsilon = o.getProperty(rt, "adamEpsilon").asNumber();
+  const jsi::Array rates = o.getProperty(rt, "dropoutRates").asObject(rt).asArray(rt);
+  for (size_t i = 0; i < rates.size(rt); ++i) c.dropoutRates.push_back(rates.getValueAtIndex(rt, i).asNumber());
+  c.dropoutSeed = o.getProperty(rt, "dropoutSeed").asString(rt).utf8(rt);
   c.seed = static_cast<int64_t>(o.getProperty(rt, "seed").asNumber());
   c.torchVersion = o.getProperty(rt, "torchVersion").asString(rt).utf8(rt);
   return c;
@@ -335,36 +362,31 @@ ModelInfo FedLearnCoreModule::doLoadModel(const std::string& modelPath,
   return out;
 }
 
-void FedLearnCoreModule::evalBatch(double& outLoss, double& outAccuracy) {
-  // ExecuTorch weights-as-inputs: loss graph -> cross-entropy; infer graph -> logits for argmax.
-  const std::vector<float>& flat = mm_.getFlatParams();
-  const fedlearn::DataBatch& b = trainingBatch_;
-  const int64_t n = b.numSamples;
-
-  // MO-6 bounds guard: an unstaged / 0-sample batch must not reach the model (cross-entropy mean over 0
-  // samples is NaN) nor the accuracy path. Report a neutral (0,0) — "not evaluable" — rather than crash.
-  if (n <= 0 || b.inputs == nullptr || b.targets == nullptr) {
-    outLoss = 0.0;
-    outAccuracy = 0.0;
-    return;
-  }
-
-  outLoss = static_cast<double>(model_->loss(flat, b.inputs, b.inputShape, b.targets, n));
-
-  // REAL accuracy: argmax of the infer logits vs targets (no NaN, no exp(-loss) fake). argmaxCorrect is
-  // bounds-safe — it guards the empty/short/ragged infer output that a naive logits[row*classes] loop
-  // would OOB-read (n>0 but empty logits -> classes 0 -> logits[0] on an empty buffer). See EvalMetrics.h.
-  const std::vector<float> logits = inferModel_->infer(flat, b.inputs, b.inputShape);
-  const fedlearn::AccuracyCount acc = fedlearn::argmaxCorrect(logits, b.targets, n);
-  outAccuracy =
-      acc.scored > 0 ? static_cast<double>(acc.correct) / static_cast<double>(acc.scored) : 0.0;
+void FedLearnCoreModule::evalBatch(double& outLoss, double& outAccuracy, int64_t chunk) {
+  // ExecuTorch weights-as-inputs: loss graph -> cross-entropy; infer graph -> logits for argmax. An unstaged /
+  // 0-sample batch is not evaluable and reports (0, 0) rather than a NaN mean (MO-6); evaluateDataset guards it.
+  const fedlearn::DatasetMetrics m =
+      fedlearn::evaluateDataset(*model_, *inferModel_, mm_.getFlatParams(), trainingBatch_, chunk);
+  outLoss = m.loss;
+  outAccuracy = m.accuracy;
 }
 
 RoundResult FedLearnCoreModule::doRunDeComFLRound(const std::string& runId, const RoundConfig& cfg) {
+  auto flight = roundFlight_.acquire();
   std::lock_guard<std::mutex> lk(stateMutex_);
   requireReady();
   const auto t0 = std::chrono::steady_clock::now();
-  fedlearn::RoundOutcome outcome = loop_->deComFLRound(*model_, runId, clientId_, trainingBatch_);
+  if (!cfg.dropoutRates.empty()) {
+    throw std::runtime_error("a zeroth-order round draws no dropout masks; its model must have no dropout");
+  }
+  // Android trains only under an execution contract; cfg carries its zeroth-order training, and the round refuses
+  // any server setting that differs from it.
+  const fedlearn::ZerothOrderContract contract{
+      cfg.learningRate, cfg.mu, cfg.numLocalSteps, cfg.numPerturbations,
+      cfg.gradEstimateMethod == "central" ? fedlearn::GradEstimateMethod::Central
+                                          : fedlearn::GradEstimateMethod::Forward,
+      cfg.initialStateSha256};
+  fedlearn::RoundOutcome outcome = loop_->deComFLRound(*model_, runId, clientId_, trainingBatch_, &contract);
   const auto t1 = std::chrono::steady_clock::now();
   if (outcome.shouldStop) {
     throw std::runtime_error("STOP: " + outcome.note);  // RN treats a STOP-prefixed reject as a clean stop
@@ -383,15 +405,37 @@ RoundResult FedLearnCoreModule::doRunDeComFLRound(const std::string& runId, cons
 }
 
 RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const RoundConfig& cfg) {
+  auto flight = roundFlight_.acquire();
   std::lock_guard<std::mutex> lk(stateMutex_);
   requireReady();
   const auto t0 = std::chrono::steady_clock::now();
 #ifdef FEDLEARN_HAS_TRAINING
   if (trainableModel_) {
     // TRUE first-order (MO-4 lift): real backprop (firstOrderRound) + a WEIGHT-blob upload via
-    // SubmitModelUpdateStream — what a FedAvg-strategy server aggregates. K/eta are server-authoritative.
+    // SubmitModelUpdateStream — what first-order servers aggregate. FedOpt and FedProx require server K/eta;
+    // FedProx adds the contract's proximal term.
+    fedlearn::LocalBatching batching;
+    batching.batchSize = cfg.batchSize;
+    batching.seededPermutation = !cfg.batchSeed.empty();
+    batching.seed = batching.seededPermutation ? fedlearn::parseBatchSeed(cfg.batchSeed) : 0;
+    fedlearn::LocalOptimizer optimizer;
+    if (cfg.optimizer == "adam") {
+      optimizer.adam = true;
+      optimizer.beta1 = cfg.adamBeta1;
+      optimizer.beta2 = cfg.adamBeta2;
+      optimizer.epsilon = cfg.adamEpsilon;
+    } else if (cfg.optimizer != "sgd") {
+      throw std::runtime_error("unknown optimizer '" + cfg.optimizer + "'");
+    }
+    fedlearn::DropoutSpec dropout;
+    dropout.rates = cfg.dropoutRates;
+    if (!dropout.rates.empty()) {
+      if (cfg.dropoutSeed.empty()) throw std::runtime_error("dropout layers need the contract's mask seed");
+      dropout.seed = fedlearn::parseBatchSeed(cfg.dropoutSeed);  // the same exact decimal uint64 parsing
+    }
     fedlearn::RoundOutcome outcome = loop_->firstOrderRound(
-        *trainableModel_, runId, clientId_, trainingBatch_, cfg.numLocalSteps, cfg.learningRate);
+        *trainableModel_, runId, clientId_, trainingBatch_, cfg.numLocalSteps, cfg.learningRate,
+        cfg.strategy == "FedOpt" || cfg.strategy == "FedProx", cfg.proximalMu, batching, optimizer, dropout);
     const auto t1 = std::chrono::steady_clock::now();
     if (outcome.shouldStop) throw std::runtime_error("STOP: " + outcome.note);
     RoundResult r;
@@ -400,12 +444,19 @@ RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const
     r.scalarsTransmitted = 0;  // a weight blob is uploaded, not ZO scalars
     r.uplinkBytes = static_cast<int64_t>(mm_.trainableParamCount()) * 4;  // ~ the F32 weight blob
     r.computeMs = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
-    evalBatch(r.loss, r.accuracy);
+    evalBatch(r.loss, r.accuracy, cfg.batchSize);
     return r;
   }
 #endif
   // ZO-SGD fallback (no trainable .pte provisioned): K ZO-SGD steps, each averaging P
   // forward-difference estimates; the upload is per-(k,p) seeds + g-scalars, NOT a weight blob.
+  // It has no proximal term, so a FedProx round never falls back to it.
+  if (cfg.proximalMu != 0.0) {
+    throw std::runtime_error("FedProx requires the trainable program; none is provisioned");
+  }
+  if (cfg.optimizer != "sgd" || !cfg.dropoutRates.empty()) {
+    throw std::runtime_error("Adam and dropout require the trainable program; none is provisioned");
+  }
   fedlearn::RoundOutcome outcome =
       loop_->fedAvgRound(*model_, runId, clientId_, trainingBatch_, cfg.numLocalSteps,
                          cfg.learningRate, cfg.mu, cfg.numPerturbations);
@@ -560,7 +611,7 @@ jsi::Value FedLearnCoreModule::runOnWorker(jsi::Runtime& rt, Work work, Build bu
               }
             });
           } catch (const std::exception& e) {
-            std::string msg = e.what();
+            std::string msg = fedlearn::rejectionMessage(e);  // model-execution errors carry the no-retry prefix
             invoker->invokeAsync([weak, msg](jsi::Runtime&) {
               if (auto p = weak.lock()) {
                 p->reject(msg);
@@ -582,6 +633,17 @@ jsi::Value FedLearnCoreModule::runOnWorker(jsi::Runtime& rt, Work work, Build bu
         std::lock_guard<std::mutex> lk(workersMutex_);
         reapFinishedWorkers();
         workers_.push_back(Worker{std::move(t), done});
+      });
+}
+
+jsi::Value FedLearnCoreModule::getRuntimeCompatibility(jsi::Runtime& rt) {
+  return runOnWorker(
+      rt, []() { return true; },
+      [](jsi::Runtime& r, const bool&) {
+        jsi::Object result(r);
+        result.setProperty(r, "bridgeAbiVersion", kBridgeAbiVersion);
+        result.setProperty(r, "protocolVersion", kProtocolVersion);
+        return result;
       });
 }
 
@@ -680,6 +742,53 @@ jsi::Value FedLearnCoreModule::loadModel(jsi::Runtime& rt, jsi::String modelPath
   return runOnWorker(
       rt, [this, path, sha]() { return doLoadModel(path, sha); },
       [](jsi::Runtime& r, const ModelInfo& v) { return toJs(r, v); });
+}
+
+jsi::Value FedLearnCoreModule::qualifyTrainable(jsi::Runtime& rt, jsi::Object probe) {
+  fedlearn::ProbeSpec spec;
+  spec.rows = static_cast<int64_t>(probe.getProperty(rt, "rows").asNumber());
+  spec.width = static_cast<int64_t>(probe.getProperty(rt, "width").asNumber());
+  spec.classes = static_cast<int64_t>(probe.getProperty(rt, "classes").asNumber());
+  spec.learningRate = static_cast<float>(probe.getProperty(rt, "learningRate").asNumber());
+  spec.expectedLossStep1 = probe.getProperty(rt, "lossStep1").asNumber();
+  spec.expectedLossStep2 = probe.getProperty(rt, "lossStep2").asNumber();
+  spec.lossTolerance = probe.getProperty(rt, "lossTolerance").asNumber();
+  spec.maxProbeMs = static_cast<int64_t>(probe.getProperty(rt, "maxProbeMs").asNumber());
+  // Optional: one example's shape when it has more than one dimension (an image's [channels, height, width]).
+  const jsi::Value shape = probe.getProperty(rt, "inputShape");
+  if (shape.isObject() && shape.asObject(rt).isArray(rt)) {
+    const jsi::Array dims = shape.asObject(rt).asArray(rt);
+    for (size_t i = 0; i < dims.size(rt); ++i) {
+      spec.inputShape.push_back(static_cast<int64_t>(dims.getValueAtIndex(rt, i).asNumber()));
+    }
+  }
+  return runOnWorker(
+      rt, [this, spec]() { return doQualifyTrainable(spec); },
+      [](jsi::Runtime& r, const fedlearn::QualificationReport& v) { return toJs(r, v); });
+}
+
+fedlearn::QualificationReport FedLearnCoreModule::doQualifyTrainable(const fedlearn::ProbeSpec& spec) {
+  std::string path, sha;
+  std::vector<std::string> names;
+  {
+    std::lock_guard<std::mutex> lk(stateMutex_);
+    path = manifest_.trainablePtePath;
+    sha = manifest_.trainableSha256;
+    names = manifest_.trainableParamNames;
+  }
+  fedlearn::QualificationReport r;
+  if (path.empty()) {
+    r.failedCheck = "LOAD";
+    r.detail = "no trainable program is provisioned";
+    return r;
+  }
+#ifdef FEDLEARN_HAS_TRAINING
+  return fedlearn::qualifyTrainable(path, sha, names, spec);
+#else
+  r.failedCheck = "LOAD";
+  r.detail = "this build has no training extension";
+  return r;
+#endif
 }
 
 jsi::Value FedLearnCoreModule::runDeComFLRound(jsi::Runtime& rt, jsi::String runId, jsi::Object config) {

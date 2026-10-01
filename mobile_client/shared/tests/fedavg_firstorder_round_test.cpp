@@ -11,7 +11,11 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <cstdio>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -33,13 +37,16 @@ class RoundMock : public fedlearn::IFedLearnClient {
   bool submitCalled = false;
   std::string lastModelBlob;
   int64_t lastNumExamples = -1;
+  std::map<std::string, std::string> globalConfig;
 
   bool shouldStop() const override { return false; }
   fedlearn::DeComFLConfig getDeComFLConfig(const std::string&, const std::string&) override { return {}; }
   void submitGradientScalars(const std::string&, const std::string&, int, const fedlearn::Seeds2D&,
                              const fedlearn::GradientScalars2D&, int64_t) override {}
-  std::string getGlobalModelStream(const std::string&, const std::string&, int* outCurrentRound) override {
+  std::string getGlobalModelStream(const std::string&, const std::string&, int* outCurrentRound,
+                                   std::map<std::string, std::string>* outConfig = nullptr) override {
     if (outCurrentRound) *outCurrentRound = globalRound;
+    if (outConfig) *outConfig = globalConfig;
     return globalBlob;
   }
   void submitModelUpdate(const std::string&, const std::string&, int, const std::string& modelBlob,
@@ -96,3 +103,183 @@ TEST(FedAvgFirstOrderRound, EndpointMatchesFrameworkGoldenAndUploadsWeightBlob) 
     EXPECT_NEAR(got[i], golden[i], kEndpointAtol)
         << "first-order round endpoint (uploaded blob) diverged from the framework golden at " << i;
 }
+
+// The contract states the round's training; a FedOpt server confirms it by sending the same values. (These used
+// to override the phone's own values, so the server rather than the run's contract decided what it trained.)
+TEST(FedAvgFirstOrderRound, FedOptTrainsTheContractsSettingsWhenTheServerConfirmsThem) {
+  const auto init = fedtest::readF32(fedtest::goldenPath("zo_flat.f32"));
+  RoundMock mock;
+  mock.globalBlob = blobFromFlat(init);
+  mock.globalConfig = {{"learning_rate", "0.1"}, {"local_epochs", "5"}, {"proximal_mu", "0.0"}};
+  fedlearn::TrainableExecutorchModel model(
+      fedtest::goldenPath(kTrainablePte), kTrainablePteSha, kParamNames);
+  fedlearn::ModelManager mm = fedtest::makeManager();
+  fedlearn::FederatedLoop loop(mock, mm);
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  fedlearn::DataBatch batch{x.data(), {8, 4}, y.data(), 8};
+
+  const auto out = loop.firstOrderRound(model, "run", "client", batch,
+                                        /*numLocalSteps=*/kLocalEpochs, /*learningRate=*/0.1,
+                                        /*requireServerConfig=*/true);
+
+  ASSERT_TRUE(out.ranTraining);
+  ASSERT_TRUE(mock.submitCalled);
+  fedlearn::ModelManager uploaded = fedtest::makeManager();
+  uploaded.loadStateDict(mock.lastModelBlob);
+  const auto golden = fedtest::readF32(fedtest::goldenPath("fedavg_local_final.f32"));
+  for (size_t i = 0; i < golden.size(); ++i) {
+    EXPECT_NEAR(uploaded.getFlatParams()[i], golden[i], kEndpointAtol) << "parameter " << i;
+  }
+}
+
+struct Disagreement {
+  const char* name;
+  const char* rate;
+  const char* epochs;
+  bool requireServerConfig;
+};
+
+class ServerDisagreesWithContract : public ::testing::TestWithParam<Disagreement> {};
+
+// The phone was given the contract's 0.001 x 1. A server asking for anything else refuses the round before any
+// upload -- on a FedOpt round that requires the server's values, and on a FedAvg or Robust round that does not.
+TEST_P(ServerDisagreesWithContract, RefusesTheRoundBeforeUpload) {
+  const auto& p = GetParam();
+  RoundMock mock;
+  mock.globalBlob = blobFromFlat(fedtest::readF32(fedtest::goldenPath("zo_flat.f32")));
+  mock.globalConfig = {{"learning_rate", p.rate}, {"local_epochs", p.epochs}, {"proximal_mu", "0.0"}};
+  fedlearn::TrainableExecutorchModel model(
+      fedtest::goldenPath(kTrainablePte), kTrainablePteSha, kParamNames);
+  fedlearn::ModelManager mm = fedtest::makeManager();
+  fedlearn::FederatedLoop loop(mock, mm);
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  fedlearn::DataBatch batch{x.data(), {8, 4}, y.data(), 8};
+
+  EXPECT_THROW(loop.firstOrderRound(model, "run", "client", batch, 1, 0.001, p.requireServerConfig),
+               std::runtime_error);
+  EXPECT_FALSE(mock.submitCalled);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    FedAvgFirstOrderRound, ServerDisagreesWithContract,
+    ::testing::Values(Disagreement{"FedOptOtherRate", "0.1", "1", true},
+                      Disagreement{"FedOptOtherEpochs", "0.001", "5", true},
+                      Disagreement{"FedOptBoth", "0.1", "5", true},
+                      Disagreement{"FedAvgServerSendsARate", "0.1", "1", false}),
+    [](const ::testing::TestParamInfo<Disagreement>& info) { return std::string(info.param.name); });
+
+TEST(FedAvgFirstOrderRound, FedOptRejectsMissingServerSettingsBeforeUpload) {
+  RoundMock mock;
+  mock.globalBlob = blobFromFlat(fedtest::readF32(fedtest::goldenPath("zo_flat.f32")));
+  fedlearn::TrainableExecutorchModel model(
+      fedtest::goldenPath(kTrainablePte), kTrainablePteSha, kParamNames);
+  fedlearn::ModelManager mm = fedtest::makeManager();
+  fedlearn::FederatedLoop loop(mock, mm);
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  fedlearn::DataBatch batch{x.data(), {8, 4}, y.data(), 8};
+
+  EXPECT_THROW(loop.firstOrderRound(model, "run", "client", batch, 1, 0.001, true), std::runtime_error);
+  EXPECT_FALSE(mock.submitCalled);
+}
+
+TEST(FedAvgFirstOrderRound, FedOptRejectsMalformedServerSettingsBeforeUpload) {
+  RoundMock mock;
+  mock.globalBlob = blobFromFlat(fedtest::readF32(fedtest::goldenPath("zo_flat.f32")));
+  mock.globalConfig = {{"learning_rate", " 0.1"}, {"local_epochs", "5"}};
+  fedlearn::TrainableExecutorchModel model(
+      fedtest::goldenPath(kTrainablePte), kTrainablePteSha, kParamNames);
+  fedlearn::ModelManager mm = fedtest::makeManager();
+  fedlearn::FederatedLoop loop(mock, mm);
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  fedlearn::DataBatch batch{x.data(), {8, 4}, y.data(), 8};
+
+  EXPECT_THROW(loop.firstOrderRound(model, "run", "client", batch, 1, 0.001, true), std::runtime_error);
+  EXPECT_FALSE(mock.submitCalled);
+}
+
+// --- FedProx: the same round, plus the proximal gradient mu * (w - w_global) on every step ----------------------
+
+namespace {
+
+constexpr double kFedProxMu = 0.1;                // fedprox_local_manifest.proximal_mu
+constexpr float kFedProxEndpointAtol = 1e-4f;     // fedprox_local_manifest.endpoint_atol
+
+}  // namespace
+
+// The proximal term is zero on a round's first step and moves this endpoint by only ~1.4e-3 over five, inside the
+// FedAvg golden's 2e-3. So this test uses the FedProx golden's own tolerance, and first proves that tolerance can
+// tell the two apart: a trainer with no proximal term would land on the FedAvg golden and fail here.
+TEST(FedAvgFirstOrderRound, FedProxEndpointMatchesTheFrameworkGoldenAndNotFedAvgs) {
+  const auto prox = fedtest::readF32(fedtest::goldenPath("fedprox_local_final.f32"));
+  const auto plain = fedtest::readF32(fedtest::goldenPath("fedavg_local_final.f32"));
+  ASSERT_EQ(prox.size(), plain.size());
+  float separation = 0.0f;
+  for (size_t i = 0; i < prox.size(); ++i) separation = std::max(separation, std::fabs(prox[i] - plain[i]));
+  ASSERT_GE(separation, 10 * kFedProxEndpointAtol) << "the FedProx golden cannot discriminate at its tolerance";
+
+  RoundMock mock;
+  mock.globalBlob = blobFromFlat(fedtest::readF32(fedtest::goldenPath("zo_flat.f32")));
+  mock.globalConfig = {{"learning_rate", "0.1"}, {"local_epochs", "5"}, {"proximal_mu", "0.1"}};
+  fedlearn::TrainableExecutorchModel model(
+      fedtest::goldenPath(kTrainablePte), kTrainablePteSha, kParamNames);
+  fedlearn::ModelManager mm = fedtest::makeManager();
+  fedlearn::FederatedLoop loop(mock, mm);
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  fedlearn::DataBatch batch{x.data(), {8, 4}, y.data(), 8};
+
+  const auto out = loop.firstOrderRound(model, "run", "client", batch, kLocalEpochs, 0.1,
+                                        /*requireServerConfig=*/true, /*proximalMu=*/kFedProxMu);
+
+  ASSERT_TRUE(out.ranTraining);
+  ASSERT_TRUE(mock.submitCalled);
+  fedlearn::ModelManager uploaded = fedtest::makeManager();
+  uploaded.loadStateDict(mock.lastModelBlob);
+  float worst = 0.0f;
+  for (size_t i = 0; i < prox.size(); ++i) {
+    worst = std::max(worst, std::fabs(uploaded.getFlatParams()[i] - prox[i]));
+    EXPECT_NEAR(uploaded.getFlatParams()[i], prox[i], kFedProxEndpointAtol) << "parameter " << i;
+  }
+  std::printf("[fedprox] max|endpoint diff| = %g (atol %g, separation from FedAvg %g)\n", worst,
+              kFedProxEndpointAtol, separation);
+}
+
+struct ProximalDisagreement {
+  const char* name;
+  double contractMu;
+  const char* serverMu;  // nullptr: the server sends none
+};
+
+class ServerProximalTermDisagreesWithContract : public ::testing::TestWithParam<ProximalDisagreement> {};
+
+// The proximal coefficient is a cross-check like the rate: absent is zero on both sides.
+TEST_P(ServerProximalTermDisagreesWithContract, RefusesTheRoundBeforeUpload) {
+  const auto& p = GetParam();
+  RoundMock mock;
+  mock.globalBlob = blobFromFlat(fedtest::readF32(fedtest::goldenPath("zo_flat.f32")));
+  mock.globalConfig = {{"learning_rate", "0.01"}, {"local_epochs", "1"}};
+  if (p.serverMu != nullptr) mock.globalConfig["proximal_mu"] = p.serverMu;
+  fedlearn::TrainableExecutorchModel model(
+      fedtest::goldenPath(kTrainablePte), kTrainablePteSha, kParamNames);
+  fedlearn::ModelManager mm = fedtest::makeManager();
+  fedlearn::FederatedLoop loop(mock, mm);
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  fedlearn::DataBatch batch{x.data(), {8, 4}, y.data(), 8};
+
+  EXPECT_THROW(loop.firstOrderRound(model, "run", "client", batch, 1, 0.01, true, p.contractMu),
+               std::runtime_error);
+  EXPECT_FALSE(mock.submitCalled);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    FedAvgFirstOrderRound, ServerProximalTermDisagreesWithContract,
+    ::testing::Values(ProximalDisagreement{"FedProxOtherMu", 0.1, "0.2"},
+                      ProximalDisagreement{"FedProxServerSendsNoMu", 0.1, nullptr},
+                      ProximalDisagreement{"FedProxServerSendsZero", 0.1, "0.0"},
+                      ProximalDisagreement{"FedOptServerSendsAMu", 0.0, "0.1"}),
+    [](const ::testing::TestParamInfo<ProximalDisagreement>& info) { return std::string(info.param.name); });

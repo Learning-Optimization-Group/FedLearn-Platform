@@ -57,7 +57,8 @@ class FLCoordinator:
     def __init__(self, strategy: Strategy, min_clients_for_aggregation: int, clients_per_round: int,
                  round_timeout_s: Optional[float] = None,
                  grad_clip_threshold: Optional[float] = 1000.0,
-                 client_update_l2_clip: Optional[float] = None):
+                 client_update_l2_clip: Optional[float] = None,
+                 num_rounds: Optional[int] = None):
         self.strategy = strategy
         self.min_clients = min_clients_for_aggregation
         self.clients_per_round = clients_per_round
@@ -72,6 +73,10 @@ class FLCoordinator:
         # reputation; robust aggregation (trimmed-mean/median) is a large-cohort feature deferred
         # behind a min-cohort gate, being a no-op at the 1-3 client cohorts this platform runs.
         self.grad_clip_threshold = grad_clip_threshold
+
+        # Research-only record of each accepted client update (fedlearn.server.update_recorder). None records
+        # nothing; build_coordinator sets it from FEDLEARN_RECORD_CLIENT_UPDATES.
+        self.update_recorder = None
 
         # SE-3 poisoning defense (FedAvg path): optional server-side L2 clip of each client's UPDATE
         # DELTA (params - current global) to this budget, so no single client can move the global by
@@ -99,6 +104,9 @@ class FLCoordinator:
         self._partition_to_client: dict[int, str] = {}
         self._client_to_partition: dict[str, int] = {}
         self.current_round = 1  # Start at round 1
+        # The run's length, when the server knows it: no round beyond it is ever handed out. None keeps the
+        # historical open-ended behaviour for callers that drive rounds themselves.
+        self.num_rounds = num_rounds
         self.stop_requested = False
         # True only after all configured rounds finished successfully (distinct
         # from stop_requested, which also covers user-stop / error teardown).
@@ -115,8 +123,10 @@ class FLCoordinator:
         self.last_round_message: Optional[str] = None
 
         # Monotonic timestamp marking when the current round began. Used to
-        # enforce round_timeout_s independently of wall-clock adjustments.
+        # enforce round_timeout_s independently of wall-clock adjustments. The wall-clock start is
+        # kept beside it only to report the deadline to clients (round_deadline_unix_ms).
         self._round_started_at = time.monotonic()
+        self._round_started_wall = time.time()
 
         # P2-2: set by the gRPC servicer, which owns the per-round secure-aggregation sessions.
         # The coordinator needs to reach the current round's session on the deadline path, but it
@@ -129,6 +139,7 @@ class FLCoordinator:
         with self._lock:
             self._client_updates_received.clear()  # Prevent stale state leakage across rounds
             self._round_started_at = time.monotonic()  # Reset the dropout deadline for this round
+            self._round_started_wall = time.time()
         self._round_complete_event.clear()
 
     def wait_for_round_to_complete(self):
@@ -154,6 +165,15 @@ class FLCoordinator:
                     break
                 with self._lock:
                     self._round_started_at = time.monotonic()
+                    self._round_started_wall = time.time()
+
+    def round_deadline_unix_ms(self) -> int:
+        """When the current round's dropout deadline passes, as Unix milliseconds: its start plus round_timeout_s.
+
+        The same deadline the coordinator enforces, so a client's countdown advances between status polls.
+        """
+        with self._lock:
+            return int((self._round_started_wall + self.round_timeout_s) * 1000)
 
     def set_secure_session_provider(self, provider) -> None:
         """Register how to reach a round's secure-aggregation session (P2-2).
@@ -367,9 +387,26 @@ class FLCoordinator:
         self.stop_requested = True
         self._round_complete_event.set()
 
+    def _past_last_round(self) -> bool:
+        """The run's last round has aggregated (only knowable when the coordinator was told the run's length).
+
+        The server loop marks completion a moment later; everything that decides whether the run is over -- the
+        download sentinel, the status clients poll, and whether an update counts -- treats this as over already.
+        Call with the lock held.
+        """
+        return self.num_rounds is not None and self.current_round > self.num_rounds
+
+    def run_is_over(self) -> bool:
+        """Whether no further round will be trained: the run stopped, or its last round has aggregated."""
+        with self._lock:
+            return self.stop_requested or self._past_last_round()
+
     def get_global_model_for_client(self) -> Tuple[Optional[OrderedDict[str, torch.Tensor]], int, dict]:
         with self._lock:
-            if self.stop_requested:
+            # -1 is the terminal sentinel. The run is over once stopped, and also as soon as its last round has
+            # aggregated: the server loop marks completion a moment later, and a client that fetched in between
+            # used to be handed a round that would never aggregate.
+            if self.stop_requested or self._past_last_round():
                 return None, -1, {}
             return self._global_model_params, self.current_round, self._strategy_client_config()
 
@@ -392,14 +429,22 @@ class FLCoordinator:
     MAX_NUM_EXAMPLES = 100_000
 
     def submit_client_update(self, client_id: str, params: OrderedDict[str, torch.Tensor], num_examples: int,
-                             trained_on_round: int):
+                             trained_on_round: int) -> bool:
+        """Count one client's update toward the current round. Returns whether it was counted.
+
+        An update is not counted when the run has ended, when it was trained on another round, when the client
+        already reported this round, or when it claims no examples. Callers must not report an uncounted update as
+        accepted.
+        """
         with self._lock:
+            if self.training_complete or self.stop_requested or self._past_last_round():
+                return False  # the run is over: a late update belongs to no round that will aggregate
             if trained_on_round < self.current_round:
-                return  # Ignore stale updates
+                return False  # Ignore stale updates
 
             if trained_on_round > self.current_round:
                 # Client is ahead, something is wrong. Ignore.
-                return
+                return False
 
             # FR-5: dedup. A retried FedAvg submit (ABORTED/UNAVAILABLE/DEADLINE_EXCEEDED are
             # client-retryable, so the server can see the same client's update twice in a round)
@@ -413,7 +458,7 @@ class FLCoordinator:
                     "Ignoring duplicate update from %s in round %d (already counted)",
                     client_id, self.current_round,
                 )
-                return
+                return False
 
             # Sanitize num_examples to prevent model poisoning
             if num_examples <= 0:
@@ -422,7 +467,7 @@ class FLCoordinator:
                     "Invalid num_examples (%s) from client %s; skipping update",
                     num_examples, client_id,
                 )
-                return
+                return False
             num_examples = min(num_examples, self.MAX_NUM_EXAMPLES)
 
             # An empty update carries no parameters — never a legitimate training result. In a
@@ -482,6 +527,7 @@ class FLCoordinator:
                     self.clients_per_round, self.current_round,
                 )
                 self._trigger_aggregation_and_evaluation()
+            return True
 
     @staticmethod
     def _tensor_is_finite(t: "torch.Tensor") -> bool:
@@ -720,7 +766,7 @@ class FLCoordinator:
         """Get current server status."""
         with self._lock:
             return {
-                "training_complete": self.training_complete,
+                "training_complete": self.training_complete or self._past_last_round(),
                 "current_round": self.current_round,
                 "required_clients_for_round": self.min_clients,
                 "received_updates_this_round": len(self._client_updates_received)
@@ -745,6 +791,9 @@ class FLCoordinator:
             trained_on_round: Round number client trained on
         """
         with self._lock:
+            if self.training_complete or self.stop_requested or self._past_last_round():
+                log.info("Ignoring DeComFL update from %s: the run is over", client_id)
+                return  # a late update belongs to no round that will aggregate
             if trained_on_round < self.current_round:
                 # Stale submission from a slow client; expected during dropout/rejoin.
                 log.debug(
@@ -818,6 +867,8 @@ class FLCoordinator:
 
             # Store as tuple: (client_id, gradient_scalars, num_examples)
             self._client_updates_received.append((client_id, gradient_scalars, num_examples))
+            if self.update_recorder is not None:   # research-only; see update_recorder.py
+                self.update_recorder.record_decomfl(self.current_round, client_id, gradient_scalars, num_examples)
 
             if len(self._client_updates_received) >= self.clients_per_round:
                 log.info(

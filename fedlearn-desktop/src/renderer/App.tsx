@@ -44,6 +44,9 @@ declare global {
         trainingArm?: string;
         grpcTls?: boolean;
         grpcServerCertPem?: string;
+        runId?: string;
+        contractState?: string;
+        executionContract?: Record<string, unknown>;
       }) => Promise<{ success: boolean; error?: string }>;
       stopTraining: () => Promise<{ success: boolean; error?: string }>;
       getDockerStatus: () => Promise<{ success: boolean; status?: string }>;
@@ -322,6 +325,9 @@ const App: React.FC = () => {
       trainingArm?: string;
       grpcTls?: boolean;
       grpcServerCertPem?: string;
+      runId?: string;
+      contractState?: string;
+      executionContract?: Record<string, unknown>;
     }) => {
       // Anchor the elapsed timer at the moment the user pressed Start — never
       // derived from the 3s status poll. Label falls back to the model type

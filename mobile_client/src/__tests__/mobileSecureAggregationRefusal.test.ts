@@ -2,7 +2,7 @@
 // exchange, share sealing or masking, and a secure server refuses plaintext gradient scalars by design. Joining
 // would fail every round, so runTrainingLoop refuses up front - before any provisioning or native work - and
 // tells the user where they can join instead. Mirrors the MO-4 capability guard (mobileFedAvgRefusal.test.ts).
-import { runTrainingLoop, MobileSecureAggregationUnsupportedError } from '../lib/training';
+import { runTrainingLoop, ExecutionContractRefusedError, MobileSecureAggregationUnsupportedError } from '../lib/training';
 import type { JoinedRun, RunManifest } from '../lib/runJoin';
 import { provisionTrainingBundle } from '../lib/modelProvisioning';
 import nativeCore from '../lib/nativeCore';
@@ -21,6 +21,7 @@ jest.mock('../lib/nativeCore', () => ({
     getServerStatus: jest.fn(),
     runDeComFLRound: jest.fn(),
     runFedAvgRound: jest.fn(),
+    getRuntimeCompatibility: jest.fn().mockResolvedValue({ bridgeAbiVersion: 4, protocolVersion: 2 }),
   },
 }));
 
@@ -73,14 +74,18 @@ describe('runTrainingLoop — secure aggregation guard', () => {
     expect(provisionTrainingBundle).not.toHaveBeenCalled();
   });
 
-  test('a DeComFL run with secure aggregation off still proceeds into provisioning', async () => {
-    (provisionTrainingBundle as jest.Mock).mockRejectedValueOnce(new Error('SENTINEL_PAST_GUARD'));
-    await expect(runTrainingLoop(joinedRun({ secureAggregation: false }), hooks)).rejects.toThrow('SENTINEL_PAST_GUARD');
-    expect(provisionTrainingBundle).toHaveBeenCalledWith('run-1');
+  test('a run with secure aggregation off passes this guard (the contract then decides)', async () => {
+    // The guard is specific: with masking off it does not fire, and the run is stopped one step later by the
+    // execution-contract gate, because this manifest carries no contract.
+    await expect(runTrainingLoop(joinedRun({ secureAggregation: false }), hooks))
+      .rejects.toBeInstanceOf(ExecutionContractRefusedError);
+    expect(provisionTrainingBundle).not.toHaveBeenCalled();
   });
 
-  test('a manifest from an older backend, with no secureAggregation field, is not refused', async () => {
-    (provisionTrainingBundle as jest.Mock).mockRejectedValueOnce(new Error('SENTINEL_PAST_GUARD'));
-    await expect(runTrainingLoop(joinedRun({}), hooks)).rejects.toThrow('SENTINEL_PAST_GUARD');
+  test('a manifest from an older backend does not trip the masking guard', async () => {
+    // An absent secureAggregation field means "off", so this guard stays silent; such a manifest carries no
+    // execution contract either, so the run is refused for that reason instead.
+    await expect(runTrainingLoop(joinedRun({}), hooks))
+      .rejects.toBeInstanceOf(ExecutionContractRefusedError);
   });
 });

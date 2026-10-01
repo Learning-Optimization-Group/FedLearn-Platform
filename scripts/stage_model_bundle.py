@@ -49,6 +49,17 @@ def stage_bundle(run_id: str, out_root: Path, fixture: Path = DEFAULT_FIXTURE) -
     dest = out_root / run_id
     dest.mkdir(parents=True, exist_ok=True)
 
+    # The programs a run stages take a dynamic example count (1..the fixture batch), so a device can train its own
+    # dataset; the static goldens refuse any count but 8 at runtime. Staged when the fixture ships them.
+    dyn_path = fixture / "fedavg_pte_manifest.json"
+    dyn = json.loads(dyn_path.read_text()).get("dynbatch") if dyn_path.exists() else None
+    # A recipe export stages its programs under their own names and states only the bound and probe here.
+    if dyn and "loss_file" in dyn:
+        src = {**src,
+               "pte_file": dyn["loss_file"], "pte_sha256": dyn["loss_sha256"],
+               "infer_file": dyn["infer_file"], "infer_sha256": dyn["infer_sha256"],
+               "trainable_file": dyn["trainable_file"], "trainable_sha256": dyn["trainable_sha256"]}
+
     # (source filename, canonical staged name, expected sha256 from the source manifest or None)
     copies = [
         (src["pte_file"], "loss.pte", src["pte_sha256"]),        # forward(flat,x,y) -> loss
@@ -78,6 +89,45 @@ def stage_bundle(run_id: str, out_root: Path, fixture: Path = DEFAULT_FIXTURE) -
             "trainableSha256": got,
             "trainableParamNames": src.get("trainable_param_names", []),
         }
+
+    # What the execution contract needs from the bundle: each model program's digest and size, the runtime
+    # operators they require, and the declared resource envelope. Recorded only when the source carries the
+    # committed operator metadata; without it the backend cannot publish a contract for the run.
+    model_files = [name for name in ("loss.pte", "infer.pte", "trainable.pte") if (dest / name).exists()]
+    contract_fields = {}
+    metadata_path = fixture / "artifact_metadata.json"
+    if metadata_path.exists():
+        metadata = json.loads(metadata_path.read_text())
+        envelope = metadata["resourceEnvelope"]
+        contract_fields = {
+            "modelFiles": [{"file": name, "sha256": sha256(dest / name), "byteSize": (dest / name).stat().st_size}
+                           for name in model_files],
+            "requiredOperators": sorted(metadata["requiredOperators"]),
+            "resourceEnvelope": {
+                "peakMemoryBytes": envelope["peakMemoryBytes"],
+                "storageBytes": sum((dest / name).stat().st_size for name in model_files),
+                "probeMs": envelope["probeMs"],
+                "trainMs": envelope["trainMs"],
+                "basis": envelope["basis"],
+            },
+        }
+        # The most examples one call of a program takes (they take 1..maxBatch). Stated only for the dynamic-batch
+        # programs: a static program takes exactly its example count, so without them the backend, which refuses a
+        # bundle that states no maxBatch, publishes no contract rather than one a device's data would fail.
+        if dyn:
+            contract_fields["maxBatch"] = dyn["max_batch"]
+        # The qualification probe the device runs against the trainable program before its first round (Stage 3
+        # D2): the exporter's reference for this exact program, with the declared probe time budget.
+        probe = (dyn or {}).get("probe")
+        if probe and trainable_meta:
+            trainable_meta["trainableProbe"] = {
+                "rows": probe["rows"], "width": probe["width"], "classes": probe["classes"],
+                "learningRate": probe["learning_rate"], "lossStep1": probe["loss_step1"],
+                "lossStep2": probe["loss_step2"], "lossTolerance": probe["loss_tolerance"],
+                "maxProbeMs": envelope["probeMs"],
+                # The shape of one example when it has more than one dimension; absent means [width].
+                **({"inputShape": probe["input_shape"]} if "input_shape" in probe else {}),
+            }
 
     manifest = {
         "runId": run_id,
@@ -109,6 +159,7 @@ def stage_bundle(run_id: str, out_root: Path, fixture: Path = DEFAULT_FIXTURE) -
             "goldenLoss": src["golden_loss"],
             "goldenAccuracy": src["golden_accuracy"],
         },
+        **contract_fields,
     }
     atomic_write_text(dest / "manifest.json", json.dumps(manifest, indent=2) + "\n")
     return dest

@@ -44,6 +44,8 @@ class RunServiceModelBundleTest {
     @Mock AuthorizationService authz;
     @Mock OrgScope orgScope;
     @Mock ConnectionTokenService tokenService;
+    @Mock com.federated.fl_platform_api.contract.ExecutionContractStore contractStore;
+    @Mock com.federated.fl_platform_api.service.ModelRecipeService modelRecipeService;
     @InjectMocks RunService runService;
 
     @TempDir Path modelsDir;
@@ -54,6 +56,10 @@ class RunServiceModelBundleTest {
         ReflectionTestUtils.setField(runService, "modelBundleDir", modelsDir.toString());
         ReflectionTestUtils.setField(runService, "bundleDeliveryEnabled", true);
         ReflectionTestUtils.setField(runService, "grpcHost", "localhost");
+        org.mockito.Mockito.lenient().when(contractStore.read(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new com.federated.fl_platform_api.contract.ContractView(
+                        com.federated.fl_platform_api.contract.ContractState.LEGACY_ONLY, null, null, null, null,
+                        null));
     }
 
     private static String sha256(byte[] b) throws Exception {
@@ -90,7 +96,7 @@ class RunServiceModelBundleTest {
     }
 
     /** Mock the requireParticipantRun path so the caller is a CLIENT of the run's project. */
-    private void mockParticipant(UUID runId, UUID projectId) {
+    private Run mockParticipant(UUID runId, UUID projectId) {
         Run run = new Run(); run.setId(runId); run.setProjectId(projectId);
         run.setStatus(RunStatus.RUNNING);
         Project p = new Project(); p.setId(projectId);
@@ -101,6 +107,52 @@ class RunServiceModelBundleTest {
         when(projectRepository.findById(projectId)).thenReturn(Optional.of(p));
         when(authz.currentUser()).thenReturn(caller);
         when(membershipRepository.findByIdProjectIdAndIdUserId(projectId, 7L)).thenReturn(Optional.of(m));
+        return run;
+    }
+
+    /** A participant's run whose intent trains on {@code source}. */
+    private void mockParticipant(UUID runId, UUID projectId, TrainingDataSource source) {
+        Project p = new Project(); p.setId(projectId); p.setModelName("tinynet_golden");
+        mockParticipant(runId, projectId).setIntent(RunIntent.capture(p, false, false, 900_000L, source));
+    }
+
+    @Test
+    void getModelBundle_forARunOnParticipantsOwnData_advertisesNoFixtureData() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        String[] shas = stage(rid);
+        mockParticipant(rid, pid, TrainingDataSource.LOCAL_SNAPSHOT);
+
+        ModelBundleDto b = runService.getModelBundle(rid);
+
+        assertNull(b.inputsUrl());
+        assertNull(b.inputsSha256());
+        assertEquals(java.util.List.of(), b.inputShape());
+        assertNull(b.targetsUrl());
+        assertNull(b.targetsSha256());
+        assertEquals(shas[0], b.lossSha256());
+    }
+
+    @Test
+    void getModelFile_refusesFixtureDataForARunOnParticipantsOwnData() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        stage(rid);
+        mockParticipant(rid, pid, TrainingDataSource.LOCAL_SNAPSHOT);
+
+        assertThrows(ResourceNotFoundException.class, () -> runService.getModelFile(rid, "inputs.f32"));
+        assertThrows(ResourceNotFoundException.class, () -> runService.getModelFile(rid, "targets.i64"));
+        assertNotNull(runService.getModelFile(rid, "loss.pte"));
+    }
+
+    @Test
+    void getModelFile_servesFixtureDataForAFixtureRun() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        String[] shas = stage(rid);
+        mockParticipant(rid, pid, TrainingDataSource.FIXTURE);
+
+        assertEquals("/api/runs/" + rid + "/files/inputs.f32", runService.getModelBundle(rid).inputsUrl());
+        try (InputStream in = runService.getModelFile(rid, "inputs.f32").getInputStream()) {
+            assertEquals(shas[1], sha256(in.readAllBytes()));
+        }
     }
 
     @Test
@@ -198,6 +250,57 @@ class RunServiceModelBundleTest {
         when(membershipRepository.findByIdProjectIdAndIdUserId(projectId, 7L)).thenReturn(Optional.of(m));
     }
 
+    // Stage 3 D2: the device checks the trainable program against the exporter's probe before its first round.
+    @Test
+    void getModelBundle_carriesTheTrainableProgramsQualificationProbe() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        stageWithTrainable(rid);
+        Path manifest = modelsDir.resolve(rid.toString()).resolve("manifest.json");
+        ObjectMapper om = new ObjectMapper();
+        var m = (com.fasterxml.jackson.databind.node.ObjectNode) om.readTree(Files.readString(manifest));
+        ((com.fasterxml.jackson.databind.node.ObjectNode) m.get("modelManifest")).putObject("trainableProbe")
+                .put("rows", 8).put("width", 4).put("classes", 3).put("learningRate", 0.1)
+                .put("lossStep1", 1.1053780317306519).put("lossStep2", 1.0776357650756836)
+                .put("lossTolerance", 1e-4).put("maxProbeMs", 2000);
+        Files.writeString(manifest, om.writeValueAsString(m));
+        mockParticipant(rid, pid);
+
+        ModelBundleDto.TrainableProbe probe = runService.getModelBundle(rid).trainableProbe();
+
+        assertEquals(new ModelBundleDto.TrainableProbe(8, 4, 3, 0.1, 1.1053780317306519, 1.0776357650756836, 1e-4,
+                2000, null), probe);
+    }
+
+    @Test
+    void getModelBundle_carriesAnImageProbesInputShape() throws Exception {
+        // Stage 4 S6: a CNN program takes [rows, 3, 32, 32], so its probe states each example's shape.
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        stageWithTrainable(rid);
+        Path manifest = modelsDir.resolve(rid.toString()).resolve("manifest.json");
+        ObjectMapper om = new ObjectMapper();
+        var m = (com.fasterxml.jackson.databind.node.ObjectNode) om.readTree(Files.readString(manifest));
+        var probeNode = ((com.fasterxml.jackson.databind.node.ObjectNode) m.get("modelManifest")).putObject("trainableProbe")
+                .put("rows", 8).put("width", 3072).put("classes", 10).put("learningRate", 0.1)
+                .put("lossStep1", 2.2907896041870117).put("lossStep2", 2.2854325771331787)
+                .put("lossTolerance", 1e-4).put("maxProbeMs", 5000);
+        probeNode.putArray("inputShape").add(3).add(32).add(32);
+        Files.writeString(manifest, om.writeValueAsString(m));
+        mockParticipant(rid, pid);
+
+        ModelBundleDto.TrainableProbe probe = runService.getModelBundle(rid).trainableProbe();
+
+        assertEquals(java.util.List.of(3, 32, 32), probe.inputShape());
+        assertEquals(3072, probe.width());
+    }
+
+    @Test
+    void getModelBundle_withoutAProbe_carriesNone() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        stageWithTrainable(rid);
+        mockParticipant(rid, pid);
+        assertNull(runService.getModelBundle(rid).trainableProbe());
+    }
+
     @Test
     void getModelBundle_withTrainable_carriesTrainableUrlShaAndNames() throws Exception {
         UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
@@ -250,4 +353,34 @@ class RunServiceModelBundleTest {
         assertFalse(runService.getManifest(rid2).isFirstOrderSupported(),
                 "a DeComFL-only run fail-closes first-order (phone stays on the ZO path)");
     }
+
+    // Stage 3 B2: a phone imports its own data against the run's class list. The bundle carries it in the recipe's
+    // order; the phone's snapshot then records labels-sha256 of that list, which must equal the contract's
+    // labelSchemaId, so a substituted or reordered list cannot bind.
+    @Test
+    void getModelBundle_carriesTheRecipesClassNamesInOrder() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        stage(rid);
+        mockParticipant(rid, pid);
+        projectRepository.findById(pid).orElseThrow().setModelType("TINYNET_GOLDEN");
+        when(modelRecipeService.findByKey("TINYNET_GOLDEN")).thenReturn(Optional.of(
+                new com.federated.fl_platform_api.dto.ModelRecipeDto("TINYNET_GOLDEN", "TinyNet", "vector",
+                        java.util.List.of("c0", "c1", "c2"), java.util.List.of(), java.util.List.of(), null)));
+
+        ModelBundleDto b = runService.getModelBundle(rid);
+
+        assertEquals(java.util.List.of("c0", "c1", "c2"), b.classNames());
+    }
+
+    @Test
+    void getModelBundle_hasNoClassNamesForARecipeTheCatalogDoesNotKnow() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        stage(rid);
+        mockParticipant(rid, pid);
+        projectRepository.findById(pid).orElseThrow().setModelType("RETIRED_RECIPE");
+        when(modelRecipeService.findByKey("RETIRED_RECIPE")).thenReturn(Optional.empty());
+
+        assertEquals(java.util.List.of(), runService.getModelBundle(rid).classNames());
+    }
 }
+

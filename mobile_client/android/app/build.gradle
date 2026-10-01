@@ -64,6 +64,13 @@ dependencies {
   implementation("com.facebook.react:react-android")
   implementation("com.facebook.react:hermes-android")
   implementation("com.facebook.fbjni:fbjni:0.7.0")
+  // Stage 3 artifact delivery streams through the same OkHttp client React Native already ships (4.9.2).
+  implementation("com.squareup.okhttp3:okhttp:4.9.2")
+  implementation("com.squareup.okhttp3:okhttp-urlconnection:4.9.2")   // JavaNetCookieJar
+  // Stage 3 dataset packages (dataset.json + records.jsonl); pure JVM, so the importer is unit-testable off-device.
+  implementation("com.google.code.gson:gson:2.10.1")
+  testImplementation("junit:junit:4.13.2")
+  testImplementation("com.squareup.okhttp3:mockwebserver:4.9.2")
   // No executorch-android AAR: the ExecuTorch runtime is cross-compiled to arm64 and linked
   // STATICALLY into libfedlearn_jni.so (scripts/build_executorch_arm64.sh). The app calls the C++
   // FL core via the JNI/TurboModule and never ExecuTorch's Java API, so adding the AAR would only

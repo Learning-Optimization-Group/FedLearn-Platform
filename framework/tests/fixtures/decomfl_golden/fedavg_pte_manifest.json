@@ -6,5 +6,23 @@
   "param_names_flat_order": [
     "base.fc1.weight",
     "base.fc1.bias"
-  ]
+  ],
+  "dynbatch": {
+    "max_batch": 8,
+    "loss_file": "tinynet_loss_dynbatch.pte",
+    "loss_sha256": "810286ec8b2d5ba6b3226ba6a34c335d62ad574fb72c4f1923595ea0c8a335e9",
+    "infer_file": "tinynet_infer_dynbatch.pte",
+    "infer_sha256": "ce80af6d991a5560097f361a4220a75c0b95678f5f5366128ba927b962fdcfe0",
+    "trainable_file": "tinynet_trainable_dynbatch.pte",
+    "trainable_sha256": "8df99d447a8883a7a65ace595493a15f40cc6339c1e23553fbf922ef9851f124",
+    "probe": {
+      "rows": 8,
+      "width": 4,
+      "classes": 3,
+      "learning_rate": 0.1,
+      "loss_step1": 1.1156879663467407,
+      "loss_step2": 1.108156442642212,
+      "loss_tolerance": 0.0001
+    }
+  }
 }

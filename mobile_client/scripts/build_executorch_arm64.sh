@@ -15,6 +15,8 @@
 # cmake-out build output (ET_BUILD, for static libs). shared/CMakeLists derives the include parent
 # from ET_SRC, so the source dir MUST keep the name "executorch".
 set -euo pipefail
+# Resolved before any cd: the script may be invoked by a relative path.
+ET_PATCH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/patches/executorch-1.3.1-maxpool-backward-zero-init.patch"
 
 ET_VERSION="${ET_VERSION:-1.3.1}"              # MUST match the host parity gate (mobile.yml ET_VERSION)
 ET_TAG="${ET_TAG:-v${ET_VERSION}}"
@@ -40,6 +42,17 @@ fi
 cd "${ET_SRC_DIR}"
 git submodule sync
 git submodule update --init --recursive --depth 1
+# The portable max_pool2d_with_indices_backward never zeroes grad_input before scatter-adding into it, so a Conv->MaxPool
+# model trains on stale arena bytes (wrong gradients; NaN at worst). ATen zeroes first; this restores it. Without it, CNN
+# training is wrong wherever this runtime is built, which CI's native tests catch.
+if git apply --check "$ET_PATCH" 2>/dev/null; then
+  git apply "$ET_PATCH"
+elif git apply --reverse --check "$ET_PATCH" 2>/dev/null; then
+  echo "ExecuTorch patch already applied: $(basename "$ET_PATCH")"
+else
+  echo "ERROR: $(basename "$ET_PATCH") does not apply to this ExecuTorch source" >&2
+  exit 1
+fi
 
 # Cross-compile the lean runtime for arm64 via the NDK toolchain. The EXECUTORCH_BUILD_* flags
 # mirror the host parity build (see this script's header).

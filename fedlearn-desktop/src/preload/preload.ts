@@ -161,7 +161,15 @@ export interface TrainingConfigInput {
   // Server trust from the connection payload: whether to dial TLS, and the certificate to verify the server with.
   grpcTls?: boolean | null;
   grpcServerCertPem?: string | null;
+  // Execution contract v1 from the connection payload: the active run, its contract state and, when READY, the
+  // contract as ProtoJSON.
+  runId?: string | null;
+  contractState?: string | null;
+  executionContract?: Record<string, unknown> | null;
 }
+
+const RUN_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const CONTRACT_STATES = ['PENDING', 'READY', 'UNAVAILABLE', 'LEGACY_ONLY'];
 
 interface InferencePayloadInput {
   imageBase64?: string;
@@ -233,6 +241,19 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
     if (!isShapedLikeCertificatePem(config.grpcServerCertPem)) {
       return { success: false, error: 'Invalid server certificate' };
     }
+    // Main validates the contract fully and writes it to a file; reject what cannot be what the backend sent.
+    if (config.runId !== undefined && config.runId !== null
+        && (typeof config.runId !== 'string' || !RUN_ID.test(config.runId))) {
+      return { success: false, error: 'Invalid run ID' };
+    }
+    if (config.contractState !== undefined && config.contractState !== null
+        && (typeof config.contractState !== 'string' || !CONTRACT_STATES.includes(config.contractState))) {
+      return { success: false, error: 'Invalid execution contract state' };
+    }
+    if (config.executionContract !== undefined && config.executionContract !== null
+        && (typeof config.executionContract !== 'object' || Array.isArray(config.executionContract))) {
+      return { success: false, error: 'Invalid execution contract' };
+    }
 
     return ipcRenderer.invoke('docker:start-training', {
       hardwareProfile: config.hardwareProfile,
@@ -247,6 +268,9 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
       trainingArm: config.trainingArm,
       grpcTls: config.grpcTls ?? undefined,
       grpcServerCertPem: config.grpcServerCertPem ?? undefined,
+      runId: config.runId ?? undefined,
+      contractState: config.contractState ?? undefined,
+      executionContract: config.executionContract ?? undefined,
     });
   },
 

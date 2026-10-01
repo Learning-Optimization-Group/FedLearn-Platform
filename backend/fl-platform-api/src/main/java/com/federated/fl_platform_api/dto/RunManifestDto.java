@@ -1,5 +1,7 @@
 package com.federated.fl_platform_api.dto;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import java.util.UUID;
 
 public class RunManifestDto {
@@ -25,6 +27,13 @@ public class RunManifestDto {
     // cannot mask its update must refuse such a run, and the phone does.
     private boolean secureAggregation;
     private Integer secureAggThreshold;
+    // Execution contract v1, emitted beside the legacy fields during the compatibility window: always its state
+    // (PENDING, READY, UNAVAILABLE or LEGACY_ONLY); the ProtoJSON contract and its opaque ID only when READY; the
+    // machine-readable reason only when UNAVAILABLE. The server-side detail behind a reason is never sent.
+    private String contractState;
+    private String contractId;
+    private JsonNode executionContract;
+    private String contractUnavailableReason;
 
     public UUID getRunId() { return runId; }
     public void setRunId(UUID runId) { this.runId = runId; }
@@ -58,4 +67,14 @@ public class RunManifestDto {
     public void setSecureAggregation(boolean secureAggregation) { this.secureAggregation = secureAggregation; }
     public Integer getSecureAggThreshold() { return secureAggThreshold; }
     public void setSecureAggThreshold(Integer secureAggThreshold) { this.secureAggThreshold = secureAggThreshold; }
+    public String getContractState() { return contractState; }
+    public void setContractState(String contractState) { this.contractState = contractState; }
+    public String getContractId() { return contractId; }
+    public void setContractId(String contractId) { this.contractId = contractId; }
+    public JsonNode getExecutionContract() { return executionContract; }
+    public void setExecutionContract(JsonNode executionContract) { this.executionContract = executionContract; }
+    public String getContractUnavailableReason() { return contractUnavailableReason; }
+    public void setContractUnavailableReason(String contractUnavailableReason) {
+        this.contractUnavailableReason = contractUnavailableReason;
+    }
 }

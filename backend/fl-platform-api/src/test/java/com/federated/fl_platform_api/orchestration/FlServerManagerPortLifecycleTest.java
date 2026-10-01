@@ -6,6 +6,7 @@ import com.federated.fl_platform_api.repository.RunRepository;
 import com.federated.fl_platform_api.security.RunTokenRegistry;
 import com.federated.fl_platform_api.service.ModelRecipeService;
 import com.federated.fl_platform_api.service.RegistryModelResolver;
+import com.federated.fl_platform_api.service.RunService;
 import com.federated.fl_platform_api.service.WebSocketService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -71,6 +74,7 @@ class FlServerManagerPortLifecycleTest {
     private CompletableFuture<ProcessHandle> childExitFuture;
     /** The one and only port in the manager's range, so the range is exhausted once it is reserved. */
     private int reservedPort;
+    private RunService runService;
 
     @BeforeEach
     void setUp() {
@@ -105,6 +109,8 @@ class FlServerManagerPortLifecycleTest {
         reservedPort = pickFreePort();
 
         manager = new FlServerManager();
+        runService = mock(RunService.class);
+        ReflectionTestUtils.setField(manager, "runService", runService);
         ReflectionTestUtils.setField(manager, "logBroadcaster", mock(WebSocketService.class));
         ReflectionTestUtils.setField(manager, "runTokenRegistry", runTokenRegistry);
         ReflectionTestUtils.setField(manager, "runRepository", runRepository);
@@ -175,6 +181,17 @@ class FlServerManagerPortLifecycleTest {
         assertEquals(reservedPort, freed.intValue(), "child exit must release the held port");
         assertFalse(manager.isServerRunning(project.getId()),
                 "child exit must evict the tracking entry");
+        verify(runService).markFailed(project.getActiveRunId());
+    }
+
+    @Test
+    void deliberateStop_doesNotMarkTheRunFailedWhenItsChildExits() {
+        Project project = newProject();
+        manager.startServerForProject(project, "CNN", 1, 1);
+        manager.stopServerForProject(project.getId());
+        childExitFuture.complete(childHandle);
+
+        verify(runService, never()).markFailed(any());
     }
 
     // --- helpers ------------------------------------------------------------

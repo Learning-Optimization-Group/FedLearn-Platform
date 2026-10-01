@@ -82,3 +82,29 @@ describe('preload startTraining — server trust', () => {
     expect(ipcRenderer.invoke).not.toHaveBeenCalled();
   });
 });
+
+// Execution contract v1: the backend sends the run, its contract state and, when READY, the contract. Main validates
+// and writes it; the preload must pass all three through and reject values that cannot be what the backend sent.
+describe('preload startTraining — execution contract', () => {
+  const RUN = '4f2c8a1e-7b3d-4c59-9e21-6a0d5b8f3c17';
+  const CONTRACT = { contractVersion: 1, runId: RUN };
+
+  test('forwards the run, its contract state and the contract', async () => {
+    await exposedApi().startTraining({ ...BASE, runId: RUN, contractState: 'READY', executionContract: CONTRACT });
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith(
+      'docker:start-training',
+      expect.objectContaining({ runId: RUN, contractState: 'READY', executionContract: CONTRACT }),
+    );
+  });
+
+  test.each([
+    [{ runId: 'not-a-uuid' }, 'Invalid run ID'],
+    [{ contractState: 'SOMETIMES' }, 'Invalid execution contract state'],
+    [{ executionContract: 'text' }, 'Invalid execution contract'],
+    [{ executionContract: [CONTRACT] }, 'Invalid execution contract'],
+  ])('rejects %p', async (field, error) => {
+    const result = await exposedApi().startTraining({ ...BASE, ...field });
+    expect(result).toEqual({ success: false, error });
+    expect(ipcRenderer.invoke).not.toHaveBeenCalled();
+  });
+});

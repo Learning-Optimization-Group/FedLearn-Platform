@@ -106,7 +106,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: mobile_client/.artifacts
-          key: native-arm64-et${{ env.ET_VERSION }}-grpc${{ env.GRPC_CPP_VERSION }}-ndk-r27
+          key: native-arm64-et${{ env.ET_VERSION }}-grpc${{ env.GRPC_CPP_VERSION }}-ndk-r27-${{ hashFiles('mobile_client/scripts/patches/**') }}
 
       - name: Build ARM64 native deps if cache missed
         working-directory: mobile_client

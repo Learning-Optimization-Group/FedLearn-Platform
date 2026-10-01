@@ -1,9 +1,9 @@
 // The privacy label — the static, truthful data-flow disclosure ProjectDetail renders as the
 // single interstitial before a join. Copy rules:
 //   · client-side facts only, no marketing ("your data helps the world" is banned);
-//   · nothing the code can't back: the raw dataset and partition stay on-device
-//     (fl-runtime/native core trains locally), the wire carries model learning updates as
-//     sha256-integrity-verified safetensors, and this app ships no analytics/ads SDKs;
+//   · nothing the code can't back: the raw dataset stays on-device (the native core trains locally and only
+//     the example count is sent with an update), the wire carries learning updates (safetensors weights, or
+//     DeComFL's gradient scalars and seeds), and this app ships no analytics/ads SDKs;
 //   · the live server endpoint for a joined run is appended by the screen (dynamic, not here).
 // Pure data so tests can pin the three section headings without a renderer.
 
@@ -20,15 +20,17 @@ export const PRIVACY_SECTIONS: readonly PrivacySection[] = [
     key: 'stays',
     heading: 'Stays on your phone',
     points: [
-      'Your raw training data — it is read locally for training and never uploaded.',
-      'Your dataset partition: the slice of data this device is assigned to train on.',
+      'Your raw training data — the dataset you import, or the demo sample a test run provides. It is read '
+        + 'locally for training and never uploaded.',
+      'Which examples you have and their labels: the server learns only how many examples trained each update.',
     ],
   },
   {
     key: 'leaves',
     heading: 'Leaves your phone',
     points: [
-      'Model weight updates only, sent as sha256-integrity-verified safetensors.',
+      'Learning updates: the updated model weights as sha256-integrity-verified safetensors, or, on a '
+        + 'low-bandwidth run, a few gradient numbers and the seeds they belong to.',
       'While joined, the app talks to the training server shown below.',
     ],
   },

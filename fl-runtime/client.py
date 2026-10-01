@@ -49,6 +49,8 @@ USE_LLM_LORA = False          # federated LoRA SEQ_CLS recipe
 TRAINING_ARM = "FULL"
 MODEL_TYPE = None             # the selected recipe key, for arm resolution
 USE_DERIVED = False           # arm federates a trainable SUBSET (head-only / adapter-only)
+USE_WIRE_SUBSET = False       # the WIRE carries trainable_state only (arm subset OR recipe frozen by
+                              # construction); drives upload + load, never which params the arm trains
 LLM_LORA_AGGREGATION = "FFA_LORA"
 LLM_LORA_MODEL_NAME = "qwen2.5-0.5b"
 LLM_LORA_TASK_TYPE = "SEQ_CLASSIFICATION"
@@ -93,6 +95,9 @@ LLM_WEIGHT_DECAY = 0.01
 LLM_MAX_GRAD_NORM = 1.0  # Standard value for transformers
 LLM_WARMUP_RATIO = 0.1  # 10% of steps for warmup
 CNN_LEARNING_RATE = 1e-3
+
+# The run's execution contract once enforce_execution_contract accepts it; None for a legacy launch.
+EXECUTION_CONTRACT = None
 MLP_LEARNING_RATE = 1e-3  # Higher LR for zeroth-order optimization
 
 # Global dataset selection (will be set via argparse)
@@ -210,6 +215,12 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
             partition_id=partition_id, num_clients=num_clients, batch_size=BATCH_SIZE,
             model_name=LLM_LORA_MODEL_NAME, task_type=LLM_LORA_TASK_TYPE)
         return train, train   # reuse the shard as the (unused) eval loader, matching the CNN return shape
+    if MODEL_TYPE == "TINYNET_GOLDEN":
+        # The golden 4-dim task the phone trains on. It used to be wired only into the DeComFL
+        # branch of __main__, so a FedAvg client fell through to the default text dataset ("cb")
+        # and died on its first forward pass. Keyed on the recipe for the same reason as below.
+        loader = build_tinynet_golden_decomfl_loader(partition_id=partition_id)
+        return loader, loader
     if MODEL_TYPE == "FROZEN_DEMO":
         # DA-14 Ph3.3c: self-contained synthetic vector shard for the FROZEN_DEMO recipe.
         #
@@ -228,6 +239,12 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
         import recipes
         return recipes.get_recipe("FROZEN_DEMO").load_client_data(
             partition_id=partition_id, num_clients=num_clients, batch_size=BATCH_SIZE)
+    if USE_MLP:
+        # The ECG shard, as the DeComFL branch of main() builds it. The first-order path had no branch here, because
+        # the MLP was always forced onto DeComFL, so it fell through to the default text dataset.
+        import recipes
+        return recipes.get_recipe("MLP").load_client_data(
+            partition_id=partition_id, num_clients=num_clients, dataset_path=dataset_path)
     if USE_LLM:
         from pathlib import Path
         import pickle
@@ -339,7 +356,7 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
 
 
 def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=None,
-          proximal_mu: float = 0.0, global_params=None):
+          proximal_mu: float = 0.0, global_params=None, learning_rate_override=None, dropout_masks=None):
     """
     Train the model with dataset-specific hyperparameters.
 
@@ -361,6 +378,9 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
     else:
         learning_rate = CNN_LEARNING_RATE
 
+    if learning_rate_override is not None:
+        learning_rate = learning_rate_override
+
     print(f"\n{'='*60}")
     print(f"TRAINING DEBUG INFO")
     print(f"{'='*60}")
@@ -375,7 +395,12 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
     print(f"{'='*60}\n")
 
     # Setup optimizer based on model type
-    if USE_LLM:
+    if MODEL_TYPE == "TINYNET_GOLDEN":
+        optimizer = torch.optim.SGD(
+            (p for p in net.parameters() if p.requires_grad), lr=learning_rate,
+        )
+        print("  Optimizer: SGD (trainable TinyNet parameters only)")
+    elif USE_LLM:
         # Use regular Adam on CPU for better numerical stability
         if DEVICE == "cpu":
             optimizer = torch.optim.AdamW(
@@ -489,8 +514,9 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                 labels = labels.to(DEVICE)
                 outputs = net(features)
                 loss = criterion(outputs, labels)
-            elif MODEL_TYPE == "FROZEN_DEMO":
-                # FROZEN_DEMO's synthetic shard is a (features, labels) VECTOR tuple.
+            elif MODEL_TYPE in ("FROZEN_DEMO", "TINYNET_GOLDEN"):
+                # FROZEN_DEMO's synthetic shard and TINYNET_GOLDEN's golden fixture are both
+                # (features, labels) VECTOR tuples.
                 #
                 # Keyed on the recipe, not USE_DERIVED, for the same reason load_data is: the batch
                 # SHAPE is a property of the dataset, and the dataset follows the recipe. Branching
@@ -552,6 +578,9 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
             #     torch.nn.utils.clip_grad_norm_(net.parameters(), LLM_MAX_GRAD_NORM)
 
             optimizer.step()
+            # A contract's seeded dropout masks are per local step (contracted_dropout.SeededDropoutMasks).
+            if dropout_masks is not None:
+                dropout_masks.advance()
             if i == 0 and USE_LLM and not USE_LLM_LORA:
                 ref_weight_after = net.model.decoder.final_layer_norm.weight
                 weight_change = (ref_weight_after - ref_weight_before).abs().mean().item()
@@ -606,6 +635,94 @@ def _coerce_local_epochs(config: dict, default) -> int:
         raise ValueError(f"invalid local_epochs in server config: {raw!r} (expected an integer)")
 
 
+def _contracted_dropout(net, server_round):
+    """The round's seeded dropout masks when the run's contract states dropout layers; a no-op context otherwise."""
+    import contextlib
+    if EXECUTION_CONTRACT is None or not EXECUTION_CONTRACT.model_training.dropout:
+        return contextlib.nullcontext()
+    from contracted_dropout import SeededDropoutMasks
+    layers = [(d.module, d.rate) for d in EXECUTION_CONTRACT.model_training.dropout]
+    seed = EXECUTION_CONTRACT.seed if EXECUTION_CONTRACT.HasField("seed") else 0
+    return SeededDropoutMasks(net, layers, seed=seed, round_=int(server_round))
+
+
+def _refuse_round_outside_contract(config: dict) -> None:
+    """Under an execution contract, the server's per-round training settings are a cross-check, not an override.
+
+    Without a contract they replace this client's own (FedOpt ships its client rate this way). With one, the
+    contract states the training; a server asking for a different rate, epoch count or proximal coefficient refuses
+    the round before training, rather than silently training something the run never published. An absent
+    proximal coefficient is zero on both sides: only a FedProx contract states one.
+    """
+    if EXECUTION_CONTRACT is None:
+        return
+    local = EXECUTION_CONTRACT.model_training.local_training
+    rate = _coerce_learning_rate(config)
+    if rate is not None and rate != local.sgd.learning_rate:
+        raise ValueError(f"the server asked for learning_rate {rate!r}; the execution contract states "
+                         f"{local.sgd.learning_rate!r}")
+    if "local_epochs" in config and _coerce_local_epochs(config, None) != local.local_epochs:
+        raise ValueError(f"the server asked for local_epochs {config['local_epochs']!r}; the execution contract "
+                         f"states {local.local_epochs}")
+    stated_mu = EXECUTION_CONTRACT.model_training.fedprox_mu
+    if _coerce_proximal_mu(config) != stated_mu:
+        raise ValueError(f"the server asked for proximal_mu {config.get('proximal_mu', 0.0)!r}; the execution "
+                         f"contract states {stated_mu!r}")
+
+
+def _refuse_decomfl_round_outside_contract(config: dict) -> None:
+    """Under an execution contract, DeComFL's per-round server config is a cross-check, never an override.
+
+    The contract's zeroth-order training states the rate, the smoothing, K local steps x P perturbations (the shape
+    of the round's seed matrix) and the estimator. A round asking for anything else is refused before training, so a
+    client never computes scalars for directions or a function the run did not publish. A value the server omits is
+    refused too: the client would otherwise fall back to a default of its own.
+    """
+    if EXECUTION_CONTRACT is None:
+        return
+    zo = EXECUTION_CONTRACT.model_training.local_training.zeroth_order_sgd
+    from fedlearn.communication.generated import execution_contract_pb2 as pb
+    estimators = {pb.ESTIMATOR_FORWARD: "forward", pb.ESTIMATOR_CENTRAL: "central"}
+    seeds = config.get("seeds") or []
+    stated = {
+        "learning_rate": zo.learning_rate,
+        "smoothing_param": zo.smoothing,
+    }
+    for key, expected in stated.items():
+        if key not in config or float(config[key]) != expected:
+            raise ValueError(f"the server asked for {key} {config.get(key)!r}; the execution contract states {expected!r}")
+    if len(seeds) != zo.num_local_steps or any(len(step) != zo.num_perturbations for step in seeds):
+        raise ValueError(f"the server's seeds are {len(seeds)} x {[len(step) for step in seeds]}; the execution "
+                         f"contract states {zo.num_local_steps} x {zo.num_perturbations}")
+    if config.get("grad_estimate_method", "forward") != estimators.get(zo.estimator):
+        raise ValueError(f"the server asked for the {config.get('grad_estimate_method')!r} estimator; the execution "
+                         f"contract states {estimators.get(zo.estimator)!r}")
+
+
+def build_decomfl_client(net, trainloader, smoothing_param):
+    """The laptop's DeComFL client, held round by round to the run's execution contract when there is one."""
+    decomfl_client = DeComFLClient(model=net, train_loader=trainloader, smoothing_param=smoothing_param,
+                                   device=DEVICE)
+    if EXECUTION_CONTRACT is not None:
+        decomfl_client.round_check = _refuse_decomfl_round_outside_contract
+    return decomfl_client
+
+
+def _coerce_learning_rate(config: dict):
+    """Return a positive finite server learning rate, or None when it was not supplied."""
+    if "learning_rate" not in config:
+        return None
+    import math
+    raw = config["learning_rate"]
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        raise ValueError(f"invalid learning_rate in server config: {raw!r}")
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"invalid learning_rate in server config: {raw!r}")
+    return value
+
+
 def _coerce_proximal_mu(config: dict) -> float:
     """Return ``proximal_mu`` as a float — the gRPC config is ``map<string,string>``, so it arrives as
     a string (e.g. ``'0.01'``). 0.0 when absent. FedAvg/FedOpt/Robust ship no positive mu; FedProx
@@ -639,6 +756,28 @@ def _apply_proximal_gradient(net, global_params, mu: float) -> None:
 # ==============================================================================
 # --- Custom Client Class for FedLearn with Heartbeat Support ---
 # ==============================================================================
+def load_federated_state(net, parameters):
+    """Load a global model received over the wire.
+
+    Full-state wire: a strict load, exactly as before -- a missing key there is a malformed payload.
+    Subset wire (``USE_WIRE_SUBSET``): the frozen keys are legitimately absent, so load non-strictly,
+    but only after checking that every TRAINABLE key arrived and nothing unexpected did. A bare
+    ``strict=False`` would silently keep a stale trainable tensor if the payload were truncated.
+    """
+    if not USE_WIRE_SUBSET:
+        net.load_state_dict(parameters)
+        return
+    from fedlearn.estimators.params import trainable_state
+    expected = set(trainable_state(net).keys())
+    got = set(parameters.keys())
+    missing, unexpected = sorted(expected - got), sorted(got - expected)
+    if missing or unexpected:
+        raise RuntimeError(
+            f"Subset-wire global model does not match this model's trainable set: "
+            f"missing {missing}, unexpected {unexpected}")
+    net.load_state_dict(parameters, strict=False)
+
+
 class ZOSLClient(fl.Client):
     def __init__(self, partition_id: int, dataset_name: str = "sst2", dataset_path: str = None, num_clients: int = 10):
         self.partition_id = partition_id
@@ -716,7 +855,7 @@ class ZOSLClient(fl.Client):
             from peft import get_peft_model_state_dict
             full = get_peft_model_state_dict(self.net, save_embedding_layers=False)
             return OrderedDict((k, v) for k, v in full.items() if k in self._adapter_keys)
-        if USE_DERIVED:
+        if USE_DERIVED or USE_WIRE_SUBSET:
             # DA-14 Ph3.3b: federate ONLY the trainable subset (the head); the frozen backbone
             # never rides the wire. Mirrors the LLM_LORA adapter-only upload above.
             from fedlearn.estimators.params import trainable_state
@@ -747,6 +886,10 @@ class ZOSLClient(fl.Client):
         # FR-32: FedProx's proximal_mu is now HONORED (the proximal term is applied in train() from the
         # round-start snapshot below), so there is no longer a config this first-order client refuses.
         proximal_mu = _coerce_proximal_mu(config)
+        # TinyNet's on-device SGD path consumes this same per-round value. Other recipes retain
+        # their dataset-specific rates until their execution contracts resolve those policies.
+        learning_rate_override = _coerce_learning_rate(config) if MODEL_TYPE == "TINYNET_GOLDEN" else None
+        _refuse_round_outside_contract(config)
 
         if server_round == 1:
             print(f"\n{'='*60}")
@@ -790,7 +933,7 @@ class ZOSLClient(fl.Client):
             # (the wire carried only the head). Mirrors the LLM_LORA non-full-state load above.
             self.net.load_state_dict(parameters, strict=False)
         else:
-            self.net.load_state_dict(parameters)
+            load_federated_state(self.net, parameters)
 
         # RIGHT AFTER: self.net.load_state_dict(parameters)
 
@@ -846,16 +989,20 @@ class ZOSLClient(fl.Client):
             [p.detach().clone() for p in self.net.parameters()] if proximal_mu > 0.0 else None
         )
 
-        # Train with progress updates
-        train(
-            self.net,
-            self.trainloader,
-            epochs=local_epochs,
-            dataset_name=self.dataset_name,
-            progress_callback=progress_callback,
-            proximal_mu=proximal_mu,
-            global_params=global_params,
-        )
+        # Train with progress updates. Under a contract that states dropout, the masks come from its seeded stream for
+        # this round, exactly as the device draws them, instead of torch's RNG.
+        with _contracted_dropout(self.net, server_round) as dropout_masks:
+            train(
+                self.net,
+                self.trainloader,
+                epochs=local_epochs,
+                dataset_name=self.dataset_name,
+                progress_callback=progress_callback,
+                proximal_mu=proximal_mu,
+                global_params=global_params,
+                learning_rate_override=learning_rate_override,
+                dropout_masks=dropout_masks,
+            )
 
         # DEBUG: Check if parameters changed (skip for LLM_LORA — adapter key namespaces
         # differ between the compacted peft upload form and net.state_dict(), causing KeyError)
@@ -919,7 +1066,19 @@ class ZOSLClient(fl.Client):
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ECG_DATASET_PATH = os.path.join(SCRIPT_DIR, "ecg_data", "ecg.csv")  # Hardcoded ECG dataset path
 ECG_NUM_CLIENTS = 5  # Hardcoded number of clients for ECG
-ECG_STRATEGY = "DeComFL"  # Hardcoded strategy for MLP
+
+
+def apply_ecg_run_settings(args):
+    """The MLP recipe's ECG dataset settings: (dataset path, client count), with ``args.dataset`` set to "ecg".
+
+    Only the dataset is the recipe's. The strategy stays the run's: this used to force DeComFL onto every MLP run,
+    after the execution contract had already been accepted for the run's own strategy. Other recipes get
+    (None, None) and are left untouched.
+    """
+    if (getattr(args, "model_type", None) or "").upper() != "MLP":
+        return None, None
+    args.dataset = "ecg"
+    return ECG_DATASET_PATH, ECG_NUM_CLIENTS
 
 
 def _resolve_decomfl_golden_fixture_dir():
@@ -1035,6 +1194,12 @@ def build_arg_parser():
                         help="Training arm: FULL (default) or FROZEN_HEAD. Must be one the "
                              "recipe declares in supported_arms; rejected at startup otherwise. "
                              "Omitted means FULL, so existing invocations are unchanged.")
+    parser.add_argument("--execution-contract", type=str, default=None,
+                        help="Path to the run's published execution contract (ProtoJSON). When given, the "
+                             "client refuses to train unless the contract is valid for this project and states "
+                             "exactly what this client executes.")
+    parser.add_argument("--run-id", type=str, default=None,
+                        help="The run the execution contract must belong to, when known.")
     parser.add_argument("--use-llm", action="store_true", help="Use LLM (deprecated, use --model-type TRANSFORMER)")
     parser.add_argument("--device", default=os.environ.get("FEDLEARN_DEVICE", "auto"),
                         choices=["auto", "cpu", "cuda", "mps"],
@@ -1049,8 +1214,36 @@ def parse_args(argv=None):
     return build_arg_parser().parse_args(argv)
 
 
+def enforce_execution_contract(args, model_type, training_arm):
+    """Refuse to train under a published execution contract this client would not execute exactly.
+
+    Returns the accepted contract, or None when none was given (a legacy run), and keeps it in EXECUTION_CONTRACT so
+    every round is held to it. Exits before any data or model is loaded when the contract is invalid, belongs to
+    another run or project, or states different training.
+    """
+    global EXECUTION_CONTRACT
+    EXECUTION_CONTRACT = None
+    if not getattr(args, "execution_contract", None):
+        return None
+    import execution_plan
+    from fedlearn.contract import MalformedContractError, parse_contract_json
+
+    try:
+        with open(args.execution_contract, encoding="utf-8") as fh:
+            contract = parse_contract_json(fh.read())
+    except (OSError, MalformedContractError) as exc:
+        raise SystemExit(f"Refusing to train: the execution contract could not be read ({exc})")
+    problems = execution_plan.check_contract(contract, model_type, args.strategy, training_arm,
+                                             project_id=args.project_id, run_id=args.run_id)
+    if problems:
+        raise SystemExit("Refusing to train under this execution contract: " + "; ".join(problems))
+    print(f"[contract] execution contract accepted for run {contract.run_id}")
+    EXECUTION_CONTRACT = contract
+    return contract
+
+
 def main():
-    global USE_LLM, USE_MLP, USE_PNEUMONIA, USE_LLM_LORA, USE_DERIVED, TRAINING_ARM, MODEL_TYPE, LLM_LORA_AGGREGATION, LLM_LORA_MODEL_NAME, LLM_LORA_TASK_TYPE, DATASET_NAME, BATCH_SIZE, DEVICE
+    global USE_LLM, USE_MLP, USE_PNEUMONIA, USE_LLM_LORA, USE_DERIVED, USE_WIRE_SUBSET, TRAINING_ARM, MODEL_TYPE, LLM_LORA_AGGREGATION, LLM_LORA_MODEL_NAME, LLM_LORA_TASK_TYPE, DATASET_NAME, BATCH_SIZE, DEVICE
 
     print(f"\n{'='*60}")
     print(f"DEVICE DETECTION")
@@ -1087,6 +1280,9 @@ def main():
         # is the pattern behind three defects today (the dataset chosen from the arm, the arm
         # applied in one build branch, the payload built two ways).
         USE_DERIVED = _r.trainable_prefixes(mt, TRAINING_ARM) is not None
+        # Separate from USE_DERIVED on purpose: a recipe frozen by construction (TINYNET_GOLDEN)
+        # federates a subset on the FULL arm, but must NOT go through the arm-freezing path.
+        USE_WIRE_SUBSET = _r.federates_trainable_subset(mt, TRAINING_ARM)
     elif args.use_llm:
         USE_LLM = True
         USE_MLP = False
@@ -1098,6 +1294,13 @@ def main():
         USE_PNEUMONIA = False
         USE_LLM_LORA = False
 
+    # Execution contract v1: when the run published one, it must state exactly what this client executes. Checked
+    # before any data or model is loaded.
+    if args.model_type:
+        enforce_execution_contract(args, MODEL_TYPE, TRAINING_ARM)
+    elif getattr(args, "execution_contract", None):
+        raise SystemExit("Refusing to train: an execution contract requires --model-type")
+
     if USE_LLM_LORA:
         LLM_LORA_AGGREGATION = args.aggregation
         LLM_LORA_MODEL_NAME = args.model_name or LLM_LORA_MODEL_NAME
@@ -1105,10 +1308,7 @@ def main():
 
     # === HARDCODED ECG/MLP OVERRIDE ===
     if USE_MLP:
-        args.dataset = "ecg"
-        dataset_path = ECG_DATASET_PATH
-        num_clients = ECG_NUM_CLIENTS
-        args.strategy = ECG_STRATEGY  # Override strategy for MLP
+        dataset_path, num_clients = apply_ecg_run_settings(args)
 
         print(f"\n{'='*60}")
         print(f"MLP MODEL DETECTED - Using Hardcoded ECG Configuration")
@@ -1250,12 +1450,7 @@ def main():
             )
 
         # Create DeComFL client (works for all model types)
-        client = DeComFLClient(
-            model=net,
-            train_loader=trainloader,
-            smoothing_param=decomfl_config.smoothing_param,
-            device=DEVICE
-        )
+        client = build_decomfl_client(net, trainloader, decomfl_config.smoothing_param)
 
         client_id = f"project_{args.project_id}_client_{args.partition_id}"
 

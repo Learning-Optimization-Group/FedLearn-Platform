@@ -33,6 +33,20 @@ _DEFAULT_MAX_UPLOAD_CHUNKS = 100_000
 _DEFAULT_MAX_UPLOAD_SECONDS = 600.0         # 10 min of active streaming
 
 
+class _Refusal(Exception):
+    """An answer a handler means to give, raised inside its try and turned into context.abort() by its own clause.
+
+    gRPC's context.abort() works by raising a bare Exception. Called inside a handler's broad try, it was caught by
+    `except Exception`, logged as "RPC failed" and replaced by INTERNAL, so a client at the end of a run was told
+    "An internal server error occurred" instead of "Training complete". Same idea as _StreamLimitExceeded below.
+    """
+
+    def __init__(self, code, details):
+        super().__init__(details)
+        self.code = code
+        self.details = details
+
+
 class _StreamLimitExceeded(Exception):
     """SE-18: a streamed upload exceeded a resource cap (bytes/chunks -> RESOURCE_EXHAUSTED, or the
     wall-clock deadline -> DEADLINE_EXCEEDED). Carries the gRPC status code to abort with.
@@ -148,7 +162,7 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
             if params is None:
                 # If the server has not been initialized with a model yet
-                context.abort(grpc.StatusCode.UNAVAILABLE, "Server is not yet initialized with a model. Please wait.")
+                raise _Refusal(grpc.StatusCode.UNAVAILABLE, "Server is not yet initialized with a model. Please wait.")
 
             total_params = sum(p.numel() for p in params.values())
             size_mb = (total_params * 4) / (1024 * 1024)
@@ -164,10 +178,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                 )
             except MemoryError:
                 logging.info(f"[Server] MemoryError serializing {size_mb:.2f} MB model")
-                context.abort(grpc.StatusCode.RESOURCE_EXHAUSTED,
-                              f"Model too large ({size_mb:.2f} MB) for unary transfer. Client should use streaming.")
+                raise _Refusal(grpc.StatusCode.RESOURCE_EXHAUSTED,
+                               f"Model too large ({size_mb:.2f} MB) for unary transfer. Client should use streaming.")
 
-
+        except _Refusal as refusal:
+            context.abort(refusal.code, refusal.details)
         except Exception as e:
             logging.error(f"RPC failed for client {request.client_id}", exc_info=True)
             context.abort(grpc.StatusCode.INTERNAL, "An internal server error occurred.")
@@ -178,10 +193,10 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             params, current_round, config = self.coordinator.get_global_model_for_client()
 
             if current_round == -1:
-                context.abort(grpc.StatusCode.UNAVAILABLE, "Training complete")
+                raise _Refusal(grpc.StatusCode.UNAVAILABLE, "Training complete")
 
             if params is None:
-                context.abort(grpc.StatusCode.UNAVAILABLE, "Server not initialized")
+                raise _Refusal(grpc.StatusCode.UNAVAILABLE, "Server not initialized")
 
             logging.info(f"[Server] Streaming global model to {request.client_id} for round {current_round}")
 
@@ -235,6 +250,8 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
             logging.info(f"[Server] Model stream complete")
 
+        except _Refusal as refusal:
+            context.abort(refusal.code, refusal.details)
         except Exception as e:
             logging.error(f"RPC failed for client {request.client_id}", exc_info=True)
             context.abort(grpc.StatusCode.INTERNAL, "An internal server error occurred.")
@@ -262,8 +279,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
             # Step 2: Submit to coordinator
             logging.info(f"[Server] Step 2: Submitting to coordinator...")
-            self.coordinator.submit_client_update(client_id, params, num_examples, trained_on_round)
-            logging.info(f"[Server] Coordinator accepted update")
+            if self.coordinator.submit_client_update(client_id, params, num_examples, trained_on_round):
+                logging.info(f"[Server] Coordinator accepted update")
+            else:
+                logging.info(f"[Server] Update from {client_id} for round {trained_on_round} was not counted "
+                             f"(the run ended, another round is current, or it already reported)")
 
             logging.info(f"[Server] SubmitModelUpdate SUCCESS")
             logging.info(f"=" * 60)
@@ -385,7 +405,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             logging.info(f"[Server] Model reconstructed successfully. Submitting to coordinator...")
 
             # Submit to coordinator
-            self.coordinator.submit_client_update(client_id, parameters, num_examples, round_num)
+            if not self.coordinator.submit_client_update(client_id, parameters, num_examples, round_num):
+                logging.info(f"[Server] Streamed update from {client_id} for round {round_num} was not counted "
+                             f"(the run ended, another round is current, or it already reported)")
 
             return fedlearn_pb2.SubmitModelUpdateResponse(received=True)
 
@@ -416,9 +438,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             server_state = State.WAITING_FOR_CLIENTS
         else:
             server_state = State.TRAINING
-        # A rolling deadline (now + per-round timeout) so a client's status poll never implies an
-        # infinite wait (v2 §6.2). A precise per-round start-stamp can replace this post-MVP.
-        round_deadline_unix_ms = int((time.time() + self.coordinator.round_timeout_s) * 1000)
+        # The round's real deadline (its start plus the per-round timeout), which the coordinator enforces. It
+        # used to be now + timeout on every poll, so a client's countdown never advanced.
+        round_deadline_unix_ms = self.coordinator.round_deadline_unix_ms()
         return fedlearn_pb2.GetServerStatusResponse(
             server_state=server_state,
             current_round=status["current_round"],
@@ -479,8 +501,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             strategy = self.coordinator.strategy
             current_round = self.coordinator.current_round
 
-            # Check if training is complete
-            if self.coordinator.stop_requested:
+            # The run is over once stopped, and also as soon as its last round has aggregated: the server loop
+            # marks completion a moment later, and a client asking in between used to get a round that never ran.
+            if self.coordinator.run_is_over():
                 return fedlearn_pb2.GetDeComFLConfigResponse(current_round=-1)
 
             logging.info(f"[Server] DeComFL config request from {client_id} for round {current_round}")

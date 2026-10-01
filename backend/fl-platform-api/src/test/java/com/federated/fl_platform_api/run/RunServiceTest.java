@@ -36,18 +36,56 @@ class RunServiceTest {
     @Mock FlClientCertificateAuthority clientCa;
     @Mock com.federated.fl_platform_api.security.FlServerCertificate serverCert;
 
+    @Mock com.federated.fl_platform_api.contract.ExecutionContractStore contractStore;
+
     @InjectMocks RunService runService;
 
     @BeforeEach
     void injectValues() {
         ReflectionTestUtils.setField(runService, "grpcHost", "localhost");
+        lenient().when(contractStore.read(any())).thenReturn(contractView(
+                com.federated.fl_platform_api.contract.ContractState.LEGACY_ONLY));
+    }
+
+    private static com.federated.fl_platform_api.contract.ContractView contractView(
+            com.federated.fl_platform_api.contract.ContractState state) {
+        return new com.federated.fl_platform_api.contract.ContractView(state, null, null, null, null, null);
     }
 
     private Project project(UUID id) {
         Project p = new Project();
         p.setId(id);
         p.setModelType("CNN");
+        p.setModelName("net");
         return p;
+    }
+
+    @Test
+    void createForStart_recordsTheIntentFromTheProjectAndTheEffectiveDeploymentSettings() {
+        when(runRepository.save(any(Run.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(serverCert.tlsRequired()).thenReturn(true);
+        ReflectionTestUtils.setField(runService, "clientAuthRequired", true);
+        ReflectionTestUtils.setField(runService, "roundTimeoutSeconds", 900.0);
+        Project p = project(UUID.randomUUID());
+
+        Run run = runService.createForStart(p, "FedAvg", 5, 2, 2);
+
+        // A run started without naming a data source trains the recipe's fixture (V30).
+        assertEquals(java.util.Optional.of(com.federated.fl_platform_api.model.RunIntent.capture(p, true, true, 900_000L,
+                        com.federated.fl_platform_api.model.TrainingDataSource.FIXTURE)),
+                run.getIntent());
+    }
+
+    @Test
+    void createForStart_recordsARunOnParticipantsOwnData() {
+        when(runRepository.save(any(Run.class))).thenAnswer(inv -> inv.getArgument(0));
+        ReflectionTestUtils.setField(runService, "roundTimeoutSeconds", 900.0);
+
+        Run run = runService.createForStart(project(UUID.randomUUID()), "FedAvg", 5, 2, 2, null, null,
+                com.federated.fl_platform_api.model.TrainingDataSource.LOCAL_SNAPSHOT);
+
+        assertEquals(com.federated.fl_platform_api.model.TrainingDataSource.LOCAL_SNAPSHOT,
+                run.getIntent().orElseThrow().dataSource());
     }
 
     @Test
@@ -93,6 +131,10 @@ class RunServiceTest {
         Run r = new Run();
         r.setId(rid);
         r.setStatus(RunStatus.STARTING);
+        r.setServerPort(50001);
+        r.setServerPid(1234L);
+        r.setProcessStartedAt(java.time.Instant.parse("2026-09-18T12:00:00Z"));
+        r.setInternalTokenHash("old-token-hash");
         when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
         when(runRepository.save(any(Run.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -100,6 +142,10 @@ class RunServiceTest {
 
         assertEquals(RunStatus.FAILED, r.getStatus());
         assertNotNull(r.getEndedAt());
+        assertNull(r.getServerPort());
+        assertNull(r.getServerPid());
+        assertNull(r.getProcessStartedAt());
+        assertNull(r.getInternalTokenHash());
     }
 
     @Test
@@ -269,6 +315,79 @@ class RunServiceTest {
         assertEquals(pid, dto.getProjectId());
     }
 
+    // ─── execution contract v1 in the manifest ─────────────────────────────────
+
+    private com.federated.fl_platform_api.dto.RunManifestDto manifestWith(
+            com.federated.fl_platform_api.contract.ContractView view) {
+        UUID rid = UUID.randomUUID();
+        UUID pid = UUID.randomUUID();
+        Run r = new Run();
+        r.setId(rid); r.setProjectId(pid);
+        r.setStatus(RunStatus.RUNNING);
+        r.setRecipeKey("TINYNET_GOLDEN");
+        r.setStrategy("FedAvg");
+        r.setNumRounds(3);
+        r.setClientsPerRound(4);
+        r.setPartitioningMode(PartitioningMode.SHARDED);
+        Project p = project(pid);
+        User u = new User(); u.setId(7L);
+        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 7L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+        when(contractStore.read(r)).thenReturn(view);
+        return runService.getManifest(rid);
+    }
+
+    @Test
+    void manifest_carriesAReadyContractAsProtoJsonWithItsId() throws Exception {
+        java.nio.file.Path fixtures = java.nio.file.Path.of("..", "..", "framework", "tests", "fixtures",
+                "execution_contract_v1");
+        byte[] bytes = java.nio.file.Files.readAllBytes(fixtures.resolve("golden_tinynet_fedavg.binpb"));
+        var contract = com.fedlearn.contract.v1.ExecutionContract.parseFrom(bytes);
+
+        var dto = manifestWith(new com.federated.fl_platform_api.contract.ContractView(
+                com.federated.fl_platform_api.contract.ContractState.READY, contract, bytes, "a".repeat(64),
+                null, null));
+
+        assertEquals("READY", dto.getContractState());
+        assertEquals("a".repeat(64), dto.getContractId());
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertEquals(json.readTree(java.nio.file.Files.readString(fixtures.resolve("golden_tinynet_fedavg.json"))),
+                dto.getExecutionContract());
+        assertNull(dto.getContractUnavailableReason());
+        assertEquals("TINYNET_GOLDEN", dto.getRecipeKey(), "legacy fields are still emitted");
+    }
+
+    @Test
+    void manifest_reportsAPendingContractWithoutOne() {
+        var dto = manifestWith(contractView(com.federated.fl_platform_api.contract.ContractState.PENDING));
+        assertEquals("PENDING", dto.getContractState());
+        assertNull(dto.getContractId());
+        assertNull(dto.getExecutionContract());
+    }
+
+    @Test
+    void manifest_reportsWhyNoContractIsAvailableButNotTheServerSideDetail() {
+        var dto = manifestWith(new com.federated.fl_platform_api.contract.ContractView(
+                com.federated.fl_platform_api.contract.ContractState.UNAVAILABLE, null, null, null,
+                com.federated.fl_platform_api.contract.ContractUnavailableReason.STAGING_FAILED,
+                "/var/models/run/loss.pte is missing"));
+        assertEquals("UNAVAILABLE", dto.getContractState());
+        assertEquals("STAGING_FAILED", dto.getContractUnavailableReason());
+        assertNull(dto.getExecutionContract());
+        assertFalse(new com.fasterxml.jackson.databind.ObjectMapper().valueToTree(dto).toString()
+                .contains("/var/models"), "the server-side detail never reaches a client");
+    }
+
+    @Test
+    void manifest_reportsALegacyRunAsLegacyOnly() {
+        var dto = manifestWith(contractView(com.federated.fl_platform_api.contract.ContractState.LEGACY_ONLY));
+        assertEquals("LEGACY_ONLY", dto.getContractState());
+        assertNull(dto.getExecutionContract());
+    }
+
     // ─── enroll tests ──────────────────────────────────────────────────────────
 
     private Run runningRun(UUID rid, UUID pid, int k, PartitioningMode mode) {
@@ -336,6 +455,70 @@ class RunServiceTest {
         assertNull(dto.getCaFingerprint());
         // the cert is bound to THIS caller's id, not an attacker-supplied one.
         verify(clientCa).issueClientCert("7", rid);
+    }
+
+    // Stage 3 D1: a device's capability report arrives with enrollment and is kept on it, informational only.
+    private static com.federated.fl_platform_api.dto.CapabilityReport report(int batteryPct) {
+        return new com.federated.fl_platform_api.dto.CapabilityReport("android", "9", 27, java.util.List.of("arm64-v8a"),
+                3_000_000_000L, 20_000_000_000L, "vivo 1805", "2.1.0", "7", 3, 2, "NOMINAL", batteryPct);
+    }
+
+    private RunEnrollment enrollWith(UUID rid, RunEnrollment existing,
+                                     com.federated.fl_platform_api.dto.CapabilityReport report) {
+        UUID pid = UUID.randomUUID();
+        Project p = project(pid); User u = new User(); u.setId(7L);
+        Run r = runningRun(rid, pid, 4, PartitioningMode.SHARDED);
+        org.springframework.test.util.ReflectionTestUtils.setField(runService, "objectMapper",
+                new com.fasterxml.jackson.databind.ObjectMapper());
+        when(runRepository.lockById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 7L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+        when(enrollmentRepository.findByIdRunIdAndIdUserId(rid, 7L)).thenReturn(java.util.Optional.ofNullable(existing));
+        if (existing == null) {
+            when(enrollmentRepository.maxPartitionIdForRun(rid)).thenReturn(-1);
+        }
+        when(enrollmentRepository.save(any(RunEnrollment.class))).thenAnswer(i -> i.getArgument(0));
+        when(tokenService.mint(any(), anyLong())).thenReturn(
+                new ConnectionTokenService.Minted("tok", java.time.Instant.now().plusSeconds(120)));
+        runService.enroll(rid, report);
+        org.mockito.ArgumentCaptor<RunEnrollment> saved = org.mockito.ArgumentCaptor.forClass(RunEnrollment.class);
+        verify(enrollmentRepository).save(saved.capture());
+        return saved.getValue();
+    }
+
+    @Test
+    void enroll_recordsTheDevicesCapabilityReportWithItsTime() throws Exception {
+        RunEnrollment saved = enrollWith(UUID.randomUUID(), null, report(80));
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(saved.getCapabilityReport());
+        assertEquals("android", json.path("platform").asText());
+        assertEquals(27, json.path("apiLevel").asInt());
+        assertEquals(80, json.path("batteryPct").asInt());
+        assertNotNull(saved.getCapabilityReportedAt());
+    }
+
+    @Test
+    void enroll_withoutAReport_keepsTheOneADeviceSentEarlier() {
+        UUID rid = UUID.randomUUID();
+        RunEnrollment existing = new RunEnrollment(new RunEnrollmentId(rid, 7L), 1, ClientKind.SHARD,
+                java.time.Instant.now());
+        existing.setCapabilityReport("{\"platform\":\"android\"}", java.time.Instant.now());
+        RunEnrollment saved = enrollWith(rid, existing, null);
+        assertEquals("{\"platform\":\"android\"}", saved.getCapabilityReport());
+    }
+
+    @Test
+    void aCapabilityReportOutsideItsBoundsIsInvalid() {
+        var validator = jakarta.validation.Validation.buildDefaultValidatorFactory().getValidator();
+        assertTrue(validator.validate(report(80)).isEmpty());
+        assertFalse(validator.validate(report(150)).isEmpty());
+        var tooManyAbis = new com.federated.fl_platform_api.dto.CapabilityReport("android", "9", 27,
+                java.util.Collections.nCopies(20, "x"), 1L, 1L, "m", "v", "b", 3, 2, "NOMINAL", 50);
+        assertFalse(validator.validate(tooManyAbis).isEmpty());
+        var otherPlatform = new com.federated.fl_platform_api.dto.CapabilityReport("windows", "9", 27, null, 1L, 1L,
+                "m", "v", "b", 3, 2, null, null);
+        assertFalse(validator.validate(otherPlatform).isEmpty());
     }
 
     @Test

@@ -8,6 +8,20 @@ The mobile client (`mobile_client/`) is an **on-device** federated-learning part
 
 The single product name is **FedLearn** (the v1 `FedMob` / `com.mobileclientnew` names are retired).
 
+The approved path from the current TinyNet-focused Android implementation to capability-negotiated
+algorithm and modality parity with laptop clients is documented in
+[Android Federated-Learning Parity Design](02-android-federated-learning-parity-design.md).
+The Stage 2 wire and publication rules are specified in
+[Execution Contract v1 — Focused Design](03-android-execution-contract-v1-design.md), and its
+progress is tracked in the [implementation plan](06-execution-contract-v1-implementation-plan.md).
+Bringing FedOpt and Robust into the contract is planned in [07](07-fedopt-robust-contract-plan.md).
+DeComFL's zeroth-order training is designed and recorded in [08](08-decomfl-contract-design.md).
+FedProx, the last strategy the phone refused, is planned and tracked in [09](09-fedprox-contract-plan.md).
+The procedure for a live phone + laptop run on one contract is the [live-run runbook](10-live-run-runbook.md).
+Stage 3 (artifact delivery, on-device datasets, portable-CPU qualification) is designed and delivered, slice by slice,
+in [11](11-stage3-artifact-dataset-qualification-design.md). Stage 4 (the MLP, CNN, ResNet-18 and
+pneumonia CNN recipes on phones) is designed, with its decisions taken, in [12](12-stage4-vector-and-image-recipes-design.md).
+
 > **Design system: Ledger, not Ember.** `src/theme/tokens.generated.ts` and `src/theme/global.css` are **generated** by `design/build-tokens.mjs` from `design/tokens.json` and both carry the Ledger palette (canvas `#F6F3EE`, surface `#FFFFFF`, ink `#191A1C`, muted `#6B6760`, navy accent `#1C314D` / hover `#14243A`; dark family `#0B1622` / `#4F8AC9`). Ledger landed in `2c50672` and rolled onto mobile in `3d54484`, superseding **Ember**, which had superseded *Instrument*. `src/theme/tokens.ts` is now a thin re-export kept only so older import paths resolve — do not hand-edit either generated file; CI's "Design tokens in sync with source of truth" step (`scripts/check_design_tokens.sh`, unconditional in `ci.yml`) fails on drift. The shipped brand fonts are **Hanken Grotesk** (sans *and* display) + **JetBrains Mono** (`src/assets/fonts/`); Bricolage Grotesque was Ember-era and is gone.
 
 ---
@@ -138,6 +152,8 @@ The bundle is now **per-run and served by the backend**, not a hard-coded client
 Both paths write the identical served shape, staging is idempotent, and failure is best-effort: the phone treats a missing bundle as a graceful 404 rather than an error.
 
 **What that means in practice today.** The demo path a phone actually completes is still the fixture one: `TINYNET_GOLDEN` — `Linear(4,5) → ReLU → Linear(5,3)` with `fc2` frozen, **43 total parameters, 25 trainable** (`flat_dim = 25`), the same fixture that backs the C++ parity gate (`framework/tests/fixtures/decomfl_golden/zo_manifest.json`, `golden_loss ≈ 1.0973`). The fixture's `zo_inputs.f32` / `zo_targets.i64` are staged *as the device's local partition*, so they stand in for genuine per-device data. That is a deliberate MVP shortcut and **not representative federation**; real per-device data remains an explicit post-MVP step. The fixture now also ships `tinynet_trainable.pte`, which is what lets the first-order path be exercised at all.
+
+**Live mixed-device validation (2026-09-20).** Run `910be6e8-5481-46c5-a58d-23ac936d0403` completed three `FedOpt` rounds with the vivo 1805 and three desktop CLI clients. The server selected its FedAdam variant, logged all four clients in each round, and received exactly one 100-byte first-order weight upload from the phone per round. The phone reported 3 rounds completed and 300 bytes uploaded. This extends the earlier three-round TinyNet `FedAvg` validation, but does **not** establish parity for real local datasets, other recipes, FedProx, text/LoRA, GPU training, or secure aggregation. TinyNet has no server evaluation set, so the displayed 0.0 accuracy/loss values do not measure learning. The phone displayed 0 bytes downloaded despite three logged model streams; after completion, normal desktop model polls were logged as server RPC errors. Those are observability issues, not evidence of failed aggregation.
 
 The real-export path is the documented seam for every other recipe, but **it does not currently run**: `scripts/export_model.py` resolves `recipes.py` from `backend/fl-platform-api/src/main/resources/scripts/`, a directory that no longer exists (the catalog lives in `fl-runtime/recipes.py`), so the import fails and the stager logs a non-zero exit. Until that path is fixed, a non-fixture recipe produces no bundle and the phone 404s.
 

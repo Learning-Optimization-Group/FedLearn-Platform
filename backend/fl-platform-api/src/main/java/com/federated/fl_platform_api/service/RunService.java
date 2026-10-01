@@ -1,5 +1,9 @@
 package com.federated.fl_platform_api.service;
 
+import com.federated.fl_platform_api.contract.ContractState;
+import com.federated.fl_platform_api.contract.ContractView;
+import com.federated.fl_platform_api.contract.ExecutionContractStore;
+import com.google.protobuf.util.JsonFormat;
 import com.federated.fl_platform_api.model.RobustAggregationSettings;
 import com.federated.fl_platform_api.model.RobustMethod;
 
@@ -40,6 +44,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -69,6 +74,17 @@ public class RunService {
     private boolean preferCgnat;
 
     @Autowired private Environment environment;
+    @Autowired private ExecutionContractStore contractStore;
+    @Autowired private ModelRecipeService modelRecipeService;
+
+    // V27: the effective client-auth setting recorded in each run's intent; the same property the FL-server spawn
+    // enforces. TLS comes from serverCert, which reads app.fl.require-tls.
+    @Value("${app.fl.require-client-auth:false}")
+    private boolean clientAuthRequired;
+
+    // V29: the round timeout recorded in each run's intent and given to its FL server (FEDLEARN_ROUND_TIMEOUT_S).
+    @Value("${app.fl.round-timeout-seconds:${FEDLEARN_ROUND_TIMEOUT_S:120}}")
+    private double roundTimeoutSeconds = 120;   // the FL server's own default, when not injected
 
     // OP-15 / BA-16: the host actually ADVERTISED to clients. In dev, a default 'localhost' is upgraded to
     // the detected client-reachable IP (Tailscale/CGNAT-preferred, then site-local LAN) so a remote client
@@ -99,8 +115,13 @@ public class RunService {
     // The only filenames the bundle file endpoint will serve (blocks path traversal / arbitrary reads).
     private static final Set<String> ALLOWED_BUNDLE_FILES =
             Set.of("loss.pte", "infer.pte", "inputs.f32", "targets.i64", "trainable.pte");
+    /** The staged fixture batch, which only a run on the fixture data hands out. */
+    private static final Set<String> FIXTURE_DATA_FILES = Set.of("inputs.f32", "targets.i64");
 
     private static final SecureRandom RANDOM = new SecureRandom();
+
+    // Reads the ProtoJSON the protobuf printer emits into a tree, so it nests in the manifest verbatim.
+    private static final ObjectMapper PROTO_JSON = new ObjectMapper();
 
     public Run createForStart(Project project, String strategy, int numRounds,
                               int minClients, int clientsPerRound) {
@@ -118,6 +139,14 @@ public class RunService {
      */
     public Run createForStart(Project project, String strategy, int numRounds, int minClients,
                               int clientsPerRound, RobustAggregationSettings robust, Integer secureAggThreshold) {
+        return createForStart(project, strategy, numRounds, minClients, clientsPerRound, robust, secureAggThreshold,
+                TrainingDataSource.FIXTURE);
+    }
+
+    /** As above, plus where the run's training data comes from, recorded in its intent (V30). */
+    public Run createForStart(Project project, String strategy, int numRounds, int minClients,
+                              int clientsPerRound, RobustAggregationSettings robust, Integer secureAggThreshold,
+                              TrainingDataSource dataSource) {
         Run run = new Run();
         run.setProjectId(project.getId());
         run.setStrategy(strategy);
@@ -133,6 +162,8 @@ public class RunService {
         applyRobustSettings(run, strategy, robust);
         run.setSecureAggregation(secureAggThreshold != null);
         run.setSecureAggThreshold(secureAggThreshold);
+        run.setIntent(RunIntent.capture(project, serverCert.tlsRequired(), clientAuthRequired,
+                RunIntent.roundTimeoutMs(roundTimeoutSeconds), dataSource));
         return runRepository.save(run);
     }
 
@@ -198,6 +229,9 @@ public class RunService {
         }
         run.setStatus(status);
         run.setServerPort(null);
+        run.setServerPid(null);
+        run.setProcessStartedAt(null);
+        run.setInternalTokenHash(null);
         run.setEndedAt(Instant.now());
         runRepository.save(run);
     }
@@ -230,7 +264,26 @@ public class RunService {
         return toManifest(run);
     }
 
+    /** The run's manifest: the legacy fields and, beside them, its execution contract state (Stage 2F). */
     RunManifestDto toManifest(Run run) {
+        RunManifestDto m = legacyManifest(run);
+        ContractView contract = contractStore.read(run);
+        m.setContractState(contract.state().name());
+        if (contract.state() == ContractState.READY) {
+            m.setContractId(contract.contractId());
+            try {
+                m.setExecutionContract(PROTO_JSON.readTree(JsonFormat.printer().print(contract.contract())));
+            } catch (IOException e) {
+                throw new IllegalStateException("could not render the execution contract of run " + run.getId(), e);
+            }
+        } else if (contract.state() == ContractState.UNAVAILABLE) {
+            m.setContractUnavailableReason(contract.unavailableReason().name());
+        }
+        return m;
+    }
+
+    /** The manifest fields old clients read, which a published execution contract must agree with. */
+    public RunManifestDto legacyManifest(Run run) {
         RunManifestDto m = new RunManifestDto();
         m.setRunId(run.getId());
         m.setProjectId(run.getProjectId());
@@ -284,6 +337,15 @@ public class RunService {
 
     @Transactional
     public EnrollmentDto enroll(UUID runId) {
+        return enroll(runId, null);
+    }
+
+    /**
+     * Enroll the caller in the run, recording the device's capability report when it sends one (Stage 3 D1). A
+     * re-enrollment without a report keeps the one sent before; the report never affects what the device may train.
+     */
+    @Transactional
+    public EnrollmentDto enroll(UUID runId, com.federated.fl_platform_api.dto.CapabilityReport report) {
         Run run = runRepository.lockById(runId)
                 .orElseThrow(() -> new ResourceNotFoundException("Run not found: " + runId));
         Project project = projectRepository.findById(run.getProjectId())
@@ -313,6 +375,13 @@ public class RunService {
                     new RunEnrollmentId(runId, self.getId()), next, kind, Instant.now());
         }
         enrollment.setTokenIssuedAt(Instant.now());
+        if (report != null) {
+            try {
+                enrollment.setCapabilityReport(objectMapper.writeValueAsString(report), Instant.now());
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                throw new IllegalArgumentException("the capability report could not be recorded", e);
+            }
+        }
         enrollment = enrollmentRepository.save(enrollment);
 
         String grpcEndpoint = endpoint(run);
@@ -359,7 +428,7 @@ public class RunService {
         if (!bundleDeliveryEnabled) {
             throw new ProjectStateException("Model bundle delivery is disabled");
         }
-        requireParticipantRun(runId);
+        Run run = requireParticipantRun(runId);
         Path manifestPath = Path.of(modelBundleDir, runId.toString(), "manifest.json");
         if (!Files.isRegularFile(manifestPath)) {
             throw new ResourceNotFoundException("No model bundle staged for run " + runId);
@@ -377,10 +446,14 @@ public class RunService {
             p.path("shape").forEach(s -> shape.add(s.asInt()));
             layout.add(new ModelBundleDto.ParamSpec(p.path("name").asText(), shape));
         }
+        String base = "/api/runs/" + runId + "/files/";
+        // A run on participants' own data has no fixture batch to hand out: each device trains its snapshot.
+        boolean fixture = !trainsOnOwnData(run);
         JsonNode ds = m.path("dataset");
         List<Integer> inputShape = new ArrayList<>();
-        ds.path("inputShape").forEach(s -> inputShape.add(s.asInt()));
-        String base = "/api/runs/" + runId + "/files/";
+        if (fixture) {
+            ds.path("inputShape").forEach(s -> inputShape.add(s.asInt()));
+        }
         // First-order trainable graph — present only when the staged bundle carries a trainablePtePath.
         // Absent => null url/sha + empty names, which the mobile client reads as "DeComFL-only".
         String trainablePte = mm.path("trainablePtePath").asText("");
@@ -392,9 +465,43 @@ public class RunService {
                 runId, layout, mm.path("totalParamCount").asLong(),
                 base + "loss.pte", m.path("lossPte").path("sha256").asText(),
                 base + "infer.pte", mm.path("inferSha256").asText(),
-                base + ds.path("inputsFile").asText("inputs.f32"), ds.path("inputsSha256").asText(), inputShape,
-                base + ds.path("targetsFile").asText("targets.i64"), ds.path("targetsSha256").asText(),
-                trainablePteUrl, trainableSha256, trainableParamNames);
+                fixture ? base + ds.path("inputsFile").asText("inputs.f32") : null,
+                fixture ? ds.path("inputsSha256").asText() : null, inputShape,
+                fixture ? base + ds.path("targetsFile").asText("targets.i64") : null,
+                fixture ? ds.path("targetsSha256").asText() : null,
+                trainablePteUrl, trainableSha256, trainableParamNames, recipeClassNames(run), trainableProbe(mm.path("trainableProbe")));
+    }
+
+    /** True when the run's intent trains on each participant's own dataset snapshot rather than the fixture batch. */
+    private static boolean trainsOnOwnData(Run run) {
+        return run.getIntent().map(RunIntent::dataSource).orElse(null) == TrainingDataSource.LOCAL_SNAPSHOT;
+    }
+
+    /** The staged trainable program's qualification probe, or null when the bundle carries none. */
+    private static ModelBundleDto.TrainableProbe trainableProbe(JsonNode p) {
+        if (p == null || !p.isObject()) {
+            return null;
+        }
+        java.util.List<Integer> inputShape = null;
+        if (p.path("inputShape").isArray()) {
+            inputShape = new java.util.ArrayList<>();
+            for (JsonNode d : p.path("inputShape")) {
+                inputShape.add(d.asInt());
+            }
+        }
+        return new ModelBundleDto.TrainableProbe(p.path("rows").asInt(), p.path("width").asInt(),
+                p.path("classes").asInt(), p.path("learningRate").asDouble(), p.path("lossStep1").asDouble(),
+                p.path("lossStep2").asDouble(), p.path("lossTolerance").asDouble(), p.path("maxProbeMs").asLong(),
+                inputShape);
+    }
+
+    /** The class names of the run's recipe, in label-index order; empty when the catalog does not know it. */
+    private List<String> recipeClassNames(Run run) {
+        return projectRepository.findById(run.getProjectId())
+                .flatMap(p -> Optional.ofNullable(p.getModelType()))
+                .flatMap(modelRecipeService::findByKey)
+                .map(r -> r.classes() == null ? List.<String>of() : List.copyOf(r.classes()))
+                .orElse(List.of());
     }
 
     /** Stream one whitelisted bundle binary. Same auth gate; the whitelist + a startsWith check block
@@ -404,9 +511,12 @@ public class RunService {
         if (!bundleDeliveryEnabled) {
             throw new ProjectStateException("Model bundle delivery is disabled");
         }
-        requireParticipantRun(runId);
+        Run run = requireParticipantRun(runId);
         if (!ALLOWED_BUNDLE_FILES.contains(filename)) {
             throw new ResourceNotFoundException("Unknown bundle file: " + filename);
+        }
+        if (FIXTURE_DATA_FILES.contains(filename) && trainsOnOwnData(run)) {
+            throw new ResourceNotFoundException("Run " + runId + " trains on participants' own data, not " + filename);
         }
         Path base = Path.of(modelBundleDir, runId.toString()).normalize();
         Path file = base.resolve(filename).normalize();
@@ -414,6 +524,52 @@ public class RunService {
             throw new ResourceNotFoundException("Bundle file not found: " + filename);
         }
         return new PathResource(file);
+    }
+
+    /** A file a run's execution contract lists, located in the run's staged bundle. */
+    public record ContractArtifact(Path file, String sha256, long byteSize) {}
+
+    private static final java.util.regex.Pattern SHA256_HEX = java.util.regex.Pattern.compile("[0-9a-f]{64}");
+
+    /**
+     * The staged file the run's READY execution contract lists under {@code sha256} (Stage 3 slice A2). Only files
+     * the contract lists are served, and each only by its hash: a phone downloads exactly what the contract binds.
+     * The path comes from the contract, must stay inside the run's bundle directory, and the staged file's size must
+     * equal the declared size.
+     */
+    public ContractArtifact getContractArtifact(UUID runId, String sha256) {
+        if (!bundleDeliveryEnabled) {
+            throw new ProjectStateException("Model bundle delivery is disabled");
+        }
+        if (sha256 == null || !SHA256_HEX.matcher(sha256).matches()) {
+            throw new ResourceNotFoundException("Unknown artifact: not a sha256");
+        }
+        Run run = requireParticipantRun(runId);
+        com.federated.fl_platform_api.contract.ContractView view = contractStore.read(run);
+        if (view.state() != com.federated.fl_platform_api.contract.ContractState.READY || view.contract() == null) {
+            throw new ResourceNotFoundException("Run " + runId + " has no published execution contract");
+        }
+        com.fedlearn.contract.v1.ArtifactRef ref = view.contract().getModelTraining().getArtifactsList().stream()
+                .flatMap(v -> v.getFilesList().stream())
+                .filter(f -> f.getSha256().equals(sha256))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("The run's contract lists no artifact " + sha256));
+        Path base = Path.of(modelBundleDir, runId.toString()).toAbsolutePath().normalize();
+        Path file = base.resolve(ref.getRelativePath()).normalize();
+        if (!file.startsWith(base) || !Files.isRegularFile(file)) {
+            throw new ResourceNotFoundException("Artifact " + sha256 + " is not staged for run " + runId);
+        }
+        long size;
+        try {
+            size = Files.size(file);
+        } catch (IOException e) {
+            throw new ProjectStateException("Cannot read staged artifact " + sha256);
+        }
+        if (size != ref.getByteSize()) {
+            throw new ProjectStateException("Staged artifact " + sha256 + " is " + size
+                    + " bytes; the contract declares " + ref.getByteSize());
+        }
+        return new ContractArtifact(file, sha256, size);
     }
 
     /** Loads a run and enforces org-scope + owner-or-CLIENT participation. */

@@ -12,10 +12,26 @@ owns and perturbs the flat vector. Validated toolchain: torch 2.12.0 + executorc
 """
 from __future__ import annotations
 
+import copy
+
 import torch
 import torch.nn as nn
 from torch.func import functional_call
-from torch.export import export
+from torch.export import Dim, export
+
+
+def _batch_dim(max_batch: int | None):
+    """The example count as an export dimension: dynamic from 1 to ``max_batch``, or static (None).
+
+    A static dimension fixes every program to the example batch it was exported with, so a device dataset of any
+    other size is refused at runtime (ExecuTorch NotSupported). A dynamic one lets a device train its own dataset,
+    and a final partial minibatch, up to the bound the runtime plans memory for.
+    """
+    if max_batch is None:
+        return None
+    if max_batch < 1:
+        raise ValueError(f"max_batch must be at least 1, not {max_batch}")
+    return Dim("batch", min=1, max=max_batch)
 
 
 def trainable_names(model: nn.Module) -> list[str]:
@@ -24,6 +40,24 @@ def trainable_names(model: nn.Module) -> list[str]:
 
 def trainable_flat(model: nn.Module) -> torch.Tensor:
     return torch.cat([p.detach().reshape(-1) for n, p in model.named_parameters() if p.requires_grad])
+
+
+def batch_norm_layers(model: nn.Module) -> list[tuple[str, int, float, float]]:
+    """(module name, channels, momentum, eps) of each BatchNorm2d, in named_modules order: the order a training
+    program returns their batch statistics in and a device's state carries their running statistics in."""
+    return [(name, m.num_features, float(m.momentum), float(m.eps)) for name, m in model.named_modules()
+            if isinstance(m, (nn.BatchNorm2d, TrainBatchNorm2d))]
+
+
+def federated_buffer_names(model: nn.Module) -> list[str]:
+    """The BatchNorm running statistics a FULL-arm participant federates: each layer's mean, then its variance."""
+    return [f"{name}.{stat}" for name, _n, _m, _e in batch_norm_layers(model) for stat in ("running_mean", "running_var")]
+
+
+def federated_flat(model: nn.Module) -> torch.Tensor:
+    """The trainable parameters, then the federated BatchNorm running statistics (federated_buffer_names order)."""
+    buffers = dict(model.named_buffers())
+    return torch.cat([trainable_flat(model)] + [buffers[n].detach().reshape(-1) for n in federated_buffer_names(model)])
 
 
 def _unflatten_params(
@@ -48,12 +82,15 @@ class _FunctionalLoss(nn.Module):
     frozen params are constants. The base model is hidden in a list so its parameters are NOT
     registered on this wrapper (the exported graph has zero module params)."""
 
-    def __init__(self, base: nn.Module):
+    def __init__(self, base: nn.Module, include_buffers: bool = False):
         super().__init__()
         self._base = [base]  # list hides base from nn.Module param registration
-        self._names = trainable_names(base)
-        self._shapes = [base.get_parameter(n).shape for n in self._names]
-        self._numel = [base.get_parameter(n).numel() for n in self._names]
+        # With include_buffers, the flat input continues with the BatchNorm running statistics (federated_flat), so
+        # a device's evaluation uses the statistics it has trained, not the ones baked in at export.
+        self._names = trainable_names(base) + (federated_buffer_names(base) if include_buffers else [])
+        tensors = dict(base.named_parameters()) | dict(base.named_buffers())
+        self._shapes = [tensors[n].shape for n in self._names]
+        self._numel = [tensors[n].numel() for n in self._names]
         # Frozen params captured as constants (detached, not registered as state).
         self._frozen = {n: p.detach().clone() for n, p in base.named_parameters() if not p.requires_grad}
 
@@ -71,12 +108,15 @@ class _FunctionalInfer(nn.Module):
     The base model is hidden in a list so its parameters are NOT registered on this wrapper
     (the exported graph has zero module params)."""
 
-    def __init__(self, base: nn.Module):
+    def __init__(self, base: nn.Module, include_buffers: bool = False):
         super().__init__()
         self._base = [base]  # list hides base from nn.Module param registration
-        self._names = trainable_names(base)
-        self._shapes = [base.get_parameter(n).shape for n in self._names]
-        self._numel = [base.get_parameter(n).numel() for n in self._names]
+        # With include_buffers, the flat input continues with the BatchNorm running statistics (federated_flat), so
+        # a device's evaluation uses the statistics it has trained, not the ones baked in at export.
+        self._names = trainable_names(base) + (federated_buffer_names(base) if include_buffers else [])
+        tensors = dict(base.named_parameters()) | dict(base.named_buffers())
+        self._shapes = [tensors[n].shape for n in self._names]
+        self._numel = [tensors[n].numel() for n in self._names]
         # Frozen params captured as constants (detached, not registered as state).
         self._frozen = {n: p.detach().clone() for n, p in base.named_parameters() if not p.requires_grad}
 
@@ -87,27 +127,34 @@ class _FunctionalInfer(nn.Module):
         return functional_call(self._base[0], params, (x,))
 
 
-def export_functional_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, torch.Tensor]) -> bytes:
-    """Return .pte bytes for forward(flat_trainable, x, y) -> cross_entropy."""
+def export_functional_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, torch.Tensor],
+                          max_batch: int | None = None, include_buffers: bool = False) -> bytes:
+    """Return .pte bytes for forward(flat_trainable, x, y) -> cross_entropy.
+
+    ``max_batch`` makes the example count dynamic (1..max_batch); None keeps it static at the example's."""
     from executorch.exir import to_edge
 
     model = model.eval()
-    wrapper = _FunctionalLoss(model).eval()
+    wrapper = _FunctionalLoss(model, include_buffers).eval()
     assert sum(p.numel() for p in wrapper.parameters()) == 0, "wrapper must register 0 params"
     x, y = example_inputs
-    ex = (trainable_flat(model), x, y)
-    ep = export(wrapper, ex)
+    ex = (federated_flat(model) if include_buffers else trainable_flat(model), x, y)
+    batch = _batch_dim(max_batch)
+    ep = export(wrapper, ex, dynamic_shapes=None if batch is None else (None, {0: batch}, {0: batch}))
     return to_edge(ep).to_executorch().buffer
 
 
-def export_functional_infer_pte(model: nn.Module, example_x: torch.Tensor) -> bytes:
-    """Return .pte bytes for forward(flat_trainable, x) -> logits."""
+def export_functional_infer_pte(model: nn.Module, example_x: torch.Tensor, max_batch: int | None = None,
+                                include_buffers: bool = False) -> bytes:
+    """Return .pte bytes for forward(flat_trainable, x) -> logits (``max_batch`` as in export_functional_pte)."""
     from executorch.exir import to_edge
 
     model = model.eval()
-    wrapper = _FunctionalInfer(model).eval()
+    wrapper = _FunctionalInfer(model, include_buffers).eval()
     assert sum(p.numel() for p in wrapper.parameters()) == 0, "wrapper must register 0 params"
-    ep = export(wrapper, (trainable_flat(model), example_x))
+    batch = _batch_dim(max_batch)
+    ep = export(wrapper, (federated_flat(model) if include_buffers else trainable_flat(model), example_x),
+                dynamic_shapes=None if batch is None else (None, {0: batch}))
     return to_edge(ep).to_executorch().buffer
 
 
@@ -140,6 +187,135 @@ class _TrainingGraph(nn.Module):
         return self.loss(out, y), out.detach().argmax(1)
 
 
+class TrainBatchNorm2d(nn.Module):
+    """Training-mode BatchNorm2d from primitive ops, for a mobile training program.
+
+    ExecuTorch cannot lower training-mode BatchNorm, so a program normalises with the batch's own statistics through
+    mean, multiply and rsqrt (the biased variance, as torch's training mode does) and returns them, so the device can
+    update the running statistics by BATCH_NORM_RUNNING_STATS_V1. It shares the original layer's weight and bias and
+    keeps its running buffers for the record; it never updates them itself.
+    """
+
+    def __init__(self, bn: nn.BatchNorm2d):
+        super().__init__()
+        self.weight, self.bias = bn.weight, bn.bias
+        self.register_buffer("running_mean", bn.running_mean.detach().clone())
+        self.register_buffer("running_var", bn.running_var.detach().clone())
+        self.num_features, self.eps, self.momentum = bn.num_features, bn.eps, bn.momentum
+        self.stats = None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        mean = x.mean(dim=(0, 2, 3))
+        centered = x - mean[None, :, None, None]
+        var = (centered * centered).mean(dim=(0, 2, 3))
+        self.stats = (mean.detach(), var.detach())
+        scale = torch.rsqrt(var + self.eps) * self.weight
+        return centered * scale[None, :, None, None] + self.bias[None, :, None, None]
+
+
+class _BatchNormTrainingGraph(nn.Module):
+    """forward(x, y) -> (loss, prediction, mean_0, var_0, mean_1, var_1, ...): every BatchNorm2d of the base model is a
+    TrainBatchNorm2d, and the batch statistics follow the loss in batch_norm_layers order."""
+
+    def __init__(self, base: nn.Module):
+        super().__init__()
+        self.base = copy.deepcopy(base)
+        for name, module in list(self.base.named_modules()):
+            if isinstance(module, nn.BatchNorm2d):
+                parent_name, _, child = name.rpartition(".")
+                parent = self.base.get_submodule(parent_name) if parent_name else self.base
+                setattr(parent, child, TrainBatchNorm2d(module))
+        self.layers = [m for m in self.base.modules() if isinstance(m, TrainBatchNorm2d)]
+        self.loss = nn.CrossEntropyLoss()
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor):
+        out = self.base(x)
+        stats = [t for layer in self.layers for t in layer.stats]
+        return (self.loss(out, y), out.detach().argmax(1), *stats)
+
+
+def export_bn_trainable_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, torch.Tensor],
+                            max_batch: int | None = None) -> bytes:
+    """A trainable graph for a model with BatchNorm: forward(x, y) -> (loss, prediction, batch statistics...), with
+    training-mode BatchNorm rebuilt from primitive ops. Trainable parameter names and order are export_trainable_pte's."""
+    from executorch.exir import to_edge
+    from torch.export.experimental import _export_forward_backward
+
+    wrapper = _BatchNormTrainingGraph(model)
+    if not wrapper.layers:
+        raise ValueError("the model has no BatchNorm2d; use export_trainable_pte")
+    x, y = example_inputs
+    batch = _batch_dim(max_batch)
+    ep = export(wrapper, (x, y), strict=True, dynamic_shapes=None if batch is None else ({0: batch}, {0: batch}))
+    ep = _export_forward_backward(ep)
+    return to_edge(ep).to_executorch().buffer
+
+
+class _DropoutMaskSlot(nn.Module):
+    """Stands in for an nn.Dropout in a mobile training program: multiplies by the mask the step was given."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.mask = None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x * self.mask
+
+
+class _MaskedTrainingGraph(nn.Module):
+    """forward(x, y, masks) -> (loss, prediction), with every nn.Dropout replaced by multiplication with a mask input.
+
+    The masks (one per dropout layer, in named_modules() order, each shaped like that layer's activation) come from
+    the contract's DROPOUT_MASKS_SEEDED_V1 stream, so a device's step is reproducible; torch's own dropout RNG is not.
+    """
+
+    def __init__(self, base: nn.Module):
+        super().__init__()
+        self.base = copy.deepcopy(base)
+        self.slots: list[tuple[str, _DropoutMaskSlot]] = []
+        for name, module in list(self.base.named_modules()):
+            if isinstance(module, nn.Dropout):
+                parent_name, _, child = name.rpartition(".")
+                parent = self.base.get_submodule(parent_name) if parent_name else self.base
+                slot = _DropoutMaskSlot()
+                setattr(parent, child, slot)
+                self.slots.append((name, slot))
+        self.loss = nn.CrossEntropyLoss()
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor, masks: tuple[torch.Tensor, ...]):
+        for (_, slot), mask in zip(self.slots, masks):
+            slot.mask = mask
+        out = self.base(x)
+        return self.loss(out, y), out.detach().argmax(1)
+
+
+def dropout_layers(model: nn.Module) -> list[tuple[str, float]]:
+    """The model's dropout layers in forward (named_modules) order, with their rates: what the contract states."""
+    return [(name, float(m.p)) for name, m in model.named_modules() if isinstance(m, nn.Dropout)]
+
+
+def export_masked_trainable_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, torch.Tensor],
+                                mask_shapes: list[tuple[int, ...]], max_batch: int | None = None) -> bytes:
+    """A trainable graph whose dropout layers take their masks as inputs: forward(x, y, masks).
+
+    ``mask_shapes`` are the per-example activation shapes of the dropout layers, in dropout_layers() order; the batch
+    dimension is dynamic like x's when ``max_batch`` is given. Frozen params are baked as in export_trainable_pte.
+    """
+    from executorch.exir import to_edge
+    from torch.export.experimental import _export_forward_backward
+
+    wrapper = _MaskedTrainingGraph(model)
+    if len(wrapper.slots) != len(mask_shapes):
+        raise ValueError(f"the model has {len(wrapper.slots)} dropout layers, not {len(mask_shapes)}")
+    x, y = example_inputs
+    masks = tuple(torch.ones(x.shape[0], *shape) for shape in mask_shapes)
+    batch = _batch_dim(max_batch)
+    dynamic = None if batch is None else ({0: batch}, {0: batch}, tuple({0: batch} for _ in masks))
+    ep = export(wrapper, (x, y, masks), strict=True, dynamic_shapes=dynamic)
+    ep = _export_forward_backward(ep)
+    return to_edge(ep).to_executorch().buffer
+
+
 def training_trainable_names(model: nn.Module) -> list[str]:
     """The trainable parameter names of the training graph, in canonical (base) named_parameters
     order — i.e. ``base.<name>`` for each trainable ``name`` in ``trainable_names(model)``.
@@ -150,18 +326,94 @@ def training_trainable_names(model: nn.Module) -> list[str]:
     return [f"base.{n}" for n in trainable_names(model)]
 
 
-def export_trainable_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, torch.Tensor]) -> bytes:
+def export_trainable_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, torch.Tensor],
+                         max_batch: int | None = None) -> bytes:
     """Return .pte bytes for a TRAINABLE graph: forward(x, y) -> (cross_entropy, prediction) with a
     captured backward pass. Load it with ET's TrainingModule (execute_forward_backward + optimizer).
 
     Frozen (requires_grad=False) layers are baked as constants and get no gradient, so only the
     trainable params (``training_trainable_names(model)``) are optimised — matching the framework's
-    FedAvg update, which leaves frozen layers fixed."""
+    FedAvg update, which leaves frozen layers fixed. ``max_batch`` as in export_functional_pte."""
     from executorch.exir import to_edge
     from torch.export.experimental import _export_forward_backward
 
     wrapper = _TrainingGraph(model)
     x, y = example_inputs
-    ep = export(wrapper, (x, y), strict=True)
+    batch = _batch_dim(max_batch)
+    ep = export(wrapper, (x, y), strict=True,
+                dynamic_shapes=None if batch is None else ({0: batch}, {0: batch}))
     ep = _export_forward_backward(ep)
     return to_edge(ep).to_executorch().buffer
+
+
+def dropout_mask_shapes(model: nn.Module, example_x: torch.Tensor) -> list[tuple[int, ...]]:
+    """The per-example activation shape at each dropout layer, in dropout_layers() order: the masks a masked program
+    takes, read from one forward pass rather than from the architecture."""
+    shapes: list[tuple[int, ...]] = []
+    hooks = [m.register_forward_hook(lambda _m, _i, out: shapes.append(tuple(out.shape[1:])))
+             for _, m in model.named_modules() if isinstance(m, nn.Dropout)]
+    was_training = model.training
+    try:
+        # Eval mode, so the pass neither draws from torch's RNG (dropout) nor moves BatchNorm running statistics.
+        model.eval()
+        with torch.no_grad():
+            model(example_x[:1])
+    finally:
+        model.train(was_training)
+        for h in hooks:
+            h.remove()
+    return shapes
+
+
+PROBE_LEARNING_RATE = 0.1
+
+
+def probe_batch(step: int, rows: int, width: int, classes: int) -> tuple[torch.Tensor, torch.Tensor]:
+    """The qualification probe's synthetic batch for step 1 or 2: x[i][j] = ((31 i + 7 j + 3 step) mod 17 - 8) / 8,
+    labels i mod classes. The native probe builds the same batch.
+
+    Every value is exact in float32. Rows differ from one another (31 is coprime to 17) for up to 17 rows whatever the
+    width, and no input is all zeros, so a step moves every layer even of a model whose biases start at zero.
+    """
+    x = torch.tensor([[((31 * i + 7 * j + 3 * step) % 17 - 8) / 8 for j in range(width)] for i in range(rows)],
+                     dtype=torch.float32)
+    return x, torch.tensor([i % classes for i in range(rows)], dtype=torch.int64)
+
+
+def probe_reference(model: nn.Module, rows: int, width: int, classes: int,
+                    input_shape: tuple[int, ...] | None = None) -> dict:
+    """What a trainable program must report on the probe: two SGD steps from its embedded (export-time) weights.
+
+    The batch is the flat [rows, width] pattern, viewed as [rows, *input_shape] for a model whose examples have more
+    than one dimension (an image's [channels, height, width]); the device builds the same values in the same order.
+    A masked-dropout program is probed with every mask all ones, so its dropout layers pass activations through
+    unchanged; the device does the same. The probe is a property of the artifact, not of a run, so a device can cache
+    its result per program digest.
+    """
+    shape = tuple(input_shape) if input_shape else (width,)
+    if int(torch.tensor(shape).prod()) != width:
+        raise ValueError(f"input shape {shape} does not hold {width} values")
+
+    def batch(step):
+        x, y = probe_batch(step, rows, width, classes)
+        return x.view(rows, *shape), y
+
+    mask_shapes = dropout_mask_shapes(model, batch(1)[0])
+    wrapper = _MaskedTrainingGraph(model)
+    params = [p for p in wrapper.parameters() if p.requires_grad]
+    opt = torch.optim.SGD(params, lr=PROBE_LEARNING_RATE)
+    losses = []
+    for step in (1, 2):
+        x, y = batch(step)
+        masks = tuple(torch.ones(rows, *mask) for mask in mask_shapes)
+        opt.zero_grad()
+        loss, _ = wrapper(x, y, masks)
+        loss.backward()
+        opt.step()
+        losses.append(float(loss))
+    return {"rows": rows, "width": width, "classes": classes, "learning_rate": PROBE_LEARNING_RATE,
+            **({"input_shape": list(shape)} if len(shape) > 1 else {}),
+            "loss_step1": losses[0], "loss_step2": losses[1],
+            # ExecuTorch's portable kernels agree with torch to ~1e-7 on these graphs; the tolerance leaves room for
+            # other CPUs while rejecting a program that computes something else.
+            "loss_tolerance": 1e-4}

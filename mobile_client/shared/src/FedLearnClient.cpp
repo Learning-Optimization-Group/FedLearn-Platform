@@ -1,4 +1,5 @@
 #include "fedlearn/FedLearnClient.h"
+#include "fedlearn/DeComFLServerConfig.h"
 
 #include <algorithm>
 #include <chrono>
@@ -7,6 +8,7 @@
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
 
 #include "fedlearn/Sha256.h"
 
@@ -31,16 +33,6 @@ std::string statusStr(const grpc::Status& s) {
   std::ostringstream ss;
   ss << "gRPC code " << static_cast<int>(s.error_code()) << ": " << s.error_message();
   return ss.str();
-}
-
-std::string cfgGet(const ::google::protobuf::Map<std::string, std::string>& m,
-                   const std::string& key, const std::string& fallback) {
-  auto it = m.find(key);
-  return it != m.end() ? it->second : fallback;
-}
-
-GradEstimateMethod parseMethod(const std::string& s) {
-  return s == "central" ? GradEstimateMethod::Central : GradEstimateMethod::Forward;
 }
 
 }  // namespace
@@ -192,15 +184,16 @@ DeComFLConfig FedLearnClient::getDeComFLConfig(const std::string& runId,
   // path leaves out.shouldStop at its default false. Server-authoritative completion is signalled as
   // current_round == -1 (handled in FederatedLoop::deComFLRound).
   out.currentRound = resp.current_round();
-  out.config.learningRate = std::stod(cfgGet(resp.config(), "lr", "0.001"));
-  out.config.mu = std::stod(cfgGet(resp.config(), "mu", "0.001"));
+  // learning_rate / smoothing_param are the keys the server sends; this used to read "lr" and "mu", which it never
+  // sends, so every round trained on the 0.001 defaults. The shared parser records whether each value was sent.
+  applyDeComFLServerConfig(std::map<std::string, std::string>(resp.config().begin(), resp.config().end()),
+                           resp.grad_estimate_method(), out);
   // mu is the zeroth-order finite-difference radius and a DIVISOR of the g-scalar: g = Δloss / mu. A
   // server-supplied mu of 0 makes it 0/0 = NaN, which poisons the local update AND the uploaded scalars;
   // a non-finite mu is likewise degenerate. Reject anything that is not strictly positive and finite.
   if (!(out.config.mu > 0.0) || !std::isfinite(out.config.mu)) {
     throw std::runtime_error("DeComFL config: mu must be a positive finite number");
   }
-  out.config.method = parseMethod(resp.grad_estimate_method());
   out.config.torchVersion = resp.torch_version();  // carried but NOT gated by FederatedLoop
   out.seeds = fromProtoSeeds(resp.current_seeds());
   out.config.numLocalSteps = static_cast<int>(out.seeds.size());
@@ -240,7 +233,8 @@ void FedLearnClient::submitGradientScalars(const std::string& runId, const std::
 // FedAvg streaming
 // ---------------------------------------------------------------------------
 std::string FedLearnClient::getGlobalModelStream(const std::string& runId,
-                                                 const std::string& clientId, int* outCurrentRound) {
+                                                 const std::string& clientId, int* outCurrentRound,
+                                                 std::map<std::string, std::string>* outConfig) {
   v2::GetGlobalModelRequest req;
   req.set_client_id(clientId);
   req.set_run_id(runId);
@@ -256,6 +250,7 @@ std::string FedLearnClient::getGlobalModelStream(const std::string& runId,
   int64_t declaredTotal = -1;
   std::string declaredSha;
   int currentRound = 0;
+  std::map<std::string, std::string> firstConfig;
   bool first = true;
   while (reader->Read(&chunk)) {
     if (first) {
@@ -263,6 +258,7 @@ std::string FedLearnClient::getGlobalModelStream(const std::string& runId,
       declaredTotal = chunk.total_bytes();
       declaredSha = chunk.sha256();
       currentRound = chunk.current_round();
+      firstConfig.insert(chunk.config().begin(), chunk.config().end());
       if (declaredTotal > cfg_.maxMessageBytes * static_cast<int64_t>(4096)) {
         throw std::runtime_error("getGlobalModelStream: declared total_bytes exceeds sane cap");
       }
@@ -275,11 +271,13 @@ std::string FedLearnClient::getGlobalModelStream(const std::string& runId,
   }
   grpc::Status s = reader->Finish();
   if (!s.ok()) throw std::runtime_error("GetGlobalModelStream failed: " + statusStr(s));
+  if (first) throw std::runtime_error("getGlobalModelStream: empty model stream");
 
   if (!declaredSha.empty() && Sha256::hexDigest(blob) != declaredSha) {
     throw std::runtime_error("getGlobalModelStream: sha256 mismatch on reassembled model blob");
   }
   if (outCurrentRound) *outCurrentRound = currentRound;
+  if (outConfig) *outConfig = std::move(firstConfig);
   return blob;
 }
 

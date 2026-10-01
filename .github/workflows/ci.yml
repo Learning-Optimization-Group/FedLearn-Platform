@@ -37,17 +37,32 @@ jobs:
           filters: |
             framework:
               - 'framework/**'
+              # Tested by framework/tests/test_stage_model_bundle.py against the programs it stages.
+              - 'scripts/stage_model_bundle.py'
             backend:
               - 'backend/**'
+              # The backend compiles the execution contract from its canonical proto and runs the
+              # shared conformance corpus, so either changing re-runs the Java reader.
+              - 'proto/fedlearn/contract/**'
+              - 'framework/tests/fixtures/execution_contract_v1/**'
             backend_scripts:
               - 'fl-runtime/**'
               - 'backend/fl-platform-api/requirements.txt'
+              # execution_plan.py builds and validates contracts with the framework's contract reader.
+              - 'framework/src/fedlearn/contract/**'
+              - 'framework/tests/fixtures/execution_contract_v1/**'
             frontend:
               - 'frontend/**'
             desktop:
               - 'fedlearn-desktop/**'
+              # Driven by fedlearn-desktop/src/__tests__/executionContractLaunch.test.ts.
+              - 'client-docker/entrypoint.sh'
             mobile:
               - 'mobile_client/**'
+              # The mobile app commits a reader generated from the canonical contract proto and runs
+              # the shared conformance corpus.
+              - 'proto/fedlearn/contract/**'
+              - 'framework/tests/fixtures/execution_contract_v1/**'
             client_docker:
               - 'client-docker/**'
 
@@ -233,6 +248,14 @@ jobs:
         working-directory: mobile_client
         run: |
           npm ci
+          # The committed execution-contract reader must be exactly what the pinned generator emits
+          # from the canonical proto.
+          npm run proto:contract
+          if [[ -n "$(git status --porcelain -- src/gen)" ]]; then
+            echo "::error::src/gen is stale. Run 'npm run proto:contract' in mobile_client and commit the result."
+            git status --porcelain -- src/gen
+            exit 1
+          fi
           npm run lint
           npx tsc --noEmit
           npm run test:coverage   # TE-11: jest --coverage --ci; coverageThreshold enforced from package.json

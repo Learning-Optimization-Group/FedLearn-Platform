@@ -1,3 +1,4 @@
+import { collectCapabilityReport } from './capabilityReport';
 import { api } from './restClient';
 import nativeCore from './nativeCore';
 import { getOrCreateClientId } from './clientId';
@@ -24,6 +25,19 @@ export interface RunManifest {
   // Secure aggregation (LightSecAgg): the server accepts only masked gradient scalars. The phone cannot mask,
   // so runTrainingLoop refuses such a run. Absent (a backend from before this field) means off.
   secureAggregation?: boolean;
+  // Execution contract v1, dual-emitted beside the legacy fields: the state always, the contract and its opaque ID
+  // only when READY, the machine-readable reason only when UNAVAILABLE. The phone trains only what a READY
+  // contract states (executionContractGate.ts).
+  contractState?: string;
+  contractId?: string;
+  executionContract?: Record<string, unknown>;
+  contractUnavailableReason?: string;
+}
+
+/** Re-reads a run's manifest, so a client waiting for its execution contract can see it published. */
+export async function fetchRunManifest(runId: string): Promise<RunManifest> {
+  const res = await api.get<RunManifest>(`/api/runs/${runId}/manifest`);
+  return res.data;
 }
 
 export interface JoinParams {
@@ -89,7 +103,11 @@ export async function joinRun(p: JoinParams): Promise<JoinedRun> {
   const runId = await resolveRunId(p.projectId);
   await pollUntilRunning(runId);
 
-  const { data: enroll } = await api.post<EnrollResponse>(`/api/runs/${runId}/enroll`);
+  // Stage 3 D1: report this device's capabilities with the enrollment. Informational only: a report that cannot be
+  // collected is left out, and it never decides whether this device may train.
+  const capabilityReport = await collectCapabilityReport().catch(() => undefined);
+  const { data: enroll } = await api.post<EnrollResponse>(`/api/runs/${runId}/enroll`,
+    capabilityReport ? { capabilityReport } : undefined);
 
   const clientId = await getOrCreateClientId();
   const useTls = p.useTls ?? enroll.grpcTls ?? false;

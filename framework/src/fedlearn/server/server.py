@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from .strategy import Strategy
 from .coordinator import FLCoordinator
+from fedlearn.server.update_recorder import update_recorder_from_env
 from .grpc_servicer import FederatedLearningServiceServicer
 from ..communication.generated import fedlearn_pb2_grpc
 from ..security.interceptor import interceptor_from_env
@@ -57,6 +58,24 @@ class ServerConfig:
     # Shamir reconstruction threshold -- how many holders must return a summed share. Validated
     # against the cohort in build_servicer, where clients_per_round is known.
     secure_agg_threshold: int = 2
+
+
+def build_coordinator(strategy, config: ServerConfig) -> FLCoordinator:
+    """The run's coordinator. It is told the run's length so that, once the last round has aggregated, no client
+    is handed a further round to train in the moment before the loop below marks the run complete.
+
+    FEDLEARN_RECORD_CLIENT_UPDATES turns on the research-only record of each accepted client update; a run with
+    secure aggregation or central DP refuses it here, before any port is bound."""
+    recorder = update_recorder_from_env(secure_aggregation=config.secure_aggregation,
+                                        dp_enabled=bool(getattr(strategy, "dp_enabled", False)))
+    coordinator = FLCoordinator(
+        strategy=strategy,
+        min_clients_for_aggregation=strategy.min_fit_clients,
+        clients_per_round=strategy.clients_per_round,
+        num_rounds=config.num_rounds,
+    )
+    coordinator.update_recorder = recorder
+    return coordinator
 
 
 def build_servicer(coordinator, config: "ServerConfig"):
@@ -115,11 +134,7 @@ def start_server(
     logging.info(f"Starting FedLearn server on {server_address}")
 
     # Create coordinator
-    coordinator = FLCoordinator(
-        strategy=strategy,
-        min_clients_for_aggregation=strategy.min_fit_clients,
-        clients_per_round=strategy.clients_per_round,
-    )
+    coordinator = build_coordinator(strategy, config)
 
     coordinator.set_initial_parameters(strategy.initial_parameters)
     # Create gRPC server with proper options

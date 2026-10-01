@@ -5,6 +5,8 @@ import com.federated.fl_platform_api.model.RobustAggregationSettings;
 import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.Run;
+import com.federated.fl_platform_api.model.RunIntent;
 import com.federated.fl_platform_api.model.TrainingArm;
 import com.federated.fl_platform_api.service.WebSocketService;
 import jakarta.annotation.PreDestroy;
@@ -41,6 +43,11 @@ public class FlServerManager {
     @Value("${app.backend.internal-url:}")
     private String backendInternalUrl;
 
+    // Read at spawn time, not injected as a value: local.server.port is only published once the web server
+    // has started, after this bean is built.
+    @Autowired(required = false)
+    private org.springframework.core.env.Environment environment;
+
     // SE-1/SE-7: the FL connection-token verify secret handed to the spawned FL server, and whether
     // it enforces client auth. Kept OFF by default — activating locks out clients whose launcher
     // does not yet pass FEDLEARN_CONNECTION_TOKEN.
@@ -54,6 +61,11 @@ public class FlServerManager {
     // needs server certs provisioned; flipping it without them would refuse to start.
     @Value("${app.fl.require-tls:false}")
     private boolean requireTls;
+
+    // The per-round deadline the FL server is given (FEDLEARN_ROUND_TIMEOUT_S), recorded in each run's intent.
+    // Defaults to the value the server would otherwise inherit from this process's environment.
+    @Value("${app.fl.round-timeout-seconds:${FEDLEARN_ROUND_TIMEOUT_S:120}}")
+    private double roundTimeoutSeconds = 120;   // the FL server's own default, when not injected
 
     @Value("${python.script.fl-server.path:../../fl-runtime/run_fl_server.sh}")
     private String flServerWrapperPath;
@@ -83,6 +95,9 @@ public class FlServerManager {
     // reconciled after a backend crash.
     @Autowired
     private com.federated.fl_platform_api.repository.RunRepository runRepository;
+
+    @Autowired
+    private com.federated.fl_platform_api.service.RunService runService;
 
     @Autowired
     private com.federated.fl_platform_api.service.ModelRecipeService modelRecipeService;
@@ -170,7 +185,8 @@ public class FlServerManager {
     public Optional<Integer> startServerForProject(Project project, String strategy, Integer numRounds,
                                                    Integer minClients, RobustAggregationSettings robust,
                                                    Integer secureAggThreshold, Integer clientsPerRound) {
-        requireDpPolicySatisfied(project);   // SE-11: gate every start path, before any spawn
+        RunIntent intent = intentFor(project);
+        requireDpPolicySatisfied(project, intent);   // SE-11: gate every start path, before any spawn
         requireModelTypeInCatalog(project, strategy);   // SE-10: unknown modelType -> 400 before spawn
         if (!isBlank(ecsClusterName)) {
             // The ECS/Fargate production path is not implemented (OP-14 decision: hardened single-VM
@@ -187,11 +203,40 @@ public class FlServerManager {
                             + "(tasks cannot be tracked or stopped). "
                             + "Unset ecs.cluster-name to run FL servers as local processes.");
         }
-        return startLocalServer(project, strategy, numRounds, minClients, robust, secureAggThreshold,
+        return startLocalServer(project, intent, strategy, numRounds, minClients, robust, secureAggThreshold,
                 clientsPerRound);
     }
 
-    private Optional<Integer> startLocalServer(Project project, String strategy,
+    /**
+     * The intent the server is spawned from: the active run's recorded intent (V27). A run without one is refused
+     * rather than spawned from the project as it reads now. Without an active run there is nothing recorded, and the
+     * intent is captured from the project at spawn.
+     */
+    RunIntent intentFor(Project project) {
+        UUID runId = project.getActiveRunId();
+        if (runId != null) {
+            Optional<Run> run = runRepository.findById(runId);
+            if (run.isPresent()) {
+                return run.get().getIntent().orElseThrow(() -> new IllegalStateException(
+                        "Run " + runId + " has no recorded intent and cannot be spawned from it"));
+            }
+        }
+        return RunIntent.capture(project, requireTls, requireClientAuth,
+                RunIntent.roundTimeoutMs(roundTimeoutSeconds));
+    }
+
+    /**
+     * Gives the FL server the round timeout its run recorded, replacing any inherited value. A version-1 snapshot
+     * recorded none, and its server keeps the setting it inherits.
+     */
+    static void applyRoundTimeout(Map<String, String> env, RunIntent intent) {
+        if (intent.roundTimeoutMs() != null) {
+            env.put("FEDLEARN_ROUND_TIMEOUT_S",
+                    java.math.BigDecimal.valueOf(intent.roundTimeoutMs(), 3).stripTrailingZeros().toPlainString());
+        }
+    }
+
+    private Optional<Integer> startLocalServer(Project project, RunIntent intent, String strategy,
                                                Integer numRounds, Integer minClients,
                                                RobustAggregationSettings robust, Integer secureAggThreshold,
                                                Integer clientsPerRound) {
@@ -215,7 +260,7 @@ public class FlServerManager {
             // null on a first run / LoRA → fl_server.py reads the .npz (--model-path) as before.
             String initModelPath = registryModelResolver.resolveModelPath(project).orElse(null);
             List<String> command = buildServerCommand(
-                    project, strategy, numRounds, minClients, freePort, absoluteScriptPath, isWindows,
+                    project, intent, strategy, numRounds, minClients, freePort, absoluteScriptPath, isWindows,
                     initModelPath, robust, secureAggThreshold, clientsPerRound);
 
             // SE-7: mint a random per-run internal token scoped to (projectId, runId) and hand ONLY
@@ -234,8 +279,11 @@ public class FlServerManager {
             // secret scrub + per-run token) runs inside the runner as it configures the child env, so
             // the security contract is unchanged — only the ProcessBuilder mechanics moved.
             process = processRunner.start(command,
-                    env -> configureChildEnv(env, internalApiKey, backendInternalUrl,
-                            flTokenSecret, requireClientAuth, runIdArg, requireTls, internalRunToken),
+                    env -> {
+                        configureChildEnv(env, internalApiKey, effectiveBackendUrl(),
+                                flTokenSecret, requireClientAuth, runIdArg, requireTls, internalRunToken);
+                        applyRoundTimeout(env, intent);
+                    },
                     new File("."));
             runningServers.put(project.getId(), process.toHandle());
             try {
@@ -329,7 +377,8 @@ public class FlServerManager {
             reservedPortByProject.put(project.getId(), freePort);
             final int heldPort = freePort;
             final UUID heldProject = project.getId();
-            trackedHandle.onExit().thenRun(() -> onChildExit(heldProject, trackedHandle, heldPort));
+            final UUID heldRun = project.getActiveRunId();
+            trackedHandle.onExit().thenRun(() -> onChildExit(heldProject, heldRun, trackedHandle, heldPort));
             captureStartup.set(false);   // startup done — stop growing startupOutput for the child's run
             started = true;   // the finally must NOT release the port now; the watcher/stop owns it
             log.info("Started FL server for project {} on port {}", project.getId(), freePort);
@@ -365,8 +414,8 @@ public class FlServerManager {
      * restart that already replaced them is not disturbed. Idempotent and safe to run concurrently with
      * {@link #stopServerForProject} (both release/evict the same port/entry).
      */
-    private void onChildExit(UUID projectId, ProcessHandle handle, int port) {
-        runningServers.remove(projectId, handle);
+    private void onChildExit(UUID projectId, UUID runId, ProcessHandle handle, int port) {
+        boolean unexpectedExit = runningServers.remove(projectId, handle);
         // Release the port ONLY if THIS project still holds THIS port. A prior stop (which already
         // released it) or a RESTART that re-reserved the same port under a new child must not have its
         // reservation freed by this old child's late-firing exit callback — releasePort is an
@@ -375,6 +424,16 @@ public class FlServerManager {
         if (reservedPortByProject.remove(projectId, Integer.valueOf(port))) {
             releasePort(port);
             log.debug("FL server child for project {} exited; released port {}", projectId, port);
+        }
+        // An unrequested exit after the short startup probe is still a failure. The run service's
+        // terminal guard preserves COMPLETED when the server already delivered its /finished callback.
+        // A deliberate stop removes the tracked handle before killing it, so its onExit is ignored.
+        if (unexpectedExit && runId != null) {
+            try {
+                runService.markFailed(runId);
+            } catch (RuntimeException e) {
+                log.error("Could not reconcile exited FL server for run {}", runId, e);
+            }
         }
     }
 
@@ -421,17 +480,17 @@ public class FlServerManager {
      * the message intact via {@code GlobalExceptionHandler}) because the project's stored config,
      * not this request, is what blocks the start.
      */
-    private static void requireDpPolicySatisfied(Project project) {
+    private static void requireDpPolicySatisfied(Project project, RunIntent intent) {
         if (!project.isRegulated()) {
             return;
         }
-        if (!project.isDpEnabled()) {
+        if (!intent.dpEnabled()) {
             throw new ProjectStateException(
                     "Cannot start regulated project " + project.getId()
                             + ": differential privacy must be enabled (dpEnabled=true) before a "
                             + "regulated project may train.");
         }
-        if (!project.hasCompleteDpConfig()) {
+        if (!Project.isCompleteDpConfig(intent.dpTargetEpsilon(), intent.dpDelta(), intent.dpClipNorm())) {
             throw new ProjectStateException(
                     "Cannot start regulated project " + project.getId()
                             + ": incomplete DP config — requires dpTargetEpsilon > 0 (guidance: "
@@ -534,6 +593,21 @@ public class FlServerManager {
                                            boolean isWindows, String initModelPath,
                                            RobustAggregationSettings robust, Integer secureAggThreshold,
                                            Integer clientsPerRound) {
+        // The deployment settings in an intent do not reach the argv, so they are irrelevant here.
+        return buildServerCommand(project, RunIntent.capture(project, false, false), strategy, numRounds,
+                minClients, freePort, absoluteScriptPath, isWindows, initModelPath, robust, secureAggThreshold,
+                clientsPerRound);
+    }
+
+    /**
+     * As above, with the run's recorded intent (V27) supplying the training arm, model name, task type and
+     * central-DP settings. The project supplies only its identity, model path and recipe key.
+     */
+    static List<String> buildServerCommand(Project project, RunIntent intent, String strategy, Integer numRounds,
+                                           Integer minClients, int freePort, String absoluteScriptPath,
+                                           boolean isWindows, String initModelPath,
+                                           RobustAggregationSettings robust, Integer secureAggThreshold,
+                                           Integer clientsPerRound) {
         // Robust settings mean something only to the Robust strategy. Anywhere else fl_server.py would ignore
         // them, and the run record would name a rule that never ran.
         if (robust != null && !"Robust".equals(strategy)) {
@@ -557,13 +631,13 @@ public class FlServerManager {
         if (largerRound && isFoT) {
             throw new IllegalArgumentException("clientsPerRound does not apply to FoT text-federation runs");
         }
-        if (largerRound && project.isDpEnabled()) {
+        if (largerRound && intent.dpEnabled()) {
             throw new IllegalArgumentException(
                     "clientsPerRound must equal minClients on a differentially private project");
         }
         // SE-11: the FoT text-federation server has no DP flag contract; spawning it for a
         // DP-enabled project would silently train without DP. Fail closed.
-        if (isFoT && project.isDpEnabled()) {
+        if (isFoT && intent.dpEnabled()) {
             throw new IllegalArgumentException(
                     "DP is not supported for FoT text-federation runs; disable dpEnabled or use a "
                             + "gradient strategy.");
@@ -576,9 +650,9 @@ public class FlServerManager {
             if (initModelPath != null) {
                 requireSafePath("init-model-path", initModelPath); // SE-10: allowlist the resolved path too
             }
-            requireSafeModelRef("model-name", project.getModelName());
+            requireSafeModelRef("model-name", intent.modelName());
             requireSafeToken("model-type", project.getModelType());
-            String taskType = project.getTaskType();
+            String taskType = intent.taskType();
             if (taskType != null && !taskType.isBlank()) {
                 requireSafeToken("task-type", taskType);
             }
@@ -614,7 +688,7 @@ public class FlServerManager {
             command.add("--model-type");
             command.add(project.getModelType());
             command.add("--model-name");
-            command.add(project.getModelName());
+            command.add(intent.modelName());
             command.add("--min-clients");
             command.add(String.valueOf(minClients));
             if (largerRound) {
@@ -628,7 +702,7 @@ public class FlServerManager {
             // and client.py both resolve an omitted arm to FULL. Whether the RECIPE supports the
             // arm is validated in recipes.validate_arm() on the Python side (the catalog is the
             // authority); the enum and the V22 CHECK bound the vocabulary on this side.
-            TrainingArm arm = project.getTrainingArm();
+            TrainingArm arm = intent.trainingArm();
             if (arm != null && arm != TrainingArm.FULL) {
                 command.add("--training-arm");
                 command.add(arm.name());
@@ -636,18 +710,18 @@ public class FlServerManager {
             if ("LLM_LORA".equalsIgnoreCase(project.getModelType())) {
                 command.add("--aggregation");
                 command.add("FFA_LORA");
-                String tt = project.getTaskType();
+                String tt = intent.taskType();
                 command.add("--task-type");
                 command.add(tt == null || tt.isBlank() ? "SEQ_CLASSIFICATION" : tt);
             }
-            if (project.isDpEnabled()) {
+            if (intent.dpEnabled()) {
                 // SE-11: the --dp-* flag names are a pinned contract with fl_server.py's argparse —
                 // do not rename. Creation validates completeness, but the spawn seam re-checks so a
                 // null knob can never reach the argv as the string "null" (SE-10 fail-closed). All
                 // values are typed numbers formatted via String.valueOf, never raw strings.
-                Double epsilon = project.getDpTargetEpsilon();
-                Double delta = project.getDpDelta();
-                Double clipNorm = project.getDpClipNorm();
+                Double epsilon = intent.dpTargetEpsilon();
+                Double delta = intent.dpDelta();
+                Double clipNorm = intent.dpClipNorm();
                 if (!Project.isCompleteDpConfig(epsilon, delta, clipNorm)) {
                     throw new IllegalArgumentException(
                             "Incomplete DP config for FL-server spawn: requires dpTargetEpsilon > 0 "
@@ -737,6 +811,24 @@ public class FlServerManager {
     }
 
     /**
+     * Where the spawned FL server sends its /api/internal/** callbacks: the configured internal URL, else this
+     * backend on loopback at the port it actually listens on. The FL server is a local child process, so
+     * loopback reaches this backend and nothing else; left unset, the child would fall back to :8081 and
+     * deliver the run's results -- and its internal token -- to whichever process owns that port. Null when
+     * this backend's port is not known (no web server), which keeps the child's own default.
+     */
+    private String effectiveBackendUrl() {
+        if (!isBlank(backendInternalUrl)) {
+            return backendInternalUrl;
+        }
+        String port = environment == null ? null : environment.getProperty("local.server.port");
+        if (isBlank(port) || !port.chars().allMatch(Character::isDigit)) {
+            return null;
+        }
+        return "http://localhost:" + port;
+    }
+
+    /**
      * Populate the spawned FL server's child environment (SE-1/SE-7/SE-17). The FL server is
      * network-facing (untrusted gRPC clients connect to it) and can load datasets (SE-19), so it
      * must NOT inherit the backend's secrets. Rather than inherit the whole backend environment and
@@ -819,12 +911,13 @@ public class FlServerManager {
         if (heldPort != null) {
             releasePort(heldPort);
         }
-        ProcessHandle handle = runningServers.get(projectId);
+        ProcessHandle handle = runningServers.remove(projectId);
         if (handle != null && handle.isAlive()) {
             log.info("Stopping FL server for project {}", projectId);
-            handle.destroyForcibly();
+            // The tracked handle is the wrapper script; the FL server is its child. Kill the whole tree.
+            java.util.List<ProcessHandle> tree = ProcessTrees.destroyForcibly(handle);
             try {
-                handle.onExit().get(stopWaitSeconds(), TimeUnit.SECONDS);
+                ProcessTrees.awaitExit(tree, stopWaitSeconds());
             } catch (InterruptedException e) {
                 log.warn("Interrupted while waiting for FL server {} to terminate", projectId);
                 Thread.currentThread().interrupt();
@@ -832,7 +925,6 @@ public class FlServerManager {
                 log.warn("FL server {} did not terminate within {}s of destroyForcibly: {}",
                         projectId, stopWaitSeconds(), e.getClass().getSimpleName());
             }
-            runningServers.remove(projectId);
             return true;
         }
         log.debug("No running FL server found for project {}", projectId);
@@ -853,9 +945,9 @@ public class FlServerManager {
         log.info("Shutdown: terminating {} running FL server process(es)", runningServers.size());
         runningServers.forEach((id, p) -> {
             try {
+                runningServers.remove(id, p);
                 if (p.isAlive()) {
-                    p.destroyForcibly();
-                    p.onExit().get(stopWaitSeconds(), TimeUnit.SECONDS);
+                    ProcessTrees.awaitExit(ProcessTrees.destroyForcibly(p), stopWaitSeconds());
                 }
             } catch (InterruptedException e) {
                 log.warn("Interrupted while waiting for FL server {} to terminate during shutdown", id);
@@ -909,15 +1001,33 @@ public class FlServerManager {
                 if (reservedPorts.contains(port)) {
                     continue;
                 }
-                try (ServerSocket s = new ServerSocket(port)) {
+                if (isPortFree(port)) {
                     reservedPorts.add(port);
                     return port;
-                } catch (IOException ignored) {
-                    // port in use, try next
                 }
             }
             throw new IllegalStateException(
                 "No free port in range " + portRangeStart + "–" + portRangeEnd);
+        }
+    }
+
+    /**
+     * Whether an FL server could bind {@code port}. The range sits inside the OS ephemeral range, so an unrelated
+     * outgoing connection can hold a local port in it. A default {@code new ServerSocket(port)} sets SO_REUSEADDR and
+     * binds beside such a connection, so it alone accepted ports the FL server then failed to bind (EADDRINUSE). A
+     * bind of the IPv4 wildcard with SO_REUSEADDR off fails exactly as the server's would, and is checked as well.
+     */
+    private static boolean isPortFree(int port) {
+        try (ServerSocket strict = new ServerSocket()) {
+            strict.setReuseAddress(false);
+            strict.bind(new java.net.InetSocketAddress("0.0.0.0", port));
+        } catch (IOException inUse) {
+            return false;
+        }
+        try (ServerSocket s = new ServerSocket(port)) {
+            return true;
+        } catch (IOException inUse) {
+            return false;
         }
     }
 

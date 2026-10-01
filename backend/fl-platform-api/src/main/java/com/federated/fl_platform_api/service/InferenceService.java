@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.service;
 
+import com.federated.fl_platform_api.orchestration.ProcessTrees;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.federated.fl_platform_api.dto.GenerationRequest;
@@ -44,7 +45,8 @@ public class InferenceService {
     private static final Logger log = LoggerFactory.getLogger(InferenceService.class);
 
     /** Generous cap: torch cold-start dominates; a single forward pass is sub-second. */
-    private static final long PROCESS_TIMEOUT_SECONDS = 120;
+    @Value("${inference.timeout-seconds:120}")
+    private long inferenceTimeoutSeconds = 120;
     /** ~9 MB of decoded image bytes. Guards against oversized uploads. */
     private static final int MAX_IMAGE_BYTES = 9 * 1024 * 1024;
     /** Sanity bound on feature-vector length (real models use ≤ a few thousand). */
@@ -236,21 +238,23 @@ public class InferenceService {
             throw new ServerProcessException("Failed to start inference process", e);
         }
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+        // The read loop ends only at EOF, which a hung script never sends; the watchdog bounds it.
+        try (ProcessTrees.Watchdog watchdog = ProcessTrees.killAfter(process, inferenceTimeoutSeconds);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 diag.append(line).append('\n');
             }
-            boolean finished = process.waitFor(PROCESS_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            if (!finished) {
-                process.destroyForcibly();
-                throw new ServerProcessException("Inference timed out after " + PROCESS_TIMEOUT_SECONDS + "s");
+            boolean finished = process.waitFor(inferenceTimeoutSeconds, TimeUnit.SECONDS);
+            if (!finished || watchdog.fired()) {
+                ProcessTrees.destroyForcibly(process);
+                throw new ServerProcessException("Inference timed out after " + inferenceTimeoutSeconds + "s");
             }
         } catch (IOException e) {
             throw new ServerProcessException("Inference process I/O error", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            process.destroyForcibly();
+            ProcessTrees.destroyForcibly(process);
             throw new ServerProcessException("Inference interrupted", e);
         }
 
@@ -407,7 +411,10 @@ public class InferenceService {
         }
         runningGenerations.put(projectId, process);
         try {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            // The read loop ends only at EOF, which a hung script never sends; the watchdog bounds it. A user stop
+            // also closes the pipe, and is reported as a stop rather than a timeout.
+            try (ProcessTrees.Watchdog watchdog = ProcessTrees.killAfter(process, generationTimeoutSeconds);
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     if (!broadcastIfToken(projectId, line)) {
@@ -415,8 +422,8 @@ public class InferenceService {
                     }
                 }
                 boolean finished = process.waitFor(generationTimeoutSeconds, TimeUnit.SECONDS);
-                if (!finished) {
-                    process.destroyForcibly();
+                if (!finished || (watchdog.fired() && !stoppedGenerations.contains(projectId))) {
+                    ProcessTrees.destroyForcibly(process);
                     throw new ServerProcessException("Generation timed out after " + generationTimeoutSeconds + "s");
                 }
             } catch (IOException e) {
@@ -424,7 +431,7 @@ public class InferenceService {
                 throw new ServerProcessException("Generation process I/O error", e);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                process.destroyForcibly();
+                ProcessTrees.destroyForcibly(process);
                 throw new ServerProcessException("Generation interrupted", e);
             }
             JsonNode result = readResult(outputFile);
@@ -461,7 +468,7 @@ public class InferenceService {
         Process p = runningGenerations.get(projectId);
         if (p == null) return false;          // nothing running → harmless no-op (flag NOT set)
         stoppedGenerations.add(projectId);
-        p.destroyForcibly();
+        ProcessTrees.destroyForcibly(p);   // the script forks python; stopping only bash would leave it generating
         return true;
     }
 

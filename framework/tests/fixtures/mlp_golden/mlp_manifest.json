@@ -1,0 +1,101 @@
+{
+  "description": "MLP masked-dropout training golden (Stage 4 S3b).",
+  "loss_pte_file": "mlp_loss_dynbatch.pte",
+  "loss_pte_sha256": "302c82310d1feae3e806dc1663186e7ebc889cdf477c63c3d3dff0496dcee830",
+  "param_layout": [
+    [
+      "fc1.weight",
+      [
+        64,
+        140
+      ]
+    ],
+    [
+      "fc1.bias",
+      [
+        64
+      ]
+    ],
+    [
+      "fc2.weight",
+      [
+        64,
+        64
+      ]
+    ],
+    [
+      "fc2.bias",
+      [
+        64
+      ]
+    ],
+    [
+      "fc3.weight",
+      [
+        2,
+        64
+      ]
+    ],
+    [
+      "fc3.bias",
+      [
+        2
+      ]
+    ]
+  ],
+  "torch_version": "2.12.0",
+  "examples": 20,
+  "width": 140,
+  "batch_size": 8,
+  "local_epochs": 2,
+  "learning_rate": 0.001,
+  "seed": 42,
+  "round": 1,
+  "dropout": [
+    {
+      "module": "dropout1",
+      "rate": 0.3
+    },
+    {
+      "module": "dropout2",
+      "rate": 0.3
+    }
+  ],
+  "mask_shapes": [
+    [
+      64
+    ],
+    [
+      64
+    ]
+  ],
+  "param_names_flat_order": [
+    "base.fc1.weight",
+    "base.fc1.bias",
+    "base.fc2.weight",
+    "base.fc2.bias",
+    "base.fc3.weight",
+    "base.fc3.bias"
+  ],
+  "flat_dim": 13314,
+  "pte_file": "mlp_trainable_masked_dynbatch.pte",
+  "pte_sha256": "237ce3dae80fa8374e34fde0bbc328c265df2818c6de10e1a98b62d25f22c297",
+  "max_batch": 8,
+  "final_flat_file": "mlp_masked_adam_final.f32",
+  "endpoint_atol": 1e-05,
+  "control_separation": {
+    "dropout_off": 0.010646715760231018,
+    "step_counter_reset_each_epoch": 0.0038914037868380547,
+    "layers_swapped": 0.010242611169815063,
+    "wrong_seed": 0.010889574885368347
+  },
+  "probe": {
+    "rows": 8,
+    "width": 140,
+    "classes": 2,
+    "learning_rate": 0.1,
+    "loss_step1": 0.6020075082778931,
+    "loss_step2": 1.0412771701812744,
+    "loss_tolerance": 0.0001
+  }
+}

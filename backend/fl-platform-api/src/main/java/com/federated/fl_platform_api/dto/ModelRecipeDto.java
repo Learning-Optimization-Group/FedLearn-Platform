@@ -33,7 +33,12 @@ public record ModelRecipeDto(
          * arms. Generated from the campaign's verdict record by {@code scripts/build_arm_tradeoff.py}
          * — never hand-written — so what the picker shows cannot drift from the measurement.
          */
-        @JsonProperty("armTradeoff") @JsonAlias("arm_tradeoff") ArmTradeoff armTradeoff
+        @JsonProperty("armTradeoff") @JsonAlias("arm_tradeoff") ArmTradeoff armTradeoff,
+        /**
+         * Where a run's participants may take their training data from ({@code FIXTURE}, {@code LOCAL_SNAPSHOT});
+         * {@code null} for recipes that declare none, which train the fixture only.
+         */
+        @JsonProperty("supportedDataSources") @JsonAlias("supported_data_sources") List<String> supportedDataSources
 ) {
     /**
      * Pre-P1 arity: a recipe with no declared arms and no trade-off. Kept so the many call sites
@@ -43,7 +48,7 @@ public record ModelRecipeDto(
     public ModelRecipeDto(String key, String displayName, String inputKind, List<String> classes,
                           List<String> baseModels, List<String> optimizers,
                           DeviceRequirements requirements) {
-        this(key, displayName, inputKind, classes, baseModels, optimizers, requirements, null, null);
+        this(key, displayName, inputKind, classes, baseModels, optimizers, requirements, null, null, null);
     }
 
     /**

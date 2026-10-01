@@ -57,6 +57,12 @@ jobs:
           #
           # PYSEC-2026-3804 (accelerate 1.10.0): no fixed version is published (checked against
           #   OSV), so there is nothing to upgrade to; revisit when one ships.
+          #
+          # CVE-2026-80047 / GHSA-x9r9-c232-4q39 (transformers <= 5.8.1): load_custom_generate() writes
+          #   a remote custom_generate module to the local cache before its trust_remote_code check.
+          #   No fixed version is published. Not reachable here: nothing calls load_custom_generate,
+          #   the only generate() call (fl-runtime/infer.py) passes fixed arguments and never
+          #   custom_generate, and remote code stays off by default (SE-19). Revisit when a fix ships.
           ignore-vulns: |
             PYSEC-2025-214
             PYSEC-2025-215
@@ -71,6 +77,7 @@ jobs:
             PYSEC-2026-3716
             PYSEC-2026-3804
             PYSEC-2026-3447
+            CVE-2026-80047
 
   npm-audit:
     runs-on: ubuntu-latest

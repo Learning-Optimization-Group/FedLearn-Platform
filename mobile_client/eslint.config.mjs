@@ -17,8 +17,11 @@ export default tseslint.config(
       'android',
       'ios',
       'build', // native CMake build dir (shared/, scripts/pte_export.py etc.), not JS output
+      'build-*', // host CMake build dirs (build-train, …), same
+      '.artifacts', // downloaded ExecuTorch prebuilts; third-party JS, never linted
       'scratch',
       'coverage',
+      'src/gen', // generated from proto/ by `npm run proto:contract`; CI checks it is current
     ],
   },
   {

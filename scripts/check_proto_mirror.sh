@@ -7,7 +7,9 @@
 #   1. mobile_client/proto/fedlearn/v2/fedlearn.proto        — the native mobile core's CMake build
 #   2. framework/src/fedlearn/communication/protos/fedlearn.proto — the running Python framework
 # The FoT (Federation over Text) contract has its own canonical at proto/fedlearn/fot/v1/fot.proto,
-# byte-mirrored into framework/src/fedlearn/communication/protos/fot.proto for the same reason.
+# byte-mirrored into framework/src/fedlearn/communication/protos/fot.proto for the same reason, and
+# the execution contract (proto/fedlearn/contract/v1/execution_contract.proto) is byte-mirrored beside
+# it so the framework's committed Python stubs are generated from a checked copy.
 # All copies are regenerated/synced, never hand-edited. This gate (wired into CI as proto.yml,
 # 15-LLD-mobile.md §13 task 2) guarantees no copy ever drifts from its canonical — one stray edit
 # to a mirror fails the build with a clear cp fix.
@@ -47,13 +49,17 @@ check_mirror() {
 check_mirror "mobile" "$CANON" "$ROOT/mobile_client/proto/fedlearn/v2/fedlearn.proto"
 check_mirror "framework" "$CANON" "$ROOT/framework/src/fedlearn/communication/protos/fedlearn.proto"
 check_mirror "framework-fot" "$ROOT/proto/fedlearn/fot/v1/fot.proto" "$ROOT/framework/src/fedlearn/communication/protos/fot.proto"
+check_mirror "framework-contract" "$ROOT/proto/fedlearn/contract/v1/execution_contract.proto" \
+  "$ROOT/framework/src/fedlearn/communication/protos/execution_contract.proto"
 
 # Portable sha256 (Linux CI has sha256sum; macOS has shasum -a 256). Informational only —
 # the diff checks above are the gate, so a missing hash tool must not fail the script.
 if command -v sha256sum >/dev/null 2>&1; then
   echo "  sha256 (fedlearn.v2): $(sha256sum "$CANON" | cut -d' ' -f1)"
   echo "  sha256 (fot.v1):      $(sha256sum "$ROOT/proto/fedlearn/fot/v1/fot.proto" | cut -d' ' -f1)"
+  echo "  sha256 (contract.v1): $(sha256sum "$ROOT/proto/fedlearn/contract/v1/execution_contract.proto" | cut -d' ' -f1)"
 elif command -v shasum >/dev/null 2>&1; then
   echo "  sha256 (fedlearn.v2): $(shasum -a 256 "$CANON" | cut -d' ' -f1)"
   echo "  sha256 (fot.v1):      $(shasum -a 256 "$ROOT/proto/fedlearn/fot/v1/fot.proto" | cut -d' ' -f1)"
+  echo "  sha256 (contract.v1): $(shasum -a 256 "$ROOT/proto/fedlearn/contract/v1/execution_contract.proto" | cut -d' ' -f1)"
 fi

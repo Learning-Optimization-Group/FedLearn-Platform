@@ -34,6 +34,7 @@
 #include <react/renderer/components/NativeFedLearnCoreSpec/NativeFedLearnCoreSpecJSI.h>
 
 #include "BridgeTypes.h"
+#include "fedlearn/Qualification.h"
 #include "fedlearn/DataLoader.h"   // OwnedBatch (owns trainingBatch_'s backing storage)
 #include "fedlearn/ExecutorchModel.h"
 #ifdef FEDLEARN_HAS_TRAINING
@@ -42,6 +43,7 @@
 #include "fedlearn/FedLearnClient.h"
 #include "fedlearn/FederatedLoop.h"
 #include "fedlearn/ModelManager.h"
+#include "fedlearn/RoundFlight.h"
 #include "fedlearn/Types.h"
 
 namespace fedlearn::bridge {
@@ -52,6 +54,7 @@ namespace react = facebook::react;
 // The protocol version this client speaks (must equal the server's; RegisterClient rejects on
 // mismatch — E1 / 04 §10.1.2). Bump on any breaking contract change.
 inline constexpr int kProtocolVersion = 2;
+inline constexpr int kBridgeAbiVersion = 4;
 
 class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreModule> {
  public:
@@ -91,6 +94,7 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
   void applyModelManifest(const ModelManifest& manifest);
 
   // ---- JSI spec methods (signatures must match the generated CxxSpec; see header banner) ----
+  jsi::Value getRuntimeCompatibility(jsi::Runtime& rt);
   jsi::Value registerClient(jsi::Runtime& rt, jsi::String serverAddress, jsi::String runId,
                             jsi::String clientId, jsi::String enrollmentToken, bool useTls,
                             jsi::String serverCertPem);
@@ -107,6 +111,7 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
   jsi::Value loadModel(jsi::Runtime& rt, jsi::String modelPath, jsi::String expectedSha256);
   jsi::Value runDeComFLRound(jsi::Runtime& rt, jsi::String runId, jsi::Object config);
   jsi::Value runFedAvgRound(jsi::Runtime& rt, jsi::String runId, jsi::Object config);
+  jsi::Value qualifyTrainable(jsi::Runtime& rt, jsi::Object probe);
   jsi::Value infer(jsi::Runtime& rt, jsi::String inputJson);
   jsi::Value getDeviceMetrics(jsi::Runtime& rt);
 
@@ -118,6 +123,7 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
   ServerStatus doGetServerStatus(const std::string& runId);
   void doStop();
   ModelInfo doLoadModel(const std::string& modelPath, const std::string& expectedSha256);
+  fedlearn::QualificationReport doQualifyTrainable(const fedlearn::ProbeSpec& spec);
   RoundResult doRunDeComFLRound(const std::string& runId, const RoundConfig& cfg);
   RoundResult doRunFedAvgRound(const std::string& runId, const RoundConfig& cfg);
   InferResult doInfer(const std::string& inputJson);
@@ -129,7 +135,9 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
                                 const std::string& expectedSha256);
 
   // helpers
-  void evalBatch(double& outLoss, double& outAccuracy);  // one forward pass on trainingBatch_
+  // The whole of trainingBatch_, in chunks of at most `chunk` examples (0 = one call): the programs take at most a
+  // batch per call, so a minibatch run's dataset is evaluated batch by batch.
+  void evalBatch(double& outLoss, double& outAccuracy, int64_t chunk = 0);
   void requireReady() const;                             // model + net + data loaded, else throw
 
   // Async worker tracking: JSI calls run their do* on a worker thread. The threads are KEPT (not
@@ -144,6 +152,7 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
   std::string dataDir_;
 
   std::mutex stateMutex_;  // the JS thread calls in; rounds run on a worker — guard shared state
+  fedlearn::RoundFlight roundFlight_;
   fedlearn::ModelManager mm_;
   std::unique_ptr<fedlearn::FedLearnClient> net_;
   std::unique_ptr<fedlearn::FederatedLoop> loop_;
