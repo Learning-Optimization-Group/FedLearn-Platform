@@ -66,3 +66,27 @@ def test_the_committed_package_and_its_tensors_are_what_the_reference_writes():
         assert fh.read() == expected_inputs
     with open(os.path.join(FIXTURE, "tiny_targets.i64"), "rb") as fh:
         assert fh.read() == expected_targets
+
+
+def test_a_recipe_resized_package_reproduces_the_laptops_tensors_exactly():
+    """Stage 4 S7: CIFAR_RESNET18 resizes 32x32 to 112x112 with PIL before ToTensor. PIL's resize yields 8-bit pixels,
+    so packaging the resized image and applying the contract's transforms gives the laptop's tensors, bit for bit."""
+    import sys
+    import torch
+    from PIL import Image
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "fl-runtime"))
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "scripts"))
+    import recipes
+    import make_image_package
+    from fedlearn.contract.image_transforms import image_to_unit_tensor, normalize_channels
+    rng = np.random.default_rng(31)
+    laptop = recipes._resnet18_transform()
+    normalize = laptop.transforms[2]
+    for _ in range(3):
+        img = Image.fromarray(rng.integers(0, 256, size=(32, 32, 3), dtype=np.uint8), "RGB")
+        packaged = make_image_package.prepare(img, "CIFAR_RESNET18")
+        assert packaged.shape == (112, 112, 3) and packaged.dtype == np.uint8
+        device = normalize_channels(image_to_unit_tensor(packaged), list(normalize.mean), list(normalize.std))
+        expected = laptop(img).numpy()
+        assert np.array_equal(device.view(np.uint32), expected.astype(np.float32).view(np.uint32))
+    assert make_image_package.prepare(img, "CNN").shape == (32, 32, 3)

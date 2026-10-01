@@ -9,6 +9,8 @@ Take the phone's images from the training split: the CNN's FL server evaluates o
 drawn from it would make the server's accuracy optimistic.
 
     PYTHONPATH=framework/src .venv/bin/python scripts/make_image_package.py --out cifar_300.zip --count 300 --seed 7
+
+--recipe CIFAR_RESNET18 packages the 112 x 112 images that recipe trains on, resized exactly as its laptops resize them.
 """
 from __future__ import annotations
 
@@ -24,6 +26,20 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "fl-runtime"))
 
 from fedlearn.contract.image_package import write_package  # noqa: E402
+
+
+def prepare(img, recipe_key: str) -> np.ndarray:
+    """The 8-bit pixels a device imports for ``recipe_key``: the image, resized by the recipe's own leading Resize when
+    its transform has one (CIFAR_RESNET18's 32 -> 112), exactly as its laptops resize it. PIL's resize yields 8-bit
+    pixels, so the contract's ImageToUnitTensor and NormalizeChannels then reproduce the laptop's tensors exactly."""
+    import torchvision.transforms as T
+    import recipes
+    transforms = {"CNN": recipes._cnn_transform, "CIFAR_RESNET18": recipes._resnet18_transform}[recipe_key]()
+    first = transforms.transforms[0]
+    img = img.convert("RGB")
+    if isinstance(first, T.Resize):
+        img = first(img)
+    return np.asarray(img, dtype=np.uint8)
 
 
 def cifar10(split: str):
@@ -43,15 +59,18 @@ def main() -> None:
     ap.add_argument("--count", required=True, type=int)
     ap.add_argument("--seed", default=0, type=int)
     ap.add_argument("--split", default="train", choices=["train", "test"])
+    ap.add_argument("--recipe", default="CNN", choices=["CNN", "CIFAR_RESNET18"],
+                    help="prepare the images as this recipe's laptops do (CIFAR_RESNET18 resizes them to 112 x 112)")
     a = ap.parse_args()
     data, names = cifar10(a.split)
     indices = sorted(np.random.default_rng(a.seed).choice(len(data), size=a.count, replace=False).tolist())
     rows = data.select(indices)
-    images = np.stack([np.asarray(img.convert("RGB"), dtype=np.uint8) for img in rows["img"]])
+    images = np.stack([prepare(img, a.recipe) for img in rows["img"]])
     labels = [names[i] for i in rows["label"]]
     write_package(a.out, images, labels, class_names=names)
     sidecar = {
-        "dataset": "cifar10", "split": a.split, "seed": a.seed, "count": a.count, "indices": indices,
+        "dataset": "cifar10", "split": a.split, "seed": a.seed, "count": a.count, "recipe": a.recipe,
+        "image_shape": list(images.shape[1:]), "indices": indices,
         "classNames": names, "labelCounts": {n: labels.count(n) for n in names},
         "packageSha256": hashlib.sha256(a.out.read_bytes()).hexdigest(),
     }
