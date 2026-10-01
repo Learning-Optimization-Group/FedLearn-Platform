@@ -8,6 +8,9 @@ import {
   BatchOrder,
   DropoutLayerSchema,
   DropoutMasks,
+  Recipe,
+  Task,
+  TransformSchema,
   ExecutionContractSchema,
   GradientEstimator,
   PerturbationRng,
@@ -529,5 +532,35 @@ describe('the phone trains Adam and seeded dropout as the contract states', () =
   it('refuses dropout under DeComFL, whose zeroth-order passes draw no masks', () => {
     const contract = withDropout(decomfl(), [0.3]);
     expect(projectContract(contract, 'a'.repeat(64))).toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_DROPOUT' });
+  });
+});
+
+// Stage 4 S6: the CNN on images. The gate needs nothing image-specific: the data requirement's shape and preparation
+// are the importer's and the dataset check's business; the training is Adam over ordinary minibatches.
+describe('the phone trains the CNN on images', () => {
+  function cnnContract(): ExecutionContract {
+    const contract = withAdam(golden());
+    contract.recipe = Recipe.CNN;
+    if (contract.workload.case !== 'modelTraining') throw new Error('the golden contract trains a model');
+    const training = contract.workload.value;
+    training.task = Task.IMAGE_CLASSIFICATION;
+    training.data!.task = Task.IMAGE_CLASSIFICATION;
+    training.data!.inputShape = [3n, 32n, 32n];
+    training.data!.source = DataSource.LOCAL_SNAPSHOT;
+    training.data!.transforms = [
+      create(TransformSchema, { operation: { case: 'imageToUnitTensor', value: { height: 32, width: 32, channels: 3 } } }),
+      create(TransformSchema, { operation: { case: 'normalizeChannels', value: { mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5] } } }),
+    ];
+    local(contract).batchOrder = BatchOrder.SEEDED_PERMUTATION_V1;
+    return contract;
+  }
+
+  it('accepts a CNN image contract and projects its training', () => {
+    expect(decide(cnnContract())).toMatchObject({
+      kind: 'train',
+      projection: { dataSource: 'LOCAL_SNAPSHOT', adam: { beta1: 0.9 }, minibatch: { seed: expect.any(String) } },
+    });
+    const decision = decide(cnnContract());
+    expect(decision.kind === 'train' && decision.projection.dropout).toBeUndefined();
   });
 });

@@ -74,6 +74,21 @@ class ImageImportTest {
         }
     }
 
+    @Test
+    fun aPackageWrittenByThePythonToolBecomesExactlyTheReferenceTensors() {
+        // framework/tests/fixtures/image_package_v1: written by fedlearn.contract.image_package, with the tensors the
+        // Python reference makes of it. The phone must write the same bytes, so the format is pinned on both sides.
+        val dir = File("../../../framework/tests/fixtures/image_package_v1")
+        val snapshot = DatasetSources(importer(), tmp.newFolder()).import("tiny.zip",
+            { File(dir, "tiny.zip").inputStream() }, listOf("cat", "dog"),
+            DataShape.Image(4, 5, 3, half3, half3))
+        assertEquals(3, snapshot.recordCount)
+        assertEquals(java.security.MessageDigest.getInstance("SHA-256").digest(File(dir, "tiny_inputs.f32").readBytes())
+            .joinToString("") { "%02x".format(it) }, snapshot.inputsSha256)
+        assertTrue(File(snapshot.dir, "inputs.f32").readBytes().contentEquals(File(dir, "tiny_inputs.f32").readBytes()))
+        assertTrue(File(snapshot.dir, "targets.i64").readBytes().contentEquals(File(dir, "tiny_targets.i64").readBytes()))
+    }
+
     // --- the package ------------------------------------------------------------------------------------------
 
     @Test
