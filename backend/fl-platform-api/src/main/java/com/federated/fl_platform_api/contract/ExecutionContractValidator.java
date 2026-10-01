@@ -127,7 +127,16 @@ public final class ExecutionContractValidator {
                     Objective.OBJECTIVE_CROSS_ENTROPY_VALUE, UpdateProtocol.UPDATE_DECOMFL_SCALAR_VALUE),
             // MLP (Stage 4): first-order training under the strategies whose servers send no client settings.
             mlpFirstOrder(Strategy.STRATEGY_FEDAVG_VALUE),
-            mlpFirstOrder(Strategy.STRATEGY_ROBUST_VALUE));
+            mlpFirstOrder(Strategy.STRATEGY_ROBUST_VALUE),
+            // CNN (Stage 4): the same first-order training on images, prepared by the contract's image transforms.
+            cnnFirstOrder(Strategy.STRATEGY_FEDAVG_VALUE),
+            cnnFirstOrder(Strategy.STRATEGY_ROBUST_VALUE));
+
+    private static List<Integer> cnnFirstOrder(int strategy) {
+        return List.of(Recipe.RECIPE_CNN_VALUE, strategy, Arm.ARM_FULL_VALUE,
+                Task.TASK_IMAGE_CLASSIFICATION_VALUE, Objective.OBJECTIVE_CROSS_ENTROPY_VALUE,
+                UpdateProtocol.UPDATE_TRAINABLE_STATE_F32_VALUE);
+    }
 
     private static List<Integer> mlpFirstOrder(int strategy) {
         return List.of(Recipe.RECIPE_MLP_VALUE, strategy, Arm.ARM_FULL_VALUE,

@@ -119,6 +119,17 @@ const APPROVED_MATRIX: ReadonlySet<string> = new Set([
       UpdateProtocol.UPDATE_TRAINABLE_STATE_F32,
     ].join(','),
   ),
+  // CNN (Stage 4): the same first-order training on images, prepared by the contract's image transforms.
+  ...[Strategy.FEDAVG, Strategy.ROBUST].map((strategy) =>
+    [
+      Recipe.CNN,
+      strategy,
+      Arm.FULL,
+      Task.IMAGE_CLASSIFICATION,
+      Objective.CROSS_ENTROPY,
+      UpdateProtocol.UPDATE_TRAINABLE_STATE_F32,
+    ].join(','),
+  ),
 ]);
 
 const CLASSIFICATION_TASKS: ReadonlySet<number> = new Set([

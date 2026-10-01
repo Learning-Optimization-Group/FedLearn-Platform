@@ -273,6 +273,64 @@ def _mlp_first_order_full(initial_state_path=None) -> pb.ModelTraining:
     return plan
 
 
+def _cnn_image_transforms() -> list:
+    """The CNN's torchvision ToTensor and Normalize, as the contract's ImageToUnitTensor and NormalizeChannels."""
+    import torchvision.transforms as T
+    steps = recipes._cnn_transform().transforms
+    if [type(t) for t in steps] != [T.ToTensor, T.Normalize]:
+        raise NotRepresentable(f"the CNN's transform {steps} is not ToTensor then Normalize")
+    normalize = steps[1]
+    return [pb.Transform(image_to_unit_tensor=pb.ImageToUnitTensor(height=32, width=32, channels=3)),
+            pb.Transform(normalize_channels=pb.NormalizeChannels(mean=list(normalize.mean), std=list(normalize.std)))]
+
+
+def _cnn_first_order_full(initial_state_path=None) -> pb.ModelTraining:
+    """CNN (CIFAR-10) under FedAvg or Robust on the FULL arm, as client.py trains it.
+
+    - Optimizer: client.train() builds a fresh torch.optim.Adam over every parameter at CNN_LEARNING_RATE, with
+      PyTorch's defaults otherwise; these servers send no settings to override it.
+    - Step budget: one local epoch, client.py's default when the server sends none.
+    - Batching: the CIFAR shard's loader, shuffled batches of CNN_BATCH_SIZE, keeping the final batch.
+    - Data: 32x32 RGB images through the recipe's ToTensor and Normalize, which the contract states exactly.
+    """
+    recipe = recipes.get_recipe("CNN")
+    model = recipe.build_model("cpu")
+    layout = _trainable_layout(model)
+    local = pb.LocalTraining(
+        local_epochs=1,
+        # client.py's CNN_LEARNING_RATE, held here rather than imported: importing client.py prints to stdout,
+        # which would corrupt the JSON this module's CLI writes for the backend.
+        adam=pb.Adam(learning_rate=_CLIENT_DEFAULT_RATE, beta1=0.9, beta2=0.999, epsilon=1e-8, weight_decay=0.0,
+                     amsgrad=False),
+        reset_optimizer_each_round=True,
+        batch_size=recipes.CNN_BATCH_SIZE,
+        drop_last=False,
+        batch_order=pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH,
+    )
+    plan = pb.ModelTraining(
+        model_id=recipe.base_models[0],
+        arm=pb.ARM_FULL,
+        task=pb.TASK_IMAGE_CLASSIFICATION,
+        objective=_OBJECTIVES[recipes.ARM_OBJECTIVES["FULL"]],
+        update_protocol=pb.UPDATE_TRAINABLE_STATE_F32,
+        trainable=layout,
+        frozen_state_sha256=_frozen_state_sha256(model, layout),
+        local_training=local,
+        data=pb.DataRequirement(
+            task=pb.TASK_IMAGE_CLASSIFICATION,
+            input_shape=[3, 32, 32],
+            input_dtype=pb.DTYPE_F32,
+            class_count=len(recipe.classes),
+            label_schema_id=label_schema_id(recipe.classes),
+            transforms=_cnn_image_transforms(),
+            source=pb.DATA_SOURCE_FIXTURE,
+        ),
+    )
+    if initial_state_path is not None:
+        plan.initial_state_sha256 = _initial_state_sha256(initial_state_path, "CNN", "FULL", layout)
+    return plan
+
+
 # client.py's CNN_LEARNING_RATE and one epoch: what a client trains when its server sends no settings.
 _CLIENT_DEFAULT_RATE, _CLIENT_DEFAULT_EPOCHS = 0.001, 1
 
@@ -289,6 +347,9 @@ _PLANS = {
     # MLP (Stage 4): Adam and seeded dropout masks. Robust aggregates on the server, so its clients train as FedAvg's.
     ("MLP", "FedAvg", "FULL"): _mlp_first_order_full,
     ("MLP", "Robust", "FULL"): _mlp_first_order_full,
+    # CNN (Stage 4): Adam on images prepared exactly as torchvision prepares them.
+    ("CNN", "FedAvg", "FULL"): _cnn_first_order_full,
+    ("CNN", "Robust", "FULL"): _cnn_first_order_full,
 }
 
 
@@ -304,6 +365,14 @@ _REFUSALS = {
     ("MLP", "FedProx", "FULL"): (
         "MLP under FedProx has no v1 plan: it adds the proximal term to Adam's gradient, which the device's Adam does "
         "not implement yet"),
+    ("CNN", "FedOpt", "FULL"): (
+        "CNN under FedOpt has no v1 plan: the server's client rate (0.01) is ignored by the laptop's CNN, which trains "
+        "at its own 1e-3, while a contracted laptop refuses a server rate that differs from the contract"),
+    ("CNN", "FedProx", "FULL"): (
+        "CNN under FedProx has no v1 plan: it adds the proximal term to Adam's gradient, which the device's Adam does "
+        "not implement yet"),
+    ("CNN", "DeComFL", "FULL"): (
+        "CNN under DeComFL has no v1 plan yet: its zeroth-order settings have not been resolved from its server"),
     ("MLP", "DeComFL", "FULL"): (
         "MLP under DeComFL has no v1 plan: its zeroth-order forward passes would meet dropout, whose masks no "
         "zeroth-order plan states yet"),

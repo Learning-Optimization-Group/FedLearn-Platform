@@ -72,6 +72,11 @@ APPROVED_MATRIX = frozenset({
     (pb.RECIPE_MLP, strategy, pb.ARM_FULL, pb.TASK_VECTOR_CLASSIFICATION, pb.OBJECTIVE_CROSS_ENTROPY,
      pb.UPDATE_TRAINABLE_STATE_F32)
     for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_ROBUST)
+} | {
+    # CNN (Stage 4): the same first-order training on images, prepared by ImageToUnitTensor and NormalizeChannels.
+    (pb.RECIPE_CNN, strategy, pb.ARM_FULL, pb.TASK_IMAGE_CLASSIFICATION, pb.OBJECTIVE_CROSS_ENTROPY,
+     pb.UPDATE_TRAINABLE_STATE_F32)
+    for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_ROBUST)
 })
 
 _CLASSIFICATION_TASKS = frozenset({pb.TASK_VECTOR_CLASSIFICATION, pb.TASK_IMAGE_CLASSIFICATION,

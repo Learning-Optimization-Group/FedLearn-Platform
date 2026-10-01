@@ -433,9 +433,83 @@ def test_the_mlp_strategies_without_a_plan_say_why(strategy, reason):
         execution_plan.resolve_model_training("MLP", strategy, "FULL")
 
 
+# Stage 4 S6: the CNN (CIFAR-10) on images, prepared on a device exactly as torchvision prepares them on a laptop.
+
+@pytest.mark.parametrize("strategy", ["FedAvg", "Robust"])
+def test_the_cnn_plan_states_what_the_laptop_trains(strategy):
+    """client.py trains the CNN with a fresh torch.optim.Adam at CNN_LEARNING_RATE and PyTorch's defaults otherwise,
+    for the one epoch it defaults to (these servers send no settings), over the CIFAR shard's loader: shuffled
+    batches of CNN_BATCH_SIZE, keeping the final batch, each image through ToTensor and Normalize(0.5, 0.5)."""
+    import client
+    plan = execution_plan.resolve_model_training("CNN", strategy, "FULL")
+    assert plan.model_id == recipes.get_recipe("CNN").base_models[0]
+    assert plan.arm == pb.ARM_FULL and plan.task == pb.TASK_IMAGE_CLASSIFICATION
+    assert plan.objective == pb.OBJECTIVE_CROSS_ENTROPY
+    assert plan.update_protocol == pb.UPDATE_TRAINABLE_STATE_F32
+    local = plan.local_training
+    assert local.WhichOneof("optimizer") == "adam"
+    assert (local.adam.learning_rate, local.adam.beta1, local.adam.beta2, local.adam.epsilon) == (
+        client.CNN_LEARNING_RATE, 0.9, 0.999, 1e-8)
+    assert local.adam.weight_decay == 0.0 and local.adam.amsgrad is False
+    assert (local.local_epochs, local.batch_size, local.drop_last) == (1, recipes.CNN_BATCH_SIZE, False)
+    assert local.batch_order == pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH
+    assert local.reset_optimizer_each_round is True
+    assert not plan.dropout
+    net = recipes.get_recipe("CNN").build_model("cpu")
+    assert [(t.name, list(t.shape)) for t in plan.trainable] == [
+        (n, list(p.shape)) for n, p in net.named_parameters() if p.requires_grad]
+    data = plan.data
+    assert list(data.input_shape) == [3, 32, 32] and data.class_count == 10
+    assert data.label_schema_id == execution_plan.label_schema_id(recipes.get_recipe("CNN").classes)
+
+
+def test_the_cnn_plan_prepares_images_as_the_laptops_transform_does():
+    """The contract's transforms are the recipe's torchvision ones, read from the transform itself."""
+    import torchvision.transforms as T
+    normalize = [t for t in recipes._cnn_transform().transforms if isinstance(t, T.Normalize)][0]
+    image, norm = execution_plan.resolve_model_training("CNN", "FedAvg", "FULL").data.transforms
+    assert (image.image_to_unit_tensor.height, image.image_to_unit_tensor.width,
+            image.image_to_unit_tensor.channels) == (32, 32, 3)
+    assert list(norm.normalize_channels.mean) == list(normalize.mean)
+    assert list(norm.normalize_channels.std) == list(normalize.std)
+
+
+def test_a_cnn_run_on_participants_own_data_trains_in_the_reproducible_batch_order():
+    plan = execution_plan.resolve_model_training("CNN", "FedAvg", "FULL", data_source="LOCAL_SNAPSHOT")
+    assert plan.local_training.batch_order == pb.BATCH_ORDER_SEEDED_PERMUTATION_V1
+    assert plan.data.source == pb.DATA_SOURCE_LOCAL_SNAPSHOT
+
+
+def test_the_cnn_plan_completes_a_valid_contract():
+    with open(GOLDEN_CONTRACT, "rb") as fh:
+        contract = parse_contract_binary(fh.read())
+    contract.recipe = pb.RECIPE_CNN
+    plan = execution_plan.resolve_model_training("CNN", "FedAvg", "FULL")
+    training = contract.model_training
+    for field in ("model_id", "arm", "task", "objective", "update_protocol", "frozen_state_sha256"):
+        setattr(training, field, getattr(plan, field))
+    for field in ("trainable", "dropout"):
+        training.ClearField(field)
+        getattr(training, field).extend(getattr(plan, field))
+    training.local_training.CopyFrom(plan.local_training)
+    training.data.CopyFrom(plan.data)
+    assert validate_contract(contract, reader_protocol_version=2) == []
+
+
+@pytest.mark.parametrize("strategy, reason", [
+    # As for the MLP: the FedOpt server's client rate is ignored by the laptop CNN, which trains at its own 1e-3.
+    ("FedOpt", "server's client rate"),
+    ("FedProx", "proximal term"),
+    ("DeComFL", "zeroth-order"),
+])
+def test_the_cnn_strategies_without_a_plan_say_why(strategy, reason):
+    with pytest.raises(execution_plan.NotRepresentable, match=reason):
+        execution_plan.resolve_model_training("CNN", strategy, "FULL")
+
+
 @pytest.mark.parametrize("recipe, strategy, arm", [
-    ("CNN", "FedAvg", "FULL"),
-    ("CNN", "FedProx", "FULL"),
+    ("CIFAR_RESNET18", "FedAvg", "FULL"),
+    ("CNN", "FedAvg", "FROZEN_HEAD"),
 ])
 def test_a_run_without_a_v1_plan_is_not_representable(recipe, strategy, arm):
     with pytest.raises(execution_plan.NotRepresentable):
@@ -470,9 +544,15 @@ def test_the_cli_refuses_a_data_source_outside_its_vocabulary():
 
 
 def test_the_cli_reports_an_unrepresentable_run_without_failing():
-    out = _cli("--recipe", "CNN", "--strategy", "FedAvg", "--training-arm", "FULL")
+    out = _cli("--recipe", "CIFAR_RESNET18", "--strategy", "FedAvg", "--training-arm", "FULL")
     assert out["representable"] is False
-    assert "CNN" in out["reason"]
+    assert "CIFAR_RESNET18" in out["reason"]
+
+
+@pytest.mark.parametrize("recipe", ["TINYNET_GOLDEN", "MLP", "CNN"])
+def test_the_cli_writes_nothing_but_its_json(recipe):
+    """The backend parses this output. A plan that imports a module which prints (client.py does) would corrupt it."""
+    assert _cli("--recipe", recipe, "--strategy", "FedAvg", "--training-arm", "FULL")["representable"] is True
 
 
 # --- state digests ------------------------------------------------------------------------------------
