@@ -433,6 +433,72 @@ def _resnet18_first_order_full(initial_state_path=None) -> pb.ModelTraining:
     return plan
 
 
+def _pneumonia_image_transforms() -> list:
+    """PNEUMONIA_CNN's preparation from its 224 x 224 grayscale pixels: ToTensor, then Normalize(0.5, 0.5).
+
+    The recipe first converts to grayscale and resizes to 224 x 224 with PIL, both of which yield 8-bit pixels, so the
+    resized grayscale image is an exact intermediate: a package carries it (scripts/make_image_package.py), and the
+    contract starts from there rather than stating a resize, which runtimes do not compute identically.
+    """
+    import torchvision.transforms as T
+    steps = recipes.pneumonia_transform().transforms
+    if [type(t) for t in steps] != [T.Grayscale, T.Resize, T.ToTensor, T.Normalize]:
+        raise NotRepresentable(f"PNEUMONIA_CNN's transform {steps} is not Grayscale, Resize, ToTensor, Normalize")
+    side = recipes.PNEUMONIA_IMG_SIZE
+    if steps[0].num_output_channels != 1 or tuple(steps[1].size) != (side, side):
+        raise NotRepresentable(f"PNEUMONIA_CNN does not prepare 1-channel {side} x {side} images: {steps}")
+    normalize = steps[3]
+    return [pb.Transform(image_to_unit_tensor=pb.ImageToUnitTensor(height=side, width=side, channels=1)),
+            pb.Transform(normalize_channels=pb.NormalizeChannels(mean=list(normalize.mean), std=list(normalize.std)))]
+
+
+def _pneumonia_first_order_full(initial_state_path=None) -> pb.ModelTraining:
+    """PNEUMONIA_CNN (chest X-ray, NORMAL / PNEUMONIA) under FedAvg or Robust on the FULL arm, as client.py trains it.
+
+    - Optimizer: a fresh torch.optim.Adam over every parameter at CNN_LEARNING_RATE, PyTorch's defaults otherwise.
+    - Step budget: one local epoch, client.py's default when the server sends none.
+    - Batching: load_pneumonia_client_data's shuffled batches of PNEUMONIA_BATCH_SIZE, keeping the final batch. A
+      laptop whose FEDLEARN_PNEUMONIA_BATCH says otherwise refuses the contract (client.py).
+    - Dropout: the classifier's Dropout(0.4), its masks drawn from the contract's seeded stream.
+    - Data: 224 x 224 grayscale images through ToTensor and Normalize(0.5, 0.5).
+    """
+    recipe = recipes.get_recipe("PNEUMONIA_CNN")
+    model = recipe.build_model("cpu")
+    side = recipes.PNEUMONIA_IMG_SIZE
+    layout = _trainable_layout(model)
+    plan = pb.ModelTraining(
+        model_id=recipe.base_models[0],
+        arm=pb.ARM_FULL,
+        task=pb.TASK_IMAGE_CLASSIFICATION,
+        objective=_OBJECTIVES[recipes.ARM_OBJECTIVES["FULL"]],
+        update_protocol=pb.UPDATE_TRAINABLE_STATE_F32,
+        trainable=layout,
+        frozen_state_sha256=_frozen_state_sha256(model, layout),
+        local_training=pb.LocalTraining(
+            local_epochs=1,
+            adam=pb.Adam(learning_rate=_CLIENT_DEFAULT_RATE, beta1=0.9, beta2=0.999, epsilon=1e-8, weight_decay=0.0,
+                         amsgrad=False),
+            reset_optimizer_each_round=True,
+            batch_size=recipes.PNEUMONIA_BATCH_SIZE,
+            drop_last=False,
+            batch_order=pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH,
+        ),
+        data=pb.DataRequirement(
+            task=pb.TASK_IMAGE_CLASSIFICATION,
+            input_shape=[1, side, side],
+            input_dtype=pb.DTYPE_F32,
+            class_count=len(recipe.classes),
+            label_schema_id=label_schema_id(recipe.classes),
+            transforms=_pneumonia_image_transforms(),
+            source=pb.DATA_SOURCE_FIXTURE,
+        ),
+        dropout=_dropout_layers(model),
+    )
+    if initial_state_path is not None:
+        plan.initial_state_sha256 = _initial_state_sha256(initial_state_path, "PNEUMONIA_CNN", "FULL", layout)
+    return plan
+
+
 # client.py's CNN_LEARNING_RATE and one epoch: what a client trains when its server sends no settings.
 _CLIENT_DEFAULT_RATE, _CLIENT_DEFAULT_EPOCHS = 0.001, 1
 
@@ -455,6 +521,9 @@ _PLANS = {
     # CIFAR_RESNET18 (Stage 4): the whole model, BatchNorm in training mode with its running statistics federated.
     ("CIFAR_RESNET18", "FedAvg", "FULL"): _resnet18_first_order_full,
     ("CIFAR_RESNET18", "Robust", "FULL"): _resnet18_first_order_full,
+    # PNEUMONIA_CNN (Stage 4): 224 x 224 grayscale images, seeded dropout masks.
+    ("PNEUMONIA_CNN", "FedAvg", "FULL"): _pneumonia_first_order_full,
+    ("PNEUMONIA_CNN", "Robust", "FULL"): _pneumonia_first_order_full,
 }
 
 
@@ -484,6 +553,15 @@ _REFUSALS = {
         "Adam does not implement yet"),
     ("CIFAR_RESNET18", "DeComFL", "FULL"): (
         "CIFAR_RESNET18 under DeComFL has no v1 plan: zeroth-order training of 11 million parameters is not offered"),
+    ("PNEUMONIA_CNN", "FedOpt", "FULL"): (
+        "PNEUMONIA_CNN under FedOpt has no v1 plan: the server's client rate is ignored by the laptop, which trains at "
+        "its own 1e-3, while a contracted laptop refuses a server rate that differs from the contract"),
+    ("PNEUMONIA_CNN", "FedProx", "FULL"): (
+        "PNEUMONIA_CNN under FedProx has no v1 plan: it adds the proximal term to Adam's gradient, which the device's "
+        "Adam does not implement yet"),
+    ("PNEUMONIA_CNN", "DeComFL", "FULL"): (
+        "PNEUMONIA_CNN under DeComFL has no v1 plan: zeroth-order training of 26 million parameters through dropout is "
+        "not offered"),
     ("CNN", "DeComFL", "FULL"): (
         "CNN under DeComFL has no v1 plan yet: its zeroth-order settings have not been resolved from its server"),
     ("MLP", "DeComFL", "FULL"): (

@@ -243,6 +243,8 @@ def _binary_with(mutate) -> bytes:
 
 RGB_32 = {"imageToUnitTensor": {"height": 32, "width": 32, "channels": 3}}
 NORM_HALF = {"normalizeChannels": {"mean": [0.5, 0.5, 0.5], "std": [0.5, 0.5, 0.5]}}
+GRAY_224 = {"imageToUnitTensor": {"height": 224, "width": 224, "channels": 1}}
+NORM_GRAY_HALF = {"normalizeChannels": {"mean": [0.5], "std": [0.5]}}
 UNAPPROVED = ("UNSUPPORTED_COMBINATION", "")
 
 
@@ -766,6 +768,17 @@ def build_conformance() -> dict:
                                                                          "std": [0.229, 0.224, 0.225]}}]),
                          d.update({"recipe": "RECIPE_CIFAR_RESNET18"}),
                          d[MT].update({"batchNorm": [dict(BN1), dict(BN2)]}))),
+        _json("pneumonia_grayscale_image_contract",
+              "The pneumonia CNN on normalised 224x224 grayscale X-rays, with seeded dropout, is in the v1 matrix.",
+              lambda d: (_image(d, [1, 224, 224], [GRAY_224, NORM_GRAY_HALF]),
+                         d.update({"recipe": "RECIPE_PNEUMONIA_CNN"}),
+                         d[MT].update({"dropout": [{"module": "classifier.3", "rate": 0.4,
+                                                    "masks": "DROPOUT_MASKS_SEEDED_V1"}]}))),
+        _json("pneumonia_robust_image_contract", "Robust aggregation of the pneumonia CNN trains as FedAvg's clients do.",
+              lambda d: (_image(d, [1, 224, 224], [GRAY_224, NORM_GRAY_HALF]),
+                         d.update({"recipe": "RECIPE_PNEUMONIA_CNN", "strategy": "STRATEGY_ROBUST"}))),
+        _json("pneumonia_on_vectors", "The pneumonia CNN's approval is for images, not vectors.",
+              lambda d: d.update({"recipe": "RECIPE_PNEUMONIA_CNN"}), UNAPPROVED),
         _json("cnn_on_vectors", "The CNN's approval is for images, not vectors.",
               lambda d: d.update({"recipe": "RECIPE_CNN"}), UNAPPROVED),
         _json("image_shape_differs", "The image's [channels, height, width] must equal the input shape.",

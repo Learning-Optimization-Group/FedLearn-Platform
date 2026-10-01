@@ -256,6 +256,7 @@ RECIPE_METADATA = [
     {
         "key": "PNEUMONIA_CNN",
         "supported_arms": ["FULL", "FROZEN_HEAD"],
+        "supported_data_sources": ["FIXTURE", "LOCAL_SNAPSHOT"],
         "trainable_spec": {"FULL": None, "FROZEN_HEAD": ["classifier."]},
         "display_name": "Pneumonia Chest X-ray",
         "input_kind": "image",
@@ -485,6 +486,7 @@ def build_tinynet_golden():
 # ---------------------------------------------------------------------------
 PNEUMONIA_CLASSES = ["NORMAL", "PNEUMONIA"]
 PNEUMONIA_IMG_SIZE = 224
+PNEUMONIA_BATCH_SIZE = 16     # client.py's default (FEDLEARN_PNEUMONIA_BATCH overrides it on a laptop)
 
 
 def _subset_cap():
@@ -684,7 +686,7 @@ def _full_dataset(split):
 
 
 def load_pneumonia_client_data(partition_id, num_clients, alpha=0.5, seed=42,
-                               batch_size=16, val_fraction=0.1):
+                               batch_size=PNEUMONIA_BATCH_SIZE, val_fraction=0.1):
     """Return (train_loader, val_loader) for one client's Dirichlet shard."""
     import numpy as np
     from torch.utils.data import DataLoader, Subset

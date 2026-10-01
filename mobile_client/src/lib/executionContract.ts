@@ -121,6 +121,17 @@ const APPROVED_MATRIX: ReadonlySet<string> = new Set([
       UpdateProtocol.UPDATE_TRAINABLE_STATE_F32,
     ].join(','),
   ),
+  // PNEUMONIA_CNN (Stage 4): 224x224 grayscale images, its dropout drawing the contract's seeded masks.
+  ...[Strategy.FEDAVG, Strategy.ROBUST].map((strategy) =>
+    [
+      Recipe.PNEUMONIA_CNN,
+      strategy,
+      Arm.FULL,
+      Task.IMAGE_CLASSIFICATION,
+      Objective.CROSS_ENTROPY,
+      UpdateProtocol.UPDATE_TRAINABLE_STATE_F32,
+    ].join(','),
+  ),
   // CIFAR_RESNET18 (Stage 4): the whole model, BatchNorm in training mode with federated running statistics.
   ...[Strategy.FEDAVG, Strategy.ROBUST].map((strategy) =>
     [

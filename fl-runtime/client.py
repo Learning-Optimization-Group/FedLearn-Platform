@@ -670,6 +670,18 @@ def _refuse_round_outside_contract(config: dict) -> None:
                          f"contract states {stated_mu!r}")
 
 
+def _refuse_batch_outside_contract(batch_size: int) -> None:
+    """Under an execution contract, a laptop's configurable batch size (FEDLEARN_PNEUMONIA_BATCH) must be the
+    contract's: the contract check compares the contract with the plan, not with that variable, so a laptop configured
+    otherwise would accept a contract and train differently."""
+    if EXECUTION_CONTRACT is None:
+        return
+    stated = EXECUTION_CONTRACT.model_training.local_training.batch_size
+    if batch_size != stated:
+        raise SystemExit(f"Refusing to train under this execution contract: it states batch size {stated}, and this "
+                         f"client is configured for {batch_size}")
+
+
 def _refuse_decomfl_round_outside_contract(config: dict) -> None:
     """Under an execution contract, DeComFL's per-round server config is a cross-check, never an override.
 
@@ -1345,7 +1357,9 @@ def main():
         config = get_dataset_config("ecg")
         BATCH_SIZE = config.batch_size_train
     elif USE_PNEUMONIA:
-        BATCH_SIZE = int(os.environ.get("FEDLEARN_PNEUMONIA_BATCH", "16"))
+        import recipes as _recipes
+        BATCH_SIZE = int(os.environ.get("FEDLEARN_PNEUMONIA_BATCH", str(_recipes.PNEUMONIA_BATCH_SIZE)))
+        _refuse_batch_outside_contract(BATCH_SIZE)
     else:
         BATCH_SIZE = 32
 

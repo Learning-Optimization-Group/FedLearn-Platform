@@ -598,9 +598,87 @@ def test_the_resnet_strategies_without_a_plan_say_why(strategy):
         execution_plan.resolve_model_training("CIFAR_RESNET18", strategy, "FULL")
 
 
+# Stage 4 S8: PNEUMONIA_CNN, 224 x 224 grayscale chest X-rays, with seeded dropout masks.
+
+@pytest.mark.parametrize("strategy", ["FedAvg", "Robust"])
+def test_the_pneumonia_plan_states_what_the_laptop_trains(strategy):
+    """client.py trains PNEUMONIA_CNN with a fresh torch.optim.Adam at CNN_LEARNING_RATE and PyTorch's defaults, for
+    one epoch, over load_pneumonia_client_data's shuffled batches of its default 16, keeping the final batch; its
+    classifier's Dropout(0.4) draws the contract's seeded masks."""
+    import client
+    plan = execution_plan.resolve_model_training("PNEUMONIA_CNN", strategy, "FULL")
+    assert plan.model_id == recipes.get_recipe("PNEUMONIA_CNN").base_models[0]
+    assert plan.arm == pb.ARM_FULL and plan.task == pb.TASK_IMAGE_CLASSIFICATION
+    assert plan.objective == pb.OBJECTIVE_CROSS_ENTROPY
+    assert plan.update_protocol == pb.UPDATE_TRAINABLE_STATE_F32
+    local = plan.local_training
+    assert local.WhichOneof("optimizer") == "adam"
+    assert (local.adam.learning_rate, local.adam.beta1, local.adam.beta2, local.adam.epsilon) == (
+        client.CNN_LEARNING_RATE, 0.9, 0.999, 1e-8)
+    assert local.adam.weight_decay == 0.0 and local.adam.amsgrad is False
+    assert (local.local_epochs, local.batch_size, local.drop_last) == (1, recipes.PNEUMONIA_BATCH_SIZE, False)
+    assert recipes.PNEUMONIA_BATCH_SIZE == 16
+    assert local.batch_order == pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH
+    assert local.reset_optimizer_each_round is True
+    assert [(d.module, d.rate, d.masks) for d in plan.dropout] == [
+        ("classifier.3", 0.4, pb.DROPOUT_MASKS_SEEDED_V1)]
+    assert not plan.batch_norm
+    net = recipes.get_recipe("PNEUMONIA_CNN").build_model("cpu")
+    assert [(t.name, list(t.shape)) for t in plan.trainable] == [
+        (n, list(p.shape)) for n, p in net.named_parameters() if p.requires_grad]
+    data = plan.data
+    assert list(data.input_shape) == [1, 224, 224] and data.class_count == 2
+    assert data.label_schema_id == execution_plan.label_schema_id(["NORMAL", "PNEUMONIA"])
+
+
+def test_the_pneumonia_plan_prepares_224_pixel_grayscale_images():
+    """The recipe converts to grayscale and resizes with PIL (both 8-bit), then ToTensor and Normalize(0.5, 0.5). A
+    package carries the 224 x 224 grayscale pixels, so the contract starts there."""
+    import torchvision.transforms as T
+    normalize = [t for t in recipes.pneumonia_transform().transforms if isinstance(t, T.Normalize)][0]
+    image, norm = execution_plan.resolve_model_training("PNEUMONIA_CNN", "FedAvg", "FULL").data.transforms
+    assert (image.image_to_unit_tensor.height, image.image_to_unit_tensor.width,
+            image.image_to_unit_tensor.channels) == (224, 224, 1)
+    assert list(norm.normalize_channels.mean) == list(normalize.mean) == [0.5]
+    assert list(norm.normalize_channels.std) == list(normalize.std) == [0.5]
+
+
+def test_a_pneumonia_run_on_participants_own_data_trains_in_the_reproducible_batch_order():
+    plan = execution_plan.resolve_model_training("PNEUMONIA_CNN", "FedAvg", "FULL", data_source="LOCAL_SNAPSHOT")
+    assert plan.local_training.batch_order == pb.BATCH_ORDER_SEEDED_PERMUTATION_V1
+    assert plan.data.source == pb.DATA_SOURCE_LOCAL_SNAPSHOT
+
+
+def test_the_pneumonia_plan_completes_a_valid_contract():
+    with open(GOLDEN_CONTRACT, "rb") as fh:
+        contract = parse_contract_binary(fh.read())
+    contract.recipe = pb.RECIPE_PNEUMONIA_CNN
+    plan = execution_plan.resolve_model_training("PNEUMONIA_CNN", "FedAvg", "FULL")
+    training = contract.model_training
+    for field in ("model_id", "arm", "task", "objective", "update_protocol", "frozen_state_sha256"):
+        setattr(training, field, getattr(plan, field))
+    for field in ("trainable", "dropout"):
+        training.ClearField(field)
+        getattr(training, field).extend(getattr(plan, field))
+    training.local_training.CopyFrom(plan.local_training)
+    training.data.CopyFrom(plan.data)
+    assert validate_contract(contract, reader_protocol_version=2) == []
+
+
+@pytest.mark.parametrize("strategy, reason", [
+    ("FedOpt", "server's client rate"),
+    ("FedProx", "proximal term"),
+    ("DeComFL", "zeroth-order"),
+])
+def test_the_pneumonia_strategies_without_a_plan_say_why(strategy, reason):
+    with pytest.raises(execution_plan.NotRepresentable, match=reason):
+        execution_plan.resolve_model_training("PNEUMONIA_CNN", strategy, "FULL")
+
+
 @pytest.mark.parametrize("recipe, strategy, arm", [
     ("CIFAR_RESNET18", "FedAvg", "FROZEN_HEAD"),
     ("CNN", "FedAvg", "FROZEN_HEAD"),
+    ("PNEUMONIA_CNN", "FedAvg", "FROZEN_HEAD"),
 ])
 def test_a_run_without_a_v1_plan_is_not_representable(recipe, strategy, arm):
     with pytest.raises(execution_plan.NotRepresentable):
@@ -1105,3 +1183,28 @@ def test_a_recipe_offers_participants_own_data_only_with_a_plan_that_states_it(m
 def test_the_catalog_describes_the_data_sources_a_recipe_supports():
     tinynet = next(r for r in recipes.describe() if r["key"] == "TINYNET_GOLDEN")
     assert tinynet["supported_data_sources"] == ["FIXTURE", "LOCAL_SNAPSHOT"]
+
+
+# --- Stage 4 S8: a laptop's configurable pneumonia batch is held to the contract ---------------------------
+
+def _pneumonia_contract():
+    contract = _contract_for_this_client()
+    contract.model_training.local_training.CopyFrom(
+        execution_plan.resolve_model_training("PNEUMONIA_CNN", "FedAvg", "FULL").local_training)
+    return contract
+
+
+def test_a_contracted_pneumonia_laptop_with_another_batch_size_refuses(monkeypatch):
+    """FEDLEARN_PNEUMONIA_BATCH changes the batch a laptop trains with; the contract's check compares the contract with
+    the plan, not with that variable, so a laptop at 32 would otherwise accept a contract stating 16."""
+    import client
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", _pneumonia_contract())
+    with pytest.raises(SystemExit, match="batch"):
+        client._refuse_batch_outside_contract(32)
+    client._refuse_batch_outside_contract(recipes.PNEUMONIA_BATCH_SIZE)
+
+
+def test_without_a_contract_any_batch_size_is_the_laptops_own(monkeypatch):
+    import client
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", None)
+    client._refuse_batch_outside_contract(32)
