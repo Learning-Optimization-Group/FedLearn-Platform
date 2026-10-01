@@ -34,6 +34,9 @@ const A_ROUND_CONFIG = {
   adamEpsilon: 1e-8,
   dropoutRates: [],
   dropoutSeed: '',
+  batchNormFeatures: [],
+  batchNormMomentum: [],
+  batchNormValuesPerExample: [],
 };
 
 // Load a FRESH copy of the spec so its module-level TurboModuleRegistry.get() re-runs with the mock

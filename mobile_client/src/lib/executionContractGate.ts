@@ -2,7 +2,7 @@
 // run's published contract whether it may train at all, and projects the contract into the settings the native
 // trainer runs with. Android is v1-dependent: a run without a READY contract it can execute exactly is refused
 // with a precise reason, never approximated.
-import { ArtifactBackend, BatchOrder, ContractIssueCodeSchema, DataSource, DropoutMasks, GradientEstimator, PerturbationRng, SecureAggregation, Strategy,
+import { ArtifactBackend, BatchNormStats, BatchOrder, ContractIssueCodeSchema, DataSource, DropoutMasks, GradientEstimator, PerturbationRng, SecureAggregation, Strategy,
   UpdateProtocol, type ArtifactVariant, type ExecutionContract, type LocalTraining, type ModelTraining,
 } from '../gen/fedlearn/contract/v1/execution_contract_pb';
 import { MalformedContractError, parseContractJson, validateContract } from './executionContract';
@@ -75,6 +75,11 @@ export interface ContractProjection {
    * the contract's seed (0 when absent) as an exact decimal string. Absent for a model without dropout.
    */
   dropout?: { rates: number[]; seed: string };
+  /**
+   * The model's training-mode BatchNorm layers in order: their channels, momentum and values per example. The native
+   * round updates their running statistics by BATCH_NORM_RUNNING_STATS_V1 and federates them. Absent without BatchNorm.
+   */
+  batchNorm?: { features: number; momentum: number; valuesPerExample: number }[];
 }
 
 export type ContractDecision =
@@ -193,11 +198,9 @@ export function projectContract(contract: ExecutionContract, contractId: string)
   if (dropout) {
     return refuse('UNSUPPORTED_DROPOUT', dropout);
   }
-  // Training-mode BatchNorm needs the native trainer to update the running statistics it federates; until it does, a
-  // contract stating BatchNorm layers is refused rather than trained with frozen statistics.
-  if (training.batchNorm.length > 0) {
-    return refuse('UNSUPPORTED_BATCH_NORM',
-      'This run trains BatchNorm layers whose running statistics this app does not update yet.');
+  if (training.batchNorm.some(b => b.runningStats !== BatchNormStats.BATCH_NORM_RUNNING_STATS_V1)) {
+    return refuse('UNSUPPORTED_BATCH_NORM', 'This run updates BatchNorm running statistics in a way this app cannot '
+      + 'reproduce.');
   }
   // The native trainer takes one step per local epoch over the whole local dataset, so it can reproduce a contract
   // whose every epoch is a single batch, keeping the final batch. The dataset's size is checked against batchSize
@@ -227,6 +230,8 @@ export function projectContract(contract: ExecutionContract, contractId: string)
       ...(local.batchOrder === BatchOrder.SEEDED_PERMUTATION_V1 ? { minibatch: { seed } } : {}),
       ...(adam ? { adam: { beta1: adam.beta1, beta2: adam.beta2, epsilon: adam.epsilon } } : {}),
       ...(training.dropout.length > 0 ? { dropout: { rates: training.dropout.map(d => d.rate), seed } } : {}),
+      ...(training.batchNorm.length > 0 ? { batchNorm: training.batchNorm.map(b => ({
+        features: b.numFeatures, momentum: b.momentum, valuesPerExample: b.valuesPerExample })) } : {}),
     },
   };
 }
@@ -282,6 +287,10 @@ function projectDeComFL(contract: ExecutionContract, contractId: string, trainin
   if (training.dropout.length > 0) {
     return refuse('UNSUPPORTED_DROPOUT', 'This DeComFL run states dropout, which this app\'s zeroth-order training '
       + 'draws no masks for.');
+  }
+  if (training.batchNorm.length > 0) {
+    return refuse('UNSUPPORTED_BATCH_NORM', 'This DeComFL run trains BatchNorm, whose running statistics this app\'s '
+      + 'zeroth-order training does not update.');
   }
   const zo = local.optimizer.value;
   if (zo.estimator !== GradientEstimator.ESTIMATOR_FORWARD) {

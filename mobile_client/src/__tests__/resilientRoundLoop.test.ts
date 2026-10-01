@@ -34,6 +34,9 @@ const CFG: RoundConfig = {
   adamEpsilon: 1e-8,
   dropoutRates: [],
   dropoutSeed: '',
+  batchNormFeatures: [],
+  batchNormMomentum: [],
+  batchNormValuesPerExample: [],
 };
 
 const POLICY: ResiliencePolicy = {

@@ -568,13 +568,39 @@ describe('the phone trains the CNN on images', () => {
 });
 
 describe('a contract with training-mode BatchNorm', () => {
-  it('is refused until the app updates BatchNorm running statistics', () => {
+  function withBatchNorm(runningStats = BatchNormStats.BATCH_NORM_RUNNING_STATS_V1): ExecutionContract {
     const contract = golden();
     if (contract.workload.case !== 'modelTraining') throw new Error('the golden contract trains a model');
-    contract.workload.value.batchNorm = [create(BatchNormLayerSchema, {
-      module: 'bn1', numFeatures: 8, momentum: 0.1, eps: 1e-5, valuesPerExample: 16,
-      runningStats: BatchNormStats.BATCH_NORM_RUNNING_STATS_V1,
-    })];
+    contract.workload.value.batchNorm = [
+      create(BatchNormLayerSchema, { module: 'bn1', numFeatures: 8, momentum: 0.1, eps: 1e-5, valuesPerExample: 36,
+        runningStats }),
+      create(BatchNormLayerSchema, { module: 'bn2', numFeatures: 16, momentum: 0.1, eps: 1e-5, valuesPerExample: 4,
+        runningStats }),
+    ];
+    return contract;
+  }
+
+  it('projects each layer the native round updates the running statistics of, in order', () => {
+    expect(decide(withBatchNorm())).toMatchObject({ kind: 'train', projection: { batchNorm: [
+      { features: 8, momentum: 0.1, valuesPerExample: 36 }, { features: 16, momentum: 0.1, valuesPerExample: 4 }] } });
+  });
+
+  it('projects no BatchNorm for a model without it', () => {
+    const decision = decide(golden());
+    expect(decision.kind === 'train' && decision.projection.batchNorm).toBeUndefined();
+  });
+
+  it('refuses running statistics updated any other way', () => {
+    expect(projectContract(withBatchNorm(BatchNormStats.BATCH_NORM_STATS_UNSPECIFIED), 'a'.repeat(64)))
+      .toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_BATCH_NORM' });
+  });
+
+  it('refuses BatchNorm under DeComFL, whose zeroth-order passes update no statistics', () => {
+    const contract = decomfl();
+    if (contract.workload.case !== 'modelTraining') throw new Error('trains a model');
+    const source = withBatchNorm().workload;
+    if (source.case !== 'modelTraining') throw new Error('trains a model');
+    contract.workload.value.batchNorm = source.value.batchNorm;
     expect(projectContract(contract, 'a'.repeat(64))).toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_BATCH_NORM' });
   });
 });

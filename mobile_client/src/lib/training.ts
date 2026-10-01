@@ -152,6 +152,9 @@ function roundConfigFor(joined: JoinedRun, strategy: Strategy, projection: Contr
     adamEpsilon: projection.adam?.epsilon ?? 1e-8,
     dropoutRates: projection.dropout?.rates ?? [],
     dropoutSeed: projection.dropout?.seed ?? '',
+    batchNormFeatures: (projection.batchNorm ?? []).map((b) => b.features),
+    batchNormMomentum: (projection.batchNorm ?? []).map((b) => b.momentum),
+    batchNormValuesPerExample: (projection.batchNorm ?? []).map((b) => b.valuesPerExample),
     seed: typeof m.seed === 'number' ? m.seed : 0,
     torchVersion: m.torchVersion ?? '',
   };

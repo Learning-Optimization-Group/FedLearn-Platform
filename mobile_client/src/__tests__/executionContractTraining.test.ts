@@ -24,7 +24,7 @@ jest.mock('../lib/nativeCore', () => ({
     runDeComFLRound: jest.fn(),
     qualifyTrainable: jest.fn(),
     runFedAvgRound: jest.fn(),
-    getRuntimeCompatibility: jest.fn().mockResolvedValue({ bridgeAbiVersion: 4, protocolVersion: 2 }),
+    getRuntimeCompatibility: jest.fn().mockResolvedValue({ bridgeAbiVersion: 5, protocolVersion: 2 }),
   },
 }));
 
@@ -211,6 +211,28 @@ describe('runTrainingLoop — the execution contract decides', () => {
       learningRate: 0.001, optimizer: 'adam', adamBeta1: 0.9, adamBeta2: 0.999, adamEpsilon: 1e-8,
       dropoutRates: [0.3, 0.3], dropoutSeed: '18446744073709551615',
     });
+  });
+
+  test('passes the contract\'s BatchNorm layers to the native round (bridge ABI 5)', async () => {
+    // The bundle stages the federated state: the parameters, then the layer's running mean and variance.
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce({ ...STAGED_BUNDLE, manifest: {
+      ...STAGED_BUNDLE.manifest, paramLayout: [...STAGED_BUNDLE.manifest.paramLayout,
+        { name: 'bn1.running_mean', shape: [8] }, { name: 'bn1.running_var', shape: [8] }] } });
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    const { getServerStatus, runFedAvgRound } = oneRound();
+    const contract = contractJson() as { modelTraining: { batchNorm?: unknown[] } };
+    contract.modelTraining.batchNorm = [
+      { module: 'bn1', numFeatures: 8, momentum: 0.1, eps: 1e-5, valuesPerExample: 36,
+        runningStats: 'BATCH_NORM_RUNNING_STATS_V1' },
+    ];
+
+    await runTrainingLoop(joined({ executionContract: contract }), hooks, {
+      policy: POLICY,
+      ops: { getServerStatus, runFedAvgRound, loadSubmittedRound: async () => null, saveSubmittedRound: async () => {} },
+    });
+
+    expect(runFedAvgRound.mock.calls[0][1]).toMatchObject({
+      batchNormFeatures: [8], batchNormMomentum: [0.1], batchNormValuesPerExample: [36] });
   });
 
   test('runs a DeComFL contract through the DeComFL round, with the contract\'s own training', async () => {

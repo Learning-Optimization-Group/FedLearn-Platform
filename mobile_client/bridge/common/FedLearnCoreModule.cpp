@@ -157,6 +157,14 @@ RoundConfig roundConfigFromJs(jsi::Runtime& rt, const jsi::Object& o) {
   const jsi::Array rates = o.getProperty(rt, "dropoutRates").asObject(rt).asArray(rt);
   for (size_t i = 0; i < rates.size(rt); ++i) c.dropoutRates.push_back(rates.getValueAtIndex(rt, i).asNumber());
   c.dropoutSeed = o.getProperty(rt, "dropoutSeed").asString(rt).utf8(rt);
+  // Bridge ABI 5: the contract's training-mode BatchNorm layers.
+  const auto numbers = [&](const char* name, std::vector<double>& out) {
+    const jsi::Array a = o.getProperty(rt, name).asObject(rt).asArray(rt);
+    for (size_t i = 0; i < a.size(rt); ++i) out.push_back(a.getValueAtIndex(rt, i).asNumber());
+  };
+  numbers("batchNormFeatures", c.batchNormFeatures);
+  numbers("batchNormMomentum", c.batchNormMomentum);
+  numbers("batchNormValuesPerExample", c.batchNormValuesPerExample);
   c.seed = static_cast<int64_t>(o.getProperty(rt, "seed").asNumber());
   c.torchVersion = o.getProperty(rt, "torchVersion").asString(rt).utf8(rt);
   return c;
@@ -376,8 +384,8 @@ RoundResult FedLearnCoreModule::doRunDeComFLRound(const std::string& runId, cons
   std::lock_guard<std::mutex> lk(stateMutex_);
   requireReady();
   const auto t0 = std::chrono::steady_clock::now();
-  if (!cfg.dropoutRates.empty()) {
-    throw std::runtime_error("a zeroth-order round draws no dropout masks; its model must have no dropout");
+  if (!cfg.dropoutRates.empty() || !cfg.batchNormFeatures.empty()) {
+    throw std::runtime_error("a zeroth-order round draws no dropout masks and updates no BatchNorm statistics");
   }
   // Android trains only under an execution contract; cfg carries its zeroth-order training, and the round refuses
   // any server setting that differs from it.
@@ -433,9 +441,19 @@ RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const
       if (cfg.dropoutSeed.empty()) throw std::runtime_error("dropout layers need the contract's mask seed");
       dropout.seed = fedlearn::parseBatchSeed(cfg.dropoutSeed);  // the same exact decimal uint64 parsing
     }
+    fedlearn::BatchNormSpec batchNorm;
+    if (cfg.batchNormFeatures.size() != cfg.batchNormMomentum.size() ||
+        cfg.batchNormFeatures.size() != cfg.batchNormValuesPerExample.size()) {
+      throw std::runtime_error("the BatchNorm layer settings disagree in length");
+    }
+    for (size_t i = 0; i < cfg.batchNormFeatures.size(); ++i) {
+      batchNorm.layers.push_back({static_cast<int64_t>(cfg.batchNormFeatures[i]), cfg.batchNormMomentum[i],
+                                  static_cast<int64_t>(cfg.batchNormValuesPerExample[i])});
+    }
     fedlearn::RoundOutcome outcome = loop_->firstOrderRound(
         *trainableModel_, runId, clientId_, trainingBatch_, cfg.numLocalSteps, cfg.learningRate,
-        cfg.strategy == "FedOpt" || cfg.strategy == "FedProx", cfg.proximalMu, batching, optimizer, dropout);
+        cfg.strategy == "FedOpt" || cfg.strategy == "FedProx", cfg.proximalMu, batching, optimizer, dropout,
+        batchNorm);
     const auto t1 = std::chrono::steady_clock::now();
     if (outcome.shouldStop) throw std::runtime_error("STOP: " + outcome.note);
     RoundResult r;
@@ -454,8 +472,8 @@ RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const
   if (cfg.proximalMu != 0.0) {
     throw std::runtime_error("FedProx requires the trainable program; none is provisioned");
   }
-  if (cfg.optimizer != "sgd" || !cfg.dropoutRates.empty()) {
-    throw std::runtime_error("Adam and dropout require the trainable program; none is provisioned");
+  if (cfg.optimizer != "sgd" || !cfg.dropoutRates.empty() || !cfg.batchNormFeatures.empty()) {
+    throw std::runtime_error("Adam, dropout and BatchNorm require the trainable program; none is provisioned");
   }
   fedlearn::RoundOutcome outcome =
       loop_->fedAvgRound(*model_, runId, clientId_, trainingBatch_, cfg.numLocalSteps,

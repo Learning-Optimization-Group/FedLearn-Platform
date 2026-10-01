@@ -59,6 +59,11 @@ export interface RoundConfig {
   // dropout. Added in bridge ABI 4.
   dropoutRates: ReadonlyArray<number>;
   dropoutSeed: string;
+  // The model's training-mode BatchNorm layers (execution contract batch_norm), as parallel arrays in layer order:
+  // channels, momentum, and values per example. Empty without BatchNorm. Added in bridge ABI 5.
+  batchNormFeatures: ReadonlyArray<number>;
+  batchNormMomentum: ReadonlyArray<number>;
+  batchNormValuesPerExample: ReadonlyArray<number>;
   seed: number; // optimizer seed (distinct from data seed)
   torchVersion: string; // must match server's GetDeComFLConfigResponse.torch_version
 }

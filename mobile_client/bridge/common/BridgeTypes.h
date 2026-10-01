@@ -50,6 +50,10 @@ struct RoundConfig {
   // DROPOUT_MASKS_SEEDED_V1 masks. Empty for a model without dropout.
   std::vector<double> dropoutRates;
   std::string dropoutSeed;
+  // Bridge ABI 5: the contract's training-mode BatchNorm layers, as parallel arrays in layer order.
+  std::vector<double> batchNormFeatures;
+  std::vector<double> batchNormMomentum;
+  std::vector<double> batchNormValuesPerExample;
 };
 
 struct RoundResult {
