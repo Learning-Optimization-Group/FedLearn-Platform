@@ -251,7 +251,7 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
                                             int numLocalSteps, double learningRate,
                                             bool requireServerConfig, double proximalMu,
                                             const LocalBatching& batching, const LocalOptimizer& optimizer,
-                                            const DropoutSpec& dropout) {
+                                            const DropoutSpec& dropout, const BatchNormSpec& batchNorm) {
   RoundOutcome out;
   if (batching.batchSize < 0 || (batching.seededPermutation && batching.batchSize == 0)) {
     throw std::runtime_error("invalid first-order batch_size");
@@ -308,9 +308,23 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
                              " disagrees with the execution contract");
   }
   mm_.loadStateDict(blob);                    // codec-validated + sha-checked by the stream layer
-  model.setFlatParams(mm_.getFlatParams());   // load the fresh global weights into the trainable model
+  // The federated state is the trainable parameters, then (training-mode BatchNorm) each layer's running mean and
+  // running variance. The program holds the parameters; the round holds and updates the running statistics.
+  const std::vector<float> global = mm_.getFlatParams();
+  const auto params = static_cast<size_t>(model.flatDim());
+  size_t statCount = 0;
+  for (const auto& layer : batchNorm.layers) statCount += 2 * static_cast<size_t>(layer.features);
+  if (global.size() != params + statCount) {
+    throw std::runtime_error("the federated state holds " + std::to_string(global.size()) + " values, but the program "
+                             "trains " + std::to_string(params) + " and the contract's BatchNorm layers carry " +
+                             std::to_string(statCount) + " running statistics");
+  }
+  std::vector<double> runningStats(global.begin() + static_cast<std::ptrdiff_t>(params), global.end());
+  model.setFlatParams(std::vector<float>(global.begin(), global.begin() + static_cast<std::ptrdiff_t>(params)));
   // FedProx's anchor: the round's downloaded global weights, fixed for the whole round.
-  const std::vector<float> anchor = proximalMu > 0 ? mm_.getFlatParams() : std::vector<float>{};
+  const std::vector<float> anchor =
+      proximalMu > 0 ? std::vector<float>(global.begin(), global.begin() + static_cast<std::ptrdiff_t>(params))
+                     : std::vector<float>{};
 
   const float lr = static_cast<float>(learningRate);
   const float mu = static_cast<float>(proximalMu);
@@ -349,6 +363,34 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
       model.trainStepAdam(stepX, stepShape, stepY, rows, adam, extra);
     } else {
       model.trainStep(stepX, stepShape, stepY, rows, lr, proximalMu > 0 ? &anchor : nullptr, mu, extra);
+    }
+    if (!batchNorm.layers.empty()) {
+      // BATCH_NORM_RUNNING_STATS_V1: each layer's batch mean and biased variance, in float64, rounded once below.
+      const auto& stats = model.lastExtraOutputs();
+      if (stats.size() != 2 * batchNorm.layers.size()) {
+        throw std::runtime_error("the training program reports " + std::to_string(stats.size() / 2) +
+                                 " BatchNorm layers, but the contract states " +
+                                 std::to_string(batchNorm.layers.size()));
+      }
+      size_t off = 0;
+      for (size_t l = 0; l < batchNorm.layers.size(); ++l) {
+        const auto& layer = batchNorm.layers[l];
+        const auto c = static_cast<size_t>(layer.features);
+        const double n = static_cast<double>(rows) * static_cast<double>(layer.valuesPerExample);
+        if (stats[2 * l].size() != c || stats[2 * l + 1].size() != c || n < 2) {
+          throw std::runtime_error("BatchNorm layer " + std::to_string(l) + " reports statistics the contract does "
+                                   "not describe");
+        }
+        const double m = layer.momentum;
+        for (size_t k = 0; k < c; ++k) {
+          double& mean = runningStats[off + k];
+          double& var = runningStats[off + c + k];
+          mean = static_cast<double>(static_cast<float>((1.0 - m) * mean + m * static_cast<double>(stats[2 * l][k])));
+          var = static_cast<double>(static_cast<float>(
+              (1.0 - m) * var + m * static_cast<double>(stats[2 * l + 1][k]) * (n / (n - 1.0))));
+        }
+        off += 2 * c;
+      }
     }
     ++step;
   };
@@ -391,7 +433,10 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
     }
   }
 
-  mm_.setFlatParams(model.getFlatParams());   // updated (locally-advanced) weights back into the manager
+  // The updated (locally-advanced) weights, then the updated running statistics, back into the manager.
+  std::vector<float> state = model.getFlatParams();
+  for (double v : runningStats) state.push_back(static_cast<float>(v));
+  mm_.setFlatParams(state);
   const std::string upload = mm_.serializeStateDict(batch.numSamples);
 
   if (net_.shouldStop()) {

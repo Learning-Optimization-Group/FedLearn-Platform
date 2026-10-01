@@ -60,6 +60,7 @@ struct TrainableExecutorchModel::Impl {
   // Adam's first and second moments per canonical parameter, and its step count (0 = a fresh optimizer).
   std::vector<std::vector<float>> adamM, adamV;
   int64_t adamStep = 0;
+  std::vector<std::vector<float>> lastExtra;  // the float outputs after (loss, prediction) of the last step
 
   // Look up a canonical param name in an ET named_* map, failing loudly if absent. Returns a COPY of
   // the Tensor handle (a non-owning view of the same storage), so mutable_data_ptr can write params
@@ -181,8 +182,18 @@ float TrainableExecutorchModel::forwardBackward(const float* x, const std::vecto
   if (lossT.scalar_type() != ScalarType::Float || lossT.numel() < 1) {
     throw std::runtime_error("TrainableExecutorchModel: loss output is not a non-empty Float tensor");
   }
+  impl_->lastExtra.clear();
+  for (size_t i = 2; i < outs.size(); ++i) {
+    if (!outs[i].isTensor()) continue;
+    const Tensor t = outs[i].toTensor();
+    if (t.scalar_type() != ScalarType::Float) continue;
+    const float* d = t.const_data_ptr<float>();
+    impl_->lastExtra.emplace_back(d, d + t.numel());
+  }
   return lossT.const_data_ptr<float>()[0];
 }
+
+const std::vector<std::vector<float>>& TrainableExecutorchModel::lastExtraOutputs() const { return impl_->lastExtra; }
 
 float TrainableExecutorchModel::trainStep(const float* x, const std::vector<int64_t>& xShape,
                                           const int64_t* y, int64_t n, float lr,

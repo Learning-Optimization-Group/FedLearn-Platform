@@ -58,6 +58,7 @@ if(FEDLEARN_BUILD_TRAINING)
     adam_parity_test.cpp
     mlp_masked_round_test.cpp
     cnn_round_test.cpp
+    bn_round_test.cpp
   )
 endif()
 
@@ -70,6 +71,7 @@ target_compile_definitions(fedlearn_core_tests PRIVATE
   CONTRACT_DIR="${FEDLEARN_CONTRACT_DIR}"
   MLP_DIR="${CMAKE_SOURCE_DIR}/../framework/tests/fixtures/mlp_golden"
   CNN_DIR="${CMAKE_SOURCE_DIR}/../framework/tests/fixtures/cnn_golden"
+  BN_DIR="${CMAKE_SOURCE_DIR}/../framework/tests/fixtures/bn_golden"
 )
 
 # Plain registration: gtest_discover_tests' build-time discovery run is unreliable here (the

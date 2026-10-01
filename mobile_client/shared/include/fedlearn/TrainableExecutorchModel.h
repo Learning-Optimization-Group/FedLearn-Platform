@@ -94,6 +94,10 @@ class TrainableExecutorchModel {
   // at its upper bound): for a masked-dropout program, one per dropout layer, [batch, activation dims...].
   std::vector<std::vector<int64_t>> extraInputShapes() const;
 
+  // The float outputs the last training step returned after (loss, prediction), in program order: for a
+  // BatchNorm program, each layer's batch mean then its biased batch variance.
+  const std::vector<std::vector<float>>& lastExtraOutputs() const;
+
   // Forget Adam's moments and step count: the next trainStepAdam starts a fresh optimizer.
   void resetOptimizerState();
 

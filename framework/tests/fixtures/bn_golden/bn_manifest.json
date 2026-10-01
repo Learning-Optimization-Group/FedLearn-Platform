@@ -1,0 +1,136 @@
+{
+  "description": "Training-mode BatchNorm golden (Stage 4 S7): torch nn.BatchNorm2d in training mode, Adam.",
+  "torch_version": "2.12.0",
+  "examples": 20,
+  "input_shape": [
+    3,
+    8,
+    8
+  ],
+  "batch_size": 8,
+  "local_epochs": 2,
+  "learning_rate": 0.001,
+  "seed": 42,
+  "round": 1,
+  "state_layout": [
+    [
+      "conv1.weight",
+      [
+        8,
+        3,
+        3,
+        3
+      ]
+    ],
+    [
+      "bn1.weight",
+      [
+        8
+      ]
+    ],
+    [
+      "bn1.bias",
+      [
+        8
+      ]
+    ],
+    [
+      "conv2.weight",
+      [
+        8,
+        8,
+        3,
+        3
+      ]
+    ],
+    [
+      "bn2.weight",
+      [
+        8
+      ]
+    ],
+    [
+      "bn2.bias",
+      [
+        8
+      ]
+    ],
+    [
+      "fc.weight",
+      [
+        10,
+        8
+      ]
+    ],
+    [
+      "fc.bias",
+      [
+        10
+      ]
+    ],
+    [
+      "bn1.running_mean",
+      [
+        8
+      ]
+    ],
+    [
+      "bn1.running_var",
+      [
+        8
+      ]
+    ],
+    [
+      "bn2.running_mean",
+      [
+        8
+      ]
+    ],
+    [
+      "bn2.running_var",
+      [
+        8
+      ]
+    ]
+  ],
+  "trainable_param_count": 914,
+  "param_names_flat_order": [
+    "base.conv1.weight",
+    "base.bn1.weight",
+    "base.bn1.bias",
+    "base.conv2.weight",
+    "base.bn2.weight",
+    "base.bn2.bias",
+    "base.fc.weight",
+    "base.fc.bias"
+  ],
+  "batch_norm": [
+    {
+      "module": "bn1",
+      "num_features": 8,
+      "momentum": 0.1,
+      "eps": 1e-05,
+      "values_per_example": 36
+    },
+    {
+      "module": "bn2",
+      "num_features": 8,
+      "momentum": 0.1,
+      "eps": 1e-05,
+      "values_per_example": 4
+    }
+  ],
+  "pte_file": "bn_trainable_dynbatch.pte",
+  "pte_sha256": "aa4ff48cf7d38d43d812c1b73cb45c232a14b15b7d8ca5ec1f276167f6db6aa9",
+  "loss_pte_file": "bn_loss_dynbatch.pte",
+  "loss_pte_sha256": "7e9c5e9dd8082b197285d8d32b4371ad540bfee160c3b5e3c895973ad5e1a84e",
+  "final_state_file": "bn_adam_final.f32",
+  "endpoint_atol": 0.0001,
+  "control_separation": {
+    "stats_never_updated": 0.5711117386817932,
+    "batch_norm_in_eval_mode": 0.5711117386817932,
+    "momentum_0_01": 0.4998212456703186,
+    "biased_running_variance": 0.003800511360168457,
+    "sequential_order": 0.02649235725402832
+  }
+}

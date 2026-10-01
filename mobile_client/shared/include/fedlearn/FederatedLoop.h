@@ -51,6 +51,26 @@ struct DropoutSpec {
   uint64_t seed = 0;
 };
 
+/**
+ * One BatchNorm layer of the contract (ModelTraining.batch_norm): its channels, momentum, and the values per example
+ * its statistics average over, so a step over `rows` examples averages over n = rows * valuesPerExample.
+ */
+struct BatchNormRule {
+  int64_t features = 0;
+  double momentum = 0.1;
+  int64_t valuesPerExample = 1;
+};
+
+/**
+ * The contract's training-mode BatchNorm layers. Empty for a model without them. When given, the federated state is the
+ * trainable parameters followed by each layer's running mean and running variance; the program returns each step's
+ * batch mean and biased variance after (loss, prediction), and the round updates the running statistics by
+ * BATCH_NORM_RUNNING_STATS_V1 (float64, rounded to float32 once).
+ */
+struct BatchNormSpec {
+  std::vector<BatchNormRule> layers;
+};
+
 }  // namespace fedlearn
 
 namespace fedlearn {
@@ -96,7 +116,7 @@ class FederatedLoop {
                                int numLocalSteps, double learningRate,
                                bool requireServerConfig = false, double proximalMu = 0.0,
                                const LocalBatching& batching = {}, const LocalOptimizer& optimizer = {},
-                               const DropoutSpec& dropout = {});
+                               const DropoutSpec& dropout = {}, const BatchNormSpec& batchNorm = {});
 #endif
 
  private:
