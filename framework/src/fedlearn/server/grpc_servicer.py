@@ -20,7 +20,7 @@ SERVER_PROTOCOL_VERSION = 2
 # Import the business logic layer and helpers
 from .coordinator import FLCoordinator, MalformedDeComFLSubmission
 from fedlearn.communication.serializer import (
-    proto_to_parameters, parameters_to_proto, chunks_to_parameters, state_dict_to_safetensors,
+    CHUNK_SIZE, proto_to_parameters, parameters_to_proto, chunks_to_parameters, state_dict_to_safetensors,
 )
 from fedlearn.server.decomfl_strategy import DeComFL
 
@@ -218,8 +218,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             # verified format-agnostically, before any deserialization.
             payload_sha256 = hashlib.sha256(data_to_send).hexdigest()
 
-            # Chunk the data
-            chunk_size = 50 * 1024 * 1024  # 50 MB
+            # Chunk the data at the upload path's size (FEDLEARN_CHUNK_SIZE_MB, 4 MB by default): a phone caps one
+            # message at 32 MB, and a 50 MB chunk sent ResNet-18's 42.7 MB state as one message it refused.
+            chunk_size = CHUNK_SIZE
             total_size = len(data_to_send)
             num_chunks = (total_size + chunk_size - 1) // chunk_size
 
