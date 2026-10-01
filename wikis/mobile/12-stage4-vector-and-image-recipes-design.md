@@ -201,8 +201,30 @@ Not done:
 - a mixed phone + laptop CNN run;
 - strategies other than FedAvg and Robust.
 
-Next: S7, `CIFAR_RESNET18`:
-- export with BatchNorm;
-- a qualification budget measured on the vivo;
-- a live run;
-- the upload size recorded.
+### S7 `CIFAR_RESNET18` — trained on the vivo (2026-10-01)
+
+ResNet-18 (11.2M parameters, 112×112 inputs) trained on the phone with training-mode BatchNorm, its running statistics
+federated. 64 CIFAR-10 training images, FedAvg, Adam, 2 rounds:
+- **Learning.** Server accuracy on the 10,000-image test split: 7.95% at the start (untrained head), 26.53% after
+  round 1, 28.32% after round 2.
+- **Cost on the vivo.** About 7.2 min per round (two 32-image steps plus the phone's own evaluation); 42.7 MB down and
+  42.7 MB up per round; peak memory 1.53 GB (1.63 GB during qualification). Single-threaded portable kernels.
+- **Verification.** Weaker than the CNN's. Four Adam steps are mostly sign descent, so torch disagrees with itself
+  (float32 vs float64) by 25% in the update; element-wise replay is not possible. The phone is 11.8% from a host-native
+  replay and rejects every wrong hypothesis, the nearest by 2.2×.
+
+Fixes the live run forced:
+- the qualification probe's batch made training-mode BatchNorm's gradient a cancellation: rows now come from a hash,
+  and the exporter refuses a probe rounding can move;
+- the rebuilt BatchNorm computes in float64 (ExecuTorch's portable sums lost ~1e-3 of the gradient in float32);
+- downloads are chunked at 4 MB (one 42.7 MB message exceeded the phone's 32 MB cap);
+- a qualification result is keyed by its probe too;
+- a run that ends while the phone is busy ends cleanly instead of as an error;
+- development builds may join a model not yet cleared for phones, with a warning.
+
+Not done:
+- `mobile_safe` for CIFAR_RESNET18 is still false: the measurement above is the input to that decision;
+- an exactly verifiable ResNet run (SGD, or more steps per round);
+- the phone's per-round losses are not persisted anywhere readable.
+
+Next: S8, `PNEUMONIA_CNN`.
