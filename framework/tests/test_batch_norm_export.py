@@ -105,6 +105,24 @@ def test_the_training_program_returns_each_layers_batch_mean_and_variance():
     assert not any("batch_norm" in op for op in ops), "training-mode BatchNorm must not reach the program"
 
 
+def test_every_reduction_in_the_training_program_runs_in_float64():
+    """ExecuTorch's portable mean and sum kernels add one element after another in the tensor's own type. Over a
+    ResNet-18 BatchNorm's 25,088 values per channel that lost ~1e-3 of the gradient on the vivo (torch's float32
+    BatchNorm accumulates in double and loses ~4e-6), enough to fail qualification. The rebuilt layer computes in
+    float64 and casts its output back, so every reduction it puts in the program, forward and backward, is in double."""
+    import torch.export
+    torch.manual_seed(0)
+    joint = pte_export.bn_training_graph(_Net(), (torch.randn(4, 3, 16, 16), torch.zeros(4, dtype=torch.int64)),
+                                         max_batch=8)
+    reductions = [n for n in joint.graph.nodes if n.op == "call_function"
+                  and n.target in (torch.ops.aten.mean.dim, torch.ops.aten.sum.dim_IntList)]
+    # A BatchNorm's reductions run over (batch, height, width); the model's own average pool runs over (height, width).
+    spatial = [n for n in reductions if n.args[0].meta["val"].dim() == 4 and 0 in n.args[1]]
+    assert len(spatial) >= 2 * 2, "each BatchNorm reduces its input over (batch, height, width)"
+    assert all(n.args[0].meta["val"].dtype == torch.float64 for n in spatial), \
+        [(n.name, n.args[0].meta["val"].dtype) for n in spatial if n.args[0].meta["val"].dtype != torch.float64]
+
+
 def test_the_evaluation_programs_take_the_running_statistics_as_inputs():
     """A device's running statistics change as it trains, so the loss and infer programs read them from the state."""
     from executorch.runtime import Runtime

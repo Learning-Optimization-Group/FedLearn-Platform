@@ -27,6 +27,14 @@ inline std::vector<float> readF32(const std::string& path) {
   return v;
 }
 
+inline std::vector<double> readF64(const std::string& path) {
+  std::ifstream f(path, std::ios::binary);
+  std::vector<double> v;
+  double x = 0.0;
+  while (f.read(reinterpret_cast<char*>(&x), sizeof(double))) v.push_back(x);
+  return v;
+}
+
 inline std::vector<int64_t> readI64(const std::string& path) {
   std::ifstream f(path, std::ios::binary);
   std::vector<int64_t> v;

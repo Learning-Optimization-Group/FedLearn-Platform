@@ -121,7 +121,7 @@
     }
   ],
   "pte_file": "bn_trainable_dynbatch.pte",
-  "pte_sha256": "aa4ff48cf7d38d43d812c1b73cb45c232a14b15b7d8ca5ec1f276167f6db6aa9",
+  "pte_sha256": "6c3549fd231876229a7fccd92c72b0977ed6184df742e441b75c9bec95edbe71",
   "loss_pte_file": "bn_loss_dynbatch.pte",
   "loss_pte_sha256": "7e9c5e9dd8082b197285d8d32b4371ad540bfee160c3b5e3c895973ad5e1a84e",
   "final_state_file": "bn_adam_final.f32",
@@ -132,5 +132,20 @@
     "momentum_0_01": 0.4998212456703186,
     "biased_running_variance": 0.003800511360168457,
     "sequential_order": 0.02649235725402832
+  },
+  "wide": {
+    "description": "Gradient precision of a BatchNorm over many values per channel: one SGD step on the probe batch (pte_export.probe_batch, step 1), gradient from torch in float64.",
+    "pte_file": "bn_wide_trainable.pte",
+    "pte_sha256": "0b7fbc3585fe1104497743bf7ca65b2707daf4f5cb7d9f128188b3b895b31e81",
+    "input_shape": [
+      3,
+      64,
+      64
+    ],
+    "rows": 8,
+    "classes": 10,
+    "learning_rate": 0.1,
+    "gradient_file": "bn_wide_grad.f64",
+    "bias_rtol": 1e-06
   }
 }

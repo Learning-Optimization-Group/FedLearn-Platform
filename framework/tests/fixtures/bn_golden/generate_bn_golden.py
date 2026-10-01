@@ -25,6 +25,10 @@ from fedlearn.contract.batch_order import batches, seeded_permutation
 HERE = os.path.dirname(os.path.abspath(__file__))
 EXAMPLES, BATCH, EPOCHS, LR, SEED, ROUND = 20, 8, 2, 1e-3, 42, 1
 ATOL = 1e-4
+# The wide fixture: the same network on 64 x 64 inputs, so its first BatchNorm reduces 8 x 62 x 62 = 30,752 values per
+# channel, as a real image model's does. Its BatchNorm biases start at zero, so one SGD step at WIDE_LR leaves each at
+# exactly -WIDE_LR times its gradient, which a device reads back to float32 precision.
+WIDE, WIDE_LR, WIDE_BIAS_RTOL = 64, 0.1, 1e-6
 
 
 class BnNet(nn.Module):
@@ -116,6 +120,19 @@ def biased_variance_control() -> np.ndarray:
     return state_flat(net)
 
 
+def wide_fixture() -> tuple[bytes, np.ndarray]:
+    """The wide program, and torch's float64 gradient of the probe batch's loss in its trainable order."""
+    x, y = pte_export.probe_batch(1, BATCH, 3 * WIDE * WIDE, 10)
+    x = x.view(BATCH, 3, WIDE, WIDE)
+    pte = pte_export.export_bn_trainable_pte(build_net(), (x, y), max_batch=BATCH)
+    exact = build_net().double()
+    torch.nn.functional.cross_entropy(exact(x.double()), y).backward()
+    params = dict(exact.named_parameters())
+    grad = torch.cat([params[n.removeprefix("base.")].grad.reshape(-1) for n in pte_export.training_trainable_names(
+        build_net())])
+    return pte, grad.numpy()
+
+
 def main() -> None:
     net = build_net()
     state_flat(net).tofile(os.path.join(HERE, "bn_init.f32"))
@@ -150,6 +167,10 @@ def main() -> None:
         net.eval()(x[:1])
     for h in hooks:
         h.remove()
+    wide_pte, wide_grad = wide_fixture()
+    with open(os.path.join(HERE, "bn_wide_trainable.pte"), "wb") as fh:
+        fh.write(wide_pte)
+    wide_grad.astype("<f8").tofile(os.path.join(HERE, "bn_wide_grad.f64"))
     params = [(n, list(p.shape)) for n, p in net.named_parameters()]
     buffers = [(n, list(dict(net.named_buffers())[n].shape)) for n in pte_export.federated_buffer_names(net)]
     manifest = {
@@ -164,6 +185,13 @@ def main() -> None:
         "pte_file": "bn_trainable_dynbatch.pte", "pte_sha256": hashlib.sha256(trainable).hexdigest(),
         "loss_pte_file": "bn_loss_dynbatch.pte", "loss_pte_sha256": hashlib.sha256(loss_pte).hexdigest(),
         "final_state_file": "bn_adam_final.f32", "endpoint_atol": ATOL, "control_separation": separation,
+        "wide": {
+            "description": "Gradient precision of a BatchNorm over many values per channel: one SGD step on the "
+                           "probe batch (pte_export.probe_batch, step 1), gradient from torch in float64.",
+            "pte_file": "bn_wide_trainable.pte", "pte_sha256": hashlib.sha256(wide_pte).hexdigest(),
+            "input_shape": [3, WIDE, WIDE], "rows": BATCH, "classes": 10, "learning_rate": WIDE_LR,
+            "gradient_file": "bn_wide_grad.f64", "bias_rtol": WIDE_BIAS_RTOL,
+        },
     }
     with open(os.path.join(HERE, "bn_manifest.json"), "w") as fh:
         json.dump(manifest, fh, indent=2)

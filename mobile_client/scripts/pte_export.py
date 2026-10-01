@@ -195,6 +195,10 @@ class TrainBatchNorm2d(nn.Module):
     mean, multiply and rsqrt (the biased variance, as torch's training mode does) and returns them, so the device can
     update the running statistics by BATCH_NORM_RUNNING_STATS_V1. It shares the original layer's weight and bias and
     keeps its running buffers for the record; it never updates them itself.
+
+    It computes in float64 and returns float32. ExecuTorch's portable mean and sum kernels accumulate one element after
+    another in the tensor's type; in float32, over ResNet-18's 25,088 values per channel, the backward pass's nearly
+    cancelling sums lost ~1e-3 of the gradient, where torch's BatchNorm (accumulating in double) loses ~4e-6.
     """
 
     def __init__(self, bn: nn.BatchNorm2d):
@@ -206,12 +210,13 @@ class TrainBatchNorm2d(nn.Module):
         self.stats = None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        mean = x.mean(dim=(0, 2, 3))
-        centered = x - mean[None, :, None, None]
+        wide = x.double()
+        mean = wide.mean(dim=(0, 2, 3))
+        centered = wide - mean[None, :, None, None]
         var = (centered * centered).mean(dim=(0, 2, 3))
-        self.stats = (mean.detach(), var.detach())
-        scale = torch.rsqrt(var + self.eps) * self.weight
-        return centered * scale[None, :, None, None] + self.bias[None, :, None, None]
+        self.stats = (mean.float().detach(), var.float().detach())
+        scale = torch.rsqrt(var + self.eps) * self.weight.double()
+        return (centered * scale[None, :, None, None] + self.bias.double()[None, :, None, None]).to(x.dtype)
 
 
 class _BatchNormTrainingGraph(nn.Module):
@@ -240,6 +245,13 @@ def export_bn_trainable_pte(model: nn.Module, example_inputs: tuple[torch.Tensor
     """A trainable graph for a model with BatchNorm: forward(x, y) -> (loss, prediction, batch statistics...), with
     training-mode BatchNorm rebuilt from primitive ops. Trainable parameter names and order are export_trainable_pte's."""
     from executorch.exir import to_edge
+
+    return to_edge(bn_training_graph(model, example_inputs, max_batch)).to_executorch().buffer
+
+
+def bn_training_graph(model: nn.Module, example_inputs: tuple[torch.Tensor, torch.Tensor],
+                      max_batch: int | None = None):
+    """The joint forward-backward ExportedProgram export_bn_trainable_pte lowers."""
     from torch.export.experimental import _export_forward_backward
 
     wrapper = _BatchNormTrainingGraph(model)
@@ -248,8 +260,7 @@ def export_bn_trainable_pte(model: nn.Module, example_inputs: tuple[torch.Tensor
     x, y = example_inputs
     batch = _batch_dim(max_batch)
     ep = export(wrapper, (x, y), strict=True, dynamic_shapes=None if batch is None else ({0: batch}, {0: batch}))
-    ep = _export_forward_backward(ep)
-    return to_edge(ep).to_executorch().buffer
+    return _export_forward_backward(ep)
 
 
 class _DropoutMaskSlot(nn.Module):
