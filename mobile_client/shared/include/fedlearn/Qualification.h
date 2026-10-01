@@ -1,8 +1,9 @@
 // Qualification.h — the portable-CPU qualification probe (Stage 3 D2).
 //
 // Before a device trains a run it proves it can run the run's trainable program correctly: two SGD steps on a
-// synthetic batch from the program's embedded weights (at step s, x[i][j] = ((31 i + 7 j + 3 s) mod 17 - 8) / 8; labels
-// i mod classes), each step's loss matching the exporter's reference,
+// synthetic batch from the program's embedded weights (at step s the value at flat index n = i * width + j is
+// (h mod 17 - 8) / 8 with the 32-bit hash h = n * 2654435761 + s * 40503, h ^= h >> 15, h *= 2246822519, h ^= h >> 13;
+// labels i mod classes; pte_export.probe_batch), each step's loss matching the exporter's reference,
 // the parameters changing, and the whole probe finishing within its budget. The probe is a property of the program,
 // so a device caches its result by program digest.
 #pragma once
@@ -39,6 +40,10 @@ struct QualificationReport {
 };
 
 #ifdef FEDLEARN_HAS_TRAINING
+/** The probe's synthetic batch for step 1 or 2 (rows x width values, labels i mod classes): the hashed pattern above,
+ * the same values pte_export.probe_batch builds. */
+void probeBatch(int step, const ProbeSpec& spec, std::vector<float>& x, std::vector<int64_t>& y);
+
 QualificationReport qualifyTrainable(const std::string& ptePath, const std::string& sha256,
                                      const std::vector<std::string>& paramNames, const ProbeSpec& spec);
 #endif

@@ -23,14 +23,27 @@ fedlearn::ProbeSpec spec() {
   s.width = 4;
   s.classes = 3;
   s.learningRate = 0.1f;
-  s.expectedLossStep1 = 1.1156879663467407;
-  s.expectedLossStep2 = 1.108156442642212;
+  s.expectedLossStep1 = 1.0697238445281982;
+  s.expectedLossStep2 = 1.0670346021652222;
   s.lossTolerance = 1e-4;
   s.maxProbeMs = 2000;
   return s;
 }
 
 }  // namespace
+
+TEST(Qualification, TheProbeBatchIsTheHashedPatternTheExporterUses) {
+  // pte_export.probe_batch pins the same values (framework/tests/test_qualification_probe.py).
+  fedlearn::ProbeSpec s;
+  s.rows = 2;
+  s.width = 4;
+  s.classes = 3;
+  std::vector<float> x;
+  std::vector<int64_t> y;
+  fedlearn::probeBatch(1, s, x, y);
+  EXPECT_EQ(x, (std::vector<float>{0.0f, 0.625f, -0.25f, 0.875f, 0.5f, -1.0f, 0.625f, -0.5f}));
+  EXPECT_EQ(y, (std::vector<int64_t>{0, 1}));
+}
 
 TEST(Qualification, TheStagedProgramQualifies) {
   const auto r = fedlearn::qualifyTrainable(fedtest::goldenPath(kPte), kSha, kNames, spec());
@@ -101,8 +114,8 @@ fedlearn::ProbeSpec mlpSpec() {
   s.width = 140;
   s.classes = 2;
   s.learningRate = 0.1f;
-  s.expectedLossStep1 = 0.6020075082778931;
-  s.expectedLossStep2 = 1.0412771701812744;
+  s.expectedLossStep1 = 0.7665631771087646;
+  s.expectedLossStep2 = 0.9300777912139893;
   s.lossTolerance = 1e-4;
   s.maxProbeMs = 2000;
   return s;

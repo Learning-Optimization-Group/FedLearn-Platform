@@ -124,8 +124,8 @@ TEST(CnnRound, TheProgramQualifiesWithAnImageShapedProbe) {
   s.classes = 10;
   s.inputShape = {3, 32, 32};
   s.learningRate = 0.1f;
-  s.expectedLossStep1 = 2.2907896041870117;
-  s.expectedLossStep2 = 2.2854325771331787;
+  s.expectedLossStep1 = 2.290682554244995;
+  s.expectedLossStep2 = 2.283684730529785;
   s.lossTolerance = 1e-4;
   s.maxProbeMs = 5000;
   const auto r = fedlearn::qualifyTrainable(cnnPath("cnn_trainable_dynbatch.pte"), kPteSha, kNames, s);

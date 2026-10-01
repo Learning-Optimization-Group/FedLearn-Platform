@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import copy
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.func import functional_call
@@ -369,15 +370,56 @@ PROBE_LEARNING_RATE = 0.1
 
 
 def probe_batch(step: int, rows: int, width: int, classes: int) -> tuple[torch.Tensor, torch.Tensor]:
-    """The qualification probe's synthetic batch for step 1 or 2: x[i][j] = ((31 i + 7 j + 3 step) mod 17 - 8) / 8,
-    labels i mod classes. The native probe builds the same batch.
+    """The qualification probe's synthetic batch for step 1 or 2, labels i mod classes. The native probe builds the
+    same batch. The value at flat index n = i * width + j comes from a 32-bit integer hash:
 
-    Every value is exact in float32. Rows differ from one another (31 is coprime to 17) for up to 17 rows whatever the
-    width, and no input is all zeros, so a step moves every layer even of a model whose biases start at zero.
+        h = n * 2654435761 + step * 40503;  h ^= h >> 15;  h *= 2246822519;  h ^= h >> 13   (all mod 2^32)
+        x = (h mod 17 - 8) / 8
+
+    Every value is exact in float32 and no input is all zeros, so a step moves every layer even of a model whose
+    biases start at zero. The rows are independent: a batch of shifted copies of one pattern made a training-mode
+    BatchNorm's gradient a cancellation of nearly equal terms, which rounding alone moved by more than the tolerance.
     """
-    x = torch.tensor([[((31 * i + 7 * j + 3 * step) % 17 - 8) / 8 for j in range(width)] for i in range(rows)],
-                     dtype=torch.float32)
-    return x, torch.tensor([i % classes for i in range(rows)], dtype=torch.int64)
+    n = np.arange(rows * width, dtype=np.uint64)
+    mask = np.uint64(0xFFFFFFFF)
+    h = (n * np.uint64(2654435761) + np.uint64(step) * np.uint64(40503)) & mask
+    h ^= h >> np.uint64(15)
+    h = (h * np.uint64(2246822519)) & mask
+    h ^= h >> np.uint64(13)
+    x = torch.from_numpy(((h % np.uint64(17)).astype(np.int64) - 8).astype(np.float32) / np.float32(8))
+    return x.view(rows, width), torch.tensor([i % classes for i in range(rows)], dtype=torch.int64)
+
+
+def probe_losses(model: nn.Module, rows: int, width: int, classes: int, input_shape: tuple[int, ...] | None = None,
+                 dtype: torch.dtype = torch.float32) -> list[float]:
+    """The probe's two step losses for the model in ``dtype``: two SGD steps from its current weights, in training mode
+    as the device program trains (BatchNorm normalises with each batch's statistics; dropout is replaced by all-ones
+    masks). The model itself is not changed."""
+    shape = tuple(input_shape) if input_shape else (width,)
+    if int(torch.tensor(shape).prod()) != width:
+        raise ValueError(f"input shape {shape} does not hold {width} values")
+
+    def batch(step):
+        x, y = probe_batch(step, rows, width, classes)
+        return x.view(rows, *shape).to(dtype), y
+
+    mask_shapes = dropout_mask_shapes(model, batch(1)[0].float())
+    wrapper = _MaskedTrainingGraph(copy.deepcopy(model)).to(dtype).train()
+    params = [p for p in wrapper.parameters() if p.requires_grad]
+    opt = torch.optim.SGD(params, lr=PROBE_LEARNING_RATE)
+    losses = []
+    for step in (1, 2):
+        x, y = batch(step)
+        masks = tuple(torch.ones(rows, *mask, dtype=dtype) for mask in mask_shapes)
+        opt.zero_grad()
+        loss, _ = wrapper(x, y, masks)
+        loss.backward()
+        opt.step()
+        losses.append(float(loss.detach()))
+    return losses
+
+
+PROBE_LOSS_TOLERANCE = 1e-4
 
 
 def probe_reference(model: nn.Module, rows: int, width: int, classes: int,
@@ -389,33 +431,21 @@ def probe_reference(model: nn.Module, rows: int, width: int, classes: int,
     A masked-dropout program is probed with every mask all ones, so its dropout layers pass activations through
     unchanged; the device does the same. The probe is a property of the artifact, not of a run, so a device can cache
     its result per program digest.
+
+    A probe is only worth recording if rounding cannot move it: the reference is recomputed in float64, and a probe
+    whose float32 losses differ from it by a tenth of the tolerance is refused, since a device running the program
+    correctly could then fail it (and a wrong one pass).
     """
     shape = tuple(input_shape) if input_shape else (width,)
-    if int(torch.tensor(shape).prod()) != width:
-        raise ValueError(f"input shape {shape} does not hold {width} values")
-
-    def batch(step):
-        x, y = probe_batch(step, rows, width, classes)
-        return x.view(rows, *shape), y
-
-    mask_shapes = dropout_mask_shapes(model, batch(1)[0])
-    # Training mode, as the device program trains: BatchNorm normalises with each batch's statistics (dropout is
-    # replaced by all-ones masks either way).
-    wrapper = _MaskedTrainingGraph(model).train()
-    params = [p for p in wrapper.parameters() if p.requires_grad]
-    opt = torch.optim.SGD(params, lr=PROBE_LEARNING_RATE)
-    losses = []
-    for step in (1, 2):
-        x, y = batch(step)
-        masks = tuple(torch.ones(rows, *mask) for mask in mask_shapes)
-        opt.zero_grad()
-        loss, _ = wrapper(x, y, masks)
-        loss.backward()
-        opt.step()
-        losses.append(float(loss))
+    losses = probe_losses(model, rows, width, classes, shape)
+    exact = probe_losses(model, rows, width, classes, shape, dtype=torch.float64)
+    drift = max(abs(a - b) for a, b in zip(losses, exact))
+    if drift > PROBE_LOSS_TOLERANCE / 10:
+        raise ValueError(f"the probe is not stable under rounding: float32 and float64 differ by {drift:.3g}, over "
+                         f"a tenth of its tolerance {PROBE_LOSS_TOLERANCE}")
     return {"rows": rows, "width": width, "classes": classes, "learning_rate": PROBE_LEARNING_RATE,
             **({"input_shape": list(shape)} if len(shape) > 1 else {}),
             "loss_step1": losses[0], "loss_step2": losses[1],
-            # ExecuTorch's portable kernels agree with torch to ~1e-7 on these graphs; the tolerance leaves room for
-            # other CPUs while rejecting a program that computes something else.
-            "loss_tolerance": 1e-4}
+            # A float64 recomputation lands within a tenth of this; the rest leaves room for other CPUs' summation
+            # order while rejecting a program that computes something else.
+            "loss_tolerance": PROBE_LOSS_TOLERANCE}

@@ -94,8 +94,8 @@
     "width": 140,
     "classes": 2,
     "learning_rate": 0.1,
-    "loss_step1": 0.6020075082778931,
-    "loss_step2": 1.0412771701812744,
+    "loss_step1": 0.7665631771087646,
+    "loss_step2": 0.9300777912139893,
     "loss_tolerance": 0.0001
   }
 }

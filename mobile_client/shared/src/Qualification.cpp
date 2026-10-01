@@ -20,18 +20,23 @@ QualificationReport fail(QualificationReport r, const char* check, std::string d
   return r;
 }
 
+}  // namespace
+
 void probeBatch(int step, const ProbeSpec& s, std::vector<float>& x, std::vector<int64_t>& y) {
   x.resize(static_cast<size_t>(s.rows * s.width));
   y.resize(static_cast<size_t>(s.rows));
   for (int64_t i = 0; i < s.rows; ++i) {
     y[static_cast<size_t>(i)] = i % s.classes;
     for (int64_t j = 0; j < s.width; ++j) {
-      x[static_cast<size_t>(i * s.width + j)] = static_cast<float>((31 * i + 7 * j + 3 * step) % 17 - 8) / 8.0f;
+      const auto n = static_cast<uint32_t>(i * s.width + j);
+      uint32_t h = n * 2654435761u + static_cast<uint32_t>(step) * 40503u;
+      h ^= h >> 15;
+      h *= 2246822519u;
+      h ^= h >> 13;
+      x[static_cast<size_t>(i * s.width + j)] = static_cast<float>(static_cast<int>(h % 17u) - 8) / 8.0f;
     }
   }
 }
-
-}  // namespace
 
 QualificationReport qualifyTrainable(const std::string& ptePath, const std::string& sha256,
                                      const std::vector<std::string>& paramNames, const ProbeSpec& spec) {
