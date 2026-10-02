@@ -90,3 +90,27 @@ def test_a_recipe_resized_package_reproduces_the_laptops_tensors_exactly():
         expected = laptop(img).numpy()
         assert np.array_equal(device.view(np.uint32), expected.astype(np.float32).view(np.uint32))
     assert make_image_package.prepare(img, "CNN").shape == (32, 32, 3)
+
+
+def test_a_pneumonia_package_reproduces_the_laptops_tensors_exactly():
+    """Stage 4 S8: PNEUMONIA_CNN converts to grayscale and resizes to 224 x 224 with PIL before ToTensor. Both yield
+    8-bit pixels, so a package of the prepared H x W x 1 pixels gives the laptop's tensors bit for bit, whatever the
+    X-ray's original size and mode."""
+    import sys
+    from PIL import Image
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "fl-runtime"))
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "scripts"))
+    import recipes
+    import make_image_package
+    from fedlearn.contract.image_transforms import image_to_unit_tensor, normalize_channels
+    rng = np.random.default_rng(37)
+    laptop = recipes.pneumonia_transform()
+    for size, mode in (((300, 260), "L"), ((180, 400), "RGB"), ((224, 224), "L")):
+        channels = 1 if mode == "L" else 3
+        raw = rng.integers(0, 256, size=(size[1], size[0], channels), dtype=np.uint8)
+        img = Image.fromarray(raw[..., 0] if mode == "L" else raw, mode)
+        packaged = make_image_package.prepare(img, "PNEUMONIA_CNN")
+        assert packaged.shape == (224, 224, 1) and packaged.dtype == np.uint8
+        device = normalize_channels(image_to_unit_tensor(packaged), [0.5], [0.5])
+        expected = laptop(img).numpy()
+        assert np.array_equal(device.view(np.uint32), expected.astype(np.float32).view(np.uint32))
