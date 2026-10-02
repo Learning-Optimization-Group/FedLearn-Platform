@@ -281,3 +281,48 @@ def test_the_resnet_probe_is_torchs_training_mode_batch_norm(resnet_bundle):
     reference = pte_export.probe_reference(recipes.get_recipe("CIFAR_RESNET18").build_model("cpu").eval(), rows=8,
                                            width=3 * 112 * 112, classes=10, input_shape=(3, 112, 112))
     assert (probe["lossStep1"], probe["lossStep2"]) == (reference["loss_step1"], reference["loss_step2"])
+
+
+# Stage 4 S8: PNEUMONIA_CNN, 224 x 224 grayscale with a dropout layer. Slow: 103 MB of weights in its programs.
+
+@pytest.fixture(scope="module")
+def pneumonia_bundle(exporter, tmp_path_factory):
+    dest = exporter.export_recipe_bundle(RUN_ID, "PNEUMONIA_CNN", tmp_path_factory.mktemp("pneumonia"))
+    with open(dest / "manifest.json") as fh:
+        return dest, json.load(fh)
+
+
+@pytest.mark.slow
+def test_the_pneumonia_bundle_states_its_batch_bound_operators_and_envelope(pneumonia_bundle):
+    import execution_plan
+    dest, manifest = pneumonia_bundle
+    batch = execution_plan.resolve_model_training("PNEUMONIA_CNN", "FedAvg", "FULL").local_training.batch_size
+    assert manifest["maxBatch"] == batch == _input_bound(dest / "trainable.pte", 0)
+    used = set().union(*(_operators(dest / name) for name in MODEL_FILES))
+    assert manifest["requiredOperators"] == sorted(used)
+    envelope = manifest["resourceEnvelope"]
+    assert envelope["peakMemoryBytes"] > 0 and envelope["probeMs"] > 0 and envelope["trainMs"] > 0
+    assert envelope["storageBytes"] == sum((dest / n).stat().st_size for n in MODEL_FILES)
+
+
+@pytest.mark.slow
+def test_the_pneumonia_training_program_takes_its_dropout_mask(pneumonia_bundle):
+    """After (x, y), one mask per dropout layer, shaped like that layer's activation: [batch, 256]."""
+    from executorch.runtime import Runtime
+    dest, _ = pneumonia_bundle
+    method = Runtime.get().load_program(str(dest / "trainable.pte")).load_method("forward")
+    assert tuple(method.metadata.input_tensor_meta(2).sizes())[1:] == (256,)
+
+
+@pytest.mark.slow
+def test_the_pneumonia_probe_is_a_grayscale_image_and_is_what_torch_computes(pneumonia_bundle):
+    sys.path.insert(0, os.path.join(REPO, "mobile_client", "scripts"))
+    import pte_export
+    import recipes
+    _, manifest = pneumonia_bundle
+    probe = manifest["modelManifest"]["trainableProbe"]
+    assert probe["inputShape"] == [1, 224, 224] and probe["width"] == 224 * 224 and probe["classes"] == 2
+    torch.manual_seed(0)
+    reference = pte_export.probe_reference(recipes.get_recipe("PNEUMONIA_CNN").build_model("cpu"), rows=8,
+                                           width=224 * 224, classes=2, input_shape=(1, 224, 224))
+    assert (probe["lossStep1"], probe["lossStep2"]) == (reference["loss_step1"], reference["loss_step2"])

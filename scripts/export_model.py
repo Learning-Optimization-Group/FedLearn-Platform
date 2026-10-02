@@ -74,6 +74,16 @@ ENVELOPES = {
                  "for two 8-image steps on an M4 Max, so a phone round can take tens of minutes; qualification "
                  "measures a device against probeMs. Storage is the staged model files' total size.",
     },
+    "PNEUMONIA_CNN": {
+        "peakMemoryBytes": 2 * 1024 * 1024 * 1024,
+        "probeMs": 600000,
+        "trainMs": 7200000,
+        "basis": "Declared budgets, not measurements. The pneumonia CNN has 25,783,554 parameters (103 MB as float32; "
+                 "all but 0.3% in one 100,352 x 256 linear layer) and trains batches of at most 16 grayscale images of "
+                 "224 x 224. Adam keeps two more copies of the parameters, so training holds ~0.5 GB of state before "
+                 "activations. Qualification measures a device against probeMs. Storage is the staged model files' "
+                 "total size.",
+    },
     "CNN": {
         "peakMemoryBytes": 128 * 1024 * 1024,
         "probeMs": 5000,
