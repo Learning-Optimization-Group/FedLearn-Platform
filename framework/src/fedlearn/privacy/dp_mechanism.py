@@ -38,7 +38,86 @@ import torch
 # and Byzantine clipping share one definition of "an update's norm". Imported at module top; the
 # strategy imports THIS module lazily (inside the DP branch) to avoid an import cycle.
 from fedlearn.server._update_normalize import normalize_updates
-from fedlearn.server.robust_aggregation import clip_l2_norm
+from fedlearn.server.robust_aggregation import clip_l2_norm, trimmed_mean
+
+
+# Rules whose replace-one L2 sensitivity shrinks with the cohort. The coordinate-wise median is
+# deliberately absent: one client can move it by as much as S at any n, so it has no 1/n bound.
+_REPLACE_ONE_RULES = ("mean", "trimmed_mean")
+
+
+def replace_one_sensitivity(
+    rule: str, num_clients: int, clip_norm: float, trim_ratio: float = 0.0
+) -> float:
+    """L2 sensitivity of a clipped aggregate when ONE client's update is replaced by another.
+
+    Each client's delta is jointly clipped to L2 norm ``S``, so a replaced delta moves by at most
+    ``2S``. The uniform mean therefore moves by at most ``2S/n``. A coordinate-wise trimmed mean
+    that drops ``k = floor(trim_ratio * n)`` values from each end (the same ``k`` as
+    :func:`fedlearn.server.robust_aggregation.trimmed_mean`) moves by at most ``2S/(n - 2k)``:
+    every coordinate of the trimmed SUM moves by at most the change in the replaced client's value
+    at that coordinate, so the joint L2 change is at most ``||x - x'||_2 / (n - 2k)``.
+
+    This is replace-one adjacency, which is NOT the add/remove convention of :func:`dp_aggregate`
+    (sensitivity ``S/n``); the two must not be mixed within one comparison.
+
+    Raises:
+        ValueError: on an unsupported rule, ``num_clients < 1``, non-positive ``clip_norm``,
+            negative ``trim_ratio``, or a trim that removes every client.
+    """
+    if rule not in _REPLACE_ONE_RULES:
+        raise ValueError(f"rule must be one of {_REPLACE_ONE_RULES}, got {rule!r}")
+    if num_clients is None or num_clients < 1:
+        raise ValueError(f"num_clients must be >= 1, got {num_clients}")
+    if clip_norm is None or clip_norm <= 0:
+        raise ValueError(f"clip_norm (S) must be positive, got {clip_norm}")
+    if rule == "mean":
+        return 2.0 * float(clip_norm) / num_clients
+    if trim_ratio is None or trim_ratio < 0:
+        raise ValueError(f"trim_ratio must be >= 0, got {trim_ratio}")
+    k = int(trim_ratio * num_clients)  # floor, matching robust_aggregation.trimmed_mean
+    kept = num_clients - 2 * k
+    if kept <= 0:
+        raise ValueError(
+            f"trim_ratio={trim_ratio} removes every client (n={num_clients}, k={k})."
+        )
+    return 2.0 * float(clip_norm) / kept
+
+
+def _clipped_deltas(results, global_params, keys, clip_norm):
+    """Per-client deltas from ``global_params`` over ``keys``, each JOINTLY clipped to L2 norm ``S``.
+
+    Returns ``(ref, clipped)``: the float32 CPU delta reference and one clipped ``OrderedDict`` per
+    client, in arrival order. ``num_examples`` is ignored — every DP rule here is unweighted.
+    """
+    # Delta reference restricted to the aggregatable keys, as float32 CPU.
+    ref: "OrderedDict[str, torch.Tensor]" = OrderedDict()
+    for k in keys:
+        if k not in global_params:
+            raise KeyError(f"aggregatable key {k!r} missing from global_params.")
+        ref[k] = global_params[k].detach().float().cpu()
+
+    clipped_deltas = []
+    for _client_id, params, _num_examples in normalize_updates(results):
+        delta: "OrderedDict[str, torch.Tensor]" = OrderedDict()
+        for k in keys:
+            if k not in params:
+                raise KeyError(f"client update missing aggregatable key {k!r}.")
+            delta[k] = params[k].detach().float().cpu() - ref[k]
+            # A non-finite (NaN/Inf) coordinate makes the L2 norm non-finite, so the clip becomes a
+            # no-op (scale = min(1.0, S/NaN) = 1.0) or produces NaN (Inf*0), silently defeating the
+            # sensitivity bound the (eps, delta) guarantee rests on and corrupting the whole
+            # aggregated coordinate for every client. Reject it loudly, like the other contract checks.
+            if not torch.isfinite(delta[k]).all():
+                raise ValueError(
+                    f"client {_client_id!r} sent a non-finite value in aggregatable key {k!r} "
+                    "(NaN/Inf); a non-finite update defeats the DP L2 clip and would corrupt the "
+                    "aggregate — rejecting the round."
+                )
+        # Joint L2 clip of the whole delta to S (sensitivity of one client to the sum is then S).
+        clipped, _orig_norm = clip_l2_norm(delta, clip_norm)
+        clipped_deltas.append(clipped)
+    return ref, clipped_deltas
 
 
 def dp_aggregate(
@@ -86,39 +165,14 @@ def dp_aggregate(
     if not keys:
         raise ValueError("dp_aggregate requires at least one aggregatable key.")
 
-    # Delta reference restricted to the aggregatable keys, as float32 CPU.
-    ref: "OrderedDict[str, torch.Tensor]" = OrderedDict()
-    for k in keys:
-        if k not in global_params:
-            raise KeyError(f"aggregatable key {k!r} missing from global_params.")
-        ref[k] = global_params[k].detach().float().cpu()
-
-    # The DP average is uniform, so num_examples is intentionally ignored (the third element).
-    normalized = normalize_updates(results)
-    n = len(normalized)
+    ref, clipped_deltas = _clipped_deltas(results, global_params, keys, clip_norm)
+    n = len(clipped_deltas)
 
     # Sum of per-client CLIPPED deltas over the aggregatable keys.
     sum_delta: "OrderedDict[str, torch.Tensor]" = OrderedDict(
         (k, torch.zeros_like(ref[k])) for k in keys
     )
-    for _client_id, params, _num_examples in normalized:
-        delta: "OrderedDict[str, torch.Tensor]" = OrderedDict()
-        for k in keys:
-            if k not in params:
-                raise KeyError(f"client update missing aggregatable key {k!r}.")
-            delta[k] = params[k].detach().float().cpu() - ref[k]
-            # A non-finite (NaN/Inf) coordinate makes the L2 norm non-finite, so the clip becomes a
-            # no-op (scale = min(1.0, S/NaN) = 1.0) or produces NaN (Inf*0), silently defeating the
-            # sensitivity bound the (eps, delta) guarantee rests on and corrupting the whole
-            # aggregated coordinate for every client. Reject it loudly, like the other contract checks.
-            if not torch.isfinite(delta[k]).all():
-                raise ValueError(
-                    f"client {_client_id!r} sent a non-finite value in aggregatable key {k!r} "
-                    "(NaN/Inf); a non-finite update defeats the DP L2 clip and would corrupt the "
-                    "aggregate — rejecting the round."
-                )
-        # Joint L2 clip of the whole delta to S (sensitivity of one client to the sum is then S).
-        clipped, _orig_norm = clip_l2_norm(delta, clip_norm)
+    for clipped in clipped_deltas:
         for k in keys:
             sum_delta[k] = sum_delta[k] + clipped[k]
 
@@ -132,4 +186,58 @@ def dp_aggregate(
             noise.normal_(mean=0.0, std=std, generator=generator)
             mean_delta = mean_delta + noise
         out[k] = ref[k] + mean_delta
+    return out
+
+
+def dp_robust_aggregate(
+    results: Sequence[tuple],
+    global_params: "OrderedDict[str, torch.Tensor]",
+    aggregatable_keys: Iterable[str],
+    clip_norm: float,
+    noise_multiplier: float,
+    rule: str = "mean",
+    trim_ratio: float = 0.0,
+    generator: Optional[torch.Generator] = None,
+) -> "OrderedDict[str, torch.Tensor]":
+    """Central DP over a clipped mean or coordinate-wise trimmed mean, under replace-one adjacency.
+
+    Clips each client's delta jointly to L2 norm ``S``, aggregates with ``rule`` (``"mean"`` or
+    ``"trimmed_mean"``, unweighted), then adds Gaussian noise with per-coordinate std
+    ``z * replace_one_sensitivity(rule, n, S, trim_ratio)``. Using one adjacency for both rules keeps
+    a mean-vs-trimmed-mean comparison matched at the same ``z``; the accountant's ``z`` is
+    sensitivity-normalized, so it carries over unchanged.
+
+    Args mirror :func:`dp_aggregate`, plus ``rule`` and ``trim_ratio`` (the trimmed mean drops
+    ``floor(trim_ratio * n)`` values from each end of every coordinate).
+
+    Returns:
+        ``OrderedDict`` ``{k: global_params[k] + aggregate[k]}`` for ``k`` in ``aggregatable_keys``
+        (in that order), as float32 CPU tensors. Frozen keys are the caller's to re-attach.
+
+    Raises:
+        ValueError: on empty ``results``, negative ``noise_multiplier``, empty ``aggregatable_keys``,
+            a non-finite client delta, or any configuration :func:`replace_one_sensitivity` rejects.
+        KeyError: if a key is missing from ``global_params`` or from a client's params.
+    """
+    if not results:
+        raise ValueError("dp_robust_aggregate requires at least one client update.")
+    if noise_multiplier is None or noise_multiplier < 0:
+        raise ValueError(f"noise_multiplier (z) must be >= 0, got {noise_multiplier}")
+    keys = list(aggregatable_keys)
+    if not keys:
+        raise ValueError("dp_robust_aggregate requires at least one aggregatable key.")
+
+    sensitivity = replace_one_sensitivity(rule, len(results), clip_norm, trim_ratio)
+    ref, clipped_deltas = _clipped_deltas(results, global_params, keys, clip_norm)
+
+    std = float(noise_multiplier) * sensitivity
+    out: "OrderedDict[str, torch.Tensor]" = OrderedDict()
+    for k in keys:
+        stacked = torch.stack([c[k] for c in clipped_deltas], dim=0)
+        agg = stacked.mean(dim=0) if rule == "mean" else trimmed_mean(stacked, trim_ratio)
+        if std > 0.0:
+            noise = torch.empty_like(agg)
+            noise.normal_(mean=0.0, std=std, generator=generator)
+            agg = agg + noise
+        out[k] = ref[k] + agg
     return out
