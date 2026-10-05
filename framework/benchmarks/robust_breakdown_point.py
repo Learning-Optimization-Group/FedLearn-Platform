@@ -197,9 +197,12 @@ def measure_estimate_deviation(common, attack, fractions):
         w = None
         ipm_eps = None
         if attack == "ipm" and num_attackers:
-            total = sum(r["n_examples"] for r in client_records.values())
-            aw = sum(client_records[c]["n_examples"] for c in attacker_ids) / total
-            ipm_eps = 2.0 * ((1 - aw) / aw if aw > 0 else 1.0)
+            if common.get("ipm_epsilon") is not None:
+                ipm_eps = common["ipm_epsilon"]  # fixed scale (--ipm-epsilon), same at every f
+            else:
+                total = sum(r["n_examples"] for r in client_records.values())
+                aw = sum(client_records[c]["n_examples"] for c in attacker_ids) / total
+                ipm_eps = 2.0 * ((1 - aw) / aw if aw > 0 else 1.0)
         overrides = raa._apply_attack_to_round(
             attack=(attack if num_attackers else "none"), attacker_ids=attacker_ids,
             client_records=client_records, global_params=global_params,
@@ -292,6 +295,9 @@ def main() -> None:
     ap.add_argument("--hidden", type=int, default=64)
     ap.add_argument("--trim-beta", type=float, default=0.2)
     ap.add_argument("--seed", type=int, default=1234)
+    ap.add_argument("--ipm-epsilon", type=float, default=None,
+                    help="Fix the IPM attack scale at every fraction. Default: calibrate per fraction "
+                         "against FedAvg as 2(1-w)/w, w = the attackers' share of the training data.")
     ap.add_argument("--out-dir", type=str, default=os.path.join(_HERE, "results"))
     args = ap.parse_args()
 
@@ -324,7 +330,7 @@ def main() -> None:
         batch_size=args.batch_size, hidden=args.hidden, seed=args.seed, initial=initial,
         client_indices=client_indices, train_x=train_x, train_y=train_y, test_x=test_x, test_y=test_y,
         dim=args.dim, num_classes=args.classes, attack_scale_magnitude=10.0,
-        ipm_epsilon=None, alie_z=None, trim_beta=args.trim_beta,
+        ipm_epsilon=args.ipm_epsilon, alie_z=None, trim_beta=args.trim_beta,
     )
 
     t0 = time.time()
@@ -412,6 +418,7 @@ def main() -> None:
         clients=args.clients, client_sizes=client_sizes, alpha=args.alpha, dirichlet_seed=args.dirichlet_seed,
         rounds=args.rounds, local_epochs=args.local_epochs, lr=args.lr, trim_beta=args.trim_beta,
         attack=args.attack, fractions=fractions, seed=args.seed, broken_retention_threshold=BROKEN_RETENTION,
+        ipm_epsilon=args.ipm_epsilon,  # None = calibrated per fraction against FedAvg
         clean_accuracy=round(clean_acc, 4), torch_version=torch.__version__, total_seconds=total_s,
     )
 
@@ -431,7 +438,10 @@ def _write_markdown(args, meta, clean_acc, sweep, breakdown, stem="robust_breakd
         f"Task: **{meta['task']}** · Model: **{meta['model']}**",
         f"Clients: {meta['clients']} (non-IID Dirichlet alpha={meta['alpha']}, sizes {meta['client_sizes']}) · "
         f"Rounds: {meta['rounds']} · local epochs: {meta['local_epochs']} · lr: {meta['lr']} · "
-        f"trimmed-mean beta: {meta['trim_beta']:g} · attack: **{meta['attack']}** · seed: {meta['seed']}",
+        f"trimmed-mean beta: {meta['trim_beta']:g} · attack: **{meta['attack']}** · seed: {meta['seed']}"
+        + ("" if meta["attack"] != "ipm" else
+           f" · IPM scale: fixed at {meta['ipm_epsilon']:g}" if meta.get("ipm_epsilon") is not None else
+           " · IPM scale: calibrated per fraction, 2(1 − w)/w for attacker data share w"),
         f"torch {meta['torch_version']} · total {meta['total_seconds']}s",
         "",
         "Everything but the aggregator and the attacker fraction f is fixed and seeded (same partition, "
