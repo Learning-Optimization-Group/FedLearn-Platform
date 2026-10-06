@@ -1,4 +1,3 @@
-# framework/tests/test_prepare_features_smoke.py
 """prepare_features writes a features file the engine can read, with row-aligned triggered copies."""
 import pytest
 

@@ -1,4 +1,3 @@
-# framework/tests/test_simulation_engine_cli.py
 """Matrix runner and CLI: every run written, failures recorded, streaming one line per round."""
 import json
 import os
@@ -30,7 +29,7 @@ def test_matrix_writes_every_run_and_an_index(tmp_path):
     engine.run_matrix(_cfg(_features(tmp_path)), str(out))
     index = json.loads((out / "index.json").read_text())
     assert len(index["runs"]) == 4 and all(r["status"] == "ok" for r in index["runs"])
-    assert all((out / f"{r['name']}.json").exists() for r in index["runs"])
+    assert all((out / r["file"]).exists() for r in index["runs"])
 
 
 def test_matrix_records_a_failed_cell_and_continues(tmp_path, monkeypatch):
@@ -63,3 +62,29 @@ def test_cli_streams_one_line_per_round(tmp_path):
     lines = [json.loads(l) for l in proc.stdout.splitlines() if l.startswith("{")]
     assert [l["round"] for l in lines] == [1, 2]                 # the coordinator numbers rounds from 1
     assert all(l["run"] == "m__r0" for l in lines)
+
+
+def test_matrix_over_a_path_axis_writes_safe_file_names(tmp_path):
+    import shutil
+    a = _features(tmp_path)
+    (tmp_path / "other").mkdir()
+    b = str(tmp_path / "other" / "f.pt")
+    shutil.copy(a, b)
+    cfg = _cfg(a)
+    cfg["matrix"] = {"workload.features_path": [a, b], "repeats": 1}
+    out = tmp_path / "out"
+    engine.run_matrix(cfg, str(out))
+    runs = json.loads((out / "index.json").read_text())["runs"]
+    assert [r["status"] for r in runs] == ["ok", "ok"]
+    assert all("/" not in r["file"] and (out / r["file"]).exists() for r in runs)
+    assert all("/" in r["name"] for r in runs)                      # the full label is kept in the index
+    assert runs[0]["file"] != runs[1]["file"]
+
+
+def test_matrix_records_a_write_failure_and_continues(tmp_path):
+    out = tmp_path / "out"
+    (out / "m__rule=mean__r0.json").mkdir(parents=True)            # the target path is a directory
+    engine.run_matrix(_cfg(_features(tmp_path)), str(out))
+    statuses = {r["name"]: r["status"] for r in json.loads((out / "index.json").read_text())["runs"]}
+    assert statuses["m__rule=mean__r0"] == "write_failed"
+    assert list(statuses.values()).count("ok") == 3

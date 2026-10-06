@@ -1,4 +1,3 @@
-# framework/src/fedlearn/simulation/metrics.py
 """Pure metric functions for simulation records (no state, no I/O)."""
 from __future__ import annotations
 

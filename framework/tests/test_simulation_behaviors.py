@@ -1,7 +1,4 @@
-# framework/tests/test_simulation_behaviors.py
 """Bad-client behaviours: seeded persistent assignment and effects equal to the attack harness."""
-import os
-import sys
 from collections import OrderedDict
 
 import numpy as np
@@ -11,8 +8,7 @@ import torch
 from fedlearn.simulation.behaviors import BehaviorPlan
 from fedlearn.simulation.config import resolve
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "benchmarks"))
-import robust_aggregation_attack as raa  # noqa: E402
+from benchmarks import robust_aggregation_attack as raa
 
 
 def _plan(behaviors, n=20, seed=11, classes=2):
@@ -59,7 +55,7 @@ def _records(n, honest_scale=1.0):
 def test_upload_attacks_equal_the_harness(kind, kw):
     behaviors = {"ipm": [{"type": "ipm", "fraction": 0.3, "scale": 4.0}],
                  "alie": [{"type": "alie", "fraction": 0.3, "z": 20.0}],
-                 "sign_flip_scale": [{"type": "sign_flip_scale", "fraction": 0.3, "scale": 10.0}]}[kind]
+                 "sign_flip_scale": [{"type": "sign_flip_scale", "fraction": 0.3, "scale": -10.0}]}[kind]
     p = _plan(behaviors, n=10)
     recs, glob = _records(10)
     got = p.upload_overrides(recs, glob, round_num=0)
@@ -100,3 +96,25 @@ def test_stragglers_and_dropout():
     p = _plan([{"type": "straggler", "fraction": 0.5, "slowdown": 3.0}, {"type": "dropout", "fraction": 0.1}], n=10)
     slow = [c for c in range(10) if p.slowdown(c) == 3.0]
     assert len(slow) == 5 and p.dropout_fraction == pytest.approx(0.1)
+
+
+def test_sign_flip_scale_uses_the_signed_scale():
+    recs, glob = _records(10)
+    flip = _plan([{"type": "sign_flip_scale", "fraction": 0.3}], n=10)                 # default -10 flips
+    same = _plan([{"type": "sign_flip_scale", "fraction": 0.3, "scale": 10.0}], n=10)  # positive: same direction
+    for plan, signed, kind in ((flip, -10.0, "sign_flip_scale"), (same, 10.0, "same_dir_scale")):
+        got = plan.upload_overrides(recs, glob, 0)
+        want = raa._apply_attack_to_round(attack=kind, attacker_ids=plan.malicious_ids(), client_records=recs,
+                                          global_params=glob, attack_scale_signed=signed, ipm_epsilon=None,
+                                          alie_z=None)
+        assert set(got) == set(want) and all(torch.equal(got[c][k], want[c][k]) for c in got for k in glob)
+
+
+def test_ipm_with_no_honest_client_uses_the_attackers_own_deltas():
+    p = _plan([{"type": "ipm", "fraction": 1.0, "scale": 4.0}], n=4)
+    recs, glob = _records(4)
+    got = p.upload_overrides(recs, glob, 0)
+    mean_ = {k: torch.stack([recs[c]["honest_delta"][k] for c in range(4)], dim=0).mean(dim=0) for k in glob}
+    assert set(got) == {0, 1, 2, 3}
+    assert all(torch.equal(got[c][k], glob[k].float() + (-4.0 * mean_[k])) for c in got for k in glob)
+    assert "own" in p.last_attack_note

@@ -1,4 +1,3 @@
-# framework/tests/test_simulation_engine_scale.py
 """1,000 clients x 2 rounds completes with bounded memory (run with -m slow)."""
 import pytest
 import torch

@@ -1,4 +1,3 @@
-# framework/src/fedlearn/simulation/config.py
 """Run configuration for the simulation engine: defaults, validation, seeds, matrix expansion.
 
 A config is a plain JSON object. ``resolve`` fills defaults, rejects unknown keys and invalid
@@ -23,7 +22,7 @@ FAULTY = ("dropout", "straggler", "label_noise")
 SEED_KEYS = ("partition", "init", "client", "attack", "noise")
 
 BEHAVIOR_DEFAULTS: Dict[str, Dict[str, Any]] = {
-    "sign_flip_scale": {"scale": 10.0},
+    "sign_flip_scale": {"scale": -10.0},
     "ipm": {"scale": 4.0},
     "alie": {"z": 20.0},
     "label_flip": {},
@@ -110,7 +109,24 @@ def _resolve_behavior(b: Any, i: int) -> Dict[str, Any]:
         raise ConfigError(f"{where}.trigger", "only patch triggers are supported (prepare_features --trigger-patch)")
     if kind == "free_rider" and out["mode"] not in ("zero", "noise"):
         raise ConfigError(f"{where}.mode", "must be 'zero' or 'noise'")
+    for key, ok, rule in _BEHAVIOR_RANGES.get(kind, ()):
+        v = out[key]
+        if not isinstance(v, (int, float)) or isinstance(v, bool) or not ok(float(v)):
+            raise ConfigError(f"{where}.{key}", f"must be {rule}")
     return out
+
+
+# Per-behaviour parameter ranges: (key, predicate, description). A value outside its range would
+# otherwise fail mid-run or be silently meaningless (a straggler faster than everyone else).
+_BEHAVIOR_RANGES = {
+    "sign_flip_scale": (("scale", lambda v: v != 0.0, "a non-zero number (negative flips)"),),
+    "ipm": (("scale", lambda v: v != 0.0, "a non-zero number"),),
+    "alie": (("z", lambda v: v >= 0.0, ">= 0"),),
+    "backdoor": (("poison_fraction", lambda v: 0.0 < v <= 1.0, "in (0, 1]"),),
+    "free_rider": (("noise_std", lambda v: v >= 0.0, ">= 0"),),
+    "straggler": (("slowdown", lambda v: v >= 1.0, ">= 1 (a straggler is slower than its peers)"),),
+    "label_noise": (("flip_prob", lambda v: 0.0 <= v <= 1.0, "in [0, 1]"),),
+}
 
 
 def _require(cond: bool, field: str, message: str) -> None:
@@ -132,6 +148,12 @@ def _validate(r: Dict[str, Any]) -> None:
     _require(fed["partition"]["type"] in ("iid", "dirichlet"), "federation.partition.type",
              "must be 'iid' or 'dirichlet'")
     _require(float(fed["partition"]["alpha"]) > 0, "federation.partition.alpha", "must be > 0")
+    net = fed["network"]
+    for key in ("uplink_mbps", "downlink_mbps", "device_gflops"):
+        _require(float(net[key]) > 0, f"federation.network.{key}", "must be > 0")
+    _require(float(net["latency_ms"]) >= 0, "federation.network.latency_ms", "must be >= 0")
+    _require(net["round_deadline_s"] is None or float(net["round_deadline_s"]) > 0,
+             "federation.network.round_deadline_s", "must be null or > 0")
     _require(cl["algorithm"] in ("fedavg", "fedprox"), "client.algorithm", "must be 'fedavg' or 'fedprox'")
     if cl["algorithm"] == "fedprox":
         _require(float(cl["proximal_mu"]) > 0, "client.proximal_mu", "fedprox needs proximal_mu > 0")
@@ -144,8 +166,16 @@ def _validate(r: Dict[str, Any]) -> None:
              "must be null or > 0")
     _require(0.0 <= float(sv["rule_params"]["trim_ratio"]) < 0.5, "server.rule_params.trim_ratio",
              "must be in [0, 0.5)")
+    rp = sv["rule_params"]
+    _require(rp["byzantine_fraction"] is None or 0.0 <= float(rp["byzantine_fraction"]) < 1.0,
+             "server.rule_params.byzantine_fraction", "must be null or in [0, 1)")
+    _require(float(rp["tau"]) > 0, "server.rule_params.tau", "must be > 0")
+    _require(int(rp["iterations"]) >= 1, "server.rule_params.iterations", "must be >= 1")
+    _require(rp["multi_krum_m"] is None or int(rp["multi_krum_m"]) >= 1, "server.rule_params.multi_krum_m",
+             "must be null or >= 1")
     _require(sv["optimizer"]["type"] in ("none", "adam", "yogi"), "server.optimizer.type",
              "must be 'none', 'adam' or 'yogi'")
+    _require(float(sv["optimizer"]["lr"]) > 0, "server.optimizer.lr", "must be > 0")
     _require(pv["mode"] in ("none", "central", "local"), "privacy.mode", "must be 'none', 'central' or 'local'")
     _require(pv["adjacency"] == "replace_one", "privacy.adjacency", "only 'replace_one' is supported")
     if pv["mode"] != "none":
@@ -191,6 +221,8 @@ def expand_matrix(cfg: Dict[str, Any]) -> List[Tuple[str, Dict[str, Any]]]:
     """One ``(name, resolved config)`` per matrix cell and repeat; a config without ``matrix`` is one run."""
     base = resolve(cfg)
     matrix = cfg.get("matrix")
+    if matrix and cfg.get("seeds") is not None:
+        raise ConfigError("seeds", "cannot be combined with matrix: each repetition derives its seeds from 'seed'")
     if not matrix:
         return [(base["name"], base)]
     if not isinstance(matrix, dict):

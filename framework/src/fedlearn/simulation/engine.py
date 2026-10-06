@@ -1,4 +1,3 @@
-# framework/src/fedlearn/simulation/engine.py
 """Config-driven simulation engine: one JSON config in, one complete record out.
 
 Wires a workload, the production ``ComposedStrategy`` and ``FLCoordinator`` (via
@@ -27,7 +26,7 @@ from fedlearn.server.composed_strategy import ComposedStrategy
 from fedlearn.server.subset_federation import apply_trainable_subset
 from fedlearn.simulation import costs
 from fedlearn.simulation.behaviors import BehaviorPlan
-from fedlearn.simulation.config import config_hash, resolve, tolerance_flags
+from fedlearn.simulation.config import ConfigError, config_hash, resolve, tolerance_flags
 from fedlearn.simulation.federation import SimulatedFederation
 from fedlearn.simulation.metrics import (
     client_fairness, deviation_ratio, exclusion_rates, flat, mean_pairwise_cosine, state_digest,
@@ -52,7 +51,7 @@ class HeadClient:
     def _train(self, net, x, y, global_params):
         opt = torch.optim.SGD(net.parameters(), lr=float(self.cfg["lr"]))
         mu = float(self.cfg["proximal_mu"]) if self.cfg["algorithm"] == "fedprox" else 0.0
-        anchors = [global_params[k].detach().float() for k in trainable_state(net)] if mu > 0 else None
+        anchors = {k: global_params[k].detach().float() for k in trainable_state(net)} if mu > 0 else None
         bs = self.cfg["batch_size"]
         net.train()
         for _ in range(int(self.cfg["local_epochs"])):
@@ -61,7 +60,8 @@ class HeadClient:
                 opt.zero_grad()
                 loss = F.cross_entropy(net(x[sel]), y[sel])
                 if mu > 0:
-                    loss = loss + 0.5 * mu * sum(((p - a) ** 2).sum() for p, a in zip(net.parameters(), anchors))
+                    loss = loss + 0.5 * mu * sum(((p - anchors[name]) ** 2).sum()
+                                                 for name, p in net.named_parameters() if name in anchors)
                 loss.backward()
                 opt.step()
 
@@ -94,12 +94,20 @@ def _git_commit() -> Optional[str]:
         return None
 
 
-def _check_backdoor(behaviors: List[dict], workload) -> None:
-    """Fail at start, not mid-run: a backdoor needs triggered features, and a trigger given in the
-    config must agree with the trigger the features file was prepared with."""
-    for b in behaviors:
+def _start_checks(resolved: Dict, workload) -> None:
+    """Fail at start, not mid-run, on what only the features file can tell: the dataset it holds,
+    its class count (a backdoor target must be a class), and whether it has triggered features
+    whose trigger agrees with the config's."""
+    have_dataset = workload.info.get("dataset")
+    if have_dataset is not None and have_dataset != resolved["workload"]["dataset"]:
+        raise ConfigError("workload.dataset",
+                          f"config says {resolved['workload']['dataset']!r} but the features file holds {have_dataset!r}")
+    for i, b in enumerate(resolved["behaviors"]):
         if b["type"] != "backdoor":
             continue
+        if not 0 <= int(b["target_label"]) < workload.n_classes:
+            raise ConfigError(f"behaviors[{i}].target_label",
+                              f"must be a class index in [0, {workload.n_classes})")
         if not workload.has_trigger:
             raise ValueError("backdoor needs triggered features: prepare the features file with --trigger-patch")
         if b["trigger"] is not None:
@@ -112,11 +120,12 @@ def _check_backdoor(behaviors: List[dict], workload) -> None:
 def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         should_stop: Optional[Callable[[], bool]] = None) -> Dict:
     r = resolve(cfg)
+    rss_before = costs.peak_rss_bytes()
     seeds, fed, sv, pv = r["seeds"], r["federation"], r["server"], r["privacy"]
     net_cfg = fed["network"]
     wl = FeatureHeadWorkload(r)
     plan = BehaviorPlan(r["behaviors"], int(fed["num_clients"]), int(seeds["attack"]), wl.n_classes)
-    _check_backdoor(r["behaviors"], wl)
+    _start_checks(r, wl)
     rounds = int(fed["rounds"])
     z = (float(required_noise_multiplier(float(pv["epsilon"]), 1.0, rounds, float(pv["delta"])))
          if pv["mode"] != "none" else 0.0)
@@ -125,6 +134,13 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         rule_params["byzantine_fraction"] = plan.malicious_fraction
     init_params = trainable_state(wl.build_model(int(seeds["init"])))
     d = sum(v.numel() for v in init_params.values())
+    # The server bounds every upload at the norm an honest upload can have: C, or under local DP the
+    # privatized norm C + ||N(0, (2zC)^2 I_d)||, bounded by 2zC(sqrt(d) + 4) except w.p. <= e^-8.
+    # Re-clipping privatized uploads at C would shrink honest steps by ~1/(2z sqrt(d)).
+    server_clip = sv["clip_norm"]
+    if pv["mode"] == "local":
+        c = float(sv["clip_norm"])
+        server_clip = c + 2.0 * z * c * (math.sqrt(d) + 4.0)
     clock = costs.StageClock()
     evaluate = wl.evaluate_fn(plan.backdoor_target())
     state = {"round0_digest": None, "params": None, "refusals": [],
@@ -136,7 +152,7 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
             return evaluate(server_round, params)
 
     strategy = ComposedStrategy(
-        init_params, rule=sv["rule"], clip_norm=sv["clip_norm"], rule_params=rule_params,
+        init_params, rule=sv["rule"], clip_norm=server_clip, rule_params=rule_params,
         central_noise_multiplier=z if pv["mode"] == "central" else 0.0, noise_seed=int(seeds["noise"]),
         optimizer=sv["optimizer"]["type"], optimizer_lr=float(sv["optimizer"]["lr"]),
         evaluate_fn=timed_eval, clients_per_round=int(fed["clients_per_round"]))
@@ -190,7 +206,10 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
             "participants": {"sampled": len(selected), "dropped": len(dropped), "straggled": len(late),
                              "aggregated": len(submissions)},
             "comm": {"down_bytes": per_transfer * len(selected), "up_bytes": per_transfer * len(records)},
-            "simulated_round_s": max([finish[c] for c, _, _ in submissions], default=0.0),
+            # A server with a deadline cannot know a client is late or gone until the deadline passes.
+            "simulated_round_s": (float(deadline) if deadline is not None and (late or dropped)
+                                  else max([finish[c] for c, _, _ in submissions], default=0.0)),
+            "attack_note": plan.last_attack_note,
             "client_flops": sum(flops["measured"].get(c, 0) for c in records),
             "client_flops_analytic": sum(flops["analytic"].get(c, 0) for c in records),
             "robustness": {"deviation_ratio": dev},
@@ -228,7 +247,10 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         agg_norm = st.get("aggregate_delta_norm")
         line = {
             "round": rec.round, "forced": rec.forced,
-            **{k: m.get(k) for k in UTILITY_KEYS},
+            # A refused round has no model of its own; the coordinator's last metrics belong to an
+            # earlier round and must not be reported as this one's.
+            **{k: (None if refusal is not None else (rec.loss if k == "loss" else m.get(k))) for k in UTILITY_KEYS},
+            "attack_note": extra.get("attack_note"),
             "fairness": fairness,
             "participants": extra.get("participants"), "comm": extra.get("comm"),
             "time": {"wall_s": {**t["wall_s"], **st.get("timings", {})}, "cpu_s": t["cpu_s"],
@@ -255,6 +277,8 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
                               dropout_rate=plan.dropout_fraction, round_hook=round_hook)
     result = sim.run(rounds, on_round=to_line, should_stop=should_stop)
     final = result.final_params
+    # ru_maxrss is a process-lifetime peak: it is this run's own peak only if the run raised it.
+    rss_after = costs.peak_rss_bytes()
     totals = {
         "down_bytes": sum((l["comm"] or {}).get("down_bytes", 0) for l in lines),
         "up_bytes": sum((l["comm"] or {}).get("up_bytes", 0) for l in lines),
@@ -269,18 +293,32 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         "workload": {**wl.info, "feat_dim": wl.feat_dim, "n_classes": wl.n_classes,
                      "n_train": int(len(wl.train_y)), "n_test": int(len(wl.test_y)), "parameters": d},
         "noise_multiplier": z, "adjacency": pv["adjacency"], "privacy_mode": pv["mode"],
+        "server_clip_norm": server_clip,
         "accounted_epsilon": (float(get_epsilon(compute_rdp(1.0, z, rounds), float(pv["delta"]))[0])
                               if pv["mode"] != "none" else None),
         "behavior_assignment": plan.assignment(), "totals": totals, "refusals": state["refusals"],
         "round0_upload_digest": state["round0_digest"],
         "final_digest": state_digest([final]) if final else None,
         "stopped_early": result.stopped_early, "stop_reason": result.stop_reason,
-        "peak_rss_bytes": costs.peak_rss_bytes(), "wall_seconds": result.meta.get("wall_seconds"),
+        "peak_rss_bytes": rss_after, "peak_rss_scope": "run" if rss_after > rss_before else "process",
+        "wall_seconds": result.meta.get("wall_seconds"),
         "provenance": {"torch": torch.__version__, "numpy": np.__version__, "python": platform.python_version(),
                        "platform": platform.platform(), "host": platform.node(), "git_commit": _git_commit()},
         "clocks": "time.wall_s is measured on this machine; time.simulated_round_s is the deployment model",
     }
     return {"meta": meta, "rounds": lines}
+
+
+def _file_name(name: str, resolved: Dict) -> str:
+    """A safe, unique file name for a matrix run. Labels built from axis values can hold path
+    separators or grow past filesystem limits; those get a slug plus the run's config hash, and the
+    full label stays in the record and the index."""
+    import re
+
+    slug = re.sub(r"[^A-Za-z0-9._=+-]", "-", name)
+    if slug == name and len(name) <= 150:
+        return f"{name}.json"
+    return f"{slug[:150]}__{config_hash(resolved)[:8]}.json"
 
 
 def run_matrix(cfg: Dict, out_dir: str, stream: Optional[Callable[[str, Dict], None]] = None) -> List[Dict]:
@@ -293,16 +331,19 @@ def run_matrix(cfg: Dict, out_dir: str, stream: Optional[Callable[[str, Dict], N
     os.makedirs(out_dir, exist_ok=True)
     index = []
     for name, resolved in expand_matrix(cfg):
-        path = os.path.join(out_dir, f"{name}.json")
+        file = _file_name(name, resolved)
         try:
             rec = run(resolved, on_round=(lambda line, n=name: stream(n, line)) if stream else None)
-            status = {"name": name, "status": "ok",
+            status = {"name": name, "file": file, "status": "ok",
                       "final_accuracy": rec["rounds"][-1]["accuracy"] if rec["rounds"] else None}
         except Exception as exc:  # noqa: BLE001 - recorded, not swallowed
             rec = {"meta": {"config": resolved}, "error": repr(exc), "traceback": traceback.format_exc()}
-            status = {"name": name, "status": "failed", "error": repr(exc)}
-        with open(path, "w") as fh:
-            json.dump(rec, fh, indent=2)
+            status = {"name": name, "file": file, "status": "failed", "error": repr(exc)}
+        try:
+            with open(os.path.join(out_dir, file), "w") as fh:
+                json.dump(rec, fh, indent=2)
+        except OSError as exc:  # one unwritable record must not lose the rest of the matrix
+            status = {**status, "status": "write_failed", "error": repr(exc)}
         index.append(status)
     with open(os.path.join(out_dir, "index.json"), "w") as fh:
         json.dump({"runs": index}, fh, indent=2)

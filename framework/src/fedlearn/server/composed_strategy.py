@@ -1,4 +1,3 @@
-# framework/src/fedlearn/server/composed_strategy.py
 """Composable server pipeline: validate -> clip -> rule -> central noise -> server optimizer.
 
 One Strategy instead of a separate class per combination. Updates are aggregated as DELTAS from

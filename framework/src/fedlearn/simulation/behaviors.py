@@ -1,4 +1,3 @@
-# framework/src/fedlearn/simulation/behaviors.py
 """Bad clients: who misbehaves, and how.
 
 Malicious sets are drawn in config order from one ``numpy.random.default_rng(attack_seed)``; the
@@ -49,6 +48,7 @@ class BehaviorPlan:
                     self.faulty.setdefault(int(c), []).append(b)
         self.dropout_fraction = sum(float(b["fraction"]) for b in behaviors if b["type"] == "dropout")
         self.malicious_fraction = len(self.malicious) / self.n
+        self.last_attack_note: Optional[str] = None
 
     def malicious_ids(self) -> Set[int]:
         return set(self.malicious)
@@ -103,13 +103,22 @@ class BehaviorPlan:
         return x, y, True
 
     def upload_overrides(self, records: Dict[int, dict], global_params, round_num: int) -> Dict[int, "OrderedDict"]:
+        """Final uploads for this round's attackers (honest clients are untouched by the caller).
+
+        IPM and ALIE estimate the honest update from the honest clients' deltas. When a cohort holds
+        no honest client, the attackers fall back to their own honestly-trained deltas (ALIE's own
+        threat model) and ``last_attack_note`` says so; the attack is never silently skipped."""
         keys = list(global_params.keys())
+        self.last_attack_note = None
         honest = [c for c in sorted(records) if c not in self.malicious]
         need_stats = any(self.malicious.get(c, {}).get("type") in ("ipm", "alie") for c in records)
         if need_stats:
-            if not honest:
-                raise ValueError("IPM and ALIE need at least one honest client in the round")
-            stacked = {k: torch.stack([records[c]["honest_delta"][k] for c in honest], dim=0) for k in keys}
+            basis = honest
+            if not basis:
+                basis = sorted(records)
+                self.last_attack_note = (f"round {round_num}: no honest client in the cohort; IPM/ALIE "
+                                         "statistics from the attackers' own honestly-trained deltas")
+            stacked = {k: torch.stack([records[c]["honest_delta"][k] for c in basis], dim=0) for k in keys}
             mean_ = {k: stacked[k].mean(dim=0) for k in keys}
             std_ = {k: stacked[k].std(dim=0, unbiased=False) for k in keys}
         out: Dict[int, "OrderedDict"] = {}
@@ -119,7 +128,7 @@ class BehaviorPlan:
                 continue
             t = b["type"]
             if t == "sign_flip_scale":
-                s = -abs(float(b["scale"]))
+                s = float(b["scale"])  # signed: negative flips, positive scales in the same direction
                 out[c] = OrderedDict((k, global_params[k].float() + s * records[c]["honest_delta"][k]) for k in keys)
             elif t == "ipm":
                 out[c] = OrderedDict((k, global_params[k].float() + (-float(b["scale"]) * mean_[k])) for k in keys)

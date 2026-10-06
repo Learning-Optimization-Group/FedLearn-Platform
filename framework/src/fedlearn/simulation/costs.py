@@ -1,4 +1,3 @@
-# framework/src/fedlearn/simulation/costs.py
 """Cost accounting for simulation runs: communication, compute, two clocks, memory.
 
 Measured wall-clock (what this machine spent, mostly Python overhead) and the simulated deployment

@@ -1,4 +1,3 @@
-# framework/tests/test_simulation_metrics.py
 """Metrics against hand-computed fixtures."""
 from collections import OrderedDict
 

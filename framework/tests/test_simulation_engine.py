@@ -1,4 +1,3 @@
-# framework/tests/test_simulation_engine.py
 """Engine: one config in, a complete, deterministic record out."""
 import pytest
 import torch
@@ -65,6 +64,8 @@ def test_a_run_produces_rounds_costs_and_provenance(tmp_path):
     assert sum(totals["per_client_bytes"].values()) == totals["down_bytes"] + totals["up_bytes"]
     assert rec["meta"]["config_hash"] and rec["meta"]["peak_rss_bytes"] > 0
     assert rec["meta"]["round0_upload_digest"] and rec["meta"]["final_digest"]
+    assert all(l["loss"] is not None for l in rec["rounds"])          # loss is a recorded utility metric
+    assert rec["meta"]["server_clip_norm"] == pytest.approx(0.5)      # central: the server clips at C
 
 
 def test_a_run_is_deterministic_except_measured_time(tmp_path):
@@ -95,7 +96,8 @@ def test_partial_round_is_recorded_not_zeroed(tmp_path):
     assert r0["participants"] == {"sampled": 10, "dropped": 0, "straggled": 3, "aggregated": 7}
     assert r0["forced"] is True and r0["accuracy"] is not None and r0["refusal"] is None
     assert r0["comm"]["up_bytes"] == r0["comm"]["down_bytes"]      # late stragglers' bytes still count
-    assert r0["time"]["simulated_round_s"] < 1.0                    # the clock stops at the deadline's survivors
+    # a server cannot know a straggler is late before the deadline passes, so the round lasts until it
+    assert r0["time"]["simulated_round_s"] == pytest.approx(1.0)
 
 
 def test_backdoor_without_triggered_features_fails_fast(tmp_path):
@@ -150,3 +152,83 @@ def test_stop_request_writes_a_partial_record(tmp_path):
     rec = run(_cfg(_features(tmp_path)), on_round=seen.append, should_stop=lambda: len(seen) >= 1)
     assert len(rec["rounds"]) == 1 and rec["meta"]["stopped_early"] is True
     assert rec["meta"]["stop_reason"] == "stopped by request"
+
+
+def test_a_round_with_missing_clients_waits_for_the_deadline(tmp_path):
+    p = _features(tmp_path)
+    drop = [{"type": "dropout", "fraction": 0.2}]
+    lines = run(_cfg(p, behaviors=drop, federation={"network": {"round_deadline_s": 2.5}}))["rounds"]
+    assert all(l["time"]["simulated_round_s"] == pytest.approx(2.5) for l in lines)
+    assert all(l["time"]["simulated_round_s"] < 2.5 for l in run(_cfg(p, behaviors=drop))["rounds"])
+
+
+def test_a_refused_round_reports_no_stale_utility(tmp_path):
+    # Seed 5000: round 1 aggregates an on-time client; a later round has nobody on time and the
+    # coordinator stops. That round must not inherit the previous round's accuracy.
+    cfg = _cfg(_features(tmp_path), federation={"num_clients": 10, "clients_per_round": 2, "rounds": 6,
+               "network": {"round_deadline_s": 1.0, "device_gflops": 1e-4}},
+               behaviors=[{"type": "straggler", "fraction": 0.5, "slowdown": 1000.0}])
+    lines = run(cfg)["rounds"]
+    refused = [l for l in lines if l["refusal"] is not None]
+    assert refused and lines[0]["accuracy"] is not None              # the scenario occurs
+    for line in refused:
+        assert all(line[k] is None for k in ("accuracy", "auc", "loss", "balanced_accuracy", "ece"))
+
+
+def test_ipm_with_no_honest_client_in_the_cohort_is_recorded_not_raised(tmp_path):
+    cfg = _cfg(_features(tmp_path), federation={"clients_per_round": 2, "rounds": 8},
+               behaviors=[{"type": "ipm", "fraction": 0.5}])
+    lines = run(cfg)["rounds"]
+    notes = [l["attack_note"] for l in lines if l["attack_note"]]
+    assert len(lines) == 8 and notes and "own" in notes[0]
+
+
+def test_local_dp_server_clip_bounds_at_the_privatized_scale(tmp_path):
+    import math
+    rec = run(_cfg(_features(tmp_path), privacy={"mode": "local", "epsilon": 8.0}))
+    z, c, d = rec["meta"]["noise_multiplier"], 0.5, rec["meta"]["workload"]["parameters"]
+    assert rec["meta"]["server_clip_norm"] == pytest.approx(c + 2 * z * c * (math.sqrt(d) + 4))
+    assert all(l["privacy"]["mean_shrink"] > 0.99 for l in rec["rounds"])   # honest uploads are not re-shrunk
+
+
+def test_start_checks_fail_before_training_naming_the_field(tmp_path):
+    from fedlearn.simulation.config import ConfigError
+    p = _features(tmp_path)
+    with pytest.raises(ConfigError) as e:
+        run(_cfg(_features(tmp_path, trigger=True),
+                 behaviors=[{"type": "backdoor", "fraction": 0.2, "target_label": 7}]))
+    assert e.value.field == "behaviors[0].target_label"
+    with pytest.raises(ConfigError) as e:
+        run(_cfg(p, federation={"num_clients": 1000}))
+    assert e.value.field == "federation.num_clients"
+    tagged = tmp_path / "tagged.pt"
+    data = torch.load(p, weights_only=True)
+    data["dataset"] = "kermany"
+    torch.save(data, tagged)
+    with pytest.raises(ConfigError) as e:
+        run(_cfg(str(tagged), workload={"dataset": "nih"}))
+    assert e.value.field == "workload.dataset"
+
+
+def test_peak_memory_is_attributed_to_the_run_only_when_the_run_set_it(tmp_path, monkeypatch):
+    from fedlearn.simulation import costs
+    p = _features(tmp_path)
+    readings = iter([100, 100])
+    monkeypatch.setattr(costs, "peak_rss_bytes", lambda: next(readings))
+    rec = run(_cfg(p))
+    assert rec["meta"]["peak_rss_bytes"] == 100 and rec["meta"]["peak_rss_scope"] == "process"
+    readings = iter([100, 250])
+    rec = run(_cfg(p))
+    assert rec["meta"]["peak_rss_bytes"] == 250 and rec["meta"]["peak_rss_scope"] == "run"
+
+
+def test_fedprox_pulls_updates_toward_the_global(tmp_path):
+    p = _features(tmp_path)
+    avg = run(_cfg(p))["rounds"][0]["updates"]["honest_norm_mean"]
+    prox = run(_cfg(p, client={"algorithm": "fedprox", "proximal_mu": 1.0}))["rounds"][0]["updates"]
+    assert prox["honest_norm_mean"] < 0.9 * avg
+
+
+def test_free_riders_do_no_training_and_upload_the_global(tmp_path):
+    r0 = run(_cfg(_features(tmp_path), behaviors=[{"type": "free_rider", "fraction": 1.0}]))["rounds"][0]
+    assert r0["compute"]["client_flops"] == 0 and r0["updates"]["attacker_norm_mean"] == 0.0

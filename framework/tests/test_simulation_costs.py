@@ -1,4 +1,3 @@
-# framework/tests/test_simulation_costs.py
 """Cost accounting: exact bytes, FLOPs that match PyTorch's counter, and the simulated clock."""
 from collections import OrderedDict
 

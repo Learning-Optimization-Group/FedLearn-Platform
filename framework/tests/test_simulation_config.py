@@ -1,4 +1,3 @@
-# framework/tests/test_simulation_config.py
 """Run config: unknown keys and invalid combinations fail before any training, naming the field."""
 import pytest
 
@@ -100,3 +99,36 @@ def test_config_hash_is_stable_and_sensitive():
     a, b = resolve(BASE), resolve(BASE)
     assert config_hash(a) == config_hash(b)
     assert config_hash(a) != config_hash(resolve({**BASE, "seed": 1}))
+
+
+def test_explicit_seeds_cannot_be_combined_with_a_matrix():
+    with pytest.raises(ConfigError) as e:
+        expand_matrix({**BASE, "seeds": default_seeds(1), "matrix": {"repeats": 2}})
+    assert e.value.field == "seeds"
+
+
+@pytest.mark.parametrize("over, field", [
+    ({"federation": {"network": {"uplink_mbps": 0}}}, "federation.network.uplink_mbps"),
+    ({"federation": {"network": {"downlink_mbps": -1}}}, "federation.network.downlink_mbps"),
+    ({"federation": {"network": {"latency_ms": -5}}}, "federation.network.latency_ms"),
+    ({"federation": {"network": {"device_gflops": 0}}}, "federation.network.device_gflops"),
+    ({"federation": {"network": {"round_deadline_s": 0}}}, "federation.network.round_deadline_s"),
+    ({"server": {"rule_params": {"byzantine_fraction": 1.0}}}, "server.rule_params.byzantine_fraction"),
+    ({"server": {"rule_params": {"tau": 0}}}, "server.rule_params.tau"),
+    ({"server": {"rule_params": {"iterations": 0}}}, "server.rule_params.iterations"),
+    ({"server": {"rule_params": {"multi_krum_m": 0}}}, "server.rule_params.multi_krum_m"),
+    ({"server": {"optimizer": {"type": "adam", "lr": 0}}}, "server.optimizer.lr"),
+    ({"behaviors": [{"type": "backdoor", "fraction": 0.1, "target_label": 1, "poison_fraction": 1.5}]},
+     "behaviors[0].poison_fraction"),
+    ({"behaviors": [{"type": "label_noise", "fraction": 0.1, "flip_prob": -0.1}]}, "behaviors[0].flip_prob"),
+    ({"behaviors": [{"type": "straggler", "fraction": 0.1, "slowdown": 0.5}]}, "behaviors[0].slowdown"),
+    ({"behaviors": [{"type": "free_rider", "fraction": 0.1, "mode": "noise", "noise_std": -1}]},
+     "behaviors[0].noise_std"),
+    ({"behaviors": [{"type": "alie", "fraction": 0.1, "z": -1}]}, "behaviors[0].z"),
+    ({"behaviors": [{"type": "sign_flip_scale", "fraction": 0.1, "scale": 0}]}, "behaviors[0].scale"),
+    ({"behaviors": [{"type": "ipm", "fraction": 0.1, "scale": 0}]}, "behaviors[0].scale"),
+])
+def test_out_of_range_values_fail_before_training(over, field):
+    with pytest.raises(ConfigError) as e:
+        resolve({**BASE, **over})
+    assert e.value.field == field

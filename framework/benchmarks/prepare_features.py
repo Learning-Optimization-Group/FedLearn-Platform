@@ -1,4 +1,3 @@
-# framework/benchmarks/prepare_features.py
 """Prepare a features file for the simulation engine — offline, once per dataset and backbone.
 
 Calls the validated ``extract_features`` unchanged (same cache, same row order), and optionally

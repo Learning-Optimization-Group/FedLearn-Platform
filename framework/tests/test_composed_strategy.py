@@ -1,4 +1,3 @@
-# framework/tests/test_composed_strategy.py
 """ComposedStrategy: bit-exact with dp_robust_aggregate; float32-equivalent to FedAvg, FedOpt and
 RobustAggregator (it aggregates deltas, they aggregate absolute parameters — translation
 equivariance makes the two identical in exact arithmetic but not bit for bit)."""

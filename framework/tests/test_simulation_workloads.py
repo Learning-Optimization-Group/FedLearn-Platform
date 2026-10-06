@@ -1,4 +1,3 @@
-# framework/tests/test_simulation_workloads.py
 """Workloads reproduce the capstone harness's data handling exactly and build the right heads."""
 import numpy as np
 import pytest

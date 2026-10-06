@@ -1,4 +1,3 @@
-# framework/src/fedlearn/simulation/workloads.py
 """What the simulation trains: a linear or MLP head over a prepared features file.
 
 Data handling reproduces ``benchmarks/capstone_matched_study.py`` exactly (balancing seeds,
@@ -13,6 +12,7 @@ import torch
 import torch.nn as nn
 
 from fedlearn.server.subset_federation import apply_trainable_subset
+from fedlearn.simulation.config import ConfigError
 from fedlearn.simulation.metrics import backdoor_success, classification_metrics
 from fedlearn.simulation.partition import dirichlet_partition, iid_partition
 from fedlearn.simulation.rng import torch_rng_scope
@@ -79,6 +79,10 @@ class FeatureHeadWorkload:
         self.feat_dim, self.n_classes = int(data["feat_dim"]), int(data["n_classes"])
         self.head = dict(wl["head"])
         self.info = {k: data[k] for k in ("dataset", "backbone", "pretrained", "trigger") if k in data}
+        if int(fed["num_clients"]) > len(ty):
+            raise ConfigError("federation.num_clients",
+                              f"{fed['num_clients']} clients but only {len(ty)} training samples; every client "
+                              "needs at least one")
         self.parts = make_partition(ty.numpy(), int(fed["num_clients"]), int(resolved["seeds"]["partition"]),
                                     fed["partition"]["type"], float(fed["partition"]["alpha"]))
 

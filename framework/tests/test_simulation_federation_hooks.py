@@ -1,4 +1,3 @@
-# framework/tests/test_simulation_federation_hooks.py
 """Collect-then-submit hook: with an identity hook the run is identical to the default path."""
 from collections import OrderedDict
 

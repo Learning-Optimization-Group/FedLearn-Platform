@@ -1,4 +1,3 @@
-# framework/src/fedlearn/privacy/local_dp.py
 """Local differential privacy: each honest client privatises its own update before upload.
 
 The client clips its update (delta from the global) jointly to L2 norm C and adds Gaussian noise

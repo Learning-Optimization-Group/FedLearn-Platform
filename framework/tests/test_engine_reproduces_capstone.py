@@ -1,4 +1,3 @@
-# framework/tests/test_engine_reproduces_capstone.py
 """The engine reproduces capstone_matched_study bit for bit: per-round accuracy, the round-0
 upload digest and the final head digest, for all four cells, clean and attacked."""
 import pytest

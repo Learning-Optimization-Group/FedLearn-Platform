@@ -1,4 +1,3 @@
-# framework/tests/test_local_dp.py
 """Local DP: an honest client clips its own update to C and adds noise of std z * 2C."""
 from collections import OrderedDict
 
