@@ -120,6 +120,12 @@ def _clipped_deltas(results, global_params, keys, clip_norm):
     return ref, clipped_deltas
 
 
+# Public name for the shared clip step (ComposedStrategy reuses it so its clipping is the same code
+# as dp_robust_aggregate's). An alias rather than a rename: dp_aggregate and dp_robust_aggregate bind
+# a local named ``clipped_deltas``, which would shadow a function of that name.
+clipped_deltas = _clipped_deltas
+
+
 def dp_aggregate(
     results: Sequence[tuple],
     global_params: "OrderedDict[str, torch.Tensor]",
