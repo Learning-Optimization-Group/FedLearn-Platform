@@ -96,6 +96,7 @@ class RoundRecord:
     wire_clients: int
     wire_bytes: int
     wall_seconds: float
+    extra: Dict = field(default_factory=dict)
 
     def to_json(self) -> dict:
         return asdict(self)
@@ -153,6 +154,7 @@ class SimulatedFederation:
         round_timeout_s: passed to the coordinator. A correct simulation never reaches it;
             it is settable so a test can prove that.
         device: device string handed to the factory's discretion (not applied here).
+        round_hook: optional collect-then-submit hook; see :meth:`_run_one_round`.
     """
 
     def __init__(
@@ -169,6 +171,7 @@ class SimulatedFederation:
         dropout_rate: float = 0.0,
         round_timeout_s: Optional[float] = None,
         device: str = "cpu",
+        round_hook: Optional[Callable] = None,
     ):
         if num_clients < 1:
             raise ValueError(f"num_clients must be >= 1, got {num_clients}")
@@ -192,6 +195,7 @@ class SimulatedFederation:
         self.wire_in_the_loop = float(wire_in_the_loop)
         self.dropout_rate = float(dropout_rate)
         self.device = device
+        self.round_hook = round_hook
 
         self.run_rng = RunRng(seed)
         self.coordinator = FLCoordinator(
@@ -300,7 +304,8 @@ class SimulatedFederation:
 
     # -- the loop -----------------------------------------------------------------------
 
-    def run(self, num_rounds: int) -> SimulationResult:
+    def run(self, num_rounds: int, on_round: Optional[Callable[["RoundRecord"], None]] = None,
+            should_stop: Optional[Callable[[], bool]] = None) -> SimulationResult:
         """Run ``num_rounds`` federated rounds and return the full record.
 
         Stops early — recording why — if the coordinator gives up on a round (too few clients
@@ -315,6 +320,9 @@ class SimulatedFederation:
         :mod:`fedlearn.simulation.rng` exists to prevent — and it also makes the run's own
         server-side draws depend on whatever global state the caller happened to leave behind.
         The run-level scope closes both.
+
+        ``on_round(record)`` is called after every round; ``should_stop()`` is checked before
+        every round, and a ``True`` stops the run with reason ``"stopped by request"``.
         """
         if num_rounds < 1:
             raise ValueError(f"num_rounds must be >= 1, got {num_rounds}")
@@ -330,9 +338,15 @@ class SimulatedFederation:
                     stopped_early = True
                     stop_reason = self.coordinator.last_round_message
                     break
+                if should_stop is not None and should_stop():
+                    stopped_early = True
+                    stop_reason = "stopped by request"
+                    break
 
                 record = self._run_one_round()
                 records.append(record)
+                if on_round is not None:
+                    on_round(record)
 
                 if self.coordinator.stop_requested:
                     stopped_early = True
@@ -370,6 +384,25 @@ class SimulatedFederation:
             stop_reason=stop_reason,
         )
 
+    def _train_client(self, client_id, round_num, global_params, config, wire):
+        """Build and train one client under its scoped RNG; route it over the wire if planned."""
+        client_rng = self.run_rng.client(client_id)
+
+        # Construction is round-independent so a client's initial weights do not shift
+        # from round to round; training is round-scoped so each round's stochasticity is
+        # distinct. Both are scoped, so neither leaks into the next client or the caller.
+        with torch_rng_scope(client_rng.torch_seed()):
+            client = self.client_factory(client_id, client_rng)
+
+        with torch_rng_scope(client_rng.torch_seed(round_num)):
+            params, num_examples = client.fit(global_params, config)
+
+        nbytes = 0
+        if client_id in wire:
+            params, nbytes = self._wire_roundtrip(params)
+        del client  # release before the next client is built — peak RSS is per-cohort
+        return params, num_examples, nbytes
+
     def _run_one_round(self) -> RoundRecord:
         t0 = time.monotonic()
         coord = self.coordinator
@@ -387,37 +420,44 @@ class SimulatedFederation:
         total_examples = 0
         wire_bytes = 0
         wire_clients = 0
+        collected = []
 
         for client_id in selected:
             if client_id in dropped_set:
                 continue
-
-            client_rng = self.run_rng.client(client_id)
-
-            # Construction is round-independent so a client's initial weights do not shift
-            # from round to round; training is round-scoped so each round's stochasticity is
-            # distinct. Both are scoped, so neither leaks into the next client or the caller.
-            with torch_rng_scope(client_rng.torch_seed()):
-                client = self.client_factory(client_id, client_rng)
-
-            with torch_rng_scope(client_rng.torch_seed(round_num)):
-                params, num_examples = client.fit(global_params, config)
-
+            params, num_examples, nbytes = self._train_client(
+                client_id, round_num, global_params, config, wire)
             if client_id in wire:
-                params, nbytes = self._wire_roundtrip(params)
                 wire_bytes += nbytes
                 wire_clients += 1
+            if self.round_hook is None:
+                coord.submit_client_update(
+                    client_id=str(client_id),
+                    params=params,
+                    num_examples=num_examples,
+                    trained_on_round=round_num,
+                )
+                reported.append(client_id)
+                total_examples += num_examples
+            else:
+                collected.append((client_id, params, num_examples))
 
-            coord.submit_client_update(
-                client_id=str(client_id),
-                params=params,
-                num_examples=num_examples,
-                trained_on_round=round_num,
-            )
-            reported.append(client_id)
-            total_examples += num_examples
-
-            del client  # release before the next client is built — peak RSS is per-cohort
+        extra: Dict = {}
+        if self.round_hook is not None:
+            # Collect-then-submit: the hook sees every arrived update before any reaches the
+            # coordinator and decides what is submitted (attacks, local DP, stragglers live in
+            # the hook, never in the coordinator). Ascending client order fixes the strategy's
+            # summation order, so results are bit-reproducible.
+            submissions, extra = self.round_hook(round_num, collected, global_params, selected, dropped)
+            for client_id, params, num_examples in sorted(submissions, key=lambda s: s[0]):
+                coord.submit_client_update(
+                    client_id=str(client_id),
+                    params=params,
+                    num_examples=num_examples,
+                    trained_on_round=round_num,
+                )
+                reported.append(client_id)
+                total_examples += num_examples
 
         # A full cohort already aggregated inline on the last submit (coordinator.py). Only an
         # incomplete cohort needs resolving, and it is resolved immediately rather than by
@@ -425,9 +465,12 @@ class SimulatedFederation:
         forced = False
         if len(reported) < self.clients_per_round:
             forced = True
-            coord.resolve_round_incomplete(
-                f"simulated dropout ({len(dropped)} of {len(selected)} clients)"
-            )
+            if self.round_hook is None:
+                reason = f"simulated dropout ({len(dropped)} of {len(selected)} clients)"
+            else:
+                reason = (f"simulated availability ({len(selected) - len(reported)} of "
+                          f"{len(selected)} clients missing)")
+            coord.resolve_round_incomplete(reason)
 
         metrics = coord.get_latest_metrics() or {}
         loss = metrics.get("loss")
@@ -444,4 +487,5 @@ class SimulatedFederation:
             wire_clients=wire_clients,
             wire_bytes=wire_bytes,
             wall_seconds=time.monotonic() - t0,
+            extra=dict(extra or {}),
         )
