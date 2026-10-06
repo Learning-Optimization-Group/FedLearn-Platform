@@ -281,3 +281,48 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         "clocks": "time.wall_s is measured on this machine; time.simulated_round_s is the deployment model",
     }
     return {"meta": meta, "rounds": lines}
+
+
+def run_matrix(cfg: Dict, out_dir: str, stream: Optional[Callable[[str, Dict], None]] = None) -> List[Dict]:
+    """Run every matrix cell; write one JSON per run plus ``index.json``. A failing run is recorded
+    with its traceback and the remaining runs continue (failures are results)."""
+    import os
+    import traceback
+    from fedlearn.simulation.config import expand_matrix
+
+    os.makedirs(out_dir, exist_ok=True)
+    index = []
+    for name, resolved in expand_matrix(cfg):
+        path = os.path.join(out_dir, f"{name}.json")
+        try:
+            rec = run(resolved, on_round=(lambda line, n=name: stream(n, line)) if stream else None)
+            status = {"name": name, "status": "ok",
+                      "final_accuracy": rec["rounds"][-1]["accuracy"] if rec["rounds"] else None}
+        except Exception as exc:  # noqa: BLE001 - recorded, not swallowed
+            rec = {"meta": {"config": resolved}, "error": repr(exc), "traceback": traceback.format_exc()}
+            status = {"name": name, "status": "failed", "error": repr(exc)}
+        with open(path, "w") as fh:
+            json.dump(rec, fh, indent=2)
+        index.append(status)
+    with open(os.path.join(out_dir, "index.json"), "w") as fh:
+        json.dump({"runs": index}, fh, indent=2)
+    return index
+
+
+def main(argv: Optional[List[str]] = None) -> None:
+    import argparse
+    import sys
+
+    ap = argparse.ArgumentParser(description="Run a FedLearn simulation from a JSON config.")
+    ap.add_argument("config")
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--stream", action="store_true", help="print one JSON line per round to stdout")
+    a = ap.parse_args(argv)
+    cfg = json.load(open(a.config))
+    stream = (lambda name, line: (print(json.dumps({"run": name, **line}, default=float)), sys.stdout.flush())) \
+        if a.stream else None
+    run_matrix(cfg, a.out, stream=stream)
+
+
+if __name__ == "__main__":
+    main()
