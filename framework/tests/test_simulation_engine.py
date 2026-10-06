@@ -75,6 +75,18 @@ def test_a_run_is_deterministic_except_measured_time(tmp_path):
     assert run({**cfg, "seed": 6000})["meta"]["final_digest"] != a["meta"]["final_digest"]
 
 
+def test_local_dp_privatizes_honest_clients_only(tmp_path):
+    # Attackers do not privatize (the worst case). A training-time attacker has no upload override,
+    # so its round-1 upload — trained from the same first global either way — must be identical with
+    # and without local DP, while honest uploads change.
+    p = _features(tmp_path)
+    flip = [{"type": "label_flip", "fraction": 0.2}]
+    plain = run(_cfg(p, behaviors=flip))["rounds"][0]["updates"]
+    local = run(_cfg(p, behaviors=flip, privacy={"mode": "local", "epsilon": 8.0}))["rounds"][0]["updates"]
+    assert local["attacker_norm_mean"] == pytest.approx(plain["attacker_norm_mean"], rel=1e-6)
+    assert local["honest_norm_mean"] != pytest.approx(plain["honest_norm_mean"], rel=1e-3)
+
+
 def test_partial_round_is_recorded_not_zeroed(tmp_path):
     # 1e-4 GFLOPS: an ordinary client needs about 0.2 s simulated, a 1000x straggler about 100 s.
     cfg = _cfg(_features(tmp_path), behaviors=[{"type": "straggler", "fraction": 0.3, "slowdown": 1000.0}],
