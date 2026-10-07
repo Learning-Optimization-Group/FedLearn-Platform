@@ -227,4 +227,35 @@ Not done:
 - an exactly verifiable ResNet run (SGD, or more steps per round);
 - the phone's per-round losses are not persisted anywhere readable.
 
-Next: S8, `PNEUMONIA_CNN`.
+### S8 `PNEUMONIA_CNN` — reproducible execution, degenerate classification (2026-10-01)
+
+The vivo completed a phone-only FedAvg run with the 25.8M-parameter pneumonia CNN,
+on 64 imported training-split X-rays (13 NORMAL, 51 PNEUMONIA). The programs take
+224×224 grayscale images. Training used Adam at 1e-3, seeded minibatches of 16,
+one local epoch per round, seeded Dropout(0.4), and two server rounds.
+
+- **Execution.** Both rounds trained and uploaded approximately 98 MB each. The
+  server recorded round durations of 1,207 s and 679 s. Records were saved at
+  2026-10-02 01:08 UTC, corresponding to October 1 evening locally.
+- **Verification.** A host-native replay matches the phone exactly (relative
+  parameter-update distance 0.0). The torch replay differs by 5.2%; the nearest
+  wrong-hypothesis control, carrying Adam across rounds, differs by 43%.
+- **Classification failed.** On 582 test images (171 NORMAL, 411 PNEUMONIA), the
+  initial model and both trained models predict PNEUMONIA for every image. The
+  confusion matrix remains `[[0,171],[0,411]]`: accuracy 70.6%, balanced accuracy
+  0.50 and MCC 0. The accuracy is the majority-class rate, not evidence of useful
+  discrimination. ROC-AUC improves from 0.705 to 0.881, showing a ranking signal
+  without a change in the predicted classes.
+
+This closes the live execution check, not the model-quality check. Class imbalance
+and the small training budget are candidate explanations, not established causes.
+Controlled follow-ups should vary the training budget and sample balance before
+claiming the recipe learns useful classification. Any class-weighted objective
+needs an explicit contract and matching implementations.
+
+Raw records are in `research/results/on-device/pneumonia_live/`: the contract,
+package sidecar, server metrics/log, replay distances and phone memory samples.
+
+Stage 4 remains open: mixed phone+laptop own-data runs, additional strategies and
+training arms, stronger ResNet conformance, and an explanation of the CNN's
+cross-runtime Adam discrepancy still need validation.
