@@ -5,13 +5,18 @@ import { toJson } from '@bufbuild/protobuf';
 import { ExecutionContractSchema } from '@/gen/fedlearn/contract/v1/execution_contract_pb';
 import { parseContractBinary } from '@/lib/executionContract';
 import { ExecutionContractRefusedError, runTrainingLoop } from '../lib/training';
-import type { JoinedRun, RunManifest } from '../lib/runJoin';
+import { joinRun, type JoinedRun, type RunManifest } from '../lib/runJoin';
 import { provisionTrainingBundle } from '../lib/modelProvisioning';
 import nativeCore from '../lib/nativeCore';
 
 jest.mock('../lib/modelProvisioning', () => ({
   __esModule: true,
   provisionTrainingBundle: jest.fn(),
+}));
+
+jest.mock('../lib/runJoin', () => ({
+  ...jest.requireActual('../lib/runJoin'),
+  joinRun: jest.fn(),
 }));
 
 jest.mock('../lib/nativeCore', () => ({
@@ -118,6 +123,28 @@ function oneRound() {
 }
 
 describe('runTrainingLoop — the execution contract decides', () => {
+  test('production reconnect pins the run and accepted contract before reusing the loaded model', async () => {
+    (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce(STAGED_BUNDLE);
+    (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
+    (joinRun as jest.Mock).mockResolvedValueOnce(joined());
+    const getServerStatus = jest.fn()
+      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 1 })
+      .mockResolvedValueOnce({ serverState: 'TRAINING', currentRound: 1 })
+      .mockResolvedValueOnce({ serverState: 'TRAINING_COMPLETE', currentRound: 1 });
+    const runFedAvgRound = jest.fn()
+      .mockRejectedValueOnce(new Error('connection lost'))
+      .mockResolvedValueOnce({ round: 1, loss: 1, accuracy: 0, scalarsTransmitted: 0,
+        uplinkBytes: 100, downlinkBytes: 100, computeMs: 1, reverted: false });
+
+    await runTrainingLoop(joined(), hooks, {
+      policy: { ...POLICY, maxRejoins: 1 },
+      ops: { getServerStatus, runFedAvgRound, runEnded: async () => false,
+        loadSubmittedRound: async () => null, saveSubmittedRound: async () => {} },
+    });
+    expect(joinRun).toHaveBeenCalledWith({ projectId: PROJECT_ID,
+      expectedRun: { runId: RUN_ID, contractId: 'a'.repeat(64) } });
+    expect(provisionTrainingBundle).toHaveBeenCalledTimes(1);
+  });
   test('runs the training the contract states', async () => {
     (provisionTrainingBundle as jest.Mock).mockResolvedValueOnce(STAGED_BUNDLE);
     (nativeCore.loadModel as jest.Mock).mockResolvedValueOnce({ trainableParamCount: 25, tier: '' });
@@ -501,4 +528,3 @@ describe('runTrainingLoop — the execution contract decides', () => {
     expect(nativeCore.setTrainingDataFromFiles).not.toHaveBeenCalled();
   });
 });
-

@@ -42,8 +42,17 @@ export async function fetchRunManifest(runId: string): Promise<RunManifest> {
 
 export interface JoinParams {
   projectId: string;
+  /** Reconnect only this already-qualified run and contract; ordinary joins resolve the active run. */
+  expectedRun?: { runId: string; contractId: string };
   /** Overrides the backend's grpcTls. Normally omitted, so the join follows what the deployment requires. */
   useTls?: boolean;
+}
+
+export class RunJoinRefusedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RunJoinRefusedError';
+  }
 }
 
 export interface JoinedRun {
@@ -100,7 +109,7 @@ async function pollUntilRunning(runId: string): Promise<void> {
  * (native "task 14") + round execution are the model-delivery / execution slices.
  */
 export async function joinRun(p: JoinParams): Promise<JoinedRun> {
-  const runId = await resolveRunId(p.projectId);
+  const runId = p.expectedRun?.runId ?? await resolveRunId(p.projectId);
   await pollUntilRunning(runId);
 
   // Stage 3 D1: report this device's capabilities with the enrollment. Informational only: a report that cannot be
@@ -108,6 +117,17 @@ export async function joinRun(p: JoinParams): Promise<JoinedRun> {
   const capabilityReport = await collectCapabilityReport().catch(() => undefined);
   const { data: enroll } = await api.post<EnrollResponse>(`/api/runs/${runId}/enroll`,
     capabilityReport ? { capabilityReport } : undefined);
+
+  if (enroll.runId !== runId || enroll.projectId !== p.projectId
+      || enroll.manifest?.runId !== runId || enroll.manifest.projectId !== p.projectId) {
+    throw new RunJoinRefusedError('Enrollment identity differs from the requested run or project. Join again to '
+      + 'start a new participation.');
+  }
+  if (p.expectedRun && (enroll.manifest.contractState !== 'READY'
+      || enroll.manifest.contractId !== p.expectedRun.contractId)) {
+    throw new RunJoinRefusedError('The reconnect execution contract differs from the qualified contract. Join again '
+      + 'to qualify a new participation.');
+  }
 
   const clientId = await getOrCreateClientId();
   const useTls = p.useTls ?? enroll.grpcTls ?? false;

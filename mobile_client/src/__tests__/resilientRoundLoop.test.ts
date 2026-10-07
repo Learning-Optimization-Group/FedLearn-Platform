@@ -14,6 +14,7 @@ import {
   type ResiliencePolicy,
 } from '../lib/training';
 import type { RoundConfig, RoundResult } from '../lib/nativeCore';
+import { RunJoinRefusedError } from '../lib/runJoin';
 
 const CFG: RoundConfig = {
   strategy: 'FedAvg',
@@ -77,7 +78,7 @@ function baseOps(over: Partial<RoundOps> = {}): RoundOps {
     getServerStatus: jest.fn().mockResolvedValue({ serverState: 'TRAINING', currentRound: 1 }),
     runFedAvgRound: jest.fn().mockResolvedValue(round(1)),
     runDeComFLRound: jest.fn().mockResolvedValue(round(1)),
-    rejoin: jest.fn().mockResolvedValue({ runId: 'run-rejoined' }),
+    rejoin: jest.fn().mockResolvedValue({ runId: 'r' }),
     delay: jest.fn().mockResolvedValue(undefined),
     loadSubmittedRound: jest.fn().mockResolvedValue(null),
     saveSubmittedRound: jest.fn().mockResolvedValue(undefined),
@@ -87,6 +88,37 @@ function baseOps(over: Partial<RoundOps> = {}): RoundOps {
 }
 
 describe('runResilientRoundLoop (MO-8)', () => {
+  it('stops without training a replacement run when reconnect returns another run ID', async () => {
+    const trainedRuns: string[] = [];
+    let statusCalls = 0;
+    const ops = baseOps({
+      getServerStatus: async () => ({ serverState: ++statusCalls <= 2 ? 'TRAINING' : 'COMPLETED', currentRound: 1 }),
+      runFedAvgRound: async (runId) => {
+        trainedRuns.push(runId);
+        if (runId === 'r') throw new Error('connection lost');
+        return round(1);
+      },
+      rejoin: jest.fn().mockResolvedValue({ runId: 'replacement' }),
+    });
+
+    await expect(runResilientRoundLoop({ runId: 'r', isFedAvg: true, cfg: CFG }, ops,
+      { ...POLICY, maxRoundRetries: 0 }, hooks())).rejects.toThrow(/run.*changed|different run/i);
+    expect(trainedRuns).toEqual(['r']);
+    expect(ops.rejoin).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry a contract refusal during reconnect', async () => {
+    let statusCalls = 0;
+    const failure = new RunJoinRefusedError('Reconnect contract changed');
+    const ops = baseOps({
+      getServerStatus: async () => ({ serverState: ++statusCalls <= 2 ? 'TRAINING' : 'COMPLETED', currentRound: 1 }),
+      runFedAvgRound: jest.fn().mockRejectedValue(new Error('connection lost')),
+      rejoin: jest.fn().mockRejectedValue(failure),
+    });
+    await expect(runResilientRoundLoop({ runId: 'r', isFedAvg: true, cfg: CFG }, ops,
+      { ...POLICY, maxRoundRetries: 0 }, hooks())).rejects.toBe(failure);
+    expect(ops.rejoin).toHaveBeenCalledTimes(1);
+  });
   it('waits in pre-training and aggregation states even before the first upload', async () => {
     const sequence: string[] = [];
     const statuses = [
@@ -268,7 +300,7 @@ describe('runResilientRoundLoop (MO-8)', () => {
     });
     const rejoin = jest.fn().mockImplementation(() => {
       rejoined = true;
-      return Promise.resolve({ runId: 'run-2' });
+      return Promise.resolve({ runId: 'r' });
     });
     const getServerStatus = jest
       .fn()
@@ -283,14 +315,14 @@ describe('runResilientRoundLoop (MO-8)', () => {
     await runResilientRoundLoop({ runId: 'r', isFedAvg: true, cfg: CFG }, ops, POLICY, h);
 
     expect(rejoin).toHaveBeenCalledTimes(1);
-    // After the rejoin, the subsequent status/round calls target the NEW run id.
-    expect(runFedAvgRound.mock.calls.some((c) => c[0] === 'run-2')).toBe(true);
+    // Reconnect resumes the same run and its qualified state.
+    expect(runFedAvgRound.mock.calls.every((c) => c[0] === 'r')).toBe(true);
   });
 
   it('gives up (throws) only after the rejoin budget is also exhausted', async () => {
     const ops = baseOps({
       runFedAvgRound: jest.fn().mockRejectedValue(new Error('grpc unavailable')),
-      rejoin: jest.fn().mockResolvedValue({ runId: 'run-x' }),
+      rejoin: jest.fn().mockResolvedValue({ runId: 'r' }),
     });
     await expect(
       runResilientRoundLoop({ runId: 'r', isFedAvg: true, cfg: CFG }, ops, POLICY, hooks()),
@@ -306,7 +338,7 @@ describe('runResilientRoundLoop (MO-8)', () => {
     let failsLeft = 3;
     let goods = 0;
     let totalGoods = 0;
-    const rejoin = jest.fn().mockResolvedValue({ runId: 'run-n' });
+    const rejoin = jest.fn().mockResolvedValue({ runId: 'r' });
     const runFedAvgRound = jest.fn().mockImplementation(() => {
       if (failsLeft > 0) {
         failsLeft -= 1;

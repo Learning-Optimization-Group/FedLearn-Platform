@@ -84,6 +84,58 @@ describe('joinRun (slice 1b connect/enroll/register)', () => {
     expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', true, '');
   });
 
+  test('reconnect enrolls the pinned run even after the project starts a replacement run', async () => {
+    stubHappyPath();
+    mApi.get.mockImplementation((url: string) => Promise.resolve({ data:
+      url === '/api/runs/r1/status'
+        ? { status: 'RUNNING', grpcEndpoint: 'host:50001' }
+        : { activeRun: { runId: 'r2', status: 'RUNNING' } },
+    }));
+    mApi.post.mockResolvedValue({ data: {
+      runId: 'r1', projectId: 'p1', grpcEndpoint: 'host:50001', partitionId: 2,
+      connectionToken: 'tok-123', manifest: { ...MANIFEST, contractState: 'READY', contractId: 'a'.repeat(64) },
+    }});
+
+    const out = await joinRun({ projectId: 'p1', expectedRun: { runId: 'r1', contractId: 'a'.repeat(64) } });
+
+    expect(out.runId).toBe('r1');
+    expect(mApi.get).not.toHaveBeenCalledWith('/api/client/projects/p1');
+    expect(mApi.post).toHaveBeenCalledWith('/api/runs/r1/enroll', expect.anything());
+    expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', false, '');
+  });
+
+  test.each([
+    { contractState: 'READY', contractId: 'b'.repeat(64) },
+    { contractState: 'UNAVAILABLE', contractId: 'a'.repeat(64) },
+    { contractState: 'READY' },
+  ])('refuses a reconnect contract mismatch before native registration: %j', async (contract) => {
+    stubHappyPath();
+    mApi.post.mockResolvedValue({ data: {
+      runId: 'r1', projectId: 'p1', grpcEndpoint: 'host:50001', partitionId: 2,
+      connectionToken: 'tok-123', manifest: { ...MANIFEST, ...contract },
+    }});
+
+    await expect(joinRun({ projectId: 'p1', expectedRun: { runId: 'r1', contractId: 'a'.repeat(64) } }))
+      .rejects.toThrow(/contract/i);
+    expect(mCore.registerClient).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    { runId: 'r2' },
+    { projectId: 'p2' },
+    { manifest: { ...MANIFEST, runId: 'r2' } },
+    { manifest: { ...MANIFEST, projectId: 'p2' } },
+  ])('refuses enrollment belonging to another participation before native registration: %j', async (extra) => {
+    stubHappyPath();
+    mApi.post.mockResolvedValue({ data: {
+      runId: 'r1', projectId: 'p1', grpcEndpoint: 'host:50001', partitionId: 2,
+      connectionToken: 'tok-123', manifest: MANIFEST, ...extra,
+    }});
+
+    await expect(joinRun({ projectId: 'p1' })).rejects.toThrow(/identity/i);
+    expect(mCore.registerClient).not.toHaveBeenCalled();
+  });
+
   // MO-16: each join must RE-RESOLVE the project's current active run — never reuse a stale runId. The
   // live phone test failed to join a fresh run because a stale (completed) runId lingered; pin that a
   // second join, after the owner starts a new run, targets the NEW runId end-to-end.

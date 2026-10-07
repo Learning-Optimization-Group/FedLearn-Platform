@@ -3,7 +3,7 @@
 // (forward passes, DeComFL perturbations, first-order updates) happens natively ON THE DEVICE;
 // DeComFL uploads scalars and first-order strategies upload trainable weights; training batches are not uploaded.
 import nativeCore, { type RoundConfig, type RoundResult, type Strategy } from './nativeCore';
-import { joinRun, type JoinedRun, type RunManifest } from './runJoin';
+import { joinRun, RunJoinRefusedError, type JoinedRun, type RunManifest } from './runJoin';
 import { provisionTrainingBundle } from './modelProvisioning';
 import { snapshotMismatches, type DatasetSnapshot } from './datasetService';
 import { assertNativeCompatibility } from './nativeCompatibility';
@@ -173,7 +173,7 @@ export interface RoundOps {
   getServerStatus: (runId: string) => Promise<{ serverState: string; currentRound: number }>;
   runFedAvgRound: (runId: string, cfg: RoundConfig) => Promise<RoundResult>;
   runDeComFLRound: (runId: string, cfg: RoundConfig) => Promise<RoundResult>;
-  /** Re-establish the run connection (re-enroll + re-register). Returns the (possibly new) run id. */
+  /** Re-establish the same qualified run connection (re-enroll + re-register). */
   rejoin: () => Promise<{ runId: string }>;
   delay: (ms: number) => Promise<void>;
   loadSubmittedRound: (runId: string) => Promise<number | null>;
@@ -246,7 +246,7 @@ class InvalidServerStatusError extends Error {}
  * getServerStatus/round that is NOT a clean STOP is treated as a blip: retry the iteration with
  * exponential backoff up to `maxRoundRetries` CONSECUTIVE failures. A good round resets that streak, so
  * isolated blips never accumulate. When the retry budget is exhausted, escalate to a bounded `rejoin`
- * (re-enroll + re-register) up to `maxRejoins` times, continuing on the new run id. Only once BOTH
+ * (re-enroll + re-register) up to `maxRejoins` times, continuing on the same run id. Only once BOTH
  * budgets are spent does the loop give up and rethrow the last error. STOP / terminal state /
  * cooperative stop always end cleanly and are never retried, and a model-execution failure (deterministic for the
  * program and this device's data) ends training at once with ModelExecutionFailedError.
@@ -260,7 +260,7 @@ export async function runResilientRoundLoop(
   policy: ResiliencePolicy,
   hooks: TrainingHooks,
 ): Promise<void> {
-  let runId = init.runId;
+  const runId = init.runId;
   let consecutiveFailures = 0;
   let consecutiveSuccesses = 0;
   let rejoinsUsed = 0;
@@ -355,12 +355,16 @@ export async function runResilientRoundLoop(
         hooks.onLog(`Reconnecting to the run (rejoin ${rejoinsUsed}/${policy.maxRejoins})…`);
         try {
           const rejoined = await ops.rejoin();
+          if (rejoined.runId !== runId) {
+            throw new RunJoinRefusedError('Reconnect returned a different run. Training stopped because the run '
+              + 'changed; join again to provision and qualify it.');
+          }
           const resumedRound = await ops.loadSubmittedRound(rejoined.runId);
-          runId = rejoined.runId;
           submittedRound = resumedRound;
           consecutiveFailures = 0;
           continue;
         } catch (rejoinErr) {
+          if (rejoinErr instanceof RunJoinRefusedError) throw rejoinErr;
           // A failed rejoin still counts toward the budget; loop retries a rejoin or gives up below.
           hooks.onLog(`Rejoin failed: ${String(rejoinErr)}`);
           continue;
@@ -482,7 +486,8 @@ export async function runTrainingLoop(
     runFedAvgRound: (runId, cfg) => nativeCore.runFedAvgRound(runId, cfg),
     runDeComFLRound: (runId, cfg) => nativeCore.runDeComFLRound(runId, cfg),
     rejoin: async () => {
-      const re = await joinRun({ projectId: joined.projectId });
+      const re = await joinRun({ projectId: joined.projectId,
+        expectedRun: { runId: joined.runId, contractId: projection.contractId } });
       return { runId: re.runId };
     },
     delay,
