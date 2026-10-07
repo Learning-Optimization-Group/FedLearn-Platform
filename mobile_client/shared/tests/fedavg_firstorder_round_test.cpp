@@ -91,6 +91,9 @@ TEST(FedAvgFirstOrderRound, EndpointMatchesFrameworkGoldenAndUploadsWeightBlob) 
   ASSERT_TRUE(mock.submitCalled);       // uploaded a WEIGHT blob (not ZO scalars)
   EXPECT_EQ(mock.lastNumExamples, 8);
   EXPECT_FALSE(mock.lastModelBlob.empty());
+  EXPECT_EQ(out.downlinkBytes, static_cast<int64_t>(mock.globalBlob.size()));
+  EXPECT_EQ(out.uplinkBytes, static_cast<int64_t>(mock.lastModelBlob.size()));
+  EXPECT_GT(out.uplinkBytes, 25 * static_cast<int64_t>(sizeof(float)));  // includes safetensors metadata
 
   // The UPLOADED weight blob must decode to the framework FedAvg endpoint within tolerance — the
   // whole round, not just the compute primitive, matches LocalTrainer.fit(mu=0).

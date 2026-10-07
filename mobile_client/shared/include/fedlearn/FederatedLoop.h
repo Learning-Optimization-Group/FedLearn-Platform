@@ -81,6 +81,8 @@ struct RoundOutcome {
   int round = 0;
   int scalarsK = 0;           // server-authoritative K (local steps) actually used this round
   int scalarsP = 0;           // server-authoritative P (perturbations) actually used this round
+  int64_t uplinkBytes = 0;    // serialized model payload submitted by a first-order round
+  int64_t downlinkBytes = 0;  // serialized model payload received; excludes gRPC/TLS framing
   std::string note;           // human-readable reason when shouldStop / skipped
 };
 

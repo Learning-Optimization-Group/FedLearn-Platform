@@ -460,7 +460,8 @@ RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const
     r.round = outcome.round;
     r.reverted = false;        // first-order keeps the locally-advanced weights
     r.scalarsTransmitted = 0;  // a weight blob is uploaded, not ZO scalars
-    r.uplinkBytes = static_cast<int64_t>(mm_.trainableParamCount()) * 4;  // ~ the F32 weight blob
+    r.uplinkBytes = outcome.uplinkBytes;
+    r.downlinkBytes = outcome.downlinkBytes;
     r.computeMs = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
     evalBatch(r.loss, r.accuracy, cfg.batchSize);
     return r;

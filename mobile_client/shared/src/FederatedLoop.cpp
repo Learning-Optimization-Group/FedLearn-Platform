@@ -269,6 +269,7 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
   std::map<std::string, std::string> serverConfig;
   const std::string blob = net_.getGlobalModelStream(runId, clientId, &currentRound, &serverConfig);
   out.round = currentRound;
+  out.downlinkBytes = static_cast<int64_t>(blob.size());
   const auto rate = serverConfig.find("learning_rate");
   const auto epochs = serverConfig.find("local_epochs");
   if (requireServerConfig && (rate == serverConfig.end() || epochs == serverConfig.end())) {
@@ -446,6 +447,7 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
   }
 
   net_.submitModelUpdate(runId, clientId, currentRound, upload, batch.numSamples);
+  out.uplinkBytes = static_cast<int64_t>(upload.size());
   out.ranTraining = true;
   return out;
 }

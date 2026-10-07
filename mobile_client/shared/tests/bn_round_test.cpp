@@ -88,6 +88,9 @@ std::vector<float> runRound(const fedlearn::BatchNormSpec& batchNorm) {
                                         fedlearn::LocalBatching{8, true, kSeed}, adam, fedlearn::DropoutSpec{},
                                         batchNorm);
   EXPECT_TRUE(out.ranTraining);
+  EXPECT_EQ(out.downlinkBytes, static_cast<int64_t>(mock.globalBlob.size()));
+  EXPECT_EQ(out.uplinkBytes, static_cast<int64_t>(mock.lastModelBlob.size()));
+  EXPECT_GT(out.uplinkBytes, kParams * static_cast<int64_t>(sizeof(float)));  // includes running stats and headers
   fedlearn::ModelManager decode = stateManager();
   decode.loadStateDict(mock.lastModelBlob);
   return decode.getFlatParams();
