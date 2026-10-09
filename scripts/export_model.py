@@ -112,7 +112,8 @@ def _plan_batch_size(key: str) -> int | None:
     """The batch size the recipe's first-order contract plan trains with, or None when it has no plan."""
     import execution_plan
     try:
-        return int(execution_plan.resolve_model_training(key, "FedAvg", "FULL").local_training.batch_size)
+        source = "LOCAL_SNAPSHOT" if key == "NIH_PNEUMONIA_CNN" else "FIXTURE"
+        return int(execution_plan.resolve_model_training(key, "FedAvg", "FULL", data_source=source).local_training.batch_size)
     except execution_plan.NotRepresentable:
         return None
 

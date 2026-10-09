@@ -160,6 +160,7 @@ class ProjectServiceTest {
     @Test
     void nihCreationRefusesUnsupportedSettingsBeforePersisting() {
         List<java.util.function.Consumer<CreateProjectRequest>> changes = List.of(
+            r -> r.setModelType("nih_pneumonia_cnn"), r -> r.setModelType("Nih_Pneumonia_Cnn"),
             r -> r.setModelName("pneumonia_cnn"), r -> r.setOptimizer("SGD"),
             r -> r.setPretrainEpochs(1), r -> r.setTrainingArm("FROZEN_HEAD"),
             r -> r.setInitFromPretrained(true), r -> r.setTaskType("CAUSAL_LM"));

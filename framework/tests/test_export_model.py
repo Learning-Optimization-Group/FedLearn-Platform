@@ -57,6 +57,11 @@ def _mlp_plan_batch_size():
     return execution_plan.resolve_model_training("MLP", "FedAvg", "FULL").local_training.batch_size
 
 
+def test_nih_export_uses_local_data_plan_batch_bound_instead_of_probe_rows(exporter):
+    assert exporter.PROBE_ROWS == 8
+    assert exporter._plan_batch_size("NIH_PNEUMONIA_CNN") == 16
+
+
 def test_the_exported_bundle_names_its_recipe(mlp_bundle):
     _, manifest = mlp_bundle
     assert manifest["meta"]["recipe"] == "mlp"

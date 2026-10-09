@@ -308,7 +308,7 @@ public class ProjectService {
     }
 
     static String resolveStrategy(String modelType, String requestedStrategy) {
-        if ("NIH_PNEUMONIA_CNN".equals(modelType)) {
+        if ("NIH_PNEUMONIA_CNN".equalsIgnoreCase(modelType)) {
             String strategy = requestedStrategy == null || requestedStrategy.isEmpty() ? "FedAvg" : requestedStrategy;
             if (!"FedAvg".equals(strategy) && !"Robust".equals(strategy)) {
                 throw new IllegalArgumentException("NIH pneumonia requires FedAvg or Robust");
@@ -380,6 +380,10 @@ public class ProjectService {
             throw new IllegalArgumentException("XGBoost requires xgboost_binary, TreeBoosting, zero pretraining and FULL; DP and derivation are unsupported");
         }
 
+        if ("NIH_PNEUMONIA_CNN".equalsIgnoreCase(request.getModelType())
+                && !"NIH_PNEUMONIA_CNN".equals(request.getModelType())) {
+            throw new IllegalArgumentException("NIH pneumonia requires the canonical NIH_PNEUMONIA_CNN recipe key");
+        }
         if ("NIH_PNEUMONIA_CNN".equals(request.getModelType()) &&
                 (!"nih_pneumonia_cnn".equals(request.getModelName()) || !"Adam".equals(request.getOptimizer())
                 || request.getPretrainEpochs() == null || request.getPretrainEpochs() != 0
@@ -530,7 +534,7 @@ public class ProjectService {
             throw new IllegalArgumentException("XGBoost requires LOCAL_SNAPSHOT and a fixed non-DP cohort");
         }
 
-        if ("NIH_PNEUMONIA_CNN".equals(project.getModelType()) &&
+        if ("NIH_PNEUMONIA_CNN".equalsIgnoreCase(project.getModelType()) &&
                 (dataSource != TrainingDataSource.LOCAL_SNAPSHOT || project.isDpEnabled() || secureAggThreshold != null)) {
             throw new IllegalArgumentException("NIH pneumonia requires LOCAL_SNAPSHOT without DP or secure aggregation");
         }

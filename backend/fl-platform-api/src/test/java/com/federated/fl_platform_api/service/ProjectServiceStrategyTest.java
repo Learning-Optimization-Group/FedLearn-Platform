@@ -11,6 +11,8 @@ class ProjectServiceStrategyTest {
         for (String strategy : new String[]{"FedOpt", "FedProx", "DeComFL", "FoT", "XgbBagging"}) {
             org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
                 () -> ProjectService.resolveStrategy("NIH_PNEUMONIA_CNN", strategy));
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> ProjectService.resolveStrategy("nih_pneumonia_cnn", strategy));
         }
     }
 
