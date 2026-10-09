@@ -6,6 +6,7 @@ DeComFL update it accepts, exactly as it will aggregate it, to a JSONL file. Rec
 privacy regression, so it is off by default and refused outright on a run with secure aggregation or central DP.
 """
 import json
+import hashlib
 from collections import OrderedDict
 from unittest.mock import MagicMock
 
@@ -16,6 +17,7 @@ from fedlearn.server.coordinator import FLCoordinator
 from fedlearn.server.server import ServerConfig, build_coordinator
 from fedlearn.server.strategy import Strategy
 from fedlearn.server.update_recorder import ClientUpdateRecorder, update_recorder_from_env
+from fedlearn.communication.safetensors_codec import load_safetensors
 
 ENV = "FEDLEARN_RECORD_CLIENT_UPDATES"
 
@@ -59,6 +61,38 @@ def test_the_record_holds_the_value_aggregated_after_the_clamp(tmp_path):
     c.submit_decomfl_update("big", [[5e6]], 8, trained_on_round=1)
 
     assert _lines(path)[0]["gradient_scalars"] == [[c.grad_clip_threshold]]
+
+
+def test_first_order_records_preserve_each_accepted_model_for_replay(tmp_path):
+    c, path = _coordinator(tmp_path)
+    assert c.submit_client_update('phone', OrderedDict(w=torch.tensor([0.125])), 8, trained_on_round=1)
+    record = _lines(path)[0]
+    assert (record['round'], record['client_id'], record['num_examples']) == (1, 'phone', 8)
+    payload = (path.parent / record['model_state']['path']).read_bytes()
+    assert record['model_state']['bytes'] == len(payload)
+    assert record['model_state']['sha256'] == hashlib.sha256(payload).hexdigest()
+    tensors, _ = load_safetensors(payload)
+    assert tensors[0][0] == 'w'
+    assert tensors[0][1].tolist() == [0.125]
+
+
+def test_first_order_refusals_never_create_extra_replay_records(tmp_path):
+    c, path = _coordinator(tmp_path)
+    assert c.submit_client_update('phone', OrderedDict(w=torch.tensor([0.125])), 8, trained_on_round=1)
+    assert not c.submit_client_update('phone', OrderedDict(w=torch.tensor([0.5])), 8, trained_on_round=1)
+    assert not c.submit_client_update('stale', OrderedDict(w=torch.tensor([0.5])), 8, trained_on_round=0)
+    with pytest.raises(ValueError, match='non-finite'):
+        c.submit_client_update('invalid', OrderedDict(w=torch.tensor([float('nan')])), 8, trained_on_round=1)
+    assert [r['client_id'] for r in _lines(path)] == ['phone']
+
+
+def test_first_order_replay_record_contains_the_clipped_update_used_in_aggregation(tmp_path):
+    c, path = _coordinator(tmp_path)
+    c.client_update_l2_clip = 0.25
+    assert c.submit_client_update('phone', OrderedDict(w=torch.tensor([2.0])), 8, trained_on_round=1)
+    payload = (path.parent / _lines(path)[0]['model_state']['path']).read_bytes()
+    tensors, _ = load_safetensors(payload)
+    assert tensors[0][1].tolist() == [0.25]
 
 
 def test_without_the_env_var_nothing_is_recorded(monkeypatch):

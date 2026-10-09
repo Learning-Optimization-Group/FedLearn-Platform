@@ -517,6 +517,8 @@ class FLCoordinator:
                 params = self._clip_update_delta(client_id, params)
 
             log.debug("Received update from %s for round %d", client_id, self.current_round)
+            if self.update_recorder is not None:
+                self.update_recorder.record_model(self.current_round, client_id, params, num_examples)
             # SE-3: tag with the client identity so a poisoned update is attributable (and consistent
             # with the DeComFL path). Strategy aggregators accept this 3-tuple form.
             self._client_updates_received.append((client_id, params, num_examples))
