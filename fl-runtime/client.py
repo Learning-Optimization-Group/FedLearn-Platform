@@ -206,6 +206,8 @@ def apply_declared_arm(net):
 
 def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, num_clients: int = 10):
     """Load data with Dirichlet split."""
+    if LOCAL_DATASET is not None:
+        return LOCAL_DATASET, LOCAL_DATASET
     if USE_PNEUMONIA:
         import recipes
         alpha = float(os.environ.get("FEDLEARN_PNEUMONIA_ALPHA", "0.5"))
@@ -214,8 +216,6 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
             partition_id=partition_id, num_clients=num_clients,
             alpha=alpha, seed=42, batch_size=BATCH_SIZE,
         )
-    if LOCAL_DATASET is not None:
-        return LOCAL_DATASET, LOCAL_DATASET
     if USE_LLM_LORA:
         import recipes
         train, _ = recipes.get_recipe("LLM_LORA").load_client_data(
@@ -374,6 +374,7 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
         dataset_name: "cb" or "sst2" for LLM, "ecg" for MLP
         progress_callback: Optional callback function(current_step, total_steps)
     """
+    from local_snapshot import SeededSnapshotLoader
     # Get dataset-specific configuration
     if USE_LLM:
         config = DATASET_CONFIGS[dataset_name]
@@ -514,8 +515,8 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                     print(f"     Model device: {next(net.parameters()).device}")
                     print(f"     Input device: {batch['input_ids'].device}")
                     print(f"     Model training mode: {net.training}")
-            elif USE_MLP:
-                # MLP: batch is (features, labels) tuple
+            elif USE_MLP or isinstance(trainloader, SeededSnapshotLoader):
+                # Local snapshots carry prepared vector/image tensors as (inputs, labels).
                 features, labels = batch
                 features = features.to(DEVICE)
                 labels = labels.to(DEVICE)
@@ -1214,7 +1215,7 @@ def build_arg_parser():
     parser.add_argument("--task-type", type=str, default="SEQ_CLASSIFICATION", choices=["SEQ_CLASSIFICATION", "CAUSAL_LM"], help="LLM_LORA task type (generative vs classification)")
     parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2", "ecg"], help="Dataset")
     parser.add_argument("--dataset-path", type=str, default=None,
-                        help="Own vector CSV or Android snapshot directory; requires a LOCAL_SNAPSHOT contract")
+                        help="Own vector CSV, image package ZIP or Android snapshot directory; requires a LOCAL_SNAPSHOT contract")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="FL strategy (FedAvg or DeComFL)")
     parser.add_argument("--training-arm", type=str, default=None,
                         help="Training arm: FULL (default) or FROZEN_HEAD. Must be one the "
@@ -1269,7 +1270,7 @@ def enforce_execution_contract(args, model_type, training_arm):
     if problems:
         raise SystemExit("Refusing to train under this execution contract: " + "; ".join(problems))
     if local_path:
-        from local_snapshot import load_vector_snapshot, SeededSnapshotLoader
+        from local_snapshot import load_local_snapshot, SeededSnapshotLoader
         from fedlearn.communication.generated import execution_contract_pb2 as pb
         training = contract.model_training
         if (training.update_protocol != pb.UPDATE_TRAINABLE_STATE_F32
@@ -1277,7 +1278,7 @@ def enforce_execution_contract(args, model_type, training_arm):
             raise SystemExit("Refusing to train: local snapshots require supported first-order seeded batching")
         try:
             import recipes
-            local = load_vector_snapshot(local_path, training.data, recipes.get_recipe(model_type).classes)
+            local = load_local_snapshot(local_path, training.data, recipes.get_recipe(model_type).classes)
             LOCAL_DATASET = SeededSnapshotLoader(local.dataset, batch_size=training.local_training.batch_size,
                 seed=int(contract.seed), drop_last=training.local_training.drop_last)
         except (OSError, ValueError, TypeError, KeyError) as exc:

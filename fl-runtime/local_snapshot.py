@@ -1,4 +1,4 @@
-"""Validated local vector data and the contract's reproducible minibatch order.
+"""Validated local data and the contract's reproducible minibatch order.
 
 Accepts a UTF-8 CSV with one named label column, or the immutable snapshot
 directory used by Android. All rows belong to this client; no shared-data
@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -31,7 +32,7 @@ def canonical(value) -> bytes:
 
 
 @dataclass(frozen=True)
-class VectorSnapshot:
+class LocalSnapshot:
     dataset: TensorDataset
     snapshot_id: str
 
@@ -55,7 +56,56 @@ def _unique_fields(pairs):
     return result
 
 
-def load_vector_snapshot(path, requirement, classes) -> VectorSnapshot:
+def snapshot_content(shape, classes, schema, xbytes, ybytes, n, *, modality="vector", transforms=None):
+    content = dict(schemaVersion=1, modality=modality, inputShape=shape, inputDtype="f32",
+                   classNames=classes, labelSchemaId=schema, recordCount=n,
+                   inputsSha256=digest(xbytes), targetsSha256=digest(ybytes))
+    if transforms is not None:
+        content["transforms"] = transforms
+    return content
+
+
+def load_prepared_snapshot(path, shape, classes, schema, *, modality="vector", transforms=None):
+    """Read Android's immutable tensors only after schema, preparation and hashes agree."""
+    meta = json.loads(_read(path / "snapshot.json", 64 * 1024), object_pairs_hook=_unique_fields)
+    keys = {"schemaVersion", "modality", "inputShape", "inputDtype", "classNames", "labelSchemaId",
+            "recordCount", "inputsSha256", "targetsSha256", "snapshotId"}
+    if transforms is not None:
+        keys.add("transforms")
+    if not isinstance(meta, dict) or set(meta) != keys:
+        raise ValueError("snapshot metadata fields differ from schema v1")
+    if (type(meta["schemaVersion"]) is not int or meta["schemaVersion"] != 1
+            or meta["modality"] != modality or meta["inputShape"] != shape
+            or any(type(d) is not int for d in meta["inputShape"])
+            or meta["inputDtype"] != "f32" or meta["classNames"] != classes
+            or meta["labelSchemaId"] != schema or type(meta["recordCount"]) is not int
+            or not 1 <= meta["recordCount"] <= MAX_RECORDS
+            or meta.get("transforms") != transforms):
+        raise ValueError("snapshot schema or preparation differs from the run's data requirement")
+    content = {k: v for k, v in meta.items() if k != "snapshotId"}
+    if digest(canonical(content)) != meta["snapshotId"]:
+        raise ValueError("snapshot metadata digest mismatch")
+    n = meta["recordCount"]
+    if n * (math.prod(shape) * 4 + 8) > MAX_BYTES:
+        raise ValueError("prepared local dataset exceeds the size limit")
+    xbytes, ybytes = _read(path / "inputs.f32"), _read(path / "targets.i64")
+    if digest(xbytes) != meta["inputsSha256"] or digest(ybytes) != meta["targetsSha256"]:
+        raise ValueError("snapshot content digest mismatch")
+    if len(xbytes) != n * math.prod(shape) * 4 or len(ybytes) != n * 8:
+        raise ValueError("snapshot tensor sizes differ from recordCount")
+    x = np.frombuffer(xbytes, dtype="<f4").reshape(n, *shape).copy()
+    y = np.frombuffer(ybytes, dtype="<i8").copy()
+    return x, y, content
+
+
+def load_local_snapshot(path, requirement, classes) -> LocalSnapshot:
+    if requirement.task == pb.TASK_IMAGE_CLASSIFICATION:
+        from local_images import load_image_snapshot
+        return load_image_snapshot(path, requirement, classes)
+    return load_vector_snapshot(path, requirement, classes)
+
+
+def load_vector_snapshot(path, requirement, classes) -> LocalSnapshot:
     """Read once into owned tensors, refusing malformed data or a different schema."""
     classes = list(classes)
     schema = "labels-sha256:" + digest(json.dumps(classes, separators=(",", ":")).encode())
@@ -69,29 +119,7 @@ def load_vector_snapshot(path, requirement, classes) -> VectorSnapshot:
     width = shape[0]
     path = Path(path)
     if path.is_dir():
-        meta = json.loads(_read(path / "snapshot.json", 64 * 1024), object_pairs_hook=_unique_fields)
-        keys = {"schemaVersion", "modality", "inputShape", "inputDtype", "classNames", "labelSchemaId",
-                "recordCount", "inputsSha256", "targetsSha256", "snapshotId"}
-        if not isinstance(meta, dict) or set(meta) != keys:
-            raise ValueError("snapshot metadata fields differ from schema v1")
-        if (type(meta["schemaVersion"]) is not int or meta["schemaVersion"] != 1
-                or meta["modality"] != "vector" or meta["inputShape"] != shape
-                or any(type(d) is not int for d in meta["inputShape"])
-                or meta["inputDtype"] != "f32" or meta["classNames"] != classes
-                or meta["labelSchemaId"] != schema or type(meta["recordCount"]) is not int
-                or not 1 <= meta["recordCount"] <= MAX_RECORDS):
-            raise ValueError("snapshot schema differs from the run's data requirement")
-        content = {k: v for k, v in meta.items() if k != "snapshotId"}
-        if digest(canonical(content)) != meta["snapshotId"]:
-            raise ValueError("snapshot metadata digest mismatch")
-        xbytes, ybytes = _read(path / "inputs.f32"), _read(path / "targets.i64")
-        if digest(xbytes) != meta["inputsSha256"] or digest(ybytes) != meta["targetsSha256"]:
-            raise ValueError("snapshot content digest mismatch")
-        n = meta["recordCount"]
-        if len(xbytes) != n * width * 4 or len(ybytes) != n * 8:
-            raise ValueError("snapshot tensor sizes differ from recordCount")
-        x = np.frombuffer(xbytes, dtype="<f4").reshape(n, width).copy()
-        y = np.frombuffer(ybytes, dtype="<i8").copy()
+        x, y, content = load_prepared_snapshot(path, shape, classes, schema)
     else:
         lines = _read(path).decode("utf-8").splitlines()
         if not lines:
@@ -119,7 +147,7 @@ def load_vector_snapshot(path, requirement, classes) -> VectorSnapshot:
                        inputsSha256=digest(x.tobytes()), targetsSha256=digest(y.tobytes()))
     if not np.isfinite(x).all() or (y < 0).any() or (y >= len(classes)).any():
         raise ValueError("local data contains non-finite features or out-of-range labels")
-    return VectorSnapshot(TensorDataset(torch.from_numpy(x), torch.from_numpy(y)), digest(canonical(content)))
+    return LocalSnapshot(TensorDataset(torch.from_numpy(x), torch.from_numpy(y)), digest(canonical(content)))
 
 
 class SeededSnapshotLoader:
