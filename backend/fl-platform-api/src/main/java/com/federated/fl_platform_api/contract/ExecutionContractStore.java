@@ -43,8 +43,11 @@ public class ExecutionContractStore {
     @Transactional
     public PublicationOutcome publish(Run run, ExecutionContract contract) {
         requireIntent(run);
-        List<ContractIssue> issues = ExecutionContractValidator.validate(contract, SERVER_PROTOCOL_VERSION,
-                run.getId().toString(), run.getProjectId().toString());
+        List<ContractIssue> issues = contract.getContractVersion() == 2
+                ? (TreeContractFactory.valid(contract, run.getId().toString(), run.getProjectId().toString())
+                    ? List.of() : List.of(new ContractIssue(com.fedlearn.contract.v1.ContractIssueCode.ISSUE_UNSUPPORTED_COMBINATION, "treeTraining")))
+                : ExecutionContractValidator.validate(contract, SERVER_PROTOCOL_VERSION,
+                    run.getId().toString(), run.getProjectId().toString());
         if (!issues.isEmpty()) {
             return decided(repository.insertUnavailable(run.getId(), ContractUnavailableReason.INVALID_CONTRACT.name(),
                     render(issues)), PublicationOutcome.MARKED_UNAVAILABLE);

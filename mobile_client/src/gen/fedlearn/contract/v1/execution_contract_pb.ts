@@ -26,14 +26,14 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file fedlearn/contract/v1/execution_contract.proto.
  */
 export const file_fedlearn_contract_v1_execution_contract: GenFile = /*@__PURE__*/
-  fileDesc("Ci1mZWRsZWFybi9jb250cmFjdC92MS9leGVjdXRpb25fY29udHJhY3QucHJvdG8SFGZlZGxlYXJuLmNvbnRyYWN0LnYxIpAEChFFeGVjdXRpb25Db250cmFjdBIYChBjb250cmFjdF92ZXJzaW9uGAEgASgNEiMKG21pbl9jbGllbnRfcHJvdG9jb2xfdmVyc2lvbhgCIAEoDRIOCgZydW5faWQYAyABKAkSEgoKcHJvamVjdF9pZBgEIAEoCRIsCgZyZWNpcGUYBSABKA4yHC5mZWRsZWFybi5jb250cmFjdC52MS5SZWNpcGUSMAoIc3RyYXRlZ3kYBiABKA4yHi5mZWRsZWFybi5jb250cmFjdC52MS5TdHJhdGVneRISCgpudW1fcm91bmRzGAcgASgNEhkKEWNsaWVudHNfcGVyX3JvdW5kGAggASgNEjgKDHBhcnRpdGlvbmluZxgJIAEoDjIiLmZlZGxlYXJuLmNvbnRyYWN0LnYxLlBhcnRpdGlvbmluZxIRCgRzZWVkGAogASgESAGIAQESMAoFcm91bmQYCyABKAsyIS5mZWRsZWFybi5jb250cmFjdC52MS5Sb3VuZFBvbGljeRI2CghzZWN1cml0eRgMIAEoCzIkLmZlZGxlYXJuLmNvbnRyYWN0LnYxLlNlY3VyaXR5UG9saWN5Ej0KDm1vZGVsX3RyYWluaW5nGA0gASgLMiMuZmVkbGVhcm4uY29udHJhY3QudjEuTW9kZWxUcmFpbmluZ0gAQgoKCHdvcmtsb2FkQgcKBV9zZWVkIqABCgtSb3VuZFBvbGljeRISCgp0aW1lb3V0X21zGAEgASgEEiUKHW9uZV9hY2NlcHRlZF91cGRhdGVfcGVyX3JvdW5kGAIgASgIEiIKFW1heF90cmFuc2llbnRfcmV0cmllcxgDIAEoDUgAiAEBEhgKEHJldHJ5X2JhY2tvZmZfbXMYBCABKARCGAoWX21heF90cmFuc2llbnRfcmV0cmllcyKxAgoOU2VjdXJpdHlQb2xpY3kSMgoJdHJhbnNwb3J0GAEgASgOMh8uZmVkbGVhcm4uY29udHJhY3QudjEuVHJhbnNwb3J0EjUKC2NsaWVudF9hdXRoGAIgASgOMiAuZmVkbGVhcm4uY29udHJhY3QudjEuQ2xpZW50QXV0aBJDChJzZWN1cmVfYWdncmVnYXRpb24YAyABKA4yJy5mZWRsZWFybi5jb250cmFjdC52MS5TZWN1cmVBZ2dyZWdhdGlvbhIhChRzZWN1cmVfYWdnX3RocmVzaG9sZBgEIAEoDUgAiAEBEjMKCmNlbnRyYWxfZHAYBSABKAsyHy5mZWRsZWFybi5jb250cmFjdC52MS5DZW50cmFsRHBCFwoVX3NlY3VyZV9hZ2dfdGhyZXNob2xkIkUKCUNlbnRyYWxEcBIWCg50YXJnZXRfZXBzaWxvbhgBIAEoARINCgVkZWx0YRgCIAEoARIRCgljbGlwX25vcm0YAyABKAEisQUKDU1vZGVsVHJhaW5pbmcSEAoIbW9kZWxfaWQYASABKAkSFgoObW9kZWxfcmV2aXNpb24YAiABKAkSJgoDYXJtGAMgASgOMhkuZmVkbGVhcm4uY29udHJhY3QudjEuQXJtEigKBHRhc2sYBCABKA4yGi5mZWRsZWFybi5jb250cmFjdC52MS5UYXNrEjIKCW9iamVjdGl2ZRgFIAEoDjIfLmZlZGxlYXJuLmNvbnRyYWN0LnYxLk9iamVjdGl2ZRI9Cg91cGRhdGVfcHJvdG9jb2wYBiABKA4yJC5mZWRsZWFybi5jb250cmFjdC52MS5VcGRhdGVQcm90b2NvbBIzCgl0cmFpbmFibGUYByADKAsyIC5mZWRsZWFybi5jb250cmFjdC52MS5UZW5zb3JTcGVjEhsKE2Zyb3plbl9zdGF0ZV9zaGEyNTYYCCABKAkSHAoUaW5pdGlhbF9zdGF0ZV9zaGEyNTYYCSABKAkSOwoObG9jYWxfdHJhaW5pbmcYCiABKAsyIy5mZWRsZWFybi5jb250cmFjdC52MS5Mb2NhbFRyYWluaW5nEjMKBGRhdGEYCyABKAsyJS5mZWRsZWFybi5jb250cmFjdC52MS5EYXRhUmVxdWlyZW1lbnQSOAoJYXJ0aWZhY3RzGAwgAygLMiUuZmVkbGVhcm4uY29udHJhY3QudjEuQXJ0aWZhY3RWYXJpYW50EhcKCmZlZHByb3hfbXUYDSABKAFIAIgBARIzCgdkcm9wb3V0GA4gAygLMiIuZmVkbGVhcm4uY29udHJhY3QudjEuRHJvcG91dExheWVyEjgKCmJhdGNoX25vcm0YDyADKAsyJC5mZWRsZWFybi5jb250cmFjdC52MS5CYXRjaE5vcm1MYXllckINCgtfZmVkcHJveF9tdSKuAQoOQmF0Y2hOb3JtTGF5ZXISDgoGbW9kdWxlGAEgASgJEhQKDG51bV9mZWF0dXJlcxgCIAEoDRIQCghtb21lbnR1bRgDIAEoARILCgNlcHMYBCABKAESGgoSdmFsdWVzX3Blcl9leGFtcGxlGAUgASgNEjsKDXJ1bm5pbmdfc3RhdHMYBiABKA4yJC5mZWRsZWFybi5jb250cmFjdC52MS5CYXRjaE5vcm1TdGF0cyJfCgxEcm9wb3V0TGF5ZXISDgoGbW9kdWxlGAEgASgJEgwKBHJhdGUYAiABKAESMQoFbWFza3MYAyABKA4yIi5mZWRsZWFybi5jb250cmFjdC52MS5Ecm9wb3V0TWFza3MiVQoKVGVuc29yU3BlYxIMCgRuYW1lGAEgASgJEg0KBXNoYXBlGAIgAygEEioKBWR0eXBlGAMgASgOMhsuZmVkbGVhcm4uY29udHJhY3QudjEuRFR5cGUizQQKDUxvY2FsVHJhaW5pbmcSFAoMbG9jYWxfZXBvY2hzGAEgASgNEhwKD21heF9sb2NhbF9zdGVwcxgCIAEoDUgBiAEBEh8KEmdyYWRpZW50X2NsaXBfbm9ybRgDIAEoAUgCiAEBEigKA3NnZBgEIAEoCzIZLmZlZGxlYXJuLmNvbnRyYWN0LnYxLlNnZEgAEioKBGFkYW0YBSABKAsyGi5mZWRsZWFybi5jb250cmFjdC52MS5BZGFtSAASLAoFYWRhbXcYBiABKAsyGy5mZWRsZWFybi5jb250cmFjdC52MS5BZGFtV0gAEjAKB3Jtc3Byb3AYByABKAsyHS5mZWRsZWFybi5jb250cmFjdC52MS5SbXNwcm9wSAASQAoQemVyb3RoX29yZGVyX3NnZBgMIAEoCzIkLmZlZGxlYXJuLmNvbnRyYWN0LnYxLlplcm90aE9yZGVyU2dkSAASJwoacmVzZXRfb3B0aW1pemVyX2VhY2hfcm91bmQYCCABKAhIA4gBARISCgpiYXRjaF9zaXplGAkgASgNEhYKCWRyb3BfbGFzdBgKIAEoCEgEiAEBEjUKC2JhdGNoX29yZGVyGAsgASgOMiAuZmVkbGVhcm4uY29udHJhY3QudjEuQmF0Y2hPcmRlckILCglvcHRpbWl6ZXJCEgoQX21heF9sb2NhbF9zdGVwc0IVChNfZ3JhZGllbnRfY2xpcF9ub3JtQh0KG19yZXNldF9vcHRpbWl6ZXJfZWFjaF9yb3VuZEIMCgpfZHJvcF9sYXN0IrYBCgNTZ2QSFQoNbGVhcm5pbmdfcmF0ZRgBIAEoARIVCghtb21lbnR1bRgCIAEoAUgAiAEBEhYKCWRhbXBlbmluZxgDIAEoAUgBiAEBEhkKDHdlaWdodF9kZWNheRgEIAEoAUgCiAEBEhUKCG5lc3Rlcm92GAUgASgISAOIAQFCCwoJX21vbWVudHVtQgwKCl9kYW1wZW5pbmdCDwoNX3dlaWdodF9kZWNheUILCglfbmVzdGVyb3YimgEKBEFkYW0SFQoNbGVhcm5pbmdfcmF0ZRgBIAEoARINCgViZXRhMRgCIAEoARINCgViZXRhMhgDIAEoARIPCgdlcHNpbG9uGAQgASgBEhkKDHdlaWdodF9kZWNheRgFIAEoAUgAiAEBEhQKB2Ftc2dyYWQYBiABKAhIAYgBAUIPCg1fd2VpZ2h0X2RlY2F5QgoKCF9hbXNncmFkIpsBCgVBZGFtVxIVCg1sZWFybmluZ19yYXRlGAEgASgBEg0KBWJldGExGAIgASgBEg0KBWJldGEyGAMgASgBEg8KB2Vwc2lsb24YBCABKAESGQoMd2VpZ2h0X2RlY2F5GAUgASgBSACIAQESFAoHYW1zZ3JhZBgGIAEoCEgBiAEBQg8KDV93ZWlnaHRfZGVjYXlCCgoIX2Ftc2dyYWQitAEKB1Jtc3Byb3ASFQoNbGVhcm5pbmdfcmF0ZRgBIAEoARINCgVhbHBoYRgCIAEoARIPCgdlcHNpbG9uGAMgASgBEhkKDHdlaWdodF9kZWNheRgEIAEoAUgAiAEBEhUKCG1vbWVudHVtGAUgASgBSAGIAQESFQoIY2VudGVyZWQYBiABKAhIAogBAUIPCg1fd2VpZ2h0X2RlY2F5QgsKCV9tb21lbnR1bUILCglfY2VudGVyZWQi3gEKDlplcm90aE9yZGVyU2dkEhUKDWxlYXJuaW5nX3JhdGUYASABKAESEQoJc21vb3RoaW5nGAIgASgBEhcKD251bV9sb2NhbF9zdGVwcxgDIAEoDRIZChFudW1fcGVydHVyYmF0aW9ucxgEIAEoDRI6Cgllc3RpbWF0b3IYBSABKA4yJy5mZWRsZWFybi5jb250cmFjdC52MS5HcmFkaWVudEVzdGltYXRvchIyCgNybmcYBiABKA4yJS5mZWRsZWFybi5jb250cmFjdC52MS5QZXJ0dXJiYXRpb25SbmcizQIKD0RhdGFSZXF1aXJlbWVudBIoCgR0YXNrGAEgASgOMhouZmVkbGVhcm4uY29udHJhY3QudjEuVGFzaxITCgtpbnB1dF9zaGFwZRgCIAMoBBIwCgtpbnB1dF9kdHlwZRgDIAEoDjIbLmZlZGxlYXJuLmNvbnRyYWN0LnYxLkRUeXBlEhMKC2NsYXNzX2NvdW50GAQgASgNEhcKD2xhYmVsX3NjaGVtYV9pZBgFIAEoCRIzCgp0cmFuc2Zvcm1zGAYgAygLMh8uZmVkbGVhcm4uY29udHJhY3QudjEuVHJhbnNmb3JtEjQKCXRva2VuaXplchgHIAEoCzIhLmZlZGxlYXJuLmNvbnRyYWN0LnYxLkFydGlmYWN0UmVmEjAKBnNvdXJjZRgIIAEoDjIgLmZlZGxlYXJuLmNvbnRyYWN0LnYxLkRhdGFTb3VyY2Ui6QEKCVRyYW5zZm9ybRI/Cg9pZGVudGl0eV92ZWN0b3IYASABKAsyJC5mZWRsZWFybi5jb250cmFjdC52MS5JZGVudGl0eVZlY3RvckgAEkcKFGltYWdlX3RvX3VuaXRfdGVuc29yGAIgASgLMicuZmVkbGVhcm4uY29udHJhY3QudjEuSW1hZ2VUb1VuaXRUZW5zb3JIABJFChJub3JtYWxpemVfY2hhbm5lbHMYAyABKAsyJy5mZWRsZWFybi5jb250cmFjdC52MS5Ob3JtYWxpemVDaGFubmVsc0gAQgsKCW9wZXJhdGlvbiIfCg5JZGVudGl0eVZlY3RvchINCgV3aWR0aBgBIAEoDSJEChFJbWFnZVRvVW5pdFRlbnNvchIOCgZoZWlnaHQYASABKA0SDQoFd2lkdGgYAiABKA0SEAoIY2hhbm5lbHMYAyABKA0iLgoRTm9ybWFsaXplQ2hhbm5lbHMSDAoEbWVhbhgBIAMoAhILCgNzdGQYAiADKAIiRwoLQXJ0aWZhY3RSZWYSFQoNcmVsYXRpdmVfcGF0aBgBIAEoCRIOCgZzaGEyNTYYAiABKAkSEQoJYnl0ZV9zaXplGAMgASgEIrICCg9BcnRpZmFjdFZhcmlhbnQSEgoKdmFyaWFudF9pZBgBIAEoCRI2CgdiYWNrZW5kGAIgASgOMiUuZmVkbGVhcm4uY29udHJhY3QudjEuQXJ0aWZhY3RCYWNrZW5kEgsKA2FiaRgDIAEoCRIwCgVmaWxlcxgEIAMoCzIhLmZlZGxlYXJuLmNvbnRyYWN0LnYxLkFydGlmYWN0UmVmEhoKEnJlcXVpcmVkX29wZXJhdG9ycxgFIAMoCRIiChpkZWNsYXJlZF9wZWFrX21lbW9yeV9ieXRlcxgGIAEoBBIeChZkZWNsYXJlZF9zdG9yYWdlX2J5dGVzGAcgASgEEhkKEWRlY2xhcmVkX3Byb2JlX21zGAggASgEEhkKEWRlY2xhcmVkX3RyYWluX21zGAkgASgEKr0BCgZSZWNpcGUSFgoSUkVDSVBFX1VOU1BFQ0lGSUVEEAASGQoVUkVDSVBFX1RJTllORVRfR09MREVOEAESDgoKUkVDSVBFX01MUBACEg4KClJFQ0lQRV9DTk4QAxIYChRSRUNJUEVfUE5FVU1PTklBX0NOThAEEhkKFVJFQ0lQRV9DSUZBUl9SRVNORVQxOBAFEhYKElJFQ0lQRV9UUkFOU0ZPUk1FUhAGEhMKD1JFQ0lQRV9MTE1fTE9SQRAHKo8BCghTdHJhdGVneRIYChRTVFJBVEVHWV9VTlNQRUNJRklFRBAAEhQKEFNUUkFURUdZX0RFQ09NRkwQARITCg9TVFJBVEVHWV9GRURBVkcQAhIUChBTVFJBVEVHWV9GRURQUk9YEAMSEwoPU1RSQVRFR1lfRkVET1BUEAQSEwoPU1RSQVRFR1lfUk9CVVNUEAUqXgoMUGFydGl0aW9uaW5nEhwKGFBBUlRJVElPTklOR19VTlNQRUNJRklFRBAAEhgKFFBBUlRJVElPTklOR19TSEFSREVEEAESFgoSUEFSVElUSU9OSU5HX0xPQ0FMEAIqTQoDQXJtEhMKD0FSTV9VTlNQRUNJRklFRBAAEgwKCEFSTV9GVUxMEAESEwoPQVJNX0ZST1pFTl9IRUFEEAISDgoKQVJNX09WQV9MUBADKpEBCgRUYXNrEhQKEFRBU0tfVU5TUEVDSUZJRUQQABIeChpUQVNLX1ZFQ1RPUl9DTEFTU0lGSUNBVElPThABEh0KGVRBU0tfSU1BR0VfQ0xBU1NJRklDQVRJT04QAhIgChxUQVNLX1NFUVVFTkNFX0NMQVNTSUZJQ0FUSU9OEAMSEgoOVEFTS19DQVVTQUxfTE0QBCp2CglPYmplY3RpdmUSGQoVT0JKRUNUSVZFX1VOU1BFQ0lGSUVEEAASGwoXT0JKRUNUSVZFX0NST1NTX0VOVFJPUFkQARIYChRPQkpFQ1RJVkVfT05FX1ZTX0FMTBACEhcKE09CSkVDVElWRV9DQVVTQUxfTE0QAypjCg5VcGRhdGVQcm90b2NvbBIWChJVUERBVEVfVU5TUEVDSUZJRUQQABIZChVVUERBVEVfREVDT01GTF9TQ0FMQVIQARIeChpVUERBVEVfVFJBSU5BQkxFX1NUQVRFX0YzMhACKl8KCVRyYW5zcG9ydBIZChVUUkFOU1BPUlRfVU5TUEVDSUZJRUQQABIaChZUUkFOU1BPUlRfVExTX1JFUVVJUkVEEAESGwoXVFJBTlNQT1JUX1BMQUlOVEVYVF9ERVYQAippCgpDbGllbnRBdXRoEhsKF0NMSUVOVF9BVVRIX1VOU1BFQ0lGSUVEEAASIAocQ0xJRU5UX0FVVEhfQ09OTkVDVElPTl9UT0tFThABEhwKGENMSUVOVF9BVVRIX0RJU0FCTEVEX0RFVhACKlsKEVNlY3VyZUFnZ3JlZ2F0aW9uEhYKElNFQ0FHR19VTlNQRUNJRklFRBAAEg8KC1NFQ0FHR19OT05FEAESHQoZU0VDQUdHX0xJR0hUU0VDQUdHX1NDQUxBUhACKoEBCg9BcnRpZmFjdEJhY2tlbmQSFwoTQkFDS0VORF9VTlNQRUNJRklFRBAAEhoKFkJBQ0tFTkRfRVhFQ1VUT1JDSF9DUFUQARIaChZCQUNLRU5EX0VYRUNVVE9SQ0hfR1BVEAISHQoZQkFDS0VORF9FWEVDVVRPUkNIX1ZFTkRPUhADKi0KBURUeXBlEhUKEURUWVBFX1VOU1BFQ0lGSUVEEAASDQoJRFRZUEVfRjMyEAEqkQEKCkJhdGNoT3JkZXISGwoXQkFUQ0hfT1JERVJfVU5TUEVDSUZJRUQQABIaChZCQVRDSF9PUkRFUl9TRVFVRU5USUFMEAESIwofQkFUQ0hfT1JERVJfU0hVRkZMRURfRUFDSF9FUE9DSBACEiUKIUJBVENIX09SREVSX1NFRURFRF9QRVJNVVRBVElPTl9WMRADKlMKDkJhdGNoTm9ybVN0YXRzEiAKHEJBVENIX05PUk1fU1RBVFNfVU5TUEVDSUZJRUQQABIfChtCQVRDSF9OT1JNX1JVTk5JTkdfU1RBVFNfVjEQASpKCgxEcm9wb3V0TWFza3MSHQoZRFJPUE9VVF9NQVNLU19VTlNQRUNJRklFRBAAEhsKF0RST1BPVVRfTUFTS1NfU0VFREVEX1YxEAEqXAoRR3JhZGllbnRFc3RpbWF0b3ISGQoVRVNUSU1BVE9SX1VOU1BFQ0lGSUVEEAASFQoRRVNUSU1BVE9SX0ZPUldBUkQQARIVChFFU1RJTUFUT1JfQ0VOVFJBTBACKkMKD1BlcnR1cmJhdGlvblJuZxITCg9STkdfVU5TUEVDSUZJRUQQABIbChdSTkdfVE9SQ0hfQ1BVX1JBTkROX0YzMhABKmIKCkRhdGFTb3VyY2USGwoXREFUQV9TT1VSQ0VfVU5TUEVDSUZJRUQQABIeChpEQVRBX1NPVVJDRV9MT0NBTF9TTkFQU0hPVBABEhcKE0RBVEFfU09VUkNFX0ZJWFRVUkUQAiq7BAoRQ29udHJhY3RJc3N1ZUNvZGUSFQoRSVNTVUVfVU5TUEVDSUZJRUQQABITCg9JU1NVRV9NQUxGT1JNRUQQARImCiJJU1NVRV9VTlNVUFBPUlRFRF9DT05UUkFDVF9WRVJTSU9OEAISJQohSVNTVUVfVU5TVVBQT1JURURfQ0xJRU5UX1BST1RPQ09MEAMSFgoSSVNTVUVfVU5LTk9XTl9FTlVNEAQSFwoTSVNTVUVfTUlTU0lOR19GSUVMRBAFEhYKEklTU1VFX09VVF9PRl9SQU5HRRAGEhwKGElTU1VFX0lOVkFMSURfSURFTlRJRklFUhAHEhsKF0lTU1VFX0lERU5USVRZX01JU01BVENIEAgSFgoSSVNTVUVfSU5WQUxJRF9IQVNIEAkSFgoSSVNTVUVfSU5WQUxJRF9QQVRIEAoSGgoWSVNTVUVfTUFMRk9STUVEX0xBWU9VVBALEiEKHUlTU1VFX1VOU1VQUE9SVEVEX0NPTUJJTkFUSU9OEAwSGwoXSVNTVUVfSU5WQUxJRF9PUFRJTUlaRVIQDRIaChZJU1NVRV9JTlZBTElEX1NFQ1VSSVRZEA4SIwofSVNTVUVfSU5WQUxJRF9TVFJBVEVHWV9TRVRUSU5HUxAPEhoKFklTU1VFX01JU1NJTkdfQVJUSUZBQ1QQEBIaChZJU1NVRV9JTlZBTElEX0FSVElGQUNUEBESIgoeSVNTVUVfSU5WQUxJRF9EQVRBX1JFUVVJUkVNRU5UEBJCNAoYY29tLmZlZGxlYXJuLmNvbnRyYWN0LnYxQhZFeGVjdXRpb25Db250cmFjdFByb3RvUAFiBnByb3RvMw");
+  fileDesc("Ci1mZWRsZWFybi9jb250cmFjdC92MS9leGVjdXRpb25fY29udHJhY3QucHJvdG8SFGZlZGxlYXJuLmNvbnRyYWN0LnYxIs0EChFFeGVjdXRpb25Db250cmFjdBIYChBjb250cmFjdF92ZXJzaW9uGAEgASgNEiMKG21pbl9jbGllbnRfcHJvdG9jb2xfdmVyc2lvbhgCIAEoDRIOCgZydW5faWQYAyABKAkSEgoKcHJvamVjdF9pZBgEIAEoCRIsCgZyZWNpcGUYBSABKA4yHC5mZWRsZWFybi5jb250cmFjdC52MS5SZWNpcGUSMAoIc3RyYXRlZ3kYBiABKA4yHi5mZWRsZWFybi5jb250cmFjdC52MS5TdHJhdGVneRISCgpudW1fcm91bmRzGAcgASgNEhkKEWNsaWVudHNfcGVyX3JvdW5kGAggASgNEjgKDHBhcnRpdGlvbmluZxgJIAEoDjIiLmZlZGxlYXJuLmNvbnRyYWN0LnYxLlBhcnRpdGlvbmluZxIRCgRzZWVkGAogASgESAGIAQESMAoFcm91bmQYCyABKAsyIS5mZWRsZWFybi5jb250cmFjdC52MS5Sb3VuZFBvbGljeRI2CghzZWN1cml0eRgMIAEoCzIkLmZlZGxlYXJuLmNvbnRyYWN0LnYxLlNlY3VyaXR5UG9saWN5Ej0KDm1vZGVsX3RyYWluaW5nGA0gASgLMiMuZmVkbGVhcm4uY29udHJhY3QudjEuTW9kZWxUcmFpbmluZ0gAEjsKDXRyZWVfdHJhaW5pbmcYDiABKAsyIi5mZWRsZWFybi5jb250cmFjdC52MS5UcmVlVHJhaW5pbmdIAEIKCgh3b3JrbG9hZEIHCgVfc2VlZCKAAwoMVHJlZVRyYWluaW5nEhcKD3hnYm9vc3RfdmVyc2lvbhgBIAEoCRIRCglvYmplY3RpdmUYAiABKAkSDwoHYm9vc3RlchgDIAEoCRIVCg1mZWF0dXJlX25hbWVzGAQgAygJEg8KB2NsYXNzZXMYBSADKAkSEgoKYmFzZV9zY29yZRgGIAEoARIVCg1sZWFybmluZ19yYXRlGAcgASgBEhEKCW1heF9kZXB0aBgIIAEoDRIaChJsb2NhbF9ib29zdF9yb3VuZHMYCSABKA0SEwoLdHJlZV9tZXRob2QYCiABKAkSHAoUaW5pdGlhbF9tb2RlbF9zaGEyNTYYCyABKAkSEwoLaW5wdXRfZHR5cGUYDCABKAkSFgoObWlzc2luZ19wb2xpY3kYDSABKAkSGgoSY29udHJpYnV0aW9uX2NvZGVjGA4gASgJEjUKC2RhdGFfc291cmNlGA8gASgOMiAuZmVkbGVhcm4uY29udHJhY3QudjEuRGF0YVNvdXJjZSKgAQoLUm91bmRQb2xpY3kSEgoKdGltZW91dF9tcxgBIAEoBBIlCh1vbmVfYWNjZXB0ZWRfdXBkYXRlX3Blcl9yb3VuZBgCIAEoCBIiChVtYXhfdHJhbnNpZW50X3JldHJpZXMYAyABKA1IAIgBARIYChByZXRyeV9iYWNrb2ZmX21zGAQgASgEQhgKFl9tYXhfdHJhbnNpZW50X3JldHJpZXMisQIKDlNlY3VyaXR5UG9saWN5EjIKCXRyYW5zcG9ydBgBIAEoDjIfLmZlZGxlYXJuLmNvbnRyYWN0LnYxLlRyYW5zcG9ydBI1CgtjbGllbnRfYXV0aBgCIAEoDjIgLmZlZGxlYXJuLmNvbnRyYWN0LnYxLkNsaWVudEF1dGgSQwoSc2VjdXJlX2FnZ3JlZ2F0aW9uGAMgASgOMicuZmVkbGVhcm4uY29udHJhY3QudjEuU2VjdXJlQWdncmVnYXRpb24SIQoUc2VjdXJlX2FnZ190aHJlc2hvbGQYBCABKA1IAIgBARIzCgpjZW50cmFsX2RwGAUgASgLMh8uZmVkbGVhcm4uY29udHJhY3QudjEuQ2VudHJhbERwQhcKFV9zZWN1cmVfYWdnX3RocmVzaG9sZCJFCglDZW50cmFsRHASFgoOdGFyZ2V0X2Vwc2lsb24YASABKAESDQoFZGVsdGEYAiABKAESEQoJY2xpcF9ub3JtGAMgASgBIrEFCg1Nb2RlbFRyYWluaW5nEhAKCG1vZGVsX2lkGAEgASgJEhYKDm1vZGVsX3JldmlzaW9uGAIgASgJEiYKA2FybRgDIAEoDjIZLmZlZGxlYXJuLmNvbnRyYWN0LnYxLkFybRIoCgR0YXNrGAQgASgOMhouZmVkbGVhcm4uY29udHJhY3QudjEuVGFzaxIyCglvYmplY3RpdmUYBSABKA4yHy5mZWRsZWFybi5jb250cmFjdC52MS5PYmplY3RpdmUSPQoPdXBkYXRlX3Byb3RvY29sGAYgASgOMiQuZmVkbGVhcm4uY29udHJhY3QudjEuVXBkYXRlUHJvdG9jb2wSMwoJdHJhaW5hYmxlGAcgAygLMiAuZmVkbGVhcm4uY29udHJhY3QudjEuVGVuc29yU3BlYxIbChNmcm96ZW5fc3RhdGVfc2hhMjU2GAggASgJEhwKFGluaXRpYWxfc3RhdGVfc2hhMjU2GAkgASgJEjsKDmxvY2FsX3RyYWluaW5nGAogASgLMiMuZmVkbGVhcm4uY29udHJhY3QudjEuTG9jYWxUcmFpbmluZxIzCgRkYXRhGAsgASgLMiUuZmVkbGVhcm4uY29udHJhY3QudjEuRGF0YVJlcXVpcmVtZW50EjgKCWFydGlmYWN0cxgMIAMoCzIlLmZlZGxlYXJuLmNvbnRyYWN0LnYxLkFydGlmYWN0VmFyaWFudBIXCgpmZWRwcm94X211GA0gASgBSACIAQESMwoHZHJvcG91dBgOIAMoCzIiLmZlZGxlYXJuLmNvbnRyYWN0LnYxLkRyb3BvdXRMYXllchI4CgpiYXRjaF9ub3JtGA8gAygLMiQuZmVkbGVhcm4uY29udHJhY3QudjEuQmF0Y2hOb3JtTGF5ZXJCDQoLX2ZlZHByb3hfbXUirgEKDkJhdGNoTm9ybUxheWVyEg4KBm1vZHVsZRgBIAEoCRIUCgxudW1fZmVhdHVyZXMYAiABKA0SEAoIbW9tZW50dW0YAyABKAESCwoDZXBzGAQgASgBEhoKEnZhbHVlc19wZXJfZXhhbXBsZRgFIAEoDRI7Cg1ydW5uaW5nX3N0YXRzGAYgASgOMiQuZmVkbGVhcm4uY29udHJhY3QudjEuQmF0Y2hOb3JtU3RhdHMiXwoMRHJvcG91dExheWVyEg4KBm1vZHVsZRgBIAEoCRIMCgRyYXRlGAIgASgBEjEKBW1hc2tzGAMgASgOMiIuZmVkbGVhcm4uY29udHJhY3QudjEuRHJvcG91dE1hc2tzIlUKClRlbnNvclNwZWMSDAoEbmFtZRgBIAEoCRINCgVzaGFwZRgCIAMoBBIqCgVkdHlwZRgDIAEoDjIbLmZlZGxlYXJuLmNvbnRyYWN0LnYxLkRUeXBlIs0ECg1Mb2NhbFRyYWluaW5nEhQKDGxvY2FsX2Vwb2NocxgBIAEoDRIcCg9tYXhfbG9jYWxfc3RlcHMYAiABKA1IAYgBARIfChJncmFkaWVudF9jbGlwX25vcm0YAyABKAFIAogBARIoCgNzZ2QYBCABKAsyGS5mZWRsZWFybi5jb250cmFjdC52MS5TZ2RIABIqCgRhZGFtGAUgASgLMhouZmVkbGVhcm4uY29udHJhY3QudjEuQWRhbUgAEiwKBWFkYW13GAYgASgLMhsuZmVkbGVhcm4uY29udHJhY3QudjEuQWRhbVdIABIwCgdybXNwcm9wGAcgASgLMh0uZmVkbGVhcm4uY29udHJhY3QudjEuUm1zcHJvcEgAEkAKEHplcm90aF9vcmRlcl9zZ2QYDCABKAsyJC5mZWRsZWFybi5jb250cmFjdC52MS5aZXJvdGhPcmRlclNnZEgAEicKGnJlc2V0X29wdGltaXplcl9lYWNoX3JvdW5kGAggASgISAOIAQESEgoKYmF0Y2hfc2l6ZRgJIAEoDRIWCglkcm9wX2xhc3QYCiABKAhIBIgBARI1CgtiYXRjaF9vcmRlchgLIAEoDjIgLmZlZGxlYXJuLmNvbnRyYWN0LnYxLkJhdGNoT3JkZXJCCwoJb3B0aW1pemVyQhIKEF9tYXhfbG9jYWxfc3RlcHNCFQoTX2dyYWRpZW50X2NsaXBfbm9ybUIdChtfcmVzZXRfb3B0aW1pemVyX2VhY2hfcm91bmRCDAoKX2Ryb3BfbGFzdCK2AQoDU2dkEhUKDWxlYXJuaW5nX3JhdGUYASABKAESFQoIbW9tZW50dW0YAiABKAFIAIgBARIWCglkYW1wZW5pbmcYAyABKAFIAYgBARIZCgx3ZWlnaHRfZGVjYXkYBCABKAFIAogBARIVCghuZXN0ZXJvdhgFIAEoCEgDiAEBQgsKCV9tb21lbnR1bUIMCgpfZGFtcGVuaW5nQg8KDV93ZWlnaHRfZGVjYXlCCwoJX25lc3Rlcm92IpoBCgRBZGFtEhUKDWxlYXJuaW5nX3JhdGUYASABKAESDQoFYmV0YTEYAiABKAESDQoFYmV0YTIYAyABKAESDwoHZXBzaWxvbhgEIAEoARIZCgx3ZWlnaHRfZGVjYXkYBSABKAFIAIgBARIUCgdhbXNncmFkGAYgASgISAGIAQFCDwoNX3dlaWdodF9kZWNheUIKCghfYW1zZ3JhZCKbAQoFQWRhbVcSFQoNbGVhcm5pbmdfcmF0ZRgBIAEoARINCgViZXRhMRgCIAEoARINCgViZXRhMhgDIAEoARIPCgdlcHNpbG9uGAQgASgBEhkKDHdlaWdodF9kZWNheRgFIAEoAUgAiAEBEhQKB2Ftc2dyYWQYBiABKAhIAYgBAUIPCg1fd2VpZ2h0X2RlY2F5QgoKCF9hbXNncmFkIrQBCgdSbXNwcm9wEhUKDWxlYXJuaW5nX3JhdGUYASABKAESDQoFYWxwaGEYAiABKAESDwoHZXBzaWxvbhgDIAEoARIZCgx3ZWlnaHRfZGVjYXkYBCABKAFIAIgBARIVCghtb21lbnR1bRgFIAEoAUgBiAEBEhUKCGNlbnRlcmVkGAYgASgISAKIAQFCDwoNX3dlaWdodF9kZWNheUILCglfbW9tZW50dW1CCwoJX2NlbnRlcmVkIt4BCg5aZXJvdGhPcmRlclNnZBIVCg1sZWFybmluZ19yYXRlGAEgASgBEhEKCXNtb290aGluZxgCIAEoARIXCg9udW1fbG9jYWxfc3RlcHMYAyABKA0SGQoRbnVtX3BlcnR1cmJhdGlvbnMYBCABKA0SOgoJZXN0aW1hdG9yGAUgASgOMicuZmVkbGVhcm4uY29udHJhY3QudjEuR3JhZGllbnRFc3RpbWF0b3ISMgoDcm5nGAYgASgOMiUuZmVkbGVhcm4uY29udHJhY3QudjEuUGVydHVyYmF0aW9uUm5nIs0CCg9EYXRhUmVxdWlyZW1lbnQSKAoEdGFzaxgBIAEoDjIaLmZlZGxlYXJuLmNvbnRyYWN0LnYxLlRhc2sSEwoLaW5wdXRfc2hhcGUYAiADKAQSMAoLaW5wdXRfZHR5cGUYAyABKA4yGy5mZWRsZWFybi5jb250cmFjdC52MS5EVHlwZRITCgtjbGFzc19jb3VudBgEIAEoDRIXCg9sYWJlbF9zY2hlbWFfaWQYBSABKAkSMwoKdHJhbnNmb3JtcxgGIAMoCzIfLmZlZGxlYXJuLmNvbnRyYWN0LnYxLlRyYW5zZm9ybRI0Cgl0b2tlbml6ZXIYByABKAsyIS5mZWRsZWFybi5jb250cmFjdC52MS5BcnRpZmFjdFJlZhIwCgZzb3VyY2UYCCABKA4yIC5mZWRsZWFybi5jb250cmFjdC52MS5EYXRhU291cmNlIukBCglUcmFuc2Zvcm0SPwoPaWRlbnRpdHlfdmVjdG9yGAEgASgLMiQuZmVkbGVhcm4uY29udHJhY3QudjEuSWRlbnRpdHlWZWN0b3JIABJHChRpbWFnZV90b191bml0X3RlbnNvchgCIAEoCzInLmZlZGxlYXJuLmNvbnRyYWN0LnYxLkltYWdlVG9Vbml0VGVuc29ySAASRQoSbm9ybWFsaXplX2NoYW5uZWxzGAMgASgLMicuZmVkbGVhcm4uY29udHJhY3QudjEuTm9ybWFsaXplQ2hhbm5lbHNIAEILCglvcGVyYXRpb24iHwoOSWRlbnRpdHlWZWN0b3ISDQoFd2lkdGgYASABKA0iRAoRSW1hZ2VUb1VuaXRUZW5zb3ISDgoGaGVpZ2h0GAEgASgNEg0KBXdpZHRoGAIgASgNEhAKCGNoYW5uZWxzGAMgASgNIi4KEU5vcm1hbGl6ZUNoYW5uZWxzEgwKBG1lYW4YASADKAISCwoDc3RkGAIgAygCIkcKC0FydGlmYWN0UmVmEhUKDXJlbGF0aXZlX3BhdGgYASABKAkSDgoGc2hhMjU2GAIgASgJEhEKCWJ5dGVfc2l6ZRgDIAEoBCKyAgoPQXJ0aWZhY3RWYXJpYW50EhIKCnZhcmlhbnRfaWQYASABKAkSNgoHYmFja2VuZBgCIAEoDjIlLmZlZGxlYXJuLmNvbnRyYWN0LnYxLkFydGlmYWN0QmFja2VuZBILCgNhYmkYAyABKAkSMAoFZmlsZXMYBCADKAsyIS5mZWRsZWFybi5jb250cmFjdC52MS5BcnRpZmFjdFJlZhIaChJyZXF1aXJlZF9vcGVyYXRvcnMYBSADKAkSIgoaZGVjbGFyZWRfcGVha19tZW1vcnlfYnl0ZXMYBiABKAQSHgoWZGVjbGFyZWRfc3RvcmFnZV9ieXRlcxgHIAEoBBIZChFkZWNsYXJlZF9wcm9iZV9tcxgIIAEoBBIZChFkZWNsYXJlZF90cmFpbl9tcxgJIAEoBCrRAQoGUmVjaXBlEhYKElJFQ0lQRV9VTlNQRUNJRklFRBAAEhkKFVJFQ0lQRV9USU5ZTkVUX0dPTERFThABEg4KClJFQ0lQRV9NTFAQAhIOCgpSRUNJUEVfQ05OEAMSGAoUUkVDSVBFX1BORVVNT05JQV9DTk4QBBIZChVSRUNJUEVfQ0lGQVJfUkVTTkVUMTgQBRIWChJSRUNJUEVfVFJBTlNGT1JNRVIQBhITCg9SRUNJUEVfTExNX0xPUkEQBxISCg5SRUNJUEVfWEdCT09TVBAIKqkBCghTdHJhdGVneRIYChRTVFJBVEVHWV9VTlNQRUNJRklFRBAAEhQKEFNUUkFURUdZX0RFQ09NRkwQARITCg9TVFJBVEVHWV9GRURBVkcQAhIUChBTVFJBVEVHWV9GRURQUk9YEAMSEwoPU1RSQVRFR1lfRkVET1BUEAQSEwoPU1RSQVRFR1lfUk9CVVNUEAUSGAoUU1RSQVRFR1lfWEdCX0JBR0dJTkcQBipeCgxQYXJ0aXRpb25pbmcSHAoYUEFSVElUSU9OSU5HX1VOU1BFQ0lGSUVEEAASGAoUUEFSVElUSU9OSU5HX1NIQVJERUQQARIWChJQQVJUSVRJT05JTkdfTE9DQUwQAipNCgNBcm0SEwoPQVJNX1VOU1BFQ0lGSUVEEAASDAoIQVJNX0ZVTEwQARITCg9BUk1fRlJPWkVOX0hFQUQQAhIOCgpBUk1fT1ZBX0xQEAMqkQEKBFRhc2sSFAoQVEFTS19VTlNQRUNJRklFRBAAEh4KGlRBU0tfVkVDVE9SX0NMQVNTSUZJQ0FUSU9OEAESHQoZVEFTS19JTUFHRV9DTEFTU0lGSUNBVElPThACEiAKHFRBU0tfU0VRVUVOQ0VfQ0xBU1NJRklDQVRJT04QAxISCg5UQVNLX0NBVVNBTF9MTRAEKnYKCU9iamVjdGl2ZRIZChVPQkpFQ1RJVkVfVU5TUEVDSUZJRUQQABIbChdPQkpFQ1RJVkVfQ1JPU1NfRU5UUk9QWRABEhgKFE9CSkVDVElWRV9PTkVfVlNfQUxMEAISFwoTT0JKRUNUSVZFX0NBVVNBTF9MTRADKmMKDlVwZGF0ZVByb3RvY29sEhYKElVQREFURV9VTlNQRUNJRklFRBAAEhkKFVVQREFURV9ERUNPTUZMX1NDQUxBUhABEh4KGlVQREFURV9UUkFJTkFCTEVfU1RBVEVfRjMyEAIqXwoJVHJhbnNwb3J0EhkKFVRSQU5TUE9SVF9VTlNQRUNJRklFRBAAEhoKFlRSQU5TUE9SVF9UTFNfUkVRVUlSRUQQARIbChdUUkFOU1BPUlRfUExBSU5URVhUX0RFVhACKmkKCkNsaWVudEF1dGgSGwoXQ0xJRU5UX0FVVEhfVU5TUEVDSUZJRUQQABIgChxDTElFTlRfQVVUSF9DT05ORUNUSU9OX1RPS0VOEAESHAoYQ0xJRU5UX0FVVEhfRElTQUJMRURfREVWEAIqWwoRU2VjdXJlQWdncmVnYXRpb24SFgoSU0VDQUdHX1VOU1BFQ0lGSUVEEAASDwoLU0VDQUdHX05PTkUQARIdChlTRUNBR0dfTElHSFRTRUNBR0dfU0NBTEFSEAIqgQEKD0FydGlmYWN0QmFja2VuZBIXChNCQUNLRU5EX1VOU1BFQ0lGSUVEEAASGgoWQkFDS0VORF9FWEVDVVRPUkNIX0NQVRABEhoKFkJBQ0tFTkRfRVhFQ1VUT1JDSF9HUFUQAhIdChlCQUNLRU5EX0VYRUNVVE9SQ0hfVkVORE9SEAMqLQoFRFR5cGUSFQoRRFRZUEVfVU5TUEVDSUZJRUQQABINCglEVFlQRV9GMzIQASqRAQoKQmF0Y2hPcmRlchIbChdCQVRDSF9PUkRFUl9VTlNQRUNJRklFRBAAEhoKFkJBVENIX09SREVSX1NFUVVFTlRJQUwQARIjCh9CQVRDSF9PUkRFUl9TSFVGRkxFRF9FQUNIX0VQT0NIEAISJQohQkFUQ0hfT1JERVJfU0VFREVEX1BFUk1VVEFUSU9OX1YxEAMqUwoOQmF0Y2hOb3JtU3RhdHMSIAocQkFUQ0hfTk9STV9TVEFUU19VTlNQRUNJRklFRBAAEh8KG0JBVENIX05PUk1fUlVOTklOR19TVEFUU19WMRABKkoKDERyb3BvdXRNYXNrcxIdChlEUk9QT1VUX01BU0tTX1VOU1BFQ0lGSUVEEAASGwoXRFJPUE9VVF9NQVNLU19TRUVERURfVjEQASpcChFHcmFkaWVudEVzdGltYXRvchIZChVFU1RJTUFUT1JfVU5TUEVDSUZJRUQQABIVChFFU1RJTUFUT1JfRk9SV0FSRBABEhUKEUVTVElNQVRPUl9DRU5UUkFMEAIqQwoPUGVydHVyYmF0aW9uUm5nEhMKD1JOR19VTlNQRUNJRklFRBAAEhsKF1JOR19UT1JDSF9DUFVfUkFORE5fRjMyEAEqYgoKRGF0YVNvdXJjZRIbChdEQVRBX1NPVVJDRV9VTlNQRUNJRklFRBAAEh4KGkRBVEFfU09VUkNFX0xPQ0FMX1NOQVBTSE9UEAESFwoTREFUQV9TT1VSQ0VfRklYVFVSRRACKrsEChFDb250cmFjdElzc3VlQ29kZRIVChFJU1NVRV9VTlNQRUNJRklFRBAAEhMKD0lTU1VFX01BTEZPUk1FRBABEiYKIklTU1VFX1VOU1VQUE9SVEVEX0NPTlRSQUNUX1ZFUlNJT04QAhIlCiFJU1NVRV9VTlNVUFBPUlRFRF9DTElFTlRfUFJPVE9DT0wQAxIWChJJU1NVRV9VTktOT1dOX0VOVU0QBBIXChNJU1NVRV9NSVNTSU5HX0ZJRUxEEAUSFgoSSVNTVUVfT1VUX09GX1JBTkdFEAYSHAoYSVNTVUVfSU5WQUxJRF9JREVOVElGSUVSEAcSGwoXSVNTVUVfSURFTlRJVFlfTUlTTUFUQ0gQCBIWChJJU1NVRV9JTlZBTElEX0hBU0gQCRIWChJJU1NVRV9JTlZBTElEX1BBVEgQChIaChZJU1NVRV9NQUxGT1JNRURfTEFZT1VUEAsSIQodSVNTVUVfVU5TVVBQT1JURURfQ09NQklOQVRJT04QDBIbChdJU1NVRV9JTlZBTElEX09QVElNSVpFUhANEhoKFklTU1VFX0lOVkFMSURfU0VDVVJJVFkQDhIjCh9JU1NVRV9JTlZBTElEX1NUUkFURUdZX1NFVFRJTkdTEA8SGgoWSVNTVUVfTUlTU0lOR19BUlRJRkFDVBAQEhoKFklTU1VFX0lOVkFMSURfQVJUSUZBQ1QQERIiCh5JU1NVRV9JTlZBTElEX0RBVEFfUkVRVUlSRU1FTlQQEkI0Chhjb20uZmVkbGVhcm4uY29udHJhY3QudjFCFkV4ZWN1dGlvbkNvbnRyYWN0UHJvdG9QAWIGcHJvdG8z");
 
 /**
  * @generated from message fedlearn.contract.v1.ExecutionContract
  */
 export type ExecutionContract = Message<"fedlearn.contract.v1.ExecutionContract"> & {
   /**
-   * Exactly 1. A reader never interprets another version as v1.
+   * Exactly 1 for neural workloads, 2 for the tree workload. A v1 reader refuses version 2.
    *
    * @generated from field: uint32 contract_version = 1;
    */
@@ -106,12 +106,18 @@ export type ExecutionContract = Message<"fedlearn.contract.v1.ExecutionContract"
    */
   workload: {
     /**
-     * A Federation-over-Text workload needs its own reviewed schema; it is not a model update.
-     *
      * @generated from field: fedlearn.contract.v1.ModelTraining model_training = 13;
      */
     value: ModelTraining;
     case: "modelTraining";
+  } | {
+    /**
+     * A Federation-over-Text workload needs its own reviewed schema; it is not a model update.
+     *
+     * @generated from field: fedlearn.contract.v1.TreeTraining tree_training = 14;
+     */
+    value: TreeTraining;
+    case: "treeTraining";
   } | { case: undefined; value?: undefined };
 };
 
@@ -121,6 +127,99 @@ export type ExecutionContract = Message<"fedlearn.contract.v1.ExecutionContract"
  */
 export const ExecutionContractSchema: GenMessage<ExecutionContract> = /*@__PURE__*/
   messageDesc(file_fedlearn_contract_v1_execution_contract, 0);
+
+/**
+ * Contract version 2 only. This workload never uses neural tensor updates.
+ * Each fixed-cohort client trains one tree against the current ensemble with
+ * eta = learning_rate / clients_per_round. Trees are appended in client-ID order.
+ * Local seed = (ExecutionContract.seed + server_round) mod 2^64, then mod 2^31
+ * for XGBoost's integer seed. No categorical, missing or multi-target data.
+ *
+ * @generated from message fedlearn.contract.v1.TreeTraining
+ */
+export type TreeTraining = Message<"fedlearn.contract.v1.TreeTraining"> & {
+  /**
+   * @generated from field: string xgboost_version = 1;
+   */
+  xgboostVersion: string;
+
+  /**
+   * @generated from field: string objective = 2;
+   */
+  objective: string;
+
+  /**
+   * @generated from field: string booster = 3;
+   */
+  booster: string;
+
+  /**
+   * @generated from field: repeated string feature_names = 4;
+   */
+  featureNames: string[];
+
+  /**
+   * @generated from field: repeated string classes = 5;
+   */
+  classes: string[];
+
+  /**
+   * @generated from field: double base_score = 6;
+   */
+  baseScore: number;
+
+  /**
+   * @generated from field: double learning_rate = 7;
+   */
+  learningRate: number;
+
+  /**
+   * @generated from field: uint32 max_depth = 8;
+   */
+  maxDepth: number;
+
+  /**
+   * @generated from field: uint32 local_boost_rounds = 9;
+   */
+  localBoostRounds: number;
+
+  /**
+   * @generated from field: string tree_method = 10;
+   */
+  treeMethod: string;
+
+  /**
+   * @generated from field: string initial_model_sha256 = 11;
+   */
+  initialModelSha256: string;
+
+  /**
+   * @generated from field: string input_dtype = 12;
+   */
+  inputDtype: string;
+
+  /**
+   * @generated from field: string missing_policy = 13;
+   */
+  missingPolicy: string;
+
+  /**
+   * @generated from field: string contribution_codec = 14;
+   */
+  contributionCodec: string;
+
+  /**
+   * @generated from field: fedlearn.contract.v1.DataSource data_source = 15;
+   */
+  dataSource: DataSource;
+};
+
+/**
+ * Describes the message fedlearn.contract.v1.TreeTraining.
+ * Use `create(TreeTrainingSchema)` to create a new message.
+ */
+export const TreeTrainingSchema: GenMessage<TreeTraining> = /*@__PURE__*/
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 1);
 
 /**
  * @generated from message fedlearn.contract.v1.RoundPolicy
@@ -158,7 +257,7 @@ export type RoundPolicy = Message<"fedlearn.contract.v1.RoundPolicy"> & {
  * Use `create(RoundPolicySchema)` to create a new message.
  */
 export const RoundPolicySchema: GenMessage<RoundPolicy> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 1);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 2);
 
 /**
  * @generated from message fedlearn.contract.v1.SecurityPolicy
@@ -201,7 +300,7 @@ export type SecurityPolicy = Message<"fedlearn.contract.v1.SecurityPolicy"> & {
  * Use `create(SecurityPolicySchema)` to create a new message.
  */
 export const SecurityPolicySchema: GenMessage<SecurityPolicy> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 2);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 3);
 
 /**
  * Server-side clipping, noise and accounting on the aggregate. It does not hide an individual
@@ -231,7 +330,7 @@ export type CentralDp = Message<"fedlearn.contract.v1.CentralDp"> & {
  * Use `create(CentralDpSchema)` to create a new message.
  */
 export const CentralDpSchema: GenMessage<CentralDp> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 3);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 4);
 
 /**
  * @generated from message fedlearn.contract.v1.ModelTraining
@@ -335,7 +434,7 @@ export type ModelTraining = Message<"fedlearn.contract.v1.ModelTraining"> & {
  * Use `create(ModelTrainingSchema)` to create a new message.
  */
 export const ModelTrainingSchema: GenMessage<ModelTraining> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 4);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 5);
 
 /**
  * @generated from message fedlearn.contract.v1.BatchNormLayer
@@ -388,7 +487,7 @@ export type BatchNormLayer = Message<"fedlearn.contract.v1.BatchNormLayer"> & {
  * Use `create(BatchNormLayerSchema)` to create a new message.
  */
 export const BatchNormLayerSchema: GenMessage<BatchNormLayer> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 5);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 6);
 
 /**
  * @generated from message fedlearn.contract.v1.DropoutLayer
@@ -419,7 +518,7 @@ export type DropoutLayer = Message<"fedlearn.contract.v1.DropoutLayer"> & {
  * Use `create(DropoutLayerSchema)` to create a new message.
  */
 export const DropoutLayerSchema: GenMessage<DropoutLayer> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 6);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 7);
 
 /**
  * @generated from message fedlearn.contract.v1.TensorSpec
@@ -448,7 +547,7 @@ export type TensorSpec = Message<"fedlearn.contract.v1.TensorSpec"> & {
  * Use `create(TensorSpecSchema)` to create a new message.
  */
 export const TensorSpecSchema: GenMessage<TensorSpec> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 7);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 8);
 
 /**
  * @generated from message fedlearn.contract.v1.LocalTraining
@@ -542,7 +641,7 @@ export type LocalTraining = Message<"fedlearn.contract.v1.LocalTraining"> & {
  * Use `create(LocalTrainingSchema)` to create a new message.
  */
 export const LocalTrainingSchema: GenMessage<LocalTraining> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 8);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 9);
 
 /**
  * torch.optim.SGD semantics.
@@ -581,7 +680,7 @@ export type Sgd = Message<"fedlearn.contract.v1.Sgd"> & {
  * Use `create(SgdSchema)` to create a new message.
  */
 export const SgdSchema: GenMessage<Sgd> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 9);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 10);
 
 /**
  * torch.optim.Adam semantics.
@@ -625,7 +724,7 @@ export type Adam = Message<"fedlearn.contract.v1.Adam"> & {
  * Use `create(AdamSchema)` to create a new message.
  */
 export const AdamSchema: GenMessage<Adam> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 10);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 11);
 
 /**
  * torch.optim.AdamW semantics (decoupled weight decay).
@@ -669,7 +768,7 @@ export type AdamW = Message<"fedlearn.contract.v1.AdamW"> & {
  * Use `create(AdamWSchema)` to create a new message.
  */
 export const AdamWSchema: GenMessage<AdamW> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 11);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 12);
 
 /**
  * torch.optim.RMSprop semantics.
@@ -713,7 +812,7 @@ export type Rmsprop = Message<"fedlearn.contract.v1.Rmsprop"> & {
  * Use `create(RmspropSchema)` to create a new message.
  */
 export const RmspropSchema: GenMessage<Rmsprop> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 12);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 13);
 
 /**
  * DeComFL's client update: SGD along random directions, the directional derivatives estimated by finite
@@ -767,7 +866,7 @@ export type ZerothOrderSgd = Message<"fedlearn.contract.v1.ZerothOrderSgd"> & {
  * Use `create(ZerothOrderSgdSchema)` to create a new message.
  */
 export const ZerothOrderSgdSchema: GenMessage<ZerothOrderSgd> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 13);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 14);
 
 /**
  * @generated from message fedlearn.contract.v1.DataRequirement
@@ -833,7 +932,7 @@ export type DataRequirement = Message<"fedlearn.contract.v1.DataRequirement"> & 
  * Use `create(DataRequirementSchema)` to create a new message.
  */
 export const DataRequirementSchema: GenMessage<DataRequirement> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 14);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 15);
 
 /**
  * Closed v1 vocabulary. A new operation requires its own specification and a version review; an
@@ -871,7 +970,7 @@ export type Transform = Message<"fedlearn.contract.v1.Transform"> & {
  * Use `create(TransformSchema)` to create a new message.
  */
 export const TransformSchema: GenMessage<Transform> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 15);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 16);
 
 /**
  * The sample is already a float vector of exactly `width` elements.
@@ -890,7 +989,7 @@ export type IdentityVector = Message<"fedlearn.contract.v1.IdentityVector"> & {
  * Use `create(IdentityVectorSchema)` to create a new message.
  */
 export const IdentityVectorSchema: GenMessage<IdentityVector> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 16);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 17);
 
 /**
  * The sample is an 8-bit image of `height` x `width` x `channels` values, stored row-major with the channel
@@ -925,7 +1024,7 @@ export type ImageToUnitTensor = Message<"fedlearn.contract.v1.ImageToUnitTensor"
  * Use `create(ImageToUnitTensorSchema)` to create a new message.
  */
 export const ImageToUnitTensorSchema: GenMessage<ImageToUnitTensor> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 17);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 18);
 
 /**
  * Per-channel normalisation of a CHW float32 tensor: element (c, y, x) becomes
@@ -953,7 +1052,7 @@ export type NormalizeChannels = Message<"fedlearn.contract.v1.NormalizeChannels"
  * Use `create(NormalizeChannelsSchema)` to create a new message.
  */
 export const NormalizeChannelsSchema: GenMessage<NormalizeChannels> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 18);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 19);
 
 /**
  * @generated from message fedlearn.contract.v1.ArtifactRef
@@ -982,7 +1081,7 @@ export type ArtifactRef = Message<"fedlearn.contract.v1.ArtifactRef"> & {
  * Use `create(ArtifactRefSchema)` to create a new message.
  */
 export const ArtifactRefSchema: GenMessage<ArtifactRef> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 19);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 20);
 
 /**
  * @generated from message fedlearn.contract.v1.ArtifactVariant
@@ -1041,7 +1140,7 @@ export type ArtifactVariant = Message<"fedlearn.contract.v1.ArtifactVariant"> & 
  * Use `create(ArtifactVariantSchema)` to create a new message.
  */
 export const ArtifactVariantSchema: GenMessage<ArtifactVariant> = /*@__PURE__*/
-  messageDesc(file_fedlearn_contract_v1_execution_contract, 20);
+  messageDesc(file_fedlearn_contract_v1_execution_contract, 21);
 
 /**
  * Registry identifiers. A value here is not a claim that v1 can execute it: only the combinations
@@ -1089,6 +1188,11 @@ export enum Recipe {
    * @generated from enum value: RECIPE_LLM_LORA = 7;
    */
   LLM_LORA = 7,
+
+  /**
+   * @generated from enum value: RECIPE_XGBOOST = 8;
+   */
+  XGBOOST = 8,
 }
 
 /**
@@ -1130,6 +1234,11 @@ export enum Strategy {
    * @generated from enum value: STRATEGY_ROBUST = 5;
    */
   ROBUST = 5,
+
+  /**
+   * @generated from enum value: STRATEGY_XGB_BAGGING = 6;
+   */
+  XGB_BAGGING = 6,
 }
 
 /**

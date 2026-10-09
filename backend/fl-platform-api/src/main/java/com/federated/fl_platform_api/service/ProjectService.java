@@ -308,6 +308,15 @@ public class ProjectService {
     }
 
     static String resolveStrategy(String modelType, String requestedStrategy) {
+        if ("XGBOOST".equals(modelType)) {
+            if (requestedStrategy != null && !requestedStrategy.isEmpty() && !"XgbBagging".equals(requestedStrategy)) {
+                throw new IllegalArgumentException("XGBoost requires the XgbBagging strategy");
+            }
+            return "XgbBagging";
+        }
+        if ("XgbBagging".equals(requestedStrategy)) {
+            throw new IllegalArgumentException("XgbBagging requires the XGBOOST recipe");
+        }
         if ("LLM_LORA".equalsIgnoreCase(modelType)) {
             return "FedLoRA";
         }
@@ -354,6 +363,16 @@ public class ProjectService {
         // anything is persisted.
         validateDpConfig(request);
 
+        if ("XGBOOST".equals(request.getModelType()) &&
+                (!"xgboost_binary".equals(request.getModelName()) || !"TreeBoosting".equals(request.getOptimizer())
+                || request.getPretrainEpochs() == null || request.getPretrainEpochs() != 0
+                || (request.getTrainingArm() != null && !"FULL".equals(request.getTrainingArm()))
+                || Boolean.TRUE.equals(request.getDpEnabled()) || Boolean.TRUE.equals(request.getRegulated())
+                || Boolean.TRUE.equals(request.getInitFromPretrained())
+                || (request.getTaskType() != null && !"SEQ_CLASSIFICATION".equals(request.getTaskType())))) {
+            throw new IllegalArgumentException("XGBoost requires xgboost_binary, TreeBoosting, zero pretraining and FULL; DP and derivation are unsupported");
+        }
+
         User owner = authz.currentUser();
 
         Project project = new Project();
@@ -397,7 +416,8 @@ public class ProjectService {
         Project savedProject = projectRepository.save(project);
         log.debug("Persisted project shell with id={}", savedProject.getId());
 
-        File modelFile = new File("models/" + savedProject.getId().toString() + ".npz");
+        File modelFile = new File("models/" + savedProject.getId().toString()
+                + ("XGBOOST".equals(savedProject.getModelType()) ? ".ubj" : ".npz"));
         if (!modelFile.getParentFile().exists() && !modelFile.getParentFile().mkdirs()) {
             throw new ServerProcessException(
                     "Could not create model output directory: " + modelFile.getParentFile().getAbsolutePath());
@@ -487,6 +507,11 @@ public class ProjectService {
 
         TrainingDataSource dataSource = resolveDataSource(request, () -> project.getModelType() != null
                 ? modelRecipeService.findByKey(project.getModelType()) : Optional.empty(), project.getModelType());
+
+        if ("XGBOOST".equals(project.getModelType()) && (dataSource != TrainingDataSource.LOCAL_SNAPSHOT
+                || clientsPerRound != minClients || project.isDpEnabled() || secureAggThreshold != null)) {
+            throw new IllegalArgumentException("XGBoost requires LOCAL_SNAPSHOT and a fixed non-DP cohort");
+        }
 
         Integer numRoundsToUse;
         if (request != null && request.getNumRounds() != null && request.getNumRounds() > 0) {

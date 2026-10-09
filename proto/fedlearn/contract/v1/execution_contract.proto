@@ -22,7 +22,7 @@ option java_outer_classname = "ExecutionContractProto";
 option java_package = "com.fedlearn.contract.v1";
 
 message ExecutionContract {
-  // Exactly 1. A reader never interprets another version as v1.
+  // Exactly 1 for neural workloads, 2 for the tree workload. A v1 reader refuses version 2.
   uint32 contract_version = 1;
   // Minimum control/round protocol a client must speak (fedlearn.v2 RegisterClient
   // protocol_version).
@@ -41,6 +41,7 @@ message ExecutionContract {
   SecurityPolicy security = 12;
   oneof workload {
     ModelTraining model_training = 13;
+    TreeTraining tree_training = 14;
     // A Federation-over-Text workload needs its own reviewed schema; it is not a model update.
   }
 }
@@ -56,6 +57,7 @@ enum Recipe {
   RECIPE_CIFAR_RESNET18 = 5;
   RECIPE_TRANSFORMER = 6;
   RECIPE_LLM_LORA = 7;
+  RECIPE_XGBOOST = 8;
 }
 
 enum Strategy {
@@ -65,6 +67,30 @@ enum Strategy {
   STRATEGY_FEDPROX = 3;
   STRATEGY_FEDOPT = 4;
   STRATEGY_ROBUST = 5;
+  STRATEGY_XGB_BAGGING = 6;
+}
+
+// Contract version 2 only. This workload never uses neural tensor updates.
+// Each fixed-cohort client trains one tree against the current ensemble with
+// eta = learning_rate / clients_per_round. Trees are appended in client-ID order.
+// Local seed = (ExecutionContract.seed + server_round) mod 2^64, then mod 2^31
+// for XGBoost's integer seed. No categorical, missing or multi-target data.
+message TreeTraining {
+  string xgboost_version = 1;
+  string objective = 2;
+  string booster = 3;
+  repeated string feature_names = 4;
+  repeated string classes = 5;
+  double base_score = 6;
+  double learning_rate = 7;
+  uint32 max_depth = 8;
+  uint32 local_boost_rounds = 9;
+  string tree_method = 10;
+  string initial_model_sha256 = 11;
+  string input_dtype = 12;
+  string missing_policy = 13;
+  string contribution_codec = 14;
+  DataSource data_source = 15;
 }
 
 enum Partitioning {

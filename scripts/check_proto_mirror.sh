@@ -51,6 +51,8 @@ check_mirror "framework" "$CANON" "$ROOT/framework/src/fedlearn/communication/pr
 check_mirror "framework-fot" "$ROOT/proto/fedlearn/fot/v1/fot.proto" "$ROOT/framework/src/fedlearn/communication/protos/fot.proto"
 check_mirror "framework-contract" "$ROOT/proto/fedlearn/contract/v1/execution_contract.proto" \
   "$ROOT/framework/src/fedlearn/communication/protos/execution_contract.proto"
+check_mirror "framework-tree" "$ROOT/proto/fedlearn/tree/v1/tree.proto" \
+  "$ROOT/framework/src/fedlearn/communication/protos/tree.proto"
 
 # Portable sha256 (Linux CI has sha256sum; macOS has shasum -a 256). Informational only —
 # the diff checks above are the gate, so a missing hash tool must not fail the script.

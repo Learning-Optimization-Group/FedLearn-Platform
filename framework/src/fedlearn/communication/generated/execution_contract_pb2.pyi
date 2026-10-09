@@ -16,6 +16,7 @@ class Recipe(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     RECIPE_CIFAR_RESNET18: _ClassVar[Recipe]
     RECIPE_TRANSFORMER: _ClassVar[Recipe]
     RECIPE_LLM_LORA: _ClassVar[Recipe]
+    RECIPE_XGBOOST: _ClassVar[Recipe]
 
 class Strategy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -25,6 +26,7 @@ class Strategy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     STRATEGY_FEDPROX: _ClassVar[Strategy]
     STRATEGY_FEDOPT: _ClassVar[Strategy]
     STRATEGY_ROBUST: _ClassVar[Strategy]
+    STRATEGY_XGB_BAGGING: _ClassVar[Strategy]
 
 class Partitioning(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -153,12 +155,14 @@ RECIPE_PNEUMONIA_CNN: Recipe
 RECIPE_CIFAR_RESNET18: Recipe
 RECIPE_TRANSFORMER: Recipe
 RECIPE_LLM_LORA: Recipe
+RECIPE_XGBOOST: Recipe
 STRATEGY_UNSPECIFIED: Strategy
 STRATEGY_DECOMFL: Strategy
 STRATEGY_FEDAVG: Strategy
 STRATEGY_FEDPROX: Strategy
 STRATEGY_FEDOPT: Strategy
 STRATEGY_ROBUST: Strategy
+STRATEGY_XGB_BAGGING: Strategy
 PARTITIONING_UNSPECIFIED: Partitioning
 PARTITIONING_SHARDED: Partitioning
 PARTITIONING_LOCAL: Partitioning
@@ -230,7 +234,7 @@ ISSUE_INVALID_ARTIFACT: ContractIssueCode
 ISSUE_INVALID_DATA_REQUIREMENT: ContractIssueCode
 
 class ExecutionContract(_message.Message):
-    __slots__ = ("contract_version", "min_client_protocol_version", "run_id", "project_id", "recipe", "strategy", "num_rounds", "clients_per_round", "partitioning", "seed", "round", "security", "model_training")
+    __slots__ = ("contract_version", "min_client_protocol_version", "run_id", "project_id", "recipe", "strategy", "num_rounds", "clients_per_round", "partitioning", "seed", "round", "security", "model_training", "tree_training")
     CONTRACT_VERSION_FIELD_NUMBER: _ClassVar[int]
     MIN_CLIENT_PROTOCOL_VERSION_FIELD_NUMBER: _ClassVar[int]
     RUN_ID_FIELD_NUMBER: _ClassVar[int]
@@ -244,6 +248,7 @@ class ExecutionContract(_message.Message):
     ROUND_FIELD_NUMBER: _ClassVar[int]
     SECURITY_FIELD_NUMBER: _ClassVar[int]
     MODEL_TRAINING_FIELD_NUMBER: _ClassVar[int]
+    TREE_TRAINING_FIELD_NUMBER: _ClassVar[int]
     contract_version: int
     min_client_protocol_version: int
     run_id: str
@@ -257,7 +262,42 @@ class ExecutionContract(_message.Message):
     round: RoundPolicy
     security: SecurityPolicy
     model_training: ModelTraining
-    def __init__(self, contract_version: _Optional[int] = ..., min_client_protocol_version: _Optional[int] = ..., run_id: _Optional[str] = ..., project_id: _Optional[str] = ..., recipe: _Optional[_Union[Recipe, str]] = ..., strategy: _Optional[_Union[Strategy, str]] = ..., num_rounds: _Optional[int] = ..., clients_per_round: _Optional[int] = ..., partitioning: _Optional[_Union[Partitioning, str]] = ..., seed: _Optional[int] = ..., round: _Optional[_Union[RoundPolicy, _Mapping]] = ..., security: _Optional[_Union[SecurityPolicy, _Mapping]] = ..., model_training: _Optional[_Union[ModelTraining, _Mapping]] = ...) -> None: ...
+    tree_training: TreeTraining
+    def __init__(self, contract_version: _Optional[int] = ..., min_client_protocol_version: _Optional[int] = ..., run_id: _Optional[str] = ..., project_id: _Optional[str] = ..., recipe: _Optional[_Union[Recipe, str]] = ..., strategy: _Optional[_Union[Strategy, str]] = ..., num_rounds: _Optional[int] = ..., clients_per_round: _Optional[int] = ..., partitioning: _Optional[_Union[Partitioning, str]] = ..., seed: _Optional[int] = ..., round: _Optional[_Union[RoundPolicy, _Mapping]] = ..., security: _Optional[_Union[SecurityPolicy, _Mapping]] = ..., model_training: _Optional[_Union[ModelTraining, _Mapping]] = ..., tree_training: _Optional[_Union[TreeTraining, _Mapping]] = ...) -> None: ...
+
+class TreeTraining(_message.Message):
+    __slots__ = ("xgboost_version", "objective", "booster", "feature_names", "classes", "base_score", "learning_rate", "max_depth", "local_boost_rounds", "tree_method", "initial_model_sha256", "input_dtype", "missing_policy", "contribution_codec", "data_source")
+    XGBOOST_VERSION_FIELD_NUMBER: _ClassVar[int]
+    OBJECTIVE_FIELD_NUMBER: _ClassVar[int]
+    BOOSTER_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_NAMES_FIELD_NUMBER: _ClassVar[int]
+    CLASSES_FIELD_NUMBER: _ClassVar[int]
+    BASE_SCORE_FIELD_NUMBER: _ClassVar[int]
+    LEARNING_RATE_FIELD_NUMBER: _ClassVar[int]
+    MAX_DEPTH_FIELD_NUMBER: _ClassVar[int]
+    LOCAL_BOOST_ROUNDS_FIELD_NUMBER: _ClassVar[int]
+    TREE_METHOD_FIELD_NUMBER: _ClassVar[int]
+    INITIAL_MODEL_SHA256_FIELD_NUMBER: _ClassVar[int]
+    INPUT_DTYPE_FIELD_NUMBER: _ClassVar[int]
+    MISSING_POLICY_FIELD_NUMBER: _ClassVar[int]
+    CONTRIBUTION_CODEC_FIELD_NUMBER: _ClassVar[int]
+    DATA_SOURCE_FIELD_NUMBER: _ClassVar[int]
+    xgboost_version: str
+    objective: str
+    booster: str
+    feature_names: _containers.RepeatedScalarFieldContainer[str]
+    classes: _containers.RepeatedScalarFieldContainer[str]
+    base_score: float
+    learning_rate: float
+    max_depth: int
+    local_boost_rounds: int
+    tree_method: str
+    initial_model_sha256: str
+    input_dtype: str
+    missing_policy: str
+    contribution_codec: str
+    data_source: DataSource
+    def __init__(self, xgboost_version: _Optional[str] = ..., objective: _Optional[str] = ..., booster: _Optional[str] = ..., feature_names: _Optional[_Iterable[str]] = ..., classes: _Optional[_Iterable[str]] = ..., base_score: _Optional[float] = ..., learning_rate: _Optional[float] = ..., max_depth: _Optional[int] = ..., local_boost_rounds: _Optional[int] = ..., tree_method: _Optional[str] = ..., initial_model_sha256: _Optional[str] = ..., input_dtype: _Optional[str] = ..., missing_policy: _Optional[str] = ..., contribution_codec: _Optional[str] = ..., data_source: _Optional[_Union[DataSource, str]] = ...) -> None: ...
 
 class RoundPolicy(_message.Message):
     __slots__ = ("timeout_ms", "one_accepted_update_per_round", "max_transient_retries", "retry_backoff_ms")

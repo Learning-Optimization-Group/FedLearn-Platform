@@ -30,6 +30,18 @@ const PROJECT: Project = {
   status: 'CREATED',
 };
 
+it('starts XGBoost with tree aggregation and local data while keeping the cohort fixed', async () => {
+  const onSubmit = vi.fn().mockResolvedValue(undefined);
+  render(<StartProjectModal isOpen project={{...PROJECT, modelType:'XGBOOST'}} onClose={vi.fn()} onSubmit={onSubmit} />);
+  const values = screen.getAllByRole('option').map(o => (o as HTMLOptionElement).value);
+  expect(values).toContain('XgbBagging');
+  expect(values).not.toContain('FedAvg');
+  fireEvent.click(screen.getByRole('button', {name:/start training/i}));
+  await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('p1', {
+    strategy:'XgbBagging',numRounds:5,minClients:2,dataSource:'LOCAL_SNAPSHOT',
+  }));
+});
+
 /** The shape axios errors take when the backend returns a message body. */
 function backendError(message: string): Error {
   return Object.assign(new Error(message), {

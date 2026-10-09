@@ -19,6 +19,15 @@ from fedlearn.contract import (ContractIssue, MalformedContractError, parse_cont
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures", "execution_contract_v1")
 
+
+def test_v1_vocabulary_does_not_expand_to_v2_tree_identifiers():
+    contract = parse_contract_json(open(os.path.join(FIXTURES, "golden_tinynet_fedavg.json")).read())
+    contract.recipe = pb.RECIPE_XGBOOST
+    contract.strategy = pb.STRATEGY_XGB_BAGGING
+    issues = validate_contract(contract, reader_protocol_version=2)
+    assert ContractIssue(code=pb.ISSUE_UNKNOWN_ENUM, path="recipe") in issues
+    assert ContractIssue(code=pb.ISSUE_UNKNOWN_ENUM, path="strategy") in issues
+
 with open(os.path.join(FIXTURES, "conformance.json"), encoding="utf-8") as _fh:
     CORPUS = json.load(_fh)
 

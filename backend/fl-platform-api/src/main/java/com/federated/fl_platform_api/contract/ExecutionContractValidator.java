@@ -251,7 +251,9 @@ public final class ExecutionContractValidator {
     }
 
     private static <E extends Internal.EnumLite> boolean known(IntFunction<E> forNumber, int value) {
-        return value != 0 && forNumber.apply(value) != null;
+        E resolved = forNumber.apply(value);
+        return value != 0 && resolved != null && resolved != Recipe.RECIPE_XGBOOST
+                && resolved != com.fedlearn.contract.v1.Strategy.STRATEGY_XGB_BAGGING;
     }
 
     private <E extends Internal.EnumLite> void enumValue(IntFunction<E> forNumber, int value, String path) {

@@ -140,6 +140,9 @@ def _matches(pattern: re.Pattern, value: str) -> bool:
 
 
 def _known(enum_type, value: int) -> bool:
+    if (enum_type is pb.Recipe.DESCRIPTOR and value == pb.RECIPE_XGBOOST) or \
+            (enum_type is pb.Strategy.DESCRIPTOR and value == pb.STRATEGY_XGB_BAGGING):
+        return False
     return value != 0 and value in enum_type.values_by_number
 
 

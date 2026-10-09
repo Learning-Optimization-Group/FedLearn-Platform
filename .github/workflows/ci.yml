@@ -37,6 +37,7 @@ jobs:
           filters: |
             framework:
               - 'framework/**'
+              - 'proto/fedlearn/tree/**'
               # Tested by framework/tests/test_stage_model_bundle.py against the programs it stages.
               - 'scripts/stage_model_bundle.py'
             backend:
@@ -106,6 +107,22 @@ jobs:
         env:
           FEDLEARN_FAIL_ON_UNEXPECTED_SKIP: '1'
         run: PYTHONPATH=src python -m pytest -q
+
+  tree-workload:
+    needs: changes
+    if: ${{ needs.changes.outputs.framework == 'true' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.backend_scripts == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the CPU tree workload without neural native libraries
+        run: |
+          python -m pip install "xgboost-cpu==3.4.1" "numpy==2.1.2" \
+            "grpcio>=1.71.2,<2" "protobuf>=5.29,<6" "PyJWT>=2.8,<3" "requests>=2.32,<3" pytest
+      - name: Typed tree model, round, RPC and runtime regressions
+        run: PYTHONPATH=framework/src python -m pytest -q framework/tree_tests
 
   backend:
     needs: changes

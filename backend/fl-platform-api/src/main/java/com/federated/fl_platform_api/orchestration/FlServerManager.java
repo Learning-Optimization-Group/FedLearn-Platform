@@ -108,6 +108,9 @@ public class FlServerManager {
     @Autowired
     private com.federated.fl_platform_api.service.RegistryModelResolver registryModelResolver;
 
+    @Autowired
+    private com.federated.fl_platform_api.contract.ExecutionContractStore contractStore;
+
     // DA-8: the FL-server orchestration seam. Raw ProcessBuilder mechanics live behind this runner
     // instead of inline in this JVM orchestration class, so the spawn path is unit-testable with a fake
     // runner and a future managed-task (ECS) runner can be swapped in without changing the orchestration.
@@ -263,6 +266,19 @@ public class FlServerManager {
                     project, intent, strategy, numRounds, minClients, freePort, absoluteScriptPath, isWindows,
                     initModelPath, robust, secureAggThreshold, clientsPerRound);
 
+            String treeContractBase64 = null;
+            if ("XGBOOST".equals(project.getModelType())) {
+                Run run = runRepository.findById(project.getActiveRunId()).orElseThrow();
+                var treeContract = com.federated.fl_platform_api.contract.TreeContractFactory.assemble(run,
+                        java.nio.file.Path.of(initModelPath != null ? initModelPath : project.getModelPath()));
+                var outcome = contractStore.publish(run, treeContract);
+                if (outcome != com.federated.fl_platform_api.contract.PublicationOutcome.PUBLISHED) {
+                    throw new IllegalStateException("Tree contract was not freshly published");
+                }
+                treeContractBase64 = java.util.Base64.getEncoder().encodeToString(treeContract.toByteArray());
+            }
+            final String publishedTreeContract = treeContractBase64;
+
             // SE-7: mint a random per-run internal token scoped to (projectId, runId) and hand ONLY
             // it to the child — never a secret it could use to forge another project's token. It is
             // evicted when the server stops (stopServerForProject).
@@ -283,6 +299,9 @@ public class FlServerManager {
                         configureChildEnv(env, internalApiKey, effectiveBackendUrl(),
                                 flTokenSecret, requireClientAuth, runIdArg, requireTls, internalRunToken);
                         applyRoundTimeout(env, intent);
+                        if (publishedTreeContract != null) {
+                            env.put("FEDLEARN_TREE_CONTRACT_B64", publishedTreeContract);
+                        }
                     },
                     new File("."));
             runningServers.put(project.getId(), process.toHandle());

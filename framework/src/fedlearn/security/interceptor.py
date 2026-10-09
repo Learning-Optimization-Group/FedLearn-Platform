@@ -30,6 +30,7 @@ PROTECTED_METHODS = frozenset({
     "RegisterClient", "GetGlobalModel", "GetGlobalModelStream",
     "SubmitModelUpdate", "SubmitModelUpdateStream", "GetServerStatus",
     "Heartbeat", "GetDeComFLConfig", "SubmitGradientScalars", "ReportClientMetrics",
+    "GetTreeModel", "SubmitTreeUpdate",
 })
 
 

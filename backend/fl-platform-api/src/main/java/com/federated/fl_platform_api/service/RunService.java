@@ -153,7 +153,7 @@ public class RunService {
         run.setNumRounds(numRounds);
         run.setMinClients(minClients);
         run.setClientsPerRound(clientsPerRound);
-        run.setPartitioningMode(PartitioningMode.SHARDED);
+        run.setPartitioningMode("XGBOOST".equals(project.getModelType()) ? PartitioningMode.LOCAL : PartitioningMode.SHARDED);
         run.setStatus(RunStatus.STARTING);
         run.setSeed(RANDOM.nextLong());
         run.setRecipeKey(project.getModelType());

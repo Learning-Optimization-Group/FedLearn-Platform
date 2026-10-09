@@ -1163,13 +1163,21 @@ def _declared_sources(meta):
 @pytest.mark.parametrize("meta", recipes.RECIPE_METADATA, ids=lambda m: m["key"])
 def test_every_declared_data_source_is_one_the_contract_can_state(meta):
     assert set(_declared_sources(meta)) <= set(execution_plan.DATA_SOURCES)
-    assert "FIXTURE" in _declared_sources(meta)
+    if meta.get("workload_kind") == "tree":
+        assert _declared_sources(meta) == ["LOCAL_SNAPSHOT"]
+    else:
+        assert "FIXTURE" in _declared_sources(meta)
 
 
 @pytest.mark.parametrize("meta", recipes.RECIPE_METADATA, ids=lambda m: m["key"])
 def test_a_recipe_offers_participants_own_data_only_with_a_plan_that_states_it(meta):
     """The picker offers a run on participants' own data from this declaration; a recipe without an execution plan
     has no contract to tell a device what data to bring, so it must not declare one."""
+    if meta.get("workload_kind") == "tree":
+        assert meta["key"] == "XGBOOST"
+        with pytest.raises(execution_plan.NotRepresentable):
+            execution_plan.resolve_model_training("XGBOOST", "XgbBagging", "FULL", data_source="LOCAL_SNAPSHOT")
+        return
     planned = [strategy for (key, strategy, arm) in execution_plan._PLANS if key == meta["key"]]
     if "LOCAL_SNAPSHOT" in _declared_sources(meta):
         assert planned, f"{meta['key']} declares LOCAL_SNAPSHOT but has no execution plan"

@@ -8,6 +8,8 @@ import {
   ContractIssueCode,
   ContractIssueCodeSchema,
   ExecutionContractSchema,
+  Recipe,
+  Strategy,
 } from '@/gen/fedlearn/contract/v1/execution_contract_pb';
 import {
   type ContractIssue,
@@ -38,6 +40,16 @@ type Corpus = { readerProtocolVersion: number; cases: Case[] };
 const corpus: Corpus = JSON.parse(fs.readFileSync(`${FIXTURES}/conformance.json`, 'utf8'));
 const goldenBytes = new Uint8Array(fs.readFileSync(`${FIXTURES}/golden_tinynet_fedavg.binpb`));
 const goldenJson = fs.readFileSync(`${FIXTURES}/golden_tinynet_fedavg.json`, 'utf8');
+
+it('keeps tree identifiers outside the version-1 vocabulary', () => {
+  const contract = parseContractJson(goldenJson);
+  contract.recipe = Recipe.XGBOOST;
+  contract.strategy = Strategy.XGB_BAGGING;
+  expect(validateContract(contract, {readerProtocolVersion:2})).toEqual(expect.arrayContaining([
+    {code:ContractIssueCode.ISSUE_UNKNOWN_ENUM,path:'recipe'},
+    {code:ContractIssueCode.ISSUE_UNKNOWN_ENUM,path:'strategy'},
+  ]));
+});
 
 function issueName(code: ContractIssueCode): string {
   return ContractIssueCodeSchema.value[code]?.name ?? `UNKNOWN_${code}`;

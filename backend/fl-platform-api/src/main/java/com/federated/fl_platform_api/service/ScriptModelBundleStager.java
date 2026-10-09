@@ -136,6 +136,10 @@ public class ScriptModelBundleStager implements ModelBundleStager {
 
     @Override
     public void stageForRun(UUID runId, String recipeKey) {
+        if ("XGBOOST".equals(recipeKey)) {
+            // The process launcher publishes the tree contract; this recipe has no mobile program.
+            return;
+        }
         if (!enabled) {
             // Feature off — don't even schedule, but say so: nothing will ever stage this run's bundle.
             failed(runId, false, "model-bundle auto-staging is disabled");

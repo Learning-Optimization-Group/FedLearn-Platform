@@ -392,6 +392,19 @@ RECIPE_METADATA = [
         "requirements": {"min_ram_gb": 1, "min_storage_gb": 0.01, "mobile_safe": True,
                          "max_trainable_params": 25, "min_os_android": 27, "min_os_ios": "13.0"},
     },
+    {
+        "key": "XGBOOST",
+        "workload_kind": "tree",
+        "supported_arms": ["FULL"],
+        "supported_data_sources": ["LOCAL_SNAPSHOT"],
+        "trainable_spec": {"FULL": None},
+        "display_name": "XGBoost binary classifier (4 numeric features)",
+        "input_kind": "vector",
+        "classes": ["0", "1"],
+        "base_models": ["xgboost_binary"],
+        "optimizers": ["TreeBoosting"],
+        "requirements": {"min_ram_gb": 2, "min_storage_gb": 0.1, "mobile_safe": False},
+    },
 ]
 
 _METADATA_BY_KEY = {r["key"]: r for r in RECIPE_METADATA}
@@ -1356,6 +1369,8 @@ class Recipe:
 
     def build_model(self, device="cpu", model_name=None, aggregation="FFA_LORA",
                     task_type="SEQ_CLASSIFICATION"):
+        if self.key == "XGBOOST":
+            raise ValueError("XGBoost uses the typed tree runtime, not the neural model builder")
         if self.key == "CIFAR_RESNET18":
             return build_cifar_resnet18(device)
         if self.key == "CNN":

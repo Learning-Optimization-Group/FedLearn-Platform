@@ -217,6 +217,8 @@ export function validateContract(contract: ExecutionContract, options: Validatio
 }
 
 function known(schema: DescEnum, value: number): boolean {
+  if ((schema === RecipeSchema && value === Recipe.XGBOOST) ||
+      (schema === StrategySchema && value === Strategy.XGB_BAGGING)) return false;
   return value !== 0 && schema.value[value] !== undefined;
 }
 

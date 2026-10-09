@@ -79,17 +79,19 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
   if (!project) return null;
 
   const isLlmLora = (project?.modelType ?? '').toUpperCase() === 'LLM_LORA';
-  const showRobust = !isLlmLora && strategy === 'Robust';
+  const isTree = project.modelType === 'XGBOOST';
+  const effectiveStrategy = isTree ? 'XgbBagging' : strategy;
+  const showRobust = !isTree && !isLlmLora && strategy === 'Robust';
   const selectedRule = ROBUST_RULES.find((r) => r.value === robustMethod);
   const recipe = recipes.find((r) => r.key.toUpperCase() === (project.modelType ?? '').toUpperCase());
   // Text federation trains no model on device data, so it has no data source to choose.
-  const showData = strategy !== 'FoT' && (recipe?.supportedDataSources ?? []).includes('LOCAL_SNAPSHOT');
-  const onOwnData = showData && ownData;
+  const showData = !isTree && strategy !== 'FoT' && (recipe?.supportedDataSources ?? []).includes('LOCAL_SNAPSHOT');
+  const onOwnData = isTree || (showData && ownData);
   // Secure aggregation masks only DeComFL's gradient scalars, so it is offered only there. Only phones train on
   // their own data and phones can't join a secure run yet, so it is not offered on participants' own data.
   const showSecure = !isLlmLora && strategy === 'DeComFL' && !onOwnData;
   // Text federation has no rounds of devices to size.
-  const showPerRound = isLlmLora || strategy !== 'FoT';
+  const showPerRound = !isTree && (isLlmLora || strategy !== 'FoT');
   const perRound = clientsPerRound ?? minClients;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,7 +100,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
     try {
       setIsLoading(true);
       const config: StartServerData = {
-        strategy,
+        strategy: effectiveStrategy,
         numRounds: Number(numRounds),
         minClients: Number(minClients),
       };
@@ -185,8 +187,8 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
           </FormField>
         ) : (
           <FormField label="Training method">
-            <Select value={strategy} onChange={(e) => setStrategy(e.target.value)}>
-              {STRATEGIES.map((s) => (
+            <Select value={effectiveStrategy} onChange={(e) => setStrategy(e.target.value)}>
+              {(isTree ? [{value:'XgbBagging', label:'XGBoost — combines trees trained by each client'}] : STRATEGIES).map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </Select>
@@ -249,6 +251,12 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
           </>
         )}
 
+        {isTree && (
+          <p className="text-caption text-fg-muted">
+            Each Python CPU client trains on its own CSV with columns f0, f1, f2, f3 and label (0 or 1).
+            All selected clients must contribute every round. Android clients cannot join this model yet.
+          </p>
+        )}
         {showData && (
           <>
             <FormField
@@ -323,7 +331,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
               required
             />
           </FormField>
-          <FormField label="Devices needed to start" help="The fewest a round can finish with if others drop out.">
+          <FormField label="Devices needed to start" help={isTree ? 'All these clients must finish every round.' : 'The fewest a round can finish with if others drop out.'}>
             <Input
               type="number"
               min="1"

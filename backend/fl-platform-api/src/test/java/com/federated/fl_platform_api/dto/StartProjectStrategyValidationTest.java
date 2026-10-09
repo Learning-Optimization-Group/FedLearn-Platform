@@ -25,6 +25,7 @@ class StartProjectStrategyValidationTest {
     }
 
     @Test void fedAvgAccepted()  { assertFalse(strategyRejected("FedAvg")); }
+    @Test void treeAggregationAccepted() { assertFalse(strategyRejected("XgbBagging")); }
     @Test void deComflAccepted() { assertFalse(strategyRejected("DeComFL")); }
     @Test void fotAccepted()     { assertFalse(strategyRejected("FoT")); }
 

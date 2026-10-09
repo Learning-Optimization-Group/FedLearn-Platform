@@ -5,6 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ProjectServiceStrategyTest {
 
+    @Test void treesRequireTreeAggregationAndNeuralModelsCannotRequestIt() {
+        assertEquals("XgbBagging", ProjectService.resolveStrategy("XGBOOST", null));
+        assertEquals("XgbBagging", ProjectService.resolveStrategy("XGBOOST", "XgbBagging"));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+            () -> ProjectService.resolveStrategy("XGBOOST", "FedAvg"));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+            () -> ProjectService.resolveStrategy("MLP", "XgbBagging"));
+    }
+
     @Test
     void llmLoraAlwaysForcesFedLoRA() {
         assertEquals("FedLoRA", ProjectService.resolveStrategy("LLM_LORA", "FedAvg"));

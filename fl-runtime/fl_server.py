@@ -1,3 +1,7 @@
+if __name__ == "__main__":
+    from workload_dispatch import dispatch_tree_cli
+    dispatch_tree_cli("server")
+
 import sys
 import io
 import os

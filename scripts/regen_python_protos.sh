@@ -52,7 +52,7 @@ trap 'rm -rf "$tmp"' EXIT
 python3 -m grpc_tools.protoc \
   -I "$PROTO_DIR" \
   --python_out="$tmp" --pyi_out="$tmp" --grpc_python_out="$tmp" \
-  "$PROTO_DIR/fedlearn.proto" "$PROTO_DIR/fot.proto"
+  "$PROTO_DIR/fedlearn.proto" "$PROTO_DIR/fot.proto" "$PROTO_DIR/tree.proto"
 
 # The execution contract is a data schema with no service, so it gets message stubs only.
 python3 -m grpc_tools.protoc \
