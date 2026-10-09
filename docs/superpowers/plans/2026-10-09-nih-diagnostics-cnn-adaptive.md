@@ -28,8 +28,8 @@ record every epoch and reload final checkpoints. Do not tune against the
 reference or official test set. This is a research configuration, not a change
 to published NIH platform contracts.
 
-- [ ] Driver regression tests RED, implementation, focused suite; local commit.
-- [ ] Sequential CNN/FedProx and CNN/FedOpt mixed qualification and exact replays.
+- [x] Driver regression tests RED, implementation, focused suite; local commit.
+- [x] Sequential CNN/FedProx and CNN/FedOpt mixed qualification and exact replays.
 - [ ] NIH source-bound packages,10-epoch controls, checkpoint reload, reference.
 - [ ] Curated reports/guides, final fresh whole-branch review, fixes/tests as
   appropriate, local commits, g14 fast-forward and root status context.
@@ -41,3 +41,25 @@ separate proportional reference metrics explicitly.
 Ruling: keep default FedOpt server settings in the mixed CNN execution proof.
 Cost: loss growth may prevent useful learning; preserve failures rather than
 claim convergence or change the contract silently.
+
+
+Driver:9 new regressions failed first and then passed; focused15 passed,
+full runtime611 passed with30 slow deselected. Commit322c7e5 synchronized to
+clean g14. Defaults preserve the original three controls.
+
+CNN: all8 contributions and both aggregates replay bitwise. Original native
+changed-label/rate/zero-mu controls differ. Registry reload on10,000 official
+CIFAR test images gives1509 correct (FedProx) and1000 (FedOpt). Phone compute
+about2.7 seconds/round; uploads248805 bytes. All27 dataset files preserved.
+
+Ruling: reproduce the actual one-thread desktop execution environment, not the
+shell default. Default-thread replay differed by1.32e-6; pinned replay is bitwise
+exact. Cost: bitwise research replay must retain numerical thread configuration.
+
+
+Ruling: a bounded timing probe measured mean NIH batch1.604 seconds with1 CPU
+thread and0.578 with4 (2.77x). Preserve the incomplete one-thread pilot and
+restart both fixed10-epoch configurations with4 threads, recorded in results.
+Cost: comparisons/replays must use their own retained thread configuration;
+old/new experiment numerical equivalence is not claimed. No configuration was
+selected from reference/test performance. Driver defaults still pin1 thread.

@@ -36,11 +36,12 @@ def binary_metrics(labels, probabilities):
     return result
 
 
-def control_settings(epochs, persistent_rates, reset_rates):
+def control_settings(epochs, persistent_rates, reset_rates, *, threads=1):
     """Keep comparisons explicit and bound their training budget."""
     controls = [(float(rate), False) for rate in persistent_rates]
     controls += [(float(rate), True) for rate in reset_rates]
     if (type(epochs) is not int or not 1 <= epochs <= 20 or not 1 <= len(controls) <= 4
+            or type(threads) is not int or not 1 <= threads <= 8
             or len(set(controls)) != len(controls)
             or any(not np.isfinite(rate) or rate <= 0 for rate, _ in controls)):
         raise ValueError('invalid or duplicated NIH control settings')
@@ -148,11 +149,13 @@ def main():
     parser.add_argument('--epochs', type=int, default=3)
     parser.add_argument('--persistent-rates', type=float, nargs='+', default=[.001, .0001])
     parser.add_argument('--reset-rates', type=float, nargs='*', default=[.001])
+    parser.add_argument('--threads', type=int, default=1)
     args = parser.parse_args()
     try:
-        controls = control_settings(args.epochs, args.persistent_rates, args.reset_rates)
+        controls = control_settings(args.epochs, args.persistent_rates, args.reset_rates, threads=args.threads)
     except ValueError as error:
         parser.error(str(error))
+    torch.set_num_threads(args.threads)
     if args.out.exists():
         parser.error('output already exists')
     bound = [bind_package(args.packages / (name + '.zip'), split=name,
@@ -171,6 +174,7 @@ def main():
         initial = {name.replace('__DOT__', '.'): torch.from_numpy(archive[name].copy()) for name in archive.files}
     net.load_state_dict(initial, strict=True)
     output = dict(torch_version=torch.__version__, numpy_version=np.__version__,
+                  torch_num_threads=torch.get_num_threads(),
                   initial_file_sha256=digest(args.initial.read_bytes()), training_count=len(training),
                   validation_count=len(validation), official_test_used=False,
                   source_receipt_verification='Full raw source verified when packages were prepared; copied package receipts checked here.',
@@ -190,5 +194,4 @@ def main():
 
 
 if __name__ == '__main__':
-    torch.set_num_threads(1)
     main()

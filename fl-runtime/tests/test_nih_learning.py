@@ -67,6 +67,16 @@ def test_default_control_settings_preserve_original_comparison():
         (.0001, False), (.00001, False)]
 
 
+@pytest.mark.parametrize('threads', [0, 9, True, 1.5])
+def test_invalid_cpu_thread_budget_refused(threads):
+    with pytest.raises(ValueError):
+        module.control_settings(10, [.0001], [], threads=threads)
+
+
+def test_explicit_cpu_thread_budget_keeps_control_identity():
+    assert module.control_settings(10, [.0001], [], threads=4) == [(.0001, False)]
+
+
 @pytest.mark.parametrize('epochs,persistent,reset', [
     (0, [.001], []), (21, [.001], []), (3, [], []),
     (3, [float('nan')], []), (3, [float('inf')], []),
