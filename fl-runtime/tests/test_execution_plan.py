@@ -1258,3 +1258,33 @@ def test_adam_round_cross_check_reads_the_selected_optimizer_rate(monkeypatch, r
     client._refuse_round_outside_contract(config)
     with pytest.raises(ValueError, match='execution contract'):
         client._refuse_round_outside_contract(dict(config, learning_rate='0.001'))
+
+
+@pytest.mark.parametrize('strategy,pb_strategy', [
+    ('FedOpt', pb.STRATEGY_FEDOPT), ('FedProx', pb.STRATEGY_FEDPROX)])
+@pytest.mark.parametrize('missing', ['both', 'learning_rate', 'local_epochs'])
+def test_adaptive_contract_refuses_missing_round_settings_before_optimizer(
+        monkeypatch, strategy, pb_strategy, missing):
+    import client
+    contract = _fedprox_contract() if strategy == 'FedProx' else _contract_for(strategy, pb_strategy)
+    monkeypatch.setattr(client, 'EXECUTION_CONTRACT', contract)
+    participant = _tinynet_fedavg_client(monkeypatch)
+    created = _recording_sgd(monkeypatch)
+    config = {'learning_rate': '0.01', 'local_epochs': '1',
+              'proximal_mu': '0.1' if strategy == 'FedProx' else '0'}
+    if missing == 'both':
+        config.pop('learning_rate')
+        config.pop('local_epochs')
+    else:
+        config.pop(missing)
+    with pytest.raises(ValueError, match='server learning_rate and local_epochs'):
+        participant.fit(participant.get_parameters(), config)
+    assert not created
+
+
+@pytest.mark.parametrize('config', [{'learning_rate': '0.001'}, {'local_epochs': '1'}])
+def test_contracted_fedavg_refuses_incomplete_setting_pair(monkeypatch, config):
+    import client
+    monkeypatch.setattr(client, 'EXECUTION_CONTRACT', _contract_for('FedAvg', pb.STRATEGY_FEDAVG))
+    with pytest.raises(ValueError, match='incomplete first-order server settings'):
+        client._refuse_round_outside_contract(config)

@@ -42,6 +42,12 @@ accuracy. Individual replay evidence is from the first run, and the repeat's
 full phone telemetry was not retained. Neither run establishes convergence or
 bitwise equivalence between PyTorch and ExecuTorch.
 
+ResNet/FedOpt keeps BatchNorm running mean and variance out of server optimizer
+moments and instead averages them with client example weights. This prevents
+valid variances from becoming negative under an adaptive step. Two-round
+regressions verify unequal client weights and finite BatchNorm evaluation;
+this image/adaptive combination still awaits a mixed-device live test.
+
 The catalog now allows ResNet on Android. Each device must still pass its own
 program self-test and resource checks. This decision does not qualify iOS.
 See the [ResNet receipt](../../research/results/on-device/resnet-mixed-2026-10-09.json).
@@ -56,7 +62,9 @@ changing a label produces a different phone update. Both clients' original
 runtime replays and server aggregation match their registered artifacts bitwise.
 
 The Python client now honors and checks the selected optimizer's contracted
-learning rate for every first-order recipe. Contracted finite losses are trained
+learning rate for every first-order recipe. FedOpt and FedProx require both
+server rate and epoch settings; incomplete pairs are refused on every contracted
+first-order run, matching native behavior. Contracted finite losses are trained
 even above 100; non-finite losses refuse an update instead of silently skipping
 batches. The latter mismatch was found during the first FedOpt run and verified
 in a new run after its fix.

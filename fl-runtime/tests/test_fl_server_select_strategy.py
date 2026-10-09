@@ -41,6 +41,36 @@ def _initial_parameters() -> "OrderedDict[str, torch.Tensor]":
     )
 
 
+def test_resnet_fedopt_averages_batchnorm_statistics_without_adaptive_steps():
+    initial = OrderedDict([('bn.weight', torch.tensor([1.])),
+                           ('bn.running_mean', torch.tensor([0.])),
+                           ('bn.running_var', torch.tensor([.01]))])
+    args = _args('FedOpt')
+    args.model_type = 'CIFAR_RESNET18'
+    strategy = fl_server.select_strategy(args, initial, None)
+    bn = torch.nn.BatchNorm1d(1).eval()
+    for round_ in (1, 2):
+        values = []
+        for weight, mean, variance, count in [(1.01, .1, .009, 1), (1.02, .2, .008, 3)]:
+            values.append(('client-' + str(count), OrderedDict([
+                ('bn.weight', torch.tensor([weight])),
+                ('bn.running_mean', torch.tensor([mean])),
+                ('bn.running_var', torch.tensor([variance]))]), count))
+        expected = fl.FedAvg(initial).aggregate_fit(round_, [
+            (identifier, OrderedDict((k, t.clone()) for k, t in state.items()), n)
+            for identifier, state, n in values])
+        result = strategy.aggregate_fit(round_, values)
+        assert torch.equal(result['bn.running_var'], expected['bn.running_var'])
+        assert torch.equal(result['bn.running_mean'], expected['bn.running_mean'])
+        assert not torch.equal(result['bn.weight'], expected['bn.weight'])
+        assert set(strategy._m) == {'bn.weight'}
+        assert set(strategy._v) == {'bn.weight'}
+        bn.running_var.copy_(result['bn.running_var'])
+        bn.running_mean.copy_(result['bn.running_mean'])
+        bn.weight.data.copy_(result['bn.weight'])
+        assert torch.isfinite(bn(torch.ones(2, 1))).all()
+
+
 @pytest.mark.parametrize(
     "strategy_name,expected_cls",
     [

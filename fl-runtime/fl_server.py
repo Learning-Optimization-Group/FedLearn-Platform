@@ -511,6 +511,10 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             # The client training the execution contract publishes for FedOpt runs; one source for both.
             learning_rate=strategy_client_settings.FEDOPT_CLIENT_LEARNING_RATE,
             local_epochs=strategy_client_settings.FEDOPT_CLIENT_LOCAL_EPOCHS,
+            # ResNet's floating BatchNorm statistics travel with model state but are not parameters.
+            buffer_names=(tuple(k for k in initial_parameters
+                                if k.endswith(('.running_mean', '.running_var')))
+                          if getattr(args, 'model_type', '').upper() == 'CIFAR_RESNET18' else ()),
         )
     elif args.strategy.lower() == 'robust':
         # FR-12: Byzantine-robust aggregation. The METHOD is selectable -- median and

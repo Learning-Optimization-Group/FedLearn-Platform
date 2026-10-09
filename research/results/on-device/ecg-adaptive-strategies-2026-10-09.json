@@ -309,5 +309,10 @@
     "qualification": "Row/content separation; source provides no patient identifiers",
     "record_receipt_sha256": "44343dccf6fed4ae7fdaf6c2b4c2c48e762fc2fd87cae208fa539bb7f1198d3e",
     "patient_separation": "Not claimed; source has no patient IDs."
-  }
+  },
+  "post_qualification_review_fixes": [
+    "Missing rate/epoch settings are refused for FedOpt/FedProx before creating the optimizer.",
+    "Incomplete rate/epoch pairs are refused for all contracted first-order clients.",
+    "ResNet FedOpt averages BatchNorm buffers instead of adapting their moments; verified with two rounds and unequal weights, not a mixed-device live run."
+  ]
 }

@@ -23,7 +23,7 @@ Execution: inline; one fresh whole-branch correctness review at the end.
   meaningful split/schema/replay tests. Default binary Iris; real platform CPU
   run with Mac/g14, external heldout and centralized comparison; record exact
   receipts, inference mapping, provenance and limits.
-- [ ] Final review/fixes, appropriate full checks, clean local commits and
+- [x] Final review/fixes, appropriate full checks, clean local commits and
   g14 fast-forward, update guides and root mobile-status-context. No merge/push.
 
 Review focus: leakage/duplicate rows; integer BatchNorm buffers; optimizer
@@ -79,3 +79,35 @@ reload on 10,000 official test images gives 3485 correct (34.85%). The repeat's
 full phone telemetry and individual replay are not claimed. Catalog cleared
 only after actual original native proof. Curated receipts retain source/APK
 and artifact/contract identities.
+
+
+Final review: two substantive findings accepted. Regression tests first failed:
+9 runtime cases and3 framework cases. Both fixes passed focused suites
+(9 runtime,22 framework with3 accelerator skips). Python refuses missing rate/
+epoch pairs for both adaptive methods and partial pairs for every contracted
+first-order method, matching native behavior. ResNet FedOpt explicitly averages
+floating BatchNorm running statistics, excludes them from Adam/Yogi moments,
+and keeps actual parameters adaptive. Two-round unequal-weight/evaluation
+regression passed. Final full suites are running after these fixes.
+
+Final: Ruling: clinical usefulness, convergence, unqualified image/adaptive
+combinations and cross-runtime numerical equivalence remain outside the proof;
+all are explicitly limited in reports. Cost: more experiments are required
+before any such performance or broad-support claim. Live hardware/private
+replay receipts were produced during execution, not rerun during final review.
+No minor findings were deferred.
+
+
+Final: fixed invalid ResNet FedOpt BatchNorm adaptation — unequal-weight,
+two-round finite-evaluation regression RED→GREEN plus Adam/Yogi explicit-buffer
+and unknown-name regressions; full framework1362 passed,13 deselected,
+78.75% coverage (required73%).
+Final: fixed missing/partial adaptive server settings — six adaptive omission
+and two partial-pair regressions RED→GREEN; full runtime602 passed,
+30 slow deselected. Backend1167 tests/coverage, mobile658/lint/types, native
+CTest/eight Adam cases, Iris7 and proto-mirror checks passed earlier in this
+slice and those components were unchanged by the final Python corrections.
+
+Finish: keep feature branch and isolated checkout; preserve user edits and
+private qualification artifacts. No push/merge to main. g14 is fast-forwarded
+to the final source and curated reports under its requested codebase directory.

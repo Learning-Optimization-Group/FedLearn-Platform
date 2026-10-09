@@ -667,6 +667,13 @@ def _refuse_round_outside_contract(config: dict) -> None:
     """
     if EXECUTION_CONTRACT is None:
         return
+    from fedlearn.communication.generated import execution_contract_pb2 as pb
+    has_rate = 'learning_rate' in config
+    has_epochs = 'local_epochs' in config
+    if EXECUTION_CONTRACT.strategy in (pb.STRATEGY_FEDOPT, pb.STRATEGY_FEDPROX) and not (has_rate and has_epochs):
+        raise ValueError('first-order strategy requires server learning_rate and local_epochs')
+    if has_rate != has_epochs:
+        raise ValueError('incomplete first-order server settings')
     local = EXECUTION_CONTRACT.model_training.local_training
     rate = _coerce_learning_rate(config)
     optimizer = local.WhichOneof('optimizer')
