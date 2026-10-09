@@ -299,6 +299,24 @@ def evaluation_load_is_strict(model_type, training_arm, withheld=0):
         return True        # unknown recipe/arm: keep the stricter behaviour
 
 
+def load_evaluation_data(args, *, is_llm, num_clients, dataset_path):
+    """Load the run's evaluation data; the golden TinyNet has no evaluation dataset."""
+    if args.model_type.upper() == 'TINYNET_GOLDEN':
+        logging.info('TinyNet golden run skips dataset loading and server-side evaluation')
+        return None
+    if args.model_type == 'LLM_LORA':
+        return recipes.get_recipe('LLM_LORA').load_server_test_data(
+            model_name=args.model_name, task_type=args.task_type)
+    if args.model_type == 'PNEUMONIA_CNN':
+        return recipes.get_recipe('PNEUMONIA_CNN').load_server_test_data(batch_size=32)
+    if args.model_type == 'MLP' and args.dataset == 'ecg':
+        return recipes.get_recipe('MLP').load_server_test_data(
+            num_clients=num_clients, dataset_path=dataset_path)
+    if args.model_type == 'CIFAR_RESNET18':
+        return recipes.get_recipe('CIFAR_RESNET18').load_server_test_data()
+    return load_server_test_data(is_llm, args.dataset if is_llm else None)
+
+
 def select_strategy(args, initial_parameters, evaluate_fn):
     """Map ``--strategy`` to a constructed framework Strategy instance.
 
@@ -813,32 +831,9 @@ def main():
     is_pneumonia = args.model_type == 'PNEUMONIA_CNN'
     is_llm_lora = args.model_type == 'LLM_LORA'
     is_causal = is_llm_lora and args.task_type.upper() == "CAUSAL_LM"
-    if is_llm_lora:
-        # NOTE: `recipes` and `json` are imported at MODULE scope. Re-importing either here
-        # would make the name local to all of main(), turning the arm filter's earlier
-        # use of `recipes` into an UnboundLocalError — which is exactly what stopped a
-        # FROZEN_HEAD server from ever starting. Guarded by tests/test_fl_server_arm_scope.py.
-        test_loader = recipes.get_recipe('LLM_LORA').load_server_test_data(model_name=args.model_name, task_type=args.task_type)
-        logging.info("Loaded LLM_LORA server test data via recipes.LLM_LORA")
-    elif is_pneumonia:
-        test_loader = recipes.get_recipe('PNEUMONIA_CNN').load_server_test_data(batch_size=32)
-        logging.info("Loaded chest X-ray test data via recipes.PNEUMONIA_CNN (NORMAL/PNEUMONIA)")
-    elif is_mlp and args.dataset == "ecg":
-        # DA-14 Phase 1: server ECG test set via the recipe registry (byte-identical). The recipe
-        # sources batch/alpha/frac/test_size/seed from the ecg config; num_clients is passed through
-        # (config.num_clients) so the split-cache key matches the legacy call site exactly.
-        test_loader = recipes.get_recipe("MLP").load_server_test_data(
-            num_clients=config.num_clients, dataset_path=dataset_path)
-        logging.info("Loaded ECG server test data via recipes.MLP")
-    elif args.model_type == 'CIFAR_RESNET18':
-        # Same CIFAR-10 test split as the CNN recipe, but under the ImageNet transform the frozen
-        # backbone expects. Evaluating pretrained features through CIFAR's [-1,1] normalisation
-        # would silently degrade every feature and understate the arm.
-        test_loader = recipes.get_recipe('CIFAR_RESNET18').load_server_test_data()
-        logging.info("Loaded CIFAR-10 server test data via recipes.CIFAR_RESNET18 (ImageNet transform)")
-    else:
-        # Load CIFAR-10 or LLM test data
-        test_loader = load_server_test_data(is_llm, args.dataset if is_llm else None)
+    test_loader = load_evaluation_data(args, is_llm=is_llm,
+                                       num_clients=config.num_clients if is_mlp else num_clients,
+                                       dataset_path=dataset_path)
 
     # --- Benchmark suite: per-round rich-metric capture. Additive side-channel;
     # the existing RoundResult flow (loss/accuracy POST) is left untouched. The
