@@ -66,21 +66,8 @@ def _source(root):
     return rows, train, test
 
 
-def prepare_dataset(root, output, *, num_clients=2, validation_fraction=0.2, seed=42):
-    """Write complete CSV splits/client manifests and a reproducibility report.
-
-    Patient groups are stratified by any pneumonia finding, ordered by seeded
-    SHA-256, then divided into validation and round-robin client groups. This
-    balances patient strata, not image counts; no image is dropped or duplicated.
-    """
-    root, output = Path(root), Path(output)
-    if output.exists():
-        raise FileExistsError("refusing to overwrite prepared dataset")
-    if (type(num_clients) is not int or num_clients < 1 or type(seed) is not int
-            or not isinstance(validation_fraction, (float, int)) or isinstance(validation_fraction, bool)
-            or not math.isfinite(validation_fraction) or not 0 < validation_fraction < 1):
-        raise ValueError("invalid client count, validation fraction or seed")
-    rows, train_names, test_names = _source(root)
+def partition_rows(rows, train_names, test_names, *, num_clients, validation_fraction, seed):
+    """The preparation algorithm, also used to verify manifest ownership at runtime."""
     patient_positive = {}
     for name in train_names:
         row = rows[name]
@@ -108,6 +95,26 @@ def prepare_dataset(root, output, *, num_clients=2, validation_fraction=0.2, see
         raise ValueError("prepared splits have patient overlap")
     if sum(len(split_rows[f"client-{i}"]) for i in range(num_clients)) != len(split_rows["train"]):
         raise ValueError("client manifests do not cover training images")
+    return split_rows
+
+
+def prepare_dataset(root, output, *, num_clients=2, validation_fraction=0.2, seed=42):
+    """Write complete CSV splits/client manifests and a reproducibility report.
+
+    Patient groups are stratified by any pneumonia finding, ordered by seeded
+    SHA-256, then divided into validation and round-robin client groups. This
+    balances patient strata, not image counts; no image is dropped or duplicated.
+    """
+    root, output = Path(root), Path(output)
+    if output.exists():
+        raise FileExistsError("refusing to overwrite prepared dataset")
+    if (type(num_clients) is not int or num_clients < 1 or type(seed) is not int
+            or not isinstance(validation_fraction, (float, int)) or isinstance(validation_fraction, bool)
+            or not math.isfinite(validation_fraction) or not 0 < validation_fraction < 1):
+        raise ValueError("invalid client count, validation fraction or seed")
+    rows, train_names, test_names = _source(root)
+    split_rows = partition_rows(rows, train_names, test_names, num_clients=num_clients,
+                                validation_fraction=validation_fraction, seed=seed)
     report = dict(schema_version=1, dataset="NIH_ChestXray14", classes=CLASSES,
                   label_definition="Pneumonia present in report-derived Finding Labels versus absent; absent is not normal",
                   seed=seed, num_clients=num_clients, validation_fraction=validation_fraction,

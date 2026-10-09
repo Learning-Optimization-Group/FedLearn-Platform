@@ -393,6 +393,20 @@ RECIPE_METADATA = [
                          "max_trainable_params": 25, "min_os_android": 27, "min_os_ios": "13.0"},
     },
     {
+        "key": "NIH_PNEUMONIA_CNN",
+        "supported_arms": ["FULL"],
+        "supported_data_sources": ["LOCAL_SNAPSHOT"],
+        "supported_strategies": ["FedAvg", "Robust"],
+        "trainable_spec": {"FULL": None},
+        "display_name": "NIH pneumonia finding (present / absent)",
+        "input_kind": "image",
+        "classes": ["PNEUMONIA_ABSENT", "PNEUMONIA_PRESENT"],
+        "base_models": ["nih_pneumonia_cnn"],
+        "optimizers": ["Adam"],
+        "requirements": {"min_ram_gb": 4, "min_storage_gb": 0.5, "mobile_safe": False,
+                         "max_trainable_params": 25783554, "min_os_android": 27},
+    },
+    {
         "key": "XGBOOST",
         "workload_kind": "tree",
         "supported_arms": ["FULL"],
@@ -1364,7 +1378,7 @@ class Recipe:
         CNN/MLP joined after the DA-14 Phase-1 collapse (model + client/server data now in the
         registry). TRANSFORMER is NOT here yet — its model + tokenizer are collapsed but its data
         loading still lives in client.py/data.py."""
-        return self.key in ("PNEUMONIA_CNN", "LLM_LORA", "BLOOD_CNN", "TINYNET_GOLDEN", "CNN", "MLP",
+        return self.key in ("PNEUMONIA_CNN", "NIH_PNEUMONIA_CNN", "LLM_LORA", "BLOOD_CNN", "TINYNET_GOLDEN", "CNN", "MLP",
                             "FROZEN_DEMO")
 
     def build_model(self, device="cpu", model_name=None, aggregation="FFA_LORA",
@@ -1406,7 +1420,7 @@ class Recipe:
             return build_frozen_backbone_model(num_classes=len(self.classes), device=device)
         if self.key == "TINYNET_GOLDEN":
             return build_tinynet_golden().to(device)
-        if self.key == "PNEUMONIA_CNN":
+        if self.key in ("PNEUMONIA_CNN", "NIH_PNEUMONIA_CNN"):
             return build_pneumonia_cnn().to(device)
         if self.key == "BLOOD_CNN":
             return build_blood_cnn().to(device)
@@ -1426,7 +1440,7 @@ class Recipe:
         raise NotImplementedError(f"build_model not implemented in recipes.py for {self.key}")
 
     def input_transform(self, model_name=None):
-        if self.key == "PNEUMONIA_CNN":
+        if self.key in ("PNEUMONIA_CNN", "NIH_PNEUMONIA_CNN"):
             return pneumonia_transform()
         if self.key == "BLOOD_CNN":
             return blood_transform()
@@ -1443,6 +1457,8 @@ class Recipe:
         raise NotImplementedError(f"input_transform not implemented in recipes.py for {self.key}")
 
     def load_client_data(self, partition_id, num_clients, task_type="SEQ_CLASSIFICATION", **kw):
+        if self.key == "NIH_PNEUMONIA_CNN":
+            raise ValueError("NIH clients require a LOCAL_SNAPSHOT contract and explicit own dataset path")
         if self.key == "PNEUMONIA_CNN":
             return load_pneumonia_client_data(partition_id, num_clients, **kw)
         if self.key == "BLOOD_CNN":
@@ -1462,6 +1478,14 @@ class Recipe:
         raise NotImplementedError(f"load_client_data not implemented in recipes.py for {self.key}")
 
     def load_server_test_data(self, task_type="SEQ_CLASSIFICATION", **kw):
+        if self.key == "NIH_PNEUMONIA_CNN":
+            from nih_runtime import validation_loader
+            source, prepared = os.environ.get("FEDLEARN_NIH_SOURCE"), os.environ.get("FEDLEARN_NIH_PREPARED")
+            if not source or not prepared:
+                raise ValueError("NIH evaluation requires FEDLEARN_NIH_SOURCE and FEDLEARN_NIH_PREPARED")
+            limit = os.environ.get("FEDLEARN_NIH_EVAL_MAX_IMAGES")
+            return validation_loader(source, prepared, max_images=int(limit) if limit else None,
+                                     seed=int(os.environ.get("FEDLEARN_NIH_EVAL_SEED", "42")), **kw)
         if self.key == "PNEUMONIA_CNN":
             return load_pneumonia_server_test_data(**kw)
         if self.key == "BLOOD_CNN":

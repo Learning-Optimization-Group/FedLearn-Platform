@@ -308,6 +308,13 @@ public class ProjectService {
     }
 
     static String resolveStrategy(String modelType, String requestedStrategy) {
+        if ("NIH_PNEUMONIA_CNN".equals(modelType)) {
+            String strategy = requestedStrategy == null || requestedStrategy.isEmpty() ? "FedAvg" : requestedStrategy;
+            if (!"FedAvg".equals(strategy) && !"Robust".equals(strategy)) {
+                throw new IllegalArgumentException("NIH pneumonia requires FedAvg or Robust");
+            }
+            return strategy;
+        }
         if ("XGBOOST".equals(modelType)) {
             if (requestedStrategy != null && !requestedStrategy.isEmpty() && !"XgbBagging".equals(requestedStrategy)) {
                 throw new IllegalArgumentException("XGBoost requires the XgbBagging strategy");
@@ -371,6 +378,16 @@ public class ProjectService {
                 || Boolean.TRUE.equals(request.getInitFromPretrained())
                 || (request.getTaskType() != null && !"SEQ_CLASSIFICATION".equals(request.getTaskType())))) {
             throw new IllegalArgumentException("XGBoost requires xgboost_binary, TreeBoosting, zero pretraining and FULL; DP and derivation are unsupported");
+        }
+
+        if ("NIH_PNEUMONIA_CNN".equals(request.getModelType()) &&
+                (!"nih_pneumonia_cnn".equals(request.getModelName()) || !"Adam".equals(request.getOptimizer())
+                || request.getPretrainEpochs() == null || request.getPretrainEpochs() != 0
+                || (request.getTrainingArm() != null && !"FULL".equals(request.getTrainingArm()))
+                || Boolean.TRUE.equals(request.getDpEnabled()) || Boolean.TRUE.equals(request.getRegulated())
+                || Boolean.TRUE.equals(request.getInitFromPretrained())
+                || (request.getTaskType() != null && !"SEQ_CLASSIFICATION".equals(request.getTaskType())))) {
+            throw new IllegalArgumentException("NIH pneumonia requires nih_pneumonia_cnn, Adam, zero pretraining and FULL; DP and derivation are unsupported");
         }
 
         User owner = authz.currentUser();
@@ -511,6 +528,11 @@ public class ProjectService {
         if ("XGBOOST".equals(project.getModelType()) && (dataSource != TrainingDataSource.LOCAL_SNAPSHOT
                 || clientsPerRound != minClients || project.isDpEnabled() || secureAggThreshold != null)) {
             throw new IllegalArgumentException("XGBoost requires LOCAL_SNAPSHOT and a fixed non-DP cohort");
+        }
+
+        if ("NIH_PNEUMONIA_CNN".equals(project.getModelType()) &&
+                (dataSource != TrainingDataSource.LOCAL_SNAPSHOT || project.isDpEnabled() || secureAggThreshold != null)) {
+            throw new IllegalArgumentException("NIH pneumonia requires LOCAL_SNAPSHOT without DP or secure aggregation");
         }
 
         Integer numRoundsToUse;

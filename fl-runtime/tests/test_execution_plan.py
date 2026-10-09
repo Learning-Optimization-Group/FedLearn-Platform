@@ -1163,7 +1163,7 @@ def _declared_sources(meta):
 @pytest.mark.parametrize("meta", recipes.RECIPE_METADATA, ids=lambda m: m["key"])
 def test_every_declared_data_source_is_one_the_contract_can_state(meta):
     assert set(_declared_sources(meta)) <= set(execution_plan.DATA_SOURCES)
-    if meta.get("workload_kind") == "tree":
+    if meta.get("workload_kind") == "tree" or meta["key"] == "NIH_PNEUMONIA_CNN":
         assert _declared_sources(meta) == ["LOCAL_SNAPSHOT"]
     else:
         assert "FIXTURE" in _declared_sources(meta)

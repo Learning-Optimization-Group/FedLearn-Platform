@@ -185,6 +185,12 @@ def build_eval_card(args, history, strategy=None) -> str:
         # different modules, and the name alone is not a checkable provenance claim.
         "trainable_prefixes": _prefixes,
     }
+    if args.model_type == "NIH_PNEUMONIA_CNN":
+        from nih_dataset import CLASSES
+        card["nih"] = {"classes": CLASSES, "evaluation": getattr(args, "nih_evaluation_provenance", None),
+            "metrics": {k: final[k] for k in ("balanced_accuracy", "auroc", "average_precision", "majority_accuracy",
+                "true_positive", "true_negative", "false_positive", "false_negative", "positive_images",
+                "negative_images", "record_count") if k in final}}
     if strategy is not None and getattr(strategy, "dp_enabled", False):
         card["dp"] = {
             "enabled": True,
@@ -311,14 +317,29 @@ def load_evaluation_data(args, *, is_llm, num_clients, dataset_path):
     if args.model_type == 'LLM_LORA':
         return recipes.get_recipe('LLM_LORA').load_server_test_data(
             model_name=args.model_name, task_type=args.task_type)
-    if args.model_type == 'PNEUMONIA_CNN':
-        return recipes.get_recipe('PNEUMONIA_CNN').load_server_test_data(batch_size=32)
+    if args.model_type in ('PNEUMONIA_CNN', 'NIH_PNEUMONIA_CNN'):
+        return recipes.get_recipe(args.model_type).load_server_test_data(batch_size=32)
     if args.model_type == 'MLP' and args.dataset == 'ecg':
         return recipes.get_recipe('MLP').load_server_test_data(
             num_clients=num_clients, dataset_path=dataset_path)
     if args.model_type == 'CIFAR_RESNET18':
         return recipes.get_recipe('CIFAR_RESNET18').load_server_test_data()
     return load_server_test_data(is_llm, args.dataset if is_llm else None)
+
+
+def benchmark_accuracy_target(args):
+    """NIH's imbalanced binary labels have no generic dataset accuracy target."""
+    if args.model_type == "NIH_PNEUMONIA_CNN":
+        return None
+    return {"cb": 0.75, "sst2": 0.85, "ecg": 0.80}.get(getattr(args, "dataset", None))
+
+
+def nih_benchmark_metrics(metrics):
+    names = {"average_precision": "averagePrecision", "majority_accuracy": "majorityAccuracy",
+             "true_positive": "truePositive", "false_negative": "falseNegative",
+             "true_negative": "trueNegative", "false_positive": "falsePositive",
+             "positive_images": "positiveImages", "negative_images": "negativeImages"}
+    return {target: metrics[source] for source, target in names.items()}
 
 
 def select_strategy(args, initial_parameters, evaluate_fn):
@@ -334,6 +355,10 @@ def select_strategy(args, initial_parameters, evaluate_fn):
     hyperparameters — full plumbing of those values from the run config / project UI is a
     separate follow-up.
     """
+    if getattr(args, "model_type", None) == "NIH_PNEUMONIA_CNN" and (
+            args.strategy.lower() not in ("fedavg", "robust")
+            or getattr(args, "dp_enabled", False) or getattr(args, "secure_aggregation", False)):
+        raise ValueError("NIH pneumonia requires FedAvg or Robust without DP or secure aggregation")
     # --clients-per-round: a round completes as soon as this many updates arrive, and the deadline still resolves it
     # with min_clients. Omitted, every strategy falls back to min_clients as before. getattr keeps hand-built
     # namespaces that predate the flag working.
@@ -832,7 +857,7 @@ def main():
         exit(1)
 
     # Load test data for server-side evaluation
-    is_pneumonia = args.model_type == 'PNEUMONIA_CNN'
+    is_pneumonia = args.model_type in ('PNEUMONIA_CNN', 'NIH_PNEUMONIA_CNN')
     is_llm_lora = args.model_type == 'LLM_LORA'
     is_causal = is_llm_lora and args.task_type.upper() == "CAUSAL_LM"
     test_loader = load_evaluation_data(args, is_llm=is_llm,
@@ -852,7 +877,7 @@ def main():
     _bench_num_classes = len(_bench_classes) if _bench_classes else None
     # Per-recipe accuracy target → time-to-target-accuracy (TTA) in the run
     # summary. Mirrors the dataset targets used in the training summary below.
-    _bench_target = {"cb": 0.75, "sst2": 0.85, "ecg": 0.80}.get(getattr(args, "dataset", None))
+    _bench_target = benchmark_accuracy_target(args)
 
     # Define server-side evaluation function
     def server_side_evaluate(server_round: int, parameters: OrderedDict[str, torch.Tensor]) -> tuple[float, dict]:
@@ -1103,6 +1128,13 @@ def main():
             all_labels, all_preds, y_score=_bench_scores,
             num_classes=_bench_num_classes, class_names=_bench_classes,
         )
+        nih_metrics = None
+        if args.model_type == "NIH_PNEUMONIA_CNN":
+            from nih_runtime import binary_metrics
+            nih_metrics = binary_metrics(all_labels, _bench_scores[:, 1])
+            _bq["balancedAccuracy"] = nih_metrics["balanced_accuracy"]
+            _bq["rocAuc"] = nih_metrics["auroc"]
+            args.nih_evaluation_provenance = test_loader.dataset.provenance
         _bq["loss"] = round(float(avg_loss), 6)
         _bs = benchmarks.model_size(parameters)
         _now = time.time()
@@ -1115,10 +1147,14 @@ def main():
             param_count=_bs["paramCount"], model_size_mb=_bs["modelSizeMb"],
             client_count=getattr(args, "min_clients", None),
             target_accuracy=_bench_target,
+            extra=nih_benchmark_metrics(nih_metrics) if nih_metrics is not None else None,
         ))
         round_clock["last"] = _now
 
-        return avg_loss, {"accuracy": accuracy}
+        metrics = {"accuracy": accuracy}
+        if nih_metrics is not None:
+            metrics.update({key: value for key, value in nih_metrics.items() if key != "accuracy"})
+        return avg_loss, metrics
 
     # LLM_LORA does not support DeComFL — the zeroth-order path requires a flat
     # float-vector parameter space that is incompatible with adapter-only sync.

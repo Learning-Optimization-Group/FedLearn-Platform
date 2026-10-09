@@ -36,7 +36,8 @@ def prepare(img, recipe_key: str) -> np.ndarray:
     import torchvision.transforms as T
     import recipes
     transforms = {"CNN": recipes._cnn_transform, "CIFAR_RESNET18": recipes._resnet18_transform,
-                  "PNEUMONIA_CNN": recipes.pneumonia_transform}[recipe_key]().transforms
+                  "PNEUMONIA_CNN": recipes.pneumonia_transform,
+                  "NIH_PNEUMONIA_CNN": recipes.pneumonia_transform}[recipe_key]().transforms
     if not any(isinstance(t, T.Grayscale) for t in transforms):
         img = img.convert("RGB")
     for t in transforms:

@@ -17,6 +17,7 @@ class Recipe(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     RECIPE_TRANSFORMER: _ClassVar[Recipe]
     RECIPE_LLM_LORA: _ClassVar[Recipe]
     RECIPE_XGBOOST: _ClassVar[Recipe]
+    RECIPE_NIH_PNEUMONIA_CNN: _ClassVar[Recipe]
 
 class Strategy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -156,6 +157,7 @@ RECIPE_CIFAR_RESNET18: Recipe
 RECIPE_TRANSFORMER: Recipe
 RECIPE_LLM_LORA: Recipe
 RECIPE_XGBOOST: Recipe
+RECIPE_NIH_PNEUMONIA_CNN: Recipe
 STRATEGY_UNSPECIFIED: Strategy
 STRATEGY_DECOMFL: Strategy
 STRATEGY_FEDAVG: Strategy

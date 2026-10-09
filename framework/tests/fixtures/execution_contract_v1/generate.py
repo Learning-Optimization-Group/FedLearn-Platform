@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import base64
 import copy
+import hashlib
 import json
 import os
 
@@ -253,6 +254,15 @@ def _image(doc, shape, transforms):
     doc[MT]["task"] = "TASK_IMAGE_CLASSIFICATION"
     doc[MT]["data"].update({"task": "TASK_IMAGE_CLASSIFICATION", "inputShape": [str(n) for n in shape],
                             "transforms": transforms})
+
+
+def _nih(doc, source="DATA_SOURCE_LOCAL_SNAPSHOT", strategy="STRATEGY_FEDAVG"):
+    _image(doc, [1, 224, 224], [GRAY_224, NORM_GRAY_HALF])
+    doc.update(recipe="RECIPE_NIH_PNEUMONIA_CNN", strategy=strategy)
+    doc[MT]["modelId"] = "nih_pneumonia_cnn"
+    classes = ["PNEUMONIA_ABSENT", "PNEUMONIA_PRESENT"]
+    schema = "labels-sha256:" + hashlib.sha256(json.dumps(classes, separators=(",", ":")).encode()).hexdigest()
+    doc[MT]["data"].update(source=source, classCount=2, labelSchemaId=schema)
 
 
 BN1 = {"module": "bn1", "numFeatures": 64, "momentum": 0.1, "eps": 1e-05, "valuesPerExample": 3136,
@@ -768,6 +778,14 @@ def build_conformance() -> dict:
                                                                          "std": [0.229, 0.224, 0.225]}}]),
                          d.update({"recipe": "RECIPE_CIFAR_RESNET18"}),
                          d[MT].update({"batchNorm": [dict(BN1), dict(BN2)]}))),
+        _json("nih_local_image_contract", "NIH uses explicit absent/present local image data.", _nih),
+        _json("nih_robust_local_image_contract", "NIH approves Robust first-order training.",
+              lambda d: _nih(d, strategy="STRATEGY_ROBUST")),
+        _json("nih_fixture_refused", "NIH has no built-in shared fixture data.",
+              lambda d: _nih(d, source="DATA_SOURCE_FIXTURE"),
+              ("UNSUPPORTED_COMBINATION", DATA + ".source")),
+        _json("nih_fedopt_refused", "NIH approves only FedAvg and Robust.",
+              lambda d: _nih(d, strategy="STRATEGY_FEDOPT"), UNAPPROVED),
         _json("pneumonia_grayscale_image_contract",
               "The pneumonia CNN on normalised 224x224 grayscale X-rays, with seeded dropout, is in the v1 matrix.",
               lambda d: (_image(d, [1, 224, 224], [GRAY_224, NORM_GRAY_HALF]),

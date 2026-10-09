@@ -28,12 +28,43 @@ The report records input and manifest SHA-256 values, algorithm, seed,
 image/patient/positive counts and overlap checks. Filename/metadata checks do
 not establish that all image contents are uncorrupted.
 
-NIH manifests are **not** a direct input to the existing `PNEUMONIA_CNN`
-loader: its contract states `NORMAL/PNEUMONIA`. NIH needs an explicit
-dataset-specific label contract and manifest evaluation loader before platform
-training. Do not create `NORMAL` folders from NIH negatives to bypass that
-distinction. XGBoost additionally needs a fixed numeric feature extractor;
-raw image manifests do not supply its tabular schema.
+Use the separate `NIH_PNEUMONIA_CNN` recipe, base model
+`nih_pneumonia_cnn`, Adam, FULL and zero pretraining. Its supported training
+methods are FedAvg and Robust, with `LOCAL_SNAPSHOT` data. The existing
+`PNEUMONIA_CNN` retains `NORMAL/PNEUMONIA` semantics.
+
+The Python client accepts its own `client-N.csv` via `--dataset-path`, with
+`--nih-source` pointing to the original image root and `--partition-id N`.
+It verifies metadata, manifest hashes, labels and patient ownership, then loads
+images lazily without materializing the full prepared partition in memory.
+Image contents are hashed at binding and checked again when read.
+
+Configure server evaluation with `FEDLEARN_NIH_SOURCE` and
+`FEDLEARN_NIH_PREPARED`. It evaluates `validation.csv`; the official test
+manifest is never used for round monitoring. By default all validation images
+are evaluated. An explicit `FEDLEARN_NIH_EVAL_MAX_IMAGES` limit and
+`FEDLEARN_NIH_EVAL_SEED` (default 42) produce a recorded proportional sample.
+The registry card includes actual counts, source/manifest/sample/image hashes,
+accuracy, balanced accuracy, AUROC, average precision, confusion counts and
+majority baseline. Ranking metrics are null when the sample has one class.
+NIH has no generic accuracy target in the benchmark dashboard.
+
+A phone or a Python client can instead import a bounded image package:
+
+```sh
+python scripts/make_nih_image_package.py --source data/NIH_Chest_Xray \
+  --prepared output/nih-pneumonia --manifest client-0.csv \
+  --out output/nih-phone.zip --count 32 --seed 42 --balanced --patient-unique
+```
+
+Balancing and patient-unique selection are explicit sample choices, intended
+here for execution qualification. Omitting them preserves proportional image
+sampling. The sidecar records selected records, counts and hashes. Held-out
+packages require `--purpose eval`, and must not be used as training data.
+Outputs are never overwritten. Pixels use the recipe's PIL grayscale/resize;
+contracted float32 conversion and normalization reproduce Python tensor bits.
+XGBoost additionally needs a fixed numeric feature extractor; raw NIH images
+do not supply its tabular schema.
 
 ## Python image clients
 

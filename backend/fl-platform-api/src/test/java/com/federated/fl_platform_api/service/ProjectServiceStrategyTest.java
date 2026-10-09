@@ -5,6 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ProjectServiceStrategyTest {
 
+    @Test void nihApprovesOnlyFirstOrderFedAvgAndRobust() {
+        assertEquals("FedAvg", ProjectService.resolveStrategy("NIH_PNEUMONIA_CNN", null));
+        assertEquals("Robust", ProjectService.resolveStrategy("NIH_PNEUMONIA_CNN", "Robust"));
+        for (String strategy : new String[]{"FedOpt", "FedProx", "DeComFL", "FoT", "XgbBagging"}) {
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> ProjectService.resolveStrategy("NIH_PNEUMONIA_CNN", strategy));
+        }
+    }
+
     @Test void treesRequireTreeAggregationAndNeuralModelsCannotRequestIt() {
         assertEquals("XgbBagging", ProjectService.resolveStrategy("XGBOOST", null));
         assertEquals("XgbBagging", ProjectService.resolveStrategy("XGBOOST", "XgbBagging"));

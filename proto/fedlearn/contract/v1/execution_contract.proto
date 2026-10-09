@@ -58,6 +58,8 @@ enum Recipe {
   RECIPE_TRANSFORMER = 6;
   RECIPE_LLM_LORA = 7;
   RECIPE_XGBOOST = 8;
+  // Binary report-derived NIH pneumonia presence, not NORMAL/PNEUMONIA.
+  RECIPE_NIH_PNEUMONIA_CNN = 9;
 }
 
 enum Strategy {

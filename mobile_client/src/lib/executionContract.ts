@@ -28,6 +28,7 @@ import {
   DTypeSchema,
   BatchNormStatsSchema,
   DropoutMasksSchema,
+  DataSource,
   DataSourceSchema,
   GradientEstimatorSchema,
   ExecutionContractSchema,
@@ -122,16 +123,16 @@ const APPROVED_MATRIX: ReadonlySet<string> = new Set([
     ].join(','),
   ),
   // PNEUMONIA_CNN (Stage 4): 224x224 grayscale images, its dropout drawing the contract's seeded masks.
-  ...[Strategy.FEDAVG, Strategy.ROBUST].map((strategy) =>
+  ...[Recipe.PNEUMONIA_CNN, Recipe.NIH_PNEUMONIA_CNN].flatMap((recipe) => [Strategy.FEDAVG, Strategy.ROBUST].map((strategy) =>
     [
-      Recipe.PNEUMONIA_CNN,
+      recipe,
       strategy,
       Arm.FULL,
       Task.IMAGE_CLASSIFICATION,
       Objective.CROSS_ENTROPY,
       UpdateProtocol.UPDATE_TRAINABLE_STATE_F32,
     ].join(','),
-  ),
+  )),
   // CIFAR_RESNET18 (Stage 4): the whole model, BatchNorm in training mode with federated running statistics.
   ...[Strategy.FEDAVG, Strategy.ROBUST].map((strategy) =>
     [
@@ -341,6 +342,9 @@ class Validator {
   }
 
   private matrix(mt: ModelTraining): void {
+    if (this.c.recipe === Recipe.NIH_PNEUMONIA_CNN && mt.data?.source !== DataSource.LOCAL_SNAPSHOT) {
+      this.add(ContractIssueCode.ISSUE_UNSUPPORTED_COMBINATION, 'modelTraining.data.source');
+    }
     const fields: [DescEnum, number][] = [
       [RecipeSchema, this.c.recipe],
       [StrategySchema, this.c.strategy],

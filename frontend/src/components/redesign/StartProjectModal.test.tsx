@@ -30,6 +30,20 @@ const PROJECT: Project = {
   status: 'CREATED',
 };
 
+it('starts NIH only on participant data with its approved strategies', async () => {
+  const onSubmit = vi.fn().mockResolvedValue(undefined);
+  render(<StartProjectModal isOpen project={{...PROJECT, modelType:'NIH_PNEUMONIA_CNN'}} onClose={vi.fn()} onSubmit={onSubmit} />);
+  const values = screen.getAllByRole('option').map(o => (o as HTMLOptionElement).value);
+  expect(values).toContain('FedAvg');
+  expect(values).toContain('Robust');
+  expect(values).not.toContain('DeComFL');
+  expect(values).not.toContain('FIXTURE');
+  fireEvent.click(screen.getByRole('button', {name:/start training/i}));
+  await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('p1', {
+    strategy:'FedAvg',numRounds:5,minClients:2,dataSource:'LOCAL_SNAPSHOT',
+  }));
+});
+
 it('starts XGBoost with tree aggregation and local data while keeping the cohort fixed', async () => {
   const onSubmit = vi.fn().mockResolvedValue(undefined);
   render(<StartProjectModal isOpen project={{...PROJECT, modelType:'XGBOOST'}} onClose={vi.fn()} onSubmit={onSubmit} />);

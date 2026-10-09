@@ -452,7 +452,7 @@ def _pneumonia_image_transforms() -> list:
             pb.Transform(normalize_channels=pb.NormalizeChannels(mean=list(normalize.mean), std=list(normalize.std)))]
 
 
-def _pneumonia_first_order_full(initial_state_path=None) -> pb.ModelTraining:
+def _pneumonia_first_order_full(initial_state_path=None, recipe_key="PNEUMONIA_CNN") -> pb.ModelTraining:
     """PNEUMONIA_CNN (chest X-ray, NORMAL / PNEUMONIA) under FedAvg or Robust on the FULL arm, as client.py trains it.
 
     - Optimizer: a fresh torch.optim.Adam over every parameter at CNN_LEARNING_RATE, PyTorch's defaults otherwise.
@@ -462,7 +462,7 @@ def _pneumonia_first_order_full(initial_state_path=None) -> pb.ModelTraining:
     - Dropout: the classifier's Dropout(0.4), its masks drawn from the contract's seeded stream.
     - Data: 224 x 224 grayscale images through ToTensor and Normalize(0.5, 0.5).
     """
-    recipe = recipes.get_recipe("PNEUMONIA_CNN")
+    recipe = recipes.get_recipe(recipe_key)
     model = recipe.build_model("cpu")
     side = recipes.PNEUMONIA_IMG_SIZE
     layout = _trainable_layout(model)
@@ -495,7 +495,7 @@ def _pneumonia_first_order_full(initial_state_path=None) -> pb.ModelTraining:
         dropout=_dropout_layers(model),
     )
     if initial_state_path is not None:
-        plan.initial_state_sha256 = _initial_state_sha256(initial_state_path, "PNEUMONIA_CNN", "FULL", layout)
+        plan.initial_state_sha256 = _initial_state_sha256(initial_state_path, recipe_key, "FULL", layout)
     return plan
 
 
@@ -524,6 +524,8 @@ _PLANS = {
     # PNEUMONIA_CNN (Stage 4): 224 x 224 grayscale images, seeded dropout masks.
     ("PNEUMONIA_CNN", "FedAvg", "FULL"): _pneumonia_first_order_full,
     ("PNEUMONIA_CNN", "Robust", "FULL"): _pneumonia_first_order_full,
+    ("NIH_PNEUMONIA_CNN", "FedAvg", "FULL"): lambda initial: _pneumonia_first_order_full(initial, "NIH_PNEUMONIA_CNN"),
+    ("NIH_PNEUMONIA_CNN", "Robust", "FULL"): lambda initial: _pneumonia_first_order_full(initial, "NIH_PNEUMONIA_CNN"),
 }
 
 
@@ -581,6 +583,8 @@ def resolve_model_training(recipe_key: str, strategy: str, training_arm: str,
     """
     if data_source not in DATA_SOURCES:
         raise ValueError(f"unknown data source {data_source!r}")
+    if recipe_key == "NIH_PNEUMONIA_CNN" and data_source != "LOCAL_SNAPSHOT":
+        raise NotRepresentable("NIH participants require explicit LOCAL_SNAPSHOT data")
     refusal = _REFUSALS.get((recipe_key, strategy, training_arm))
     if refusal is not None:
         raise NotRepresentable(refusal)

@@ -8,6 +8,7 @@ import sys
 import sklearn  # Pre-load sklearn to fix ARM64 static TLS block memory allocation issues with libgomp
 
 import argparse
+from pathlib import Path
 import torch
 import time
 import threading
@@ -212,7 +213,7 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
         import recipes
         alpha = float(os.environ.get("FEDLEARN_PNEUMONIA_ALPHA", "0.5"))
         print(f"[PNEUMONIA] Loading chest X-ray shard: partition {partition_id}/{num_clients} (alpha={alpha})")
-        return recipes.get_recipe("PNEUMONIA_CNN").load_client_data(
+        return recipes.get_recipe(MODEL_TYPE or "PNEUMONIA_CNN").load_client_data(
             partition_id=partition_id, num_clients=num_clients,
             alpha=alpha, seed=42, batch_size=BATCH_SIZE,
         )
@@ -819,8 +820,9 @@ class ZOSLClient(fl.Client):
             print(f"Loaded {MODEL_NAME} for {dataset_name} (3 classes) via registry")
         elif USE_PNEUMONIA:
             import recipes
-            self.net = recipes.get_recipe("PNEUMONIA_CNN").build_model(DEVICE)
-            print("Loaded PneumoniaCNN (1x224x224 grayscale -> NORMAL/PNEUMONIA)")
+            recipe = recipes.get_recipe(MODEL_TYPE or "PNEUMONIA_CNN")
+            self.net = recipe.build_model(DEVICE)
+            print(f"Loaded {recipe.key} (1x224x224 grayscale -> {recipe.classes})")
         elif USE_LLM_LORA:
             import recipes
             recipe = recipes.get_recipe("LLM_LORA")
@@ -1216,6 +1218,7 @@ def build_arg_parser():
     parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2", "ecg"], help="Dataset")
     parser.add_argument("--dataset-path", type=str, default=None,
                         help="Own vector CSV, image package ZIP or Android snapshot directory; requires a LOCAL_SNAPSHOT contract")
+    parser.add_argument("--nih-source", type=str, help="Original image root for a local NIH client manifest CSV")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="FL strategy (FedAvg or DeComFL)")
     parser.add_argument("--training-arm", type=str, default=None,
                         help="Training arm: FULL (default) or FROZEN_HEAD. Must be one the "
@@ -1252,6 +1255,8 @@ def enforce_execution_contract(args, model_type, training_arm):
     EXECUTION_CONTRACT = None
     LOCAL_DATASET = None
     if not getattr(args, "execution_contract", None):
+        if model_type == "NIH_PNEUMONIA_CNN":
+            raise SystemExit("Refusing to train: NIH requires an execution contract and explicit local data")
         if getattr(args, "dataset_path", None):
             raise SystemExit("Refusing to train: --dataset-path requires a LOCAL_SNAPSHOT execution contract")
         return None
@@ -1278,7 +1283,12 @@ def enforce_execution_contract(args, model_type, training_arm):
             raise SystemExit("Refusing to train: local snapshots require supported first-order seeded batching")
         try:
             import recipes
-            local = load_local_snapshot(local_path, training.data, recipes.get_recipe(model_type).classes)
+            if model_type == "NIH_PNEUMONIA_CNN" and Path(local_path).suffix.lower() == ".csv":
+                from nih_runtime import client_manifest_snapshot
+                local = client_manifest_snapshot(local_path, getattr(args, "nih_source", None),
+                                                 args.partition_id, training.data)
+            else:
+                local = load_local_snapshot(local_path, training.data, recipes.get_recipe(model_type).classes)
             LOCAL_DATASET = SeededSnapshotLoader(local.dataset, batch_size=training.local_training.batch_size,
                 seed=int(contract.seed), drop_last=training.local_training.drop_last)
         except (OSError, ValueError, TypeError, KeyError) as exc:
@@ -1313,7 +1323,7 @@ def main():
         mt = args.model_type.upper()
         USE_LLM = (mt == "TRANSFORMER")
         USE_MLP = (mt == "MLP")
-        USE_PNEUMONIA = (mt == "PNEUMONIA_CNN")
+        USE_PNEUMONIA = (mt in ("PNEUMONIA_CNN", "NIH_PNEUMONIA_CNN"))
         USE_LLM_LORA = (mt == "LLM_LORA")
         # P1: the arm is SELECTED, not inferred from the key. FROZEN_DEMO keeps its historical
         # behaviour because its declared default resolves to FROZEN_HEAD when asked for; every
@@ -1368,13 +1378,16 @@ def main():
         print(f"  Strategy: {args.strategy}")
         print(f"{'='*60}\n")
     elif USE_PNEUMONIA:
-        args.dataset = "pneumonia"
+        args.dataset = "nih_pneumonia" if mt == "NIH_PNEUMONIA_CNN" else "pneumonia"
         dataset_path = None
         num_clients = int(os.environ.get("FEDLEARN_NUM_CLIENTS", "2"))
         print(f"\n{'='*60}")
-        print(f"PNEUMONIA_CNN — chest X-ray federated training")
-        print(f"  Num clients (Dirichlet partitions): {num_clients}")
-        print(f"  Data: FEDLEARN_PNEUMONIA_DIR (local ImageFolder) or HuggingFace download")
+        print(f"{mt} — chest X-ray federated training")
+        if LOCAL_DATASET is not None:
+            print(f"  Data: {len(LOCAL_DATASET.dataset)} contract-bound local images")
+        else:
+            print(f"  Num clients (Dirichlet partitions): {num_clients}")
+            print("  Data: FEDLEARN_PNEUMONIA_DIR (local ImageFolder) or HuggingFace download")
         print(f"{'='*60}\n")
     else:
         dataset_path = None

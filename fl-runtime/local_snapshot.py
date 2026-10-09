@@ -173,6 +173,10 @@ class SeededSnapshotLoader:
             raise ValueError("local snapshot training requires the actual server round")
         order = seeded_permutation(len(self.dataset), self.seed, self.round, self.epoch)
         self.epoch += 1
-        x, y = self.dataset.tensors
         for indices in batches(order, self.batch_size, self.drop_last):
-            yield x[indices], y[indices]
+            if isinstance(self.dataset, TensorDataset):
+                x, y = self.dataset.tensors
+                yield x[indices], y[indices]
+            else:
+                from torch.utils.data import default_collate
+                yield default_collate([self.dataset[index] for index in indices])

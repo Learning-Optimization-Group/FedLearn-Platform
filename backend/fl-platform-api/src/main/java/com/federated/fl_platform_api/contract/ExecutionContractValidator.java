@@ -136,7 +136,15 @@ public final class ExecutionContractValidator {
             resnet18FirstOrder(Strategy.STRATEGY_ROBUST_VALUE),
             // PNEUMONIA_CNN (Stage 4): 224x224 grayscale images, its dropout drawing the contract's seeded masks.
             pneumoniaFirstOrder(Strategy.STRATEGY_FEDAVG_VALUE),
-            pneumoniaFirstOrder(Strategy.STRATEGY_ROBUST_VALUE));
+            pneumoniaFirstOrder(Strategy.STRATEGY_ROBUST_VALUE),
+            nihFirstOrder(Strategy.STRATEGY_FEDAVG_VALUE),
+            nihFirstOrder(Strategy.STRATEGY_ROBUST_VALUE));
+
+    private static List<Integer> nihFirstOrder(int strategy) {
+        return List.of(Recipe.RECIPE_NIH_PNEUMONIA_CNN_VALUE, strategy, Arm.ARM_FULL_VALUE,
+                Task.TASK_IMAGE_CLASSIFICATION_VALUE, Objective.OBJECTIVE_CROSS_ENTROPY_VALUE,
+                UpdateProtocol.UPDATE_TRAINABLE_STATE_F32_VALUE);
+    }
 
     private static List<Integer> pneumoniaFirstOrder(int strategy) {
         return List.of(Recipe.RECIPE_PNEUMONIA_CNN_VALUE, strategy, Arm.ARM_FULL_VALUE,
@@ -320,6 +328,10 @@ public final class ExecutionContractValidator {
 
     private void matrix(ModelTraining mt) {
         ExecutionContract c = contract;
+        if (c.getRecipe() == Recipe.RECIPE_NIH_PNEUMONIA_CNN
+                && mt.getData().getSource() != DataSource.DATA_SOURCE_LOCAL_SNAPSHOT) {
+            add(ISSUE_UNSUPPORTED_COMBINATION, "modelTraining.data.source");
+        }
         boolean allKnown = known(Recipe::forNumber, c.getRecipeValue())
                 && known(Strategy::forNumber, c.getStrategyValue())
                 && known(Arm::forNumber, mt.getArmValue())

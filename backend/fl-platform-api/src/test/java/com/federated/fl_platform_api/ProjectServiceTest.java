@@ -158,6 +158,23 @@ class ProjectServiceTest {
     }
 
     @Test
+    void nihCreationRefusesUnsupportedSettingsBeforePersisting() {
+        List<java.util.function.Consumer<CreateProjectRequest>> changes = List.of(
+            r -> r.setModelName("pneumonia_cnn"), r -> r.setOptimizer("SGD"),
+            r -> r.setPretrainEpochs(1), r -> r.setTrainingArm("FROZEN_HEAD"),
+            r -> r.setInitFromPretrained(true), r -> r.setTaskType("CAUSAL_LM"));
+        for (var change : changes) {
+            CreateProjectRequest request = new CreateProjectRequest();
+            request.setName("NIH"); request.setModelType("NIH_PNEUMONIA_CNN");
+            request.setModelName("nih_pneumonia_cnn"); request.setOptimizer("Adam");
+            request.setPretrainEpochs(0); request.setTrainingArm("FULL");
+            change.accept(request);
+            assertThrows(IllegalArgumentException.class, () -> projectService.createProject(request));
+        }
+        verifyNoInteractions(projectRepository, modelInitWorker);
+    }
+
+    @Test
     void getProjectsForCurrentUser_returnsOwnedAndMemberOfWithRelationship() {
         when(authz.currentUser()).thenReturn(testUser);
         testUser.setId(42L);

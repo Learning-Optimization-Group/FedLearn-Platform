@@ -84,8 +84,9 @@ APPROVED_MATRIX = frozenset({
     for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_ROBUST)
 } | {
     # PNEUMONIA_CNN (Stage 4): 224x224 grayscale images, its dropout drawing the contract's seeded masks.
-    (pb.RECIPE_PNEUMONIA_CNN, strategy, pb.ARM_FULL, pb.TASK_IMAGE_CLASSIFICATION, pb.OBJECTIVE_CROSS_ENTROPY,
+    (recipe, strategy, pb.ARM_FULL, pb.TASK_IMAGE_CLASSIFICATION, pb.OBJECTIVE_CROSS_ENTROPY,
      pb.UPDATE_TRAINABLE_STATE_F32)
+    for recipe in (pb.RECIPE_PNEUMONIA_CNN, pb.RECIPE_NIH_PNEUMONIA_CNN)
     for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_ROBUST)
 })
 
@@ -238,6 +239,8 @@ class _Validator:
 
     def matrix(self, mt) -> None:
         c = self.c
+        if c.recipe == pb.RECIPE_NIH_PNEUMONIA_CNN and mt.data.source != pb.DATA_SOURCE_LOCAL_SNAPSHOT:
+            self.add(pb.ISSUE_UNSUPPORTED_COMBINATION, "modelTraining.data.source")
         fields = ((pb.Recipe.DESCRIPTOR, c.recipe), (pb.Strategy.DESCRIPTOR, c.strategy),
                   (pb.Arm.DESCRIPTOR, mt.arm), (pb.Task.DESCRIPTOR, mt.task),
                   (pb.Objective.DESCRIPTOR, mt.objective),

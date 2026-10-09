@@ -149,7 +149,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
     setError('');
     try {
       const created = await onSubmit({ name, modelType, modelName, optimizer,
-                       pretrainEpochs: modelType === 'XGBOOST' ? 0 : pretrainEpochs,
+                       pretrainEpochs: ['XGBOOST', 'NIH_PNEUMONIA_CNN'].includes(modelType) ? 0 : pretrainEpochs,
                        ...(modelType === 'LLM_LORA' ? { taskType } : {}),
                        // Sent only when the recipe actually offers a choice — otherwise the field
                        // would assert an arm the recipe never declared.
@@ -357,7 +357,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
           </FormField>
         )}
 
-        {modelType !== 'XGBOOST' && <FormField
+        {!['XGBOOST', 'NIH_PNEUMONIA_CNN'].includes(modelType) && <FormField
           label="Warm-up rounds"
           help="Give the model a head start before devices join. Leave at 0 if unsure."
         >

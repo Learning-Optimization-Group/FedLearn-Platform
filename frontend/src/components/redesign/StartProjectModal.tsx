@@ -80,16 +80,17 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
 
   const isLlmLora = (project?.modelType ?? '').toUpperCase() === 'LLM_LORA';
   const isTree = project.modelType === 'XGBOOST';
-  const effectiveStrategy = isTree ? 'XgbBagging' : strategy;
+  const isNih = project.modelType === 'NIH_PNEUMONIA_CNN';
+  const effectiveStrategy = isTree ? 'XgbBagging' : isNih && !['FedAvg', 'Robust'].includes(strategy) ? 'FedAvg' : strategy;
   const showRobust = !isTree && !isLlmLora && strategy === 'Robust';
   const selectedRule = ROBUST_RULES.find((r) => r.value === robustMethod);
   const recipe = recipes.find((r) => r.key.toUpperCase() === (project.modelType ?? '').toUpperCase());
   // Text federation trains no model on device data, so it has no data source to choose.
-  const showData = !isTree && strategy !== 'FoT' && (recipe?.supportedDataSources ?? []).includes('LOCAL_SNAPSHOT');
-  const onOwnData = isTree || (showData && ownData);
+  const showData = !isTree && !isNih && strategy !== 'FoT' && (recipe?.supportedDataSources ?? []).includes('LOCAL_SNAPSHOT');
+  const onOwnData = isTree || isNih || (showData && ownData);
   // Secure aggregation masks only DeComFL's gradient scalars, so it is offered only there. Only phones train on
   // their own data and phones can't join a secure run yet, so it is not offered on participants' own data.
-  const showSecure = !isLlmLora && strategy === 'DeComFL' && !onOwnData;
+  const showSecure = !isLlmLora && !isNih && strategy === 'DeComFL' && !onOwnData;
   // Text federation has no rounds of devices to size.
   const showPerRound = !isTree && (isLlmLora || strategy !== 'FoT');
   const perRound = clientsPerRound ?? minClients;
@@ -188,7 +189,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
         ) : (
           <FormField label="Training method">
             <Select value={effectiveStrategy} onChange={(e) => setStrategy(e.target.value)}>
-              {(isTree ? [{value:'XgbBagging', label:'XGBoost — combines trees trained by each client'}] : STRATEGIES).map((s) => (
+              {(isTree ? [{value:'XgbBagging', label:'XGBoost — combines trees trained by each client'}] : isNih ? STRATEGIES.filter(s => ['FedAvg', 'Robust'].includes(s.value)) : STRATEGIES).map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </Select>

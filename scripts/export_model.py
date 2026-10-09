@@ -58,6 +58,7 @@ EXAMPLE_SHAPES = {
     "CIFAR_RESNET18": (3, 112, 112),  # the 112 x 112 images its recipe resizes to; a package carries them
     "BLOOD_CNN": (3, 28, 28),
     "PNEUMONIA_CNN": (1, 224, 224),
+    "NIH_PNEUMONIA_CNN": (1, 224, 224),
 }
 
 
@@ -103,6 +104,7 @@ ENVELOPES = {
 }
 
 # Most examples a probe uses: the probe is two steps on a small synthetic batch, whatever the run's batch size.
+ENVELOPES["NIH_PNEUMONIA_CNN"] = dict(ENVELOPES["PNEUMONIA_CNN"])
 PROBE_ROWS = 8
 
 
