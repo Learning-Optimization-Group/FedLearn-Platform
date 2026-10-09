@@ -31,8 +31,8 @@ def _split(path):
 def _source(root):
     images = {}
     for path in sorted(root.glob("images_*/images/*.png")):
-        if path.name in images or not path.resolve().is_relative_to(root.resolve()):
-            raise ValueError("duplicate image filename or image outside dataset root")
+        if path.name in images or not path.resolve().is_relative_to(root.resolve()) or not path.is_file():
+            raise ValueError("duplicate image filename, non-file image or image outside dataset root")
         images[path.name] = path.relative_to(root).as_posix()
     rows = {}
     with (root / "Data_Entry_2017.csv").open(encoding="utf-8-sig", newline="") as file:

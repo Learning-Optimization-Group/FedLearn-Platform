@@ -69,7 +69,7 @@ def test_preparation_is_exhaustive_patient_separated_and_reproducible(tmp_path):
     assert (out / "test.csv").read_bytes() == (changed / "test.csv").read_bytes()
 
 
-@pytest.mark.parametrize("damage", ["missing_image", "duplicate_image", "split_overlap", "patient_overlap",
+@pytest.mark.parametrize("damage", ["missing_image", "directory_image", "duplicate_image", "split_overlap", "patient_overlap",
                                    "uncovered", "unknown_label", "bad_patient", "unsafe_name"])
 def test_invalid_source_leaves_no_output(tmp_path, damage):
     root = source(tmp_path)
@@ -78,6 +78,8 @@ def test_invalid_source_leaves_no_output(tmp_path, damage):
     image = root / "images_001/images/00000001_000.png"
     if damage == "missing_image":
         image.unlink()
+    elif damage == "directory_image":
+        image.unlink(); image.mkdir()
     elif damage == "duplicate_image":
         duplicate = root / "images_002/images"; duplicate.mkdir(parents=True)
         (duplicate / image.name).write_bytes(b"original")

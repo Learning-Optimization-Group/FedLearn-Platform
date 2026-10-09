@@ -5,6 +5,7 @@ import base64
 import json
 import math
 from pathlib import Path
+import struct
 import zipfile
 
 import numpy as np
@@ -44,9 +45,27 @@ def _preparation(requirement, classes):
     return shape, schema, preparation
 
 
+def _check_zip_directory(path):
+    """Bound ZIP's metadata before ZipFile materializes its central-directory entries."""
+    size = path.stat().st_size
+    with path.open("rb") as file:
+        file.seek(max(0, size - 65557))  # EOCD plus the maximum ZIP comment
+        tail = file.read(65557)
+    end = tail.rfind(b"PK\x05\x06")
+    if end < 0 or end + 22 > len(tail):
+        raise ValueError("image package has no valid ZIP directory footer")
+    _, disk, directory_disk, disk_entries, entries, directory_size, offset, comment = struct.unpack_from(
+        "<4s4H2IH", tail, end)
+    if (disk != 0 or directory_disk != 0 or entries != 2 or disk_entries != 2
+            or not 1 <= directory_size <= 64 * 1024 or offset == 0xffffffff
+            or offset + directory_size > size - len(tail) + end or end + 22 + comment != len(tail)):
+        raise ValueError("unsupported or oversized ZIP directory")
+
+
 def _package(path, requirement, shape, classes, schema, preparation):
     if path.stat().st_size > MAX_BYTES:
         raise ValueError("local image package exceeds the size limit")
+    _check_zip_directory(path)
     try:
         with zipfile.ZipFile(path) as z:
             infos = z.infolist()

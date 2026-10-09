@@ -2,6 +2,7 @@
 import hashlib
 import json
 from pathlib import Path
+import struct
 import zipfile
 
 import numpy as np
@@ -167,6 +168,24 @@ def test_image_budget_is_enforced_before_tensor_allocation(tmp_path, monkeypatch
         raise AssertionError("oversized declaration allocated tensor storage")
     monkeypatch.setattr(local_images.np, "empty", forbidden)
     with pytest.raises(ValueError, match="size limit"):
+        load_local_snapshot(path, training().data, recipes.get_recipe("CNN").classes)
+
+
+@pytest.mark.parametrize("damage", ["many_entries", "huge_directory"])
+def test_zip_metadata_budget_is_enforced_before_full_directory_parsing(tmp_path, monkeypatch, damage):
+    from local_snapshot import load_local_snapshot
+    path, _ = package(tmp_path)
+    if damage == "many_entries":
+        with zipfile.ZipFile(path, "w") as z:
+            for i in range(2000): z.writestr(f"empty-{i}", b"")
+    else:
+        raw = bytearray(path.read_bytes())
+        struct.pack_into("<I", raw, len(raw) - 22 + 12, 128 * 1024 * 1024)
+        path.write_bytes(raw)
+    def forbidden(*args, **kwargs):
+        raise AssertionError("unbounded ZIP central directory was parsed")
+    monkeypatch.setattr(zipfile, "ZipFile", forbidden)
+    with pytest.raises(ValueError, match="directory"):
         load_local_snapshot(path, training().data, recipes.get_recipe("CNN").classes)
 
 
