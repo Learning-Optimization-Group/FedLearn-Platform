@@ -36,6 +36,17 @@ def binary_metrics(labels, probabilities):
     return result
 
 
+def control_settings(epochs, persistent_rates, reset_rates):
+    """Keep comparisons explicit and bound their training budget."""
+    controls = [(float(rate), False) for rate in persistent_rates]
+    controls += [(float(rate), True) for rate in reset_rates]
+    if (type(epochs) is not int or not 1 <= epochs <= 20 or not 1 <= len(controls) <= 4
+            or len(set(controls)) != len(controls)
+            or any(not np.isfinite(rate) or rate <= 0 for rate, _ in controls)):
+        raise ValueError('invalid or duplicated NIH control settings')
+    return controls
+
+
 def require_disjoint(bindings):
     for i, first in enumerate(bindings):
         for second in bindings[i + 1:]:
@@ -134,7 +145,14 @@ def main():
     parser.add_argument('--initial', required=True, type=Path)
     parser.add_argument('--out', required=True, type=Path)
     parser.add_argument('--seed', required=True, type=int)
+    parser.add_argument('--epochs', type=int, default=3)
+    parser.add_argument('--persistent-rates', type=float, nargs='+', default=[.001, .0001])
+    parser.add_argument('--reset-rates', type=float, nargs='*', default=[.001])
     args = parser.parse_args()
+    try:
+        controls = control_settings(args.epochs, args.persistent_rates, args.reset_rates)
+    except ValueError as error:
+        parser.error(str(error))
     if args.out.exists():
         parser.error('output already exists')
     bound = [bind_package(args.packages / (name + '.zip'), split=name,
@@ -159,9 +177,9 @@ def main():
                   packages=[dict(package_sha256=b[1]['package_sha256'], snapshot_id=b[3],
                                  selected_rows_sha256=b[1]['selected_rows_sha256']) for b in bound], controls=[])
     args.out.mkdir(parents=True)
-    for rate, reset in ((.001, False), (.0001, False), (.001, True)):
+    for rate, reset in controls:
         net.load_state_dict(initial, strict=True)
-        result = train_control(net, training, validation, epochs=3, learning_rate=rate,
+        result = train_control(net, training, validation, epochs=args.epochs, learning_rate=rate,
                                seed=args.seed, batch_size=16, reset_optimizer_each_epoch=reset)
         name = f'adam-{rate}-{result["optimizer_lifetime"]}'
         checkpoint = args.out / (name + '.npz')

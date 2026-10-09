@@ -58,3 +58,19 @@ def test_optimizer_lifetime_changes_training_and_seed_reproduces_it():
     assert all(np.isfinite(e['training_loss']) for e in persistent['epochs'])
     assert persistent['optimizer_lifetime'] == 'persistent'
     assert reset['optimizer_lifetime'] == 'reset_each_epoch'
+
+
+def test_default_control_settings_preserve_original_comparison():
+    assert module.control_settings(3, [.001, .0001], [.001]) == [
+        (.001, False), (.0001, False), (.001, True)]
+    assert module.control_settings(10, [.0001, .00001], []) == [
+        (.0001, False), (.00001, False)]
+
+
+@pytest.mark.parametrize('epochs,persistent,reset', [
+    (0, [.001], []), (21, [.001], []), (3, [], []),
+    (3, [float('nan')], []), (3, [float('inf')], []),
+    (3, [0], []), (3, [-.001], []), (3, [.001, .001], [])])
+def test_invalid_control_budget_or_rates_refused(epochs, persistent, reset):
+    with pytest.raises(ValueError):
+        module.control_settings(epochs, persistent, reset)
