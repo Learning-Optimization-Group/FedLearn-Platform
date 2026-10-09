@@ -662,6 +662,7 @@ jsi::Value FedLearnCoreModule::getRuntimeCompatibility(jsi::Runtime& rt) {
         jsi::Object result(r);
         result.setProperty(r, "bridgeAbiVersion", kBridgeAbiVersion);
         result.setProperty(r, "protocolVersion", kProtocolVersion);
+        result.setProperty(r, "supportsAdamProximal", true);
         return result;
       });
 }

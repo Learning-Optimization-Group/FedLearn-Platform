@@ -30,3 +30,13 @@ describe('native execution compatibility', () => {
     ).rejects.toThrow(NativeCompatibilityError);
   });
 });
+
+it('refuses Adam with a positive proximal term when the installed core lacks the capability', async () => {
+  const old = { getRuntimeCompatibility: async () => ({ bridgeAbiVersion: 5, protocolVersion: 2 }) };
+  await expect(assertNativeCompatibility(old, true)).rejects.toThrow(/Adam.*FedProx.*rebuild/i);
+});
+
+it('accepts Adam proximal training only when the installed core explicitly supports it', async () => {
+  const current = { getRuntimeCompatibility: async () => ({ bridgeAbiVersion: 5, protocolVersion: 2, supportsAdamProximal: true }) };
+  await expect(assertNativeCompatibility(current, true)).resolves.toBeUndefined();
+});

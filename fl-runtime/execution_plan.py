@@ -529,38 +529,35 @@ _PLANS = {
 }
 
 
+def _adaptive_adam_plan(build, strategy):
+    """Resolve the same client settings that the first-order server sends."""
+    def resolve(initial_state_path=None):
+        plan = build(initial_state_path)
+        local = plan.local_training
+        if strategy == 'FedOpt':
+            local.adam.learning_rate = strategy_client_settings.FEDOPT_CLIENT_LEARNING_RATE
+            local.local_epochs = strategy_client_settings.FEDOPT_CLIENT_LOCAL_EPOCHS
+        else:
+            local.adam.learning_rate = strategy_client_settings.FEDPROX_CLIENT_LEARNING_RATE
+            local.local_epochs = strategy_client_settings.FEDPROX_CLIENT_LOCAL_EPOCHS
+            plan.fedprox_mu = strategy_client_settings.FEDPROX_CLIENT_PROXIMAL_MU
+        return plan
+    return resolve
+
+
+for _recipe in ('MLP', 'CNN', 'CIFAR_RESNET18', 'PNEUMONIA_CNN'):
+    for _strategy in ('FedOpt', 'FedProx'):
+        _PLANS[(_recipe, _strategy, 'FULL')] = _adaptive_adam_plan(_PLANS[(_recipe, 'FedAvg', 'FULL')], _strategy)
+
+
 # The run intent's TrainingDataSource names, as the backend passes them.
 DATA_SOURCES = {"FIXTURE": pb.DATA_SOURCE_FIXTURE, "LOCAL_SNAPSHOT": pb.DATA_SOURCE_LOCAL_SNAPSHOT}
 
 
 # Runs a recipe's plan table covers only by saying why they have no plan yet.
 _REFUSALS = {
-    ("MLP", "FedOpt", "FULL"): (
-        "MLP under FedOpt has no v1 plan: the server's client rate (0.01) is ignored by the laptop's MLP, which trains "
-        "at its ECG rate, while a contracted laptop refuses a server rate that differs from the contract"),
-    ("MLP", "FedProx", "FULL"): (
-        "MLP under FedProx has no v1 plan: it adds the proximal term to Adam's gradient, which the device's Adam does "
-        "not implement yet"),
-    ("CNN", "FedOpt", "FULL"): (
-        "CNN under FedOpt has no v1 plan: the server's client rate (0.01) is ignored by the laptop's CNN, which trains "
-        "at its own 1e-3, while a contracted laptop refuses a server rate that differs from the contract"),
-    ("CNN", "FedProx", "FULL"): (
-        "CNN under FedProx has no v1 plan: it adds the proximal term to Adam's gradient, which the device's Adam does "
-        "not implement yet"),
-    ("CIFAR_RESNET18", "FedOpt", "FULL"): (
-        "CIFAR_RESNET18 under FedOpt has no v1 plan: the server's client rate is ignored by the laptop, which trains at "
-        "its own 1e-3, while a contracted laptop refuses a server rate that differs from the contract"),
-    ("CIFAR_RESNET18", "FedProx", "FULL"): (
-        "CIFAR_RESNET18 under FedProx has no v1 plan: it adds the proximal term to Adam's gradient, which the device's "
-        "Adam does not implement yet"),
     ("CIFAR_RESNET18", "DeComFL", "FULL"): (
         "CIFAR_RESNET18 under DeComFL has no v1 plan: zeroth-order training of 11 million parameters is not offered"),
-    ("PNEUMONIA_CNN", "FedOpt", "FULL"): (
-        "PNEUMONIA_CNN under FedOpt has no v1 plan: the server's client rate is ignored by the laptop, which trains at "
-        "its own 1e-3, while a contracted laptop refuses a server rate that differs from the contract"),
-    ("PNEUMONIA_CNN", "FedProx", "FULL"): (
-        "PNEUMONIA_CNN under FedProx has no v1 plan: it adds the proximal term to Adam's gradient, which the device's "
-        "Adam does not implement yet"),
     ("PNEUMONIA_CNN", "DeComFL", "FULL"): (
         "PNEUMONIA_CNN under DeComFL has no v1 plan: zeroth-order training of 26 million parameters through dropout is "
         "not offered"),

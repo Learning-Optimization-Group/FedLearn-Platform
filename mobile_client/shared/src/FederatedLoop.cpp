@@ -329,9 +329,6 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
 
   const float lr = static_cast<float>(learningRate);
   const float mu = static_cast<float>(proximalMu);
-  if (optimizer.adam && proximalMu > 0) {
-    throw std::runtime_error("FedProx with Adam is not implemented on this device");
-  }
   if (optimizer.adam) model.resetOptimizerState();  // the laptop creates a fresh Adam every round
   const AdamSettings adam{learningRate, optimizer.beta1, optimizer.beta2, optimizer.epsilon};
   // Each dropout layer's mask input shape, from the program: [batch, activation dims...].
@@ -361,7 +358,7 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
     }
     const std::vector<InputTensor>* extra = masks.empty() ? nullptr : &masks;
     if (optimizer.adam) {
-      model.trainStepAdam(stepX, stepShape, stepY, rows, adam, extra);
+      model.trainStepAdam(stepX, stepShape, stepY, rows, adam, extra, proximalMu > 0 ? &anchor : nullptr, mu);
     } else {
       model.trainStep(stepX, stepShape, stepY, rows, lr, proximalMu > 0 ? &anchor : nullptr, mu, extra);
     }

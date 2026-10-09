@@ -420,11 +420,6 @@ def test_the_mlp_plan_completes_a_valid_contract():
 
 
 @pytest.mark.parametrize("strategy, reason", [
-    # The FedOpt server sends its client rate (0.01), which the laptop MLP ignores for its own 1e-3; under a contract
-    # the laptop refuses a server rate that differs, so no single plan states what both do.
-    ("FedOpt", "server's client rate"),
-    # FedProx adds the proximal term to Adam's gradient; the device's Adam has no proximal term yet.
-    ("FedProx", "proximal term"),
     # DeComFL's zeroth-order forward passes would meet dropout, whose masks no zeroth-order plan states yet.
     ("DeComFL", "dropout"),
 ])
@@ -497,9 +492,6 @@ def test_the_cnn_plan_completes_a_valid_contract():
 
 
 @pytest.mark.parametrize("strategy, reason", [
-    # As for the MLP: the FedOpt server's client rate is ignored by the laptop CNN, which trains at its own 1e-3.
-    ("FedOpt", "server's client rate"),
-    ("FedProx", "proximal term"),
     ("DeComFL", "zeroth-order"),
 ])
 def test_the_cnn_strategies_without_a_plan_say_why(strategy, reason):
@@ -592,7 +584,7 @@ def test_the_resnet_initial_state_digest_covers_its_running_statistics(tmp_path)
     assert plan.initial_state_sha256 == execution_plan.state_sha256((n, state[n].numpy()) for n in order)
 
 
-@pytest.mark.parametrize("strategy", ["FedOpt", "FedProx", "DeComFL"])
+@pytest.mark.parametrize("strategy", ["DeComFL"])
 def test_the_resnet_strategies_without_a_plan_say_why(strategy):
     with pytest.raises(execution_plan.NotRepresentable):
         execution_plan.resolve_model_training("CIFAR_RESNET18", strategy, "FULL")
@@ -666,8 +658,6 @@ def test_the_pneumonia_plan_completes_a_valid_contract():
 
 
 @pytest.mark.parametrize("strategy, reason", [
-    ("FedOpt", "server's client rate"),
-    ("FedProx", "proximal term"),
     ("DeComFL", "zeroth-order"),
 ])
 def test_the_pneumonia_strategies_without_a_plan_say_why(strategy, reason):
@@ -1216,3 +1206,39 @@ def test_without_a_contract_any_batch_size_is_the_laptops_own(monkeypatch):
     import client
     monkeypatch.setattr(client, "EXECUTION_CONTRACT", None)
     client._refuse_batch_outside_contract(32)
+
+
+@pytest.mark.parametrize('recipe', ['MLP', 'CNN', 'CIFAR_RESNET18', 'PNEUMONIA_CNN', 'NIH_PNEUMONIA_CNN'])
+def test_first_order_neural_fit_uses_server_rate_in_its_real_adam_optimizer(monkeypatch, recipe):
+    """A small real network exercises shared fit/train code without downloading recipe fixtures."""
+    import client
+    import torch
+    participant = _tinynet_fedavg_client(monkeypatch)
+    monkeypatch.setattr(client, 'EXECUTION_CONTRACT', None)
+    monkeypatch.setattr(client, 'MODEL_TYPE', recipe)
+    monkeypatch.setattr(client, 'USE_MLP', True)  # the fixture carries vector tuples
+    created = []
+    original = torch.optim.Adam
+    class RecordingAdam(original):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            created.append(self)
+    monkeypatch.setattr(torch.optim, 'Adam', RecordingAdam)
+    participant.fit(participant.get_parameters(), {'server_round': 1, 'learning_rate': '0.01', 'local_epochs': '1'})
+    assert len(created) == 1
+    assert created[0].param_groups[0]['lr'] == .01
+
+
+@pytest.mark.parametrize('recipe', ['MLP', 'CNN', 'CIFAR_RESNET18', 'PNEUMONIA_CNN'])
+@pytest.mark.parametrize('strategy', ['FedOpt', 'FedProx'])
+def test_adam_recipe_strategy_plans_state_the_shared_server_settings(recipe, strategy):
+    import strategy_client_settings as settings
+    plan = execution_plan.resolve_model_training(recipe, strategy, 'FULL', data_source='LOCAL_SNAPSHOT')
+    expected_rate = settings.FEDOPT_CLIENT_LEARNING_RATE if strategy == 'FedOpt' else settings.FEDPROX_CLIENT_LEARNING_RATE
+    assert plan.local_training.adam.learning_rate == expected_rate
+    assert plan.local_training.local_epochs == 1
+    assert plan.local_training.reset_optimizer_each_round
+    assert plan.local_training.batch_order == pb.BATCH_ORDER_SEEDED_PERMUTATION_V1
+    assert plan.HasField('fedprox_mu') == (strategy == 'FedProx')
+    if strategy == 'FedProx':
+        assert plan.fedprox_mu == settings.FEDPROX_CLIENT_PROXIMAL_MU

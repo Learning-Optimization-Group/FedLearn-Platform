@@ -426,7 +426,10 @@ export async function runTrainingLoop(
   // DeComFL uploads gradient scalars; every other v1 strategy uploads the float32 trainable state.
   const isFirstOrder = projection.strategy !== 'DeComFL';
 
-  await assertNativeCompatibility(nativeCore);
+  const modelTraining = contract.workload.case === 'modelTraining' ? contract.workload.value : undefined;
+  const requiresAdamProximal = modelTraining?.localTraining?.optimizer.case === 'adam'
+    && (modelTraining.fedproxMu ?? 0) > 0;
+  await assertNativeCompatibility(nativeCore, requiresAdamProximal);
   hooks.onLog(`Execution contract ${projection.contractId.slice(0, 12)}… accepted.`);
   hooks.onLog('Provisioning model + on-device data…');
   const ownData = projection.dataSource === 'LOCAL_SNAPSHOT' ? dataset : undefined;

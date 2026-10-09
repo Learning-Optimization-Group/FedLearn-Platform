@@ -528,3 +528,17 @@ describe('runTrainingLoop — the execution contract decides', () => {
     expect(nativeCore.setTrainingDataFromFiles).not.toHaveBeenCalled();
   });
 });
+
+it('refuses an older native core before provisioning an Adam FedProx contract', async () => {
+  const doc = contractJson();
+  doc.strategy = 'STRATEGY_FEDPROX';
+  const mt = doc.modelTraining as Record<string, unknown>;
+  mt.fedproxMu = .1;
+  const local = mt.localTraining as Record<string, unknown>;
+  delete local.sgd;
+  local.adam = { learningRate: .01, beta1: .9, beta2: .999, epsilon: 1e-8, weightDecay: 0, amsgrad: false };
+  await expect(runTrainingLoop(joined({ strategy: 'FedProx', executionContract: doc }), hooks))
+    .rejects.toThrow(/Adam.*FedProx.*rebuild/i);
+  expect(provisionTrainingBundle).not.toHaveBeenCalled();
+  expect(nativeCore.loadModel).not.toHaveBeenCalled();
+});

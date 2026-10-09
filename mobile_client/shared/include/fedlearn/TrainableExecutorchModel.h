@@ -86,9 +86,11 @@ class TrainableExecutorchModel {
   //   m <- lerp(m, g, 1 - beta1);  v <- beta2 * v + (1 - beta2) * g^2
   //   p <- p - (lr / (1 - beta1^t)) * m / (sqrt(v) / sqrt(1 - beta2^t) + eps)
   // The moments and the step count t live in the model and persist across calls until resetOptimizerState(), which
-  // a round calls first (the laptop creates a fresh Adam every round). Returns the loss before the update.
+  // a round calls first (the laptop creates a fresh Adam every round). A positive proximal coefficient adds
+  // mu * (p - round-start anchor) to the gradient BEFORE both moment updates. Returns the loss before the update.
   float trainStepAdam(const float* x, const std::vector<int64_t>& xShape, const int64_t* y, int64_t n,
-                      const AdamSettings& adam, const std::vector<InputTensor>* extra = nullptr);
+                      const AdamSettings& adam, const std::vector<InputTensor>* extra = nullptr,
+                      const std::vector<float>* proximalAnchor = nullptr, float proximalMu = 0.0f);
 
   // The shapes of the program's inputs after (x, y), as its method metadata declares them (a dynamic batch dimension
   // at its upper bound): for a masked-dropout program, one per dropout layer, [batch, activation dims...].

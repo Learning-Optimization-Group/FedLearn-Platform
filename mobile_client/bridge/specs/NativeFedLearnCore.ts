@@ -27,6 +27,7 @@ export interface ServerStatus {
 export interface RuntimeCompatibility {
   bridgeAbiVersion: number;
   protocolVersion: number;
+  supportsAdamProximal?: boolean;
 }
 
 export interface RoundConfig {

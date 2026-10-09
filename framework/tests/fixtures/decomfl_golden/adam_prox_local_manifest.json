@@ -1,0 +1,15 @@
+{
+  "torch_version": "2.12.0",
+  "steps": 12,
+  "batch_size": 4,
+  "learning_rate": 0.01,
+  "proximal_mu": 0.1,
+  "anchor": "fixed round-start trainable parameters",
+  "sha256": "54edcee7509bf158129c3173e0520c465279611436e67c15d27722f612149ccb",
+  "control_separation": {
+    "zero_mu": 0.00686529278755188,
+    "moving_anchor": 0.00686529278755188,
+    "after_adam": 0.006297111511230469
+  },
+  "endpoint_atol": 1e-05
+}

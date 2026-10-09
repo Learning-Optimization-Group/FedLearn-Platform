@@ -501,11 +501,11 @@ describe('the phone trains Adam and seeded dropout as the contract states', () =
     expect(decide(withAdam(golden(), over))).toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_OPTIMIZER' });
   });
 
-  it('refuses Adam under FedProx, whose proximal term its Adam does not add', () => {
+  it('projects Adam under FedProx for the native capability check', () => {
     const contract = withAdam(golden());
     contract.strategy = Strategy.FEDPROX;
     if (contract.workload.case === 'modelTraining') contract.workload.value.fedproxMu = 0.1;
-    expect(projectContract(contract, 'a'.repeat(64))).toMatchObject({ kind: 'refuse', code: 'UNSUPPORTED_OPTIMIZER' });
+    expect(projectContract(contract, 'a'.repeat(64))).toMatchObject({ kind: 'train', projection: { strategy: 'FedProx', proximalMu: .1 } });
   });
 
   it('projects each dropout layer\'s rate in order and the contract seed as an exact string', () => {

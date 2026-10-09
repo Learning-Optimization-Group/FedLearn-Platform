@@ -111,8 +111,8 @@ const APPROVED_MATRIX: ReadonlySet<string> = new Set([
     Objective.CROSS_ENTROPY,
     UpdateProtocol.UPDATE_DECOMFL_SCALAR,
   ].join(','),
-  // MLP (Stage 4): first-order training under the strategies whose servers send no client settings.
-  ...[Strategy.FEDAVG, Strategy.ROBUST].map((strategy) =>
+  // MLP: first-order Adam with the strategy settings cross-checked by clients.
+  ...[Strategy.FEDAVG, Strategy.FEDOPT, Strategy.ROBUST, Strategy.FEDPROX].map((strategy) =>
     [
       Recipe.MLP,
       strategy,
@@ -123,7 +123,9 @@ const APPROVED_MATRIX: ReadonlySet<string> = new Set([
     ].join(','),
   ),
   // PNEUMONIA_CNN (Stage 4): 224x224 grayscale images, its dropout drawing the contract's seeded masks.
-  ...[Recipe.PNEUMONIA_CNN, Recipe.NIH_PNEUMONIA_CNN].flatMap((recipe) => [Strategy.FEDAVG, Strategy.ROBUST].map((strategy) =>
+  ...[Recipe.PNEUMONIA_CNN, Recipe.NIH_PNEUMONIA_CNN].flatMap((recipe) => (recipe === Recipe.NIH_PNEUMONIA_CNN
+    ? [Strategy.FEDAVG, Strategy.ROBUST]
+    : [Strategy.FEDAVG, Strategy.FEDOPT, Strategy.ROBUST, Strategy.FEDPROX]).map((strategy) =>
     [
       recipe,
       strategy,
@@ -134,7 +136,7 @@ const APPROVED_MATRIX: ReadonlySet<string> = new Set([
     ].join(','),
   )),
   // CIFAR_RESNET18 (Stage 4): the whole model, BatchNorm in training mode with federated running statistics.
-  ...[Strategy.FEDAVG, Strategy.ROBUST].map((strategy) =>
+  ...[Strategy.FEDAVG, Strategy.FEDOPT, Strategy.ROBUST, Strategy.FEDPROX].map((strategy) =>
     [
       Recipe.CIFAR_RESNET18,
       strategy,
@@ -145,7 +147,7 @@ const APPROVED_MATRIX: ReadonlySet<string> = new Set([
     ].join(','),
   ),
   // CNN (Stage 4): the same first-order training on images, prepared by the contract's image transforms.
-  ...[Strategy.FEDAVG, Strategy.ROBUST].map((strategy) =>
+  ...[Strategy.FEDAVG, Strategy.FEDOPT, Strategy.ROBUST, Strategy.FEDPROX].map((strategy) =>
     [
       Recipe.CNN,
       strategy,

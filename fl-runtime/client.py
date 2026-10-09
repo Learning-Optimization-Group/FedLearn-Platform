@@ -913,9 +913,9 @@ class ZOSLClient(fl.Client):
         # FR-32: FedProx's proximal_mu is now HONORED (the proximal term is applied in train() from the
         # round-start snapshot below), so there is no longer a config this first-order client refuses.
         proximal_mu = _coerce_proximal_mu(config)
-        # TinyNet's on-device SGD path consumes this same per-round value. Other recipes retain
-        # their dataset-specific rates until their execution contracts resolve those policies.
-        learning_rate_override = _coerce_learning_rate(config) if MODEL_TYPE == "TINYNET_GOLDEN" else None
+        # Every first-order client uses the rate its strategy sends; absent means
+        # the recipe default. The execution contract cross-check runs before training.
+        learning_rate_override = _coerce_learning_rate(config)
         _refuse_round_outside_contract(config)
 
         if server_round == 1:

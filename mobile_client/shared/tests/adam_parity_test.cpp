@@ -83,3 +83,49 @@ TEST(AdamParity, InvalidSettingsAreRefused) {
   EXPECT_THROW(m.trainStepAdam(x.data(), {8, 4}, y.data(), 8, fedlearn::AdamSettings{kLr, 0.9, 0.999, 0.0}),
                std::runtime_error);
 }
+
+TEST(AdamParity, ProximalGradientPrecedesMomentsWithAFixedRoundAnchor) {
+  fedlearn::TrainableExecutorchModel m(fedtest::goldenPath(kPte), kSha, kNames);
+  const auto anchor = fedtest::readF32(fedtest::goldenPath("zo_flat.f32"));
+  m.setFlatParams(anchor);
+  m.resetOptimizerState();
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  const fedlearn::AdamSettings adam{kLr, 0.9, 0.999, 1e-8};
+  for (int step = 0; step < 12; ++step) {
+    const int start = 4 * (step % 2);
+    m.trainStepAdam(x.data() + start * 4, {4, 4}, y.data() + start, 4, adam, nullptr, &anchor, 0.1f);
+  }
+  expectNear(m.getFlatParams(), "adam_prox_local_final.f32");
+}
+
+TEST(AdamParity, ZeroProximalCoefficientPreservesPlainAdamExactly) {
+  fedlearn::TrainableExecutorchModel plain(fedtest::goldenPath(kPte), kSha, kNames);
+  fedlearn::TrainableExecutorchModel prox(fedtest::goldenPath(kPte), kSha, kNames);
+  const auto anchor = fedtest::readF32(fedtest::goldenPath("zo_flat.f32"));
+  plain.setFlatParams(anchor);
+  prox.setFlatParams(anchor);
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  const fedlearn::AdamSettings adam{kLr, 0.9, 0.999, 1e-8};
+  for (int step = 0; step < kSteps; ++step) {
+    plain.trainStepAdam(x.data(), {8, 4}, y.data(), 8, adam);
+    prox.trainStepAdam(x.data(), {8, 4}, y.data(), 8, adam, nullptr, &anchor, 0.f);
+  }
+  EXPECT_EQ(plain.getFlatParams(), prox.getFlatParams());
+}
+
+TEST(AdamParity, InvalidProximalAnchorIsRefusedBeforeParametersChange) {
+  fedlearn::TrainableExecutorchModel m(fedtest::goldenPath(kPte), kSha, kNames);
+  const auto anchor = fedtest::readF32(fedtest::goldenPath("zo_flat.f32"));
+  m.setFlatParams(anchor);
+  auto wrong = anchor;
+  wrong.pop_back();
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  const fedlearn::AdamSettings adam{kLr, 0.9, 0.999, 1e-8};
+  EXPECT_THROW(m.trainStepAdam(x.data(), {8, 4}, y.data(), 8, adam, nullptr, &wrong, .1f), std::runtime_error);
+  EXPECT_THROW(m.trainStepAdam(x.data(), {8, 4}, y.data(), 8, adam, nullptr, nullptr, .1f), std::runtime_error);
+  EXPECT_THROW(m.trainStepAdam(x.data(), {8, 4}, y.data(), 8, adam, nullptr, &anchor, -.1f), std::runtime_error);
+  EXPECT_EQ(m.getFlatParams(), anchor);
+}

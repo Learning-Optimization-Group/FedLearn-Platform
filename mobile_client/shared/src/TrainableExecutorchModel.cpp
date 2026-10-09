@@ -8,6 +8,7 @@
 #include <executorch/runtime/core/evalue.h>
 #include <executorch/runtime/platform/runtime.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -247,10 +248,19 @@ void TrainableExecutorchModel::resetOptimizerState() {
 
 float TrainableExecutorchModel::trainStepAdam(const float* x, const std::vector<int64_t>& xShape, const int64_t* y,
                                               int64_t n, const AdamSettings& adam,
-                                              const std::vector<InputTensor>* extra) {
+                                              const std::vector<InputTensor>* extra,
+                                              const std::vector<float>* proximalAnchor, float proximalMu) {
   if (!(adam.learningRate > 0) || !(adam.beta1 >= 0 && adam.beta1 < 1) || !(adam.beta2 >= 0 && adam.beta2 < 1) ||
       !(adam.epsilon > 0)) {
     throw std::runtime_error("TrainableExecutorchModel: invalid Adam settings");
+  }
+  if (!std::isfinite(proximalMu) || proximalMu < 0.0f) {
+    throw std::runtime_error("TrainableExecutorchModel: invalid proximal coefficient");
+  }
+  const bool proximal = proximalMu > 0.0f;
+  if (proximal && (proximalAnchor == nullptr || static_cast<int64_t>(proximalAnchor->size()) != flatDim() ||
+                  !std::all_of(proximalAnchor->begin(), proximalAnchor->end(), [](float v) { return std::isfinite(v); }))) {
+    throw std::runtime_error("TrainableExecutorchModel: invalid proximal anchor");
   }
   const float loss = forwardBackward(x, xShape, y, n, extra);
   if (impl_->adamStep == 0) {
@@ -278,6 +288,7 @@ float TrainableExecutorchModel::trainStepAdam(const float* x, const std::vector<
   if (!gradsRes.ok()) fail("named_gradients(forward) failed", gradsRes.error());
   auto paramsRes = impl_->mod->named_parameters("forward");
   if (!paramsRes.ok()) fail("named_parameters(forward) failed", paramsRes.error());
+  size_t offset = 0;
   for (size_t i = 0; i < impl_->names.size(); ++i) {
     Tensor p = Impl::lookup(paramsRes.get(), impl_->names[i], "named_parameters");
     const Tensor g = Impl::lookup(gradsRes.get(), impl_->names[i], "named_gradients");
@@ -291,11 +302,13 @@ float TrainableExecutorchModel::trainStepAdam(const float* x, const std::vector<
     float* m = impl_->adamM[i].data();
     float* v = impl_->adamV[i].data();
     for (size_t j = 0; j < k; ++j) {
-      m[j] = m[j] + lerpWeight * (gd[j] - m[j]);        // exp_avg.lerp_(grad, 1 - beta1), weight < 0.5
-      v[j] = v[j] * beta2 + oneMinusBeta2 * gd[j] * gd[j];  // exp_avg_sq.mul_(beta2).addcmul_(g, g, 1 - beta2)
+      const float grad = proximal ? gd[j] + proximalMu * (pd[j] - (*proximalAnchor)[offset + j]) : gd[j];
+      m[j] = m[j] + lerpWeight * (grad - m[j]);        // exp_avg.lerp_(grad, 1 - beta1), weight < 0.5
+      v[j] = v[j] * beta2 + oneMinusBeta2 * grad * grad;  // exp_avg_sq.mul_(beta2).addcmul_(g, g, 1 - beta2)
       const float denom = std::sqrt(v[j]) / biasCorrection2Sqrt + eps;
       pd[j] = pd[j] + (-stepSize) * (m[j] / denom);      // param.addcdiv_(exp_avg, denom, value=-step_size)
     }
+    offset += k;
   }
   return loss;
 }

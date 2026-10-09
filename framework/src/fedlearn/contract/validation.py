@@ -68,25 +68,29 @@ APPROVED_MATRIX = frozenset({
     (pb.RECIPE_TINYNET_GOLDEN, pb.STRATEGY_DECOMFL, pb.ARM_FULL, pb.TASK_VECTOR_CLASSIFICATION,
      pb.OBJECTIVE_CROSS_ENTROPY, pb.UPDATE_DECOMFL_SCALAR),
 } | {
-    # MLP (Stage 4): first-order training under the strategies whose servers send no client settings.
+    # MLP: first-order Adam, with strategy settings cross-checked by clients.
     (pb.RECIPE_MLP, strategy, pb.ARM_FULL, pb.TASK_VECTOR_CLASSIFICATION, pb.OBJECTIVE_CROSS_ENTROPY,
      pb.UPDATE_TRAINABLE_STATE_F32)
-    for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_ROBUST)
+    for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_FEDOPT, pb.STRATEGY_ROBUST, pb.STRATEGY_FEDPROX)
 } | {
     # CNN (Stage 4): the same first-order training on images, prepared by ImageToUnitTensor and NormalizeChannels.
     (pb.RECIPE_CNN, strategy, pb.ARM_FULL, pb.TASK_IMAGE_CLASSIFICATION, pb.OBJECTIVE_CROSS_ENTROPY,
      pb.UPDATE_TRAINABLE_STATE_F32)
-    for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_ROBUST)
+    for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_FEDOPT, pb.STRATEGY_ROBUST, pb.STRATEGY_FEDPROX)
 } | {
     # CIFAR_RESNET18 (Stage 4): the whole model, BatchNorm in training mode with its running statistics federated.
     (pb.RECIPE_CIFAR_RESNET18, strategy, pb.ARM_FULL, pb.TASK_IMAGE_CLASSIFICATION, pb.OBJECTIVE_CROSS_ENTROPY,
      pb.UPDATE_TRAINABLE_STATE_F32)
-    for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_ROBUST)
+    for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_FEDOPT, pb.STRATEGY_ROBUST, pb.STRATEGY_FEDPROX)
 } | {
     # PNEUMONIA_CNN (Stage 4): 224x224 grayscale images, its dropout drawing the contract's seeded masks.
     (recipe, strategy, pb.ARM_FULL, pb.TASK_IMAGE_CLASSIFICATION, pb.OBJECTIVE_CROSS_ENTROPY,
      pb.UPDATE_TRAINABLE_STATE_F32)
-    for recipe in (pb.RECIPE_PNEUMONIA_CNN, pb.RECIPE_NIH_PNEUMONIA_CNN)
+    for recipe in (pb.RECIPE_PNEUMONIA_CNN,)
+    for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_FEDOPT, pb.STRATEGY_ROBUST, pb.STRATEGY_FEDPROX)
+} | {
+    (pb.RECIPE_NIH_PNEUMONIA_CNN, strategy, pb.ARM_FULL, pb.TASK_IMAGE_CLASSIFICATION, pb.OBJECTIVE_CROSS_ENTROPY,
+     pb.UPDATE_TRAINABLE_STATE_F32)
     for strategy in (pb.STRATEGY_FEDAVG, pb.STRATEGY_ROBUST)
 })
 

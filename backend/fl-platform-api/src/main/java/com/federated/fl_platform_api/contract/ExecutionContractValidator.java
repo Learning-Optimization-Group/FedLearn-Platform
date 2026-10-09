@@ -125,17 +125,25 @@ public final class ExecutionContractValidator {
             List.of(Recipe.RECIPE_TINYNET_GOLDEN_VALUE, Strategy.STRATEGY_DECOMFL_VALUE,
                     Arm.ARM_FULL_VALUE, Task.TASK_VECTOR_CLASSIFICATION_VALUE,
                     Objective.OBJECTIVE_CROSS_ENTROPY_VALUE, UpdateProtocol.UPDATE_DECOMFL_SCALAR_VALUE),
-            // MLP (Stage 4): first-order training under the strategies whose servers send no client settings.
+            // MLP: first-order Adam with strategy settings cross-checked by clients.
             mlpFirstOrder(Strategy.STRATEGY_FEDAVG_VALUE),
+            mlpFirstOrder(Strategy.STRATEGY_FEDOPT_VALUE),
+            mlpFirstOrder(Strategy.STRATEGY_FEDPROX_VALUE),
             mlpFirstOrder(Strategy.STRATEGY_ROBUST_VALUE),
             // CNN (Stage 4): the same first-order training on images, prepared by the contract's image transforms.
             cnnFirstOrder(Strategy.STRATEGY_FEDAVG_VALUE),
+            cnnFirstOrder(Strategy.STRATEGY_FEDOPT_VALUE),
+            cnnFirstOrder(Strategy.STRATEGY_FEDPROX_VALUE),
             cnnFirstOrder(Strategy.STRATEGY_ROBUST_VALUE),
             // CIFAR_RESNET18 (Stage 4): the whole model, BatchNorm in training mode with federated running statistics.
             resnet18FirstOrder(Strategy.STRATEGY_FEDAVG_VALUE),
+            resnet18FirstOrder(Strategy.STRATEGY_FEDOPT_VALUE),
+            resnet18FirstOrder(Strategy.STRATEGY_FEDPROX_VALUE),
             resnet18FirstOrder(Strategy.STRATEGY_ROBUST_VALUE),
             // PNEUMONIA_CNN (Stage 4): 224x224 grayscale images, its dropout drawing the contract's seeded masks.
             pneumoniaFirstOrder(Strategy.STRATEGY_FEDAVG_VALUE),
+            pneumoniaFirstOrder(Strategy.STRATEGY_FEDOPT_VALUE),
+            pneumoniaFirstOrder(Strategy.STRATEGY_FEDPROX_VALUE),
             pneumoniaFirstOrder(Strategy.STRATEGY_ROBUST_VALUE),
             nihFirstOrder(Strategy.STRATEGY_FEDAVG_VALUE),
             nihFirstOrder(Strategy.STRATEGY_ROBUST_VALUE));

@@ -256,6 +256,22 @@ def _image(doc, shape, transforms):
                             "transforms": transforms})
 
 
+def _adam_neural(doc, recipe, strategy):
+    doc.update(recipe='RECIPE_' + recipe, strategy='STRATEGY_' + strategy, minClientProtocolVersion=2)
+    _set_optimizer(doc, 'adam', dict(VALID_ADAM, learningRate=.01))
+    doc[MT]['localTraining'].update(batchOrder='BATCH_ORDER_SEEDED_PERMUTATION_V1')
+    doc[MT]['data']['source'] = 'DATA_SOURCE_LOCAL_SNAPSHOT'
+    if strategy == 'FEDPROX':
+        doc[MT]['fedproxMu'] = .1
+    if recipe == 'CNN':
+        _image(doc, [3, 32, 32], [RGB_32, NORM_HALF])
+    elif recipe == 'CIFAR_RESNET18':
+        _image(doc, [3, 112, 112], [{'imageToUnitTensor': {'height': 112, 'width': 112, 'channels': 3}},
+                                 {'normalizeChannels': {'mean': [.485, .456, .406], 'std': [.229, .224, .225]}}])
+    elif recipe == 'PNEUMONIA_CNN':
+        _image(doc, [1, 224, 224], [GRAY_224, NORM_GRAY_HALF])
+
+
 def _nih(doc, source="DATA_SOURCE_LOCAL_SNAPSHOT", strategy="STRATEGY_FEDAVG"):
     _image(doc, [1, 224, 224], [GRAY_224, NORM_GRAY_HALF])
     doc.update(recipe="RECIPE_NIH_PNEUMONIA_CNN", strategy=strategy)
@@ -390,9 +406,8 @@ def build_conformance() -> dict:
               lambda d: d.pop(MT), ("MISSING_FIELD", MT)),
         _json("unsupported_recipe", "A recipe outside the v1 matrix.",
               lambda d: d.update({"recipe": "RECIPE_CNN"}), ("UNSUPPORTED_COMBINATION", "")),
-        _json("mlp_fedopt_unsupported", "MLP under FedOpt is outside the v1 matrix (no plan states it yet).",
-              lambda d: d.update({"recipe": "RECIPE_MLP", "strategy": "STRATEGY_FEDOPT"}),
-              ("UNSUPPORTED_COMBINATION", "")),
+        _json("mlp_fedopt", "MLP under FedOpt is approved first-order training.",
+              lambda d: d.update({"recipe": "RECIPE_MLP", "strategy": "STRATEGY_FEDOPT"})),
         _json("fedopt_tinynet", "FedOpt on TinyNet: first-order client training, adaptation on the server.",
               lambda d: d.update({"strategy": "STRATEGY_FEDOPT"})),
         _json("robust_tinynet", "Robust on TinyNet: first-order client training, robust aggregation on the server.",
@@ -778,6 +793,22 @@ def build_conformance() -> dict:
                                                                          "std": [0.229, 0.224, 0.225]}}]),
                          d.update({"recipe": "RECIPE_CIFAR_RESNET18"}),
                          d[MT].update({"batchNorm": [dict(BN1), dict(BN2)]}))),
+        _json("mlp_fedopt_adam", "MLP under FEDOPT uses contracted Adam settings.",
+              lambda d: _adam_neural(d, "MLP", "FEDOPT")),
+        _json("mlp_fedprox_adam", "MLP under FEDPROX uses contracted Adam settings.",
+              lambda d: _adam_neural(d, "MLP", "FEDPROX")),
+        _json("cnn_fedopt_adam", "CNN under FEDOPT uses contracted Adam settings.",
+              lambda d: _adam_neural(d, "CNN", "FEDOPT")),
+        _json("cnn_fedprox_adam", "CNN under FEDPROX uses contracted Adam settings.",
+              lambda d: _adam_neural(d, "CNN", "FEDPROX")),
+        _json("cifar_resnet18_fedopt_adam", "CIFAR_RESNET18 under FEDOPT uses contracted Adam settings.",
+              lambda d: _adam_neural(d, "CIFAR_RESNET18", "FEDOPT")),
+        _json("cifar_resnet18_fedprox_adam", "CIFAR_RESNET18 under FEDPROX uses contracted Adam settings.",
+              lambda d: _adam_neural(d, "CIFAR_RESNET18", "FEDPROX")),
+        _json("pneumonia_cnn_fedopt_adam", "PNEUMONIA_CNN under FEDOPT uses contracted Adam settings.",
+              lambda d: _adam_neural(d, "PNEUMONIA_CNN", "FEDOPT")),
+        _json("pneumonia_cnn_fedprox_adam", "PNEUMONIA_CNN under FEDPROX uses contracted Adam settings.",
+              lambda d: _adam_neural(d, "PNEUMONIA_CNN", "FEDPROX")),
         _json("nih_local_image_contract", "NIH uses explicit absent/present local image data.", _nih),
         _json("nih_robust_local_image_contract", "NIH approves Robust first-order training.",
               lambda d: _nih(d, strategy="STRATEGY_ROBUST")),

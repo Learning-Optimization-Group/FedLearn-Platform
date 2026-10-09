@@ -190,10 +190,7 @@ export function projectContract(contract: ExecutionContract, contractId: string)
   if (optimizer) {
     return refuse('UNSUPPORTED_OPTIMIZER', optimizer);
   }
-  if (strategy === 'FedProx' && local.optimizer.case === 'adam') {
-    return refuse('UNSUPPORTED_OPTIMIZER',
-      'This FedProx run adds its proximal term to Adam\'s gradient, which this app\'s Adam does not do.');
-  }
+
   const dropout = unsupportedDropout(training);
   if (dropout) {
     return refuse('UNSUPPORTED_DROPOUT', dropout);

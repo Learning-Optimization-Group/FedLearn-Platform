@@ -6,15 +6,15 @@ export const BRIDGE_ABI_VERSION = 5;
 export const SERVER_PROTOCOL_VERSION = 2;
 
 export class NativeCompatibilityError extends Error {
-  constructor() {
-    super('The installed native training core does not match this app. Rebuild and reinstall the app before training.');
+  constructor(message = 'The installed native training core does not match this app. Rebuild and reinstall the app before training.') {
+    super(message);
     this.name = 'NativeCompatibilityError';
   }
 }
 
 export async function assertNativeCompatibility(core: {
   getRuntimeCompatibility?: () => Promise<RuntimeCompatibility>;
-}): Promise<void> {
+}, requireAdamProximal = false): Promise<void> {
   if (typeof core.getRuntimeCompatibility !== 'function') throw new NativeCompatibilityError();
   try {
     const versions = await core.getRuntimeCompatibility();
@@ -22,7 +22,11 @@ export async function assertNativeCompatibility(core: {
         versions?.protocolVersion !== SERVER_PROTOCOL_VERSION) {
       throw new NativeCompatibilityError();
     }
-  } catch {
+    if (requireAdamProximal && versions.supportsAdamProximal !== true) {
+      throw new NativeCompatibilityError('Adam training with FedProx requires a newer native core. Rebuild and reinstall the app before training.');
+    }
+  } catch (error) {
+    if (error instanceof NativeCompatibilityError) throw error;
     throw new NativeCompatibilityError();
   }
 }
