@@ -403,7 +403,7 @@ RECIPE_METADATA = [
         "classes": ["PNEUMONIA_ABSENT", "PNEUMONIA_PRESENT"],
         "base_models": ["nih_pneumonia_cnn"],
         "optimizers": ["Adam"],
-        "requirements": {"min_ram_gb": 4, "min_storage_gb": 0.5, "mobile_safe": False,
+        "requirements": {"min_ram_gb": 4, "min_storage_gb": 0.5, "mobile_safe": True,
                          "max_trainable_params": 25783554, "min_os_android": 27},
     },
     {

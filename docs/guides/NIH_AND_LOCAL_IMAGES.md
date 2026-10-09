@@ -127,3 +127,20 @@ Validation: 533 runtime tests passed (29 slow tests deselected); 63 focused
 data/client tests also passed on Linux. The source loader is unit-tested for
 grayscale pneumonia and resized RGB ResNet preparation. Those recipes have not
 yet been qualified in mixed-device live runs.
+
+## NIH qualification — 9 October 2026
+
+The new NIH recipe completed two FedAvg rounds on vivo Android and g14 CPU,
+with separate patient-unique 32-image samples (16 positives/16 negatives each).
+All four accepted updates replay bitwise on their original runtimes, and the
+aggregate matches the registered checkpoint bitwise. Existing phone datasets
+remain unchanged. Probe 137.2 seconds; training about 4.6 minutes/round; updates
+about 103 MB each way. The Android catalog is cleared, with each device still
+required to qualify its staged programs before training.
+
+The final model predicts pneumonia-present for every image in the recorded
+512-image validation sample: accuracy 1.17%, balanced accuracy 50%, AUROC 0.4384.
+Model quality is poor. The official test set remains unused. See the
+[qualification note](../../research/notes/on-device/2026-10-09-nih-pneumonia-mixed.md)
+and [machine-readable result](../../research/results/on-device/nih-pneumonia-mixed-2026-10-09.json)
+for hashes, counts, provenance and limits.
