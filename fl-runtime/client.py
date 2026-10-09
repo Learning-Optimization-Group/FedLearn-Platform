@@ -549,12 +549,14 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                 outputs = net(images)
                 loss = criterion(outputs, labels)
 
-            # Check for NaN or exploding loss
+            # Contracted batches must execute on every runtime or fail the update.
             if torch.isnan(loss) or torch.isinf(loss):
+                if EXECUTION_CONTRACT is not None:
+                    raise RuntimeError("Contracted training produced a non-finite loss")
                 print(f"   [Training] WARNING: Invalid loss detected (NaN/Inf), skipping batch")
                 continue
 
-            if loss.item() > 100.0:
+            if EXECUTION_CONTRACT is None and loss.item() > 100.0:
                 print(f"   [Training] WARNING: Extremely high loss ({loss.item():.2f}), skipping batch")
                 continue
 
