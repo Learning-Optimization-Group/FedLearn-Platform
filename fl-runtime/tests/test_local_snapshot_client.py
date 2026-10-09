@@ -195,3 +195,73 @@ def test_rehashed_but_incompatible_snapshot_is_refused(tmp_path, case):
     (path / "snapshot.json").write_text(json.dumps(meta))
     with pytest.raises(ValueError):
         load_vector_snapshot(path, plan().data, ["c0", "c1", "c2"])
+
+
+def test_local_ecg_adam_and_seeded_dropout_match_two_round_explicit_replay(monkeypatch):
+    from contracted_dropout import SeededDropoutMasks
+    from local_snapshot import SeededSnapshotLoader
+    from fedlearn.communication.generated import execution_contract_pb2 as pb
+    training = execution_plan.resolve_model_training("MLP", "FedAvg", "FULL", data_source="LOCAL_SNAPSHOT")
+    c = pb.ExecutionContract(seed=77, num_rounds=2, model_training=training)
+    rng = torch.Generator().manual_seed(31)
+    x = torch.randn(129, 140, generator=rng)
+    y = torch.arange(129) % 2
+    loader = SeededSnapshotLoader(torch.utils.data.TensorDataset(x, y), batch_size=128,
+                                 seed=77, drop_last=False)
+    for key in ("USE_LLM", "USE_PNEUMONIA", "USE_LLM_LORA", "USE_DERIVED", "USE_WIRE_SUBSET"):
+        monkeypatch.setattr(client, key, False)
+    monkeypatch.setattr(client, "USE_MLP", True)
+    monkeypatch.setattr(client, "MODEL_TYPE", "MLP")
+    monkeypatch.setattr(client, "TRAINING_ARM", "FULL")
+    monkeypatch.setattr(client, "DEVICE", torch.device("cpu"))
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", c)
+    monkeypatch.setattr(client, "LOCAL_DATASET", loader)
+    participant = client.ZOSLClient(partition_id=0, dataset_name="ecg")
+    expected = recipes.get_recipe("MLP").build_model("cpu")
+    expected.load_state_dict(participant.net.state_dict())
+    layers = [(layer.module, layer.rate) for layer in training.dropout]
+    for round_ in (1, 2):
+        incoming = {key: value.clone() for key, value in participant.get_parameters().items()}
+        actual, count = participant.fit(incoming, {"server_round": round_})
+        optimizer = torch.optim.Adam(expected.parameters(), lr=training.local_training.adam.learning_rate)
+        expected.train()
+        with SeededDropoutMasks(expected, layers, seed=77, round_=round_) as masks:
+            order = seeded_permutation(129, 77, round_, 0)
+            for offset in range(0, 129, 128):
+                indices = order[offset:offset + 128]
+                optimizer.zero_grad()
+                torch.nn.functional.cross_entropy(expected(x[indices]), y[indices]).backward()
+                optimizer.step()
+                masks.advance()
+        assert count == 129
+        for key, value in actual.items():
+            torch.testing.assert_close(value, expected.state_dict()[key], rtol=0, atol=0)
+
+
+@pytest.mark.parametrize("case", ["fixture_with_path", "local_without_path", "zeroth_order"])
+def test_cli_refuses_incompatible_local_data_intent(tmp_path, monkeypatch, case):
+    from fedlearn.communication.generated import execution_contract_pb2 as pb
+    c, contract = local_contract(tmp_path)
+    path = csv_file(tmp_path / "own.csv")
+    strategy = "FedAvg"
+    if case == "fixture_with_path":
+        c.model_training.data.CopyFrom(execution_plan.resolve_model_training("TINYNET_GOLDEN", "FedAvg", "FULL").data)
+        c.model_training.local_training.CopyFrom(plan().local_training)
+    elif case == "zeroth_order":
+        strategy = "DeComFL"; c.strategy = pb.STRATEGY_DECOMFL
+        previous = pb.ModelTraining(); previous.CopyFrom(c.model_training)
+        c.model_training.CopyFrom(execution_plan.resolve_model_training("TINYNET_GOLDEN", strategy, "FULL", data_source="LOCAL_SNAPSHOT"))
+        c.model_training.model_revision = previous.model_revision
+        c.model_training.initial_state_sha256 = previous.initial_state_sha256
+        c.model_training.artifacts.extend(previous.artifacts)
+    contract.write_text(json_format.MessageToJson(c))
+    argv = ["--project-id", c.project_id, "--server-address", "localhost:50000", "--partition-id", "0",
+            "--model-type", "TINYNET_GOLDEN", "--strategy", strategy, "--execution-contract", str(contract)]
+    if case != "local_without_path":
+        argv += ["--dataset-path", str(path)]
+    monkeypatch.setattr(client, "LOCAL_DATASET", None)
+    monkeypatch.setattr(client, "EXECUTION_CONTRACT", None)
+    with pytest.raises(SystemExit):
+        client.enforce_execution_contract(client.parse_args(argv), "TINYNET_GOLDEN", "FULL")
+    assert client.LOCAL_DATASET is None
+    assert client.EXECUTION_CONTRACT is None
