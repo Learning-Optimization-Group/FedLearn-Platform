@@ -83,3 +83,27 @@ held-out dataset and record its split provenance.
 NIH ChestX-ray14 PNGs require a separate image adapter. A tree experiment would
 first need a fixed feature extractor and a common embedding schema. The current
 four-feature binary recipe cannot directly train on those images.
+
+
+## Real-data qualification — 9 October 2026
+
+A mixed Mac/g14 run trained collaboratively on binary Iris versicolor/virginica
+rows: 30/31 training rows in separate clients, 20 validation and 19 test rows.
+Duplicate measurement groups were separated before the deterministic split.
+Four rounds produced eight trees through the normal enrollment, contribution,
+aggregation, artifact and inference paths. Both original CPU runtimes replayed
+their contributions exactly; all aggregate parents matched and changed-label
+controls differed.
+
+External test evaluation classified 18 of 19 rows correctly, with AUROC
+0.99444. Two fixed centralized eight-tree controls also classified 18 of 19
+correctly. Sequential pooled boosting and parallel federated tree growth are
+different algorithms; equal tree counts do not make this a controlled efficacy
+comparison. The small test set does not establish broad model quality.
+
+The [benchmark instructions](../../framework/benchmarks/xgboost_iris/README.md)
+explain feature mapping, provenance and reproduction. The
+[qualification receipt](../../research/results/xgboost/iris-mixed-cpu-2026-10-09.json)
+records metrics, hashes, exact replays and platform inference. Android tree
+training, multiclass tasks, clinical features and arbitrary schemas remain
+unsupported by this qualification.

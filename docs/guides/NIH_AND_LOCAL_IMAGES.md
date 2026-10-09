@@ -120,13 +120,13 @@ NIH preparation with two clients, seed 42 and a 20% validation fraction produced
 68,959 training images, 17,565 validation images and all 25,596 official test
 images. Client partitions contain 34,328/34,631 images and 346/338 pneumonia
 positives. All 112,120 source images are accounted for, with no patient or image
-overlap among clients, validation and test. NIH platform training remains
-pending the dataset-specific label contract and evaluation loader.
+overlap among clients, validation and test. The later NIH qualification below verifies its separate label contract and
+evaluation loader.
 
 Validation: 533 runtime tests passed (29 slow tests deselected); 63 focused
 data/client tests also passed on Linux. The source loader is unit-tested for
-grayscale pneumonia and resized RGB ResNet preparation. Those recipes have not
-yet been qualified in mixed-device live runs.
+grayscale pneumonia and resized RGB ResNet preparation. Later qualifications below and in the
+[mobile guide](MOBILE_QUALIFICATION.md) supersede the earlier live-run gaps.
 
 ## NIH qualification — 9 October 2026
 
@@ -144,3 +144,32 @@ Model quality is poor. The official test set remains unused. See the
 [qualification note](../../research/notes/on-device/2026-10-09-nih-pneumonia-mixed.md)
 and [machine-readable result](../../research/results/on-device/nih-pneumonia-mixed-2026-10-09.json)
 for hashes, counts, provenance and limits.
+
+
+## Larger NIH learning controls — 9 October 2026
+
+A second experiment used 128 balanced, patient-unique training images per
+client (256 pooled), keeping the same proportional 512-image validation
+sample and all official test patients held out. All six CPU contributions
+replayed bitwise on their original Mac/g14 runtimes. The aggregate and
+independently reloaded validation metrics match the registered checkpoint.
+
+The three-round FedAvg model reached 91.80% accuracy, below the 98.83%
+majority-class baseline. Balanced accuracy was 46.44%, AUROC 0.4417 and
+average precision 0.01369. It missed all six pneumonia-positive cases and
+produced 36 false positives. Accuracy alone would conceal this failure.
+
+Three centralized epochs with persistent Adam at 0.001 collapsed to predicting
+positive for every image. Lowering the rate to 0.0001 avoided that collapse,
+but AUROC was still only 0.4292. Resetting Adam each epoch at 0.001 produced
+AUROC 0.5277 and almost all-positive predictions. Neither control supplies a
+useful classifier. Centralized and federated batch orders differ; these are
+diagnostic controls, not a causal comparison of their algorithms.
+
+The [retained learning report](../../research/results/nih/learning-controls-2026-10-09.json)
+records each epoch, probabilities, metrics and checkpoint hashes. The
+[control driver](../../research/benchmarks/nih_learning.py) verifies package
+receipts and disjoint patients/images before training. Raw inventory and
+ownership were checked on the source host at packaging; g14 verified the
+bounded packages. Only six validation positives make estimates uncertain.
+Larger samples and an appropriate training setup remain necessary.
