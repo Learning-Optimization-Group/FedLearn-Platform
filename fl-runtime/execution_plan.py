@@ -600,7 +600,8 @@ def resolve_model_training(recipe_key: str, strategy: str, training_arm: str,
 
 
 def check_contract(contract: pb.ExecutionContract, recipe_key: str, strategy: str, training_arm: str, *,
-                   project_id: str | None = None, run_id: str | None = None) -> list[str]:
+                   project_id: str | None = None, run_id: str | None = None,
+                   data_source: str = "FIXTURE") -> list[str]:
     """Why this client must refuse ``contract``; empty when it may train under it.
 
     The contract must be valid for this client and this run, must name the client's recipe and strategy, and
@@ -620,7 +621,7 @@ def check_contract(contract: pb.ExecutionContract, recipe_key: str, strategy: st
     if problems:
         return problems
     try:
-        plan = resolve_model_training(recipe_key, strategy, training_arm)
+        plan = resolve_model_training(recipe_key, strategy, training_arm, data_source=data_source)
     except NotRepresentable as exc:
         return [str(exc)]
     return [f"modelTraining.{json_name} differs from what this client executes"

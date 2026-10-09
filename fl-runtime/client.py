@@ -98,6 +98,7 @@ CNN_LEARNING_RATE = 1e-3
 
 # The run's execution contract once enforce_execution_contract accepts it; None for a legacy launch.
 EXECUTION_CONTRACT = None
+LOCAL_DATASET = None
 MLP_LEARNING_RATE = 1e-3  # Higher LR for zeroth-order optimization
 
 # Global dataset selection (will be set via argparse)
@@ -209,6 +210,8 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
             partition_id=partition_id, num_clients=num_clients,
             alpha=alpha, seed=42, batch_size=BATCH_SIZE,
         )
+    if LOCAL_DATASET is not None:
+        return LOCAL_DATASET, LOCAL_DATASET
     if USE_LLM_LORA:
         import recipes
         train, _ = recipes.get_recipe("LLM_LORA").load_client_data(
@@ -894,6 +897,11 @@ class ZOSLClient(fl.Client):
         # Load parameters
 
         server_round = config.get("server_round", 0)
+        from local_snapshot import SeededSnapshotLoader
+        if isinstance(self.trainloader, SeededSnapshotLoader):
+            if EXECUTION_CONTRACT is None or not 1 <= server_round <= EXECUTION_CONTRACT.num_rounds:
+                raise ValueError("local snapshot round is outside the execution contract")
+            self.trainloader.set_round(server_round)
 
         # FR-32: FedProx's proximal_mu is now HONORED (the proximal term is applied in train() from the
         # round-start snapshot below), so there is no longer a config this first-order client refuses.
@@ -1090,7 +1098,7 @@ def apply_ecg_run_settings(args):
     if (getattr(args, "model_type", None) or "").upper() != "MLP":
         return None, None
     args.dataset = "ecg"
-    return ECG_DATASET_PATH, ECG_NUM_CLIENTS
+    return getattr(args, "dataset_path", None) or ECG_DATASET_PATH, ECG_NUM_CLIENTS
 
 
 def _resolve_decomfl_golden_fixture_dir():
@@ -1201,6 +1209,8 @@ def build_arg_parser():
     parser.add_argument("--aggregation", type=str, default="FFA_LORA", choices=["FFA_LORA", "FEDIT"], help="LoRA aggregation sub-mode (LLM_LORA only)")
     parser.add_argument("--task-type", type=str, default="SEQ_CLASSIFICATION", choices=["SEQ_CLASSIFICATION", "CAUSAL_LM"], help="LLM_LORA task type (generative vs classification)")
     parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2", "ecg"], help="Dataset")
+    parser.add_argument("--dataset-path", type=str, default=None,
+                        help="Own vector CSV or Android snapshot directory; requires a LOCAL_SNAPSHOT contract")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="FL strategy (FedAvg or DeComFL)")
     parser.add_argument("--training-arm", type=str, default=None,
                         help="Training arm: FULL (default) or FROZEN_HEAD. Must be one the "
@@ -1233,9 +1243,12 @@ def enforce_execution_contract(args, model_type, training_arm):
     every round is held to it. Exits before any data or model is loaded when the contract is invalid, belongs to
     another run or project, or states different training.
     """
-    global EXECUTION_CONTRACT
+    global EXECUTION_CONTRACT, LOCAL_DATASET
     EXECUTION_CONTRACT = None
+    LOCAL_DATASET = None
     if not getattr(args, "execution_contract", None):
+        if getattr(args, "dataset_path", None):
+            raise SystemExit("Refusing to train: --dataset-path requires a LOCAL_SNAPSHOT execution contract")
         return None
     import execution_plan
     from fedlearn.contract import MalformedContractError, parse_contract_json
@@ -1245,10 +1258,27 @@ def enforce_execution_contract(args, model_type, training_arm):
             contract = parse_contract_json(fh.read())
     except (OSError, MalformedContractError) as exc:
         raise SystemExit(f"Refusing to train: the execution contract could not be read ({exc})")
+    local_path = getattr(args, "dataset_path", None)
+    source = "LOCAL_SNAPSHOT" if local_path else "FIXTURE"
     problems = execution_plan.check_contract(contract, model_type, args.strategy, training_arm,
-                                             project_id=args.project_id, run_id=args.run_id)
+                                             project_id=args.project_id, run_id=args.run_id, data_source=source)
     if problems:
         raise SystemExit("Refusing to train under this execution contract: " + "; ".join(problems))
+    if local_path:
+        from local_snapshot import load_vector_snapshot, SeededSnapshotLoader
+        from fedlearn.communication.generated import execution_contract_pb2 as pb
+        training = contract.model_training
+        if (training.update_protocol != pb.UPDATE_TRAINABLE_STATE_F32
+                or training.local_training.batch_order != pb.BATCH_ORDER_SEEDED_PERMUTATION_V1):
+            raise SystemExit("Refusing to train: local snapshots require supported first-order seeded batching")
+        try:
+            import recipes
+            local = load_vector_snapshot(local_path, training.data, recipes.get_recipe(model_type).classes)
+            LOCAL_DATASET = SeededSnapshotLoader(local.dataset, batch_size=training.local_training.batch_size,
+                seed=int(contract.seed), drop_last=training.local_training.drop_last)
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            raise SystemExit(f"Refusing to train: the local dataset is invalid ({exc})")
+        print(f"[data] local snapshot {local.snapshot_id}: {len(local.dataset)} examples")
     print(f"[contract] execution contract accepted for run {contract.run_id}")
     EXECUTION_CONTRACT = contract
     return contract
@@ -1267,6 +1297,8 @@ def main():
     print(f"Selected device: {DEVICE}")
     print(f"{'='*60}\n")
     args = parse_args()
+    if args.dataset_path and not args.model_type:
+        raise SystemExit("Refusing to train: --dataset-path requires --model-type")
 
     DEVICE = resolve_device(args.device)
     print(f"[device] resolved --device={args.device!r} -> {DEVICE}")

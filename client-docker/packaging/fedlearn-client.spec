@@ -75,7 +75,8 @@ hiddenimports.extend([
 LOCAL_SIBLINGS = ['config.py', 'data.py', 'recipes.py',
                   'device.py', 'models', 'data_loaders', 'architecture',
                   # client.py's execution-contract check (--execution-contract) and what it imports.
-                  'execution_plan.py', 'strategy_client_settings.py']
+                  'execution_plan.py', 'strategy_client_settings.py',
+                  'local_snapshot.py', 'contracted_dropout.py']
 for name in LOCAL_SIBLINGS:
     src = os.path.join(RUNTIME_DIR, name)
     if os.path.isdir(src):
