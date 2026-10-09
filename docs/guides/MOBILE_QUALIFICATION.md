@@ -8,7 +8,7 @@ establish useful predictive performance.
 | Recipe | Mixed phone/Python qualification | Remaining evidence |
 | --- | --- | --- |
 | MLP / ECG | FedAvg; multi-batch FedOpt and FedProx | FedOpt server settings need tuning; broader datasets |
-| CNN / CIFAR-10 | FedAvg, three rounds, 320 images/client | Live FedOpt/FedProx and subset arms |
+| CNN / CIFAR-10 | FedAvg; two-round FedOpt/FedProx, 320 images/client | Useful adaptive learning and subset arms |
 | CIFAR_RESNET18 | FedAvg, two rounds, 32 images/client | Live adaptive strategies, subset arms, larger training runs |
 | NIH_PNEUMONIA_CNN | FedAvg, two rounds, 32 images/client | Useful learning, live Robust; remains FedAvg/Robust only |
 | PNEUMONIA_CNN | Earlier phone training; source/contract support | A mixed run with the original NORMAL/PNEUMONIA dataset |
@@ -16,7 +16,7 @@ establish useful predictive performance.
 
 MLP, CNN, ResNet and the original pneumonia recipe have tested FULL-arm
 FedAvg/Robust/FedOpt/FedProx contracts. The new live adaptive-strategy evidence
-covers ECG. Other combinations must not be described as live-qualified solely
+covers ECG and CNN. Other combinations must not be described as live-qualified solely
 because their execution plans pass validation.
 
 ## ResNet-18
@@ -78,6 +78,25 @@ of 1.0 produced severe loss growth and 58.40% accuracy. These small execution
 runs do not compare algorithm quality: they have different initial weights and
 seeds. Exposing and qualifying appropriate FedOpt server settings remains work.
 See the [strategy receipts](../../research/results/on-device/ecg-adaptive-strategies-2026-10-09.json).
+
+## Adaptive CNN continuation
+
+CNN/FedProx and CNN/FedOpt each completed two mixed vivo/g14 rounds with
+320 existing private CIFAR training images per client and ten local batches.
+All eight contributions replay bitwise on their original runtimes, and both
+aggregates reproduce their registered checkpoints bitwise. Changed labels and
+learning rates alter phone updates; removing the proximal coefficient also
+changes the FedProx update. All 27 phone dataset hashes remain unchanged.
+
+Independent registry reload gives 15.09% official test accuracy for FedProx
+and 10% for default FedOpt. The latter's phone loss rose from 2.30 to 283.27;
+server rate 1.0 remains unsuitable here. Fresh projects use different seeds and
+weights, so this is execution qualification rather than an algorithm comparison.
+The original g14 clients pin OpenMP/MKL to one CPU thread; exact desktop replay
+requires that setting. A default-thread comparison differed by 1.32e-6 and was
+retained as a numerical reproducibility check.
+
+See the [adaptive CNN receipts](../../research/results/on-device/cnn-adaptive-2026-10-09.json).
 
 ## Remaining work
 

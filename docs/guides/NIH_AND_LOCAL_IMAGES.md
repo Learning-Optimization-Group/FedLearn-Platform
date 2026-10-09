@@ -173,3 +173,29 @@ receipts and disjoint patients/images before training. Raw inventory and
 ownership were checked on the source host at packaging; g14 verified the
 bounded packages. Only six validation positives make estimates uncertain.
 Larger samples and an appropriate training setup remain necessary.
+
+
+## Bounded learning diagnostics
+
+The research control driver keeps its original three-epoch comparisons by
+default. For a predefined longer comparison, supply explicit rates and a fixed
+CPU thread count:
+
+```sh
+python research/benchmarks/nih_learning.py --packages output/nih-diagnostics \
+  --initial initial.npz --out output/nih-controls --seed 42 --epochs 10 \
+  --persistent-rates 0.0001 0.00001 --reset-rates --threads 4
+```
+
+An empty `--reset-rates` disables reset-per-epoch controls. Budgets are bounded
+to 20 epochs, four distinct rate/lifetime combinations and eight CPU threads.
+The result records the actual PyTorch thread count; exact numerical replay
+requires the same thread configuration. Existing outputs are refused.
+
+Packages must bind to the verified source preparation and have disjoint
+training/validation patients, raw image hashes and prepared pixel contents.
+Balanced held-out packages are diagnostic case samples. Their accuracy and
+precision do not estimate performance at NIH's disease prevalence. The
+proportional reference sample and official test set must remain separate from
+training or parameter selection. These research flags do not change the
+platform's published NIH execution contract.
