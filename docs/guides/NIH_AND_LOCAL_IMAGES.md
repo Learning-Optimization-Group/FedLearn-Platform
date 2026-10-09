@@ -69,3 +69,30 @@ refused before training.
 This source-client support does not qualify the packaged desktop executable or
 every recipe/strategy combination. Preserve official held-out images when
 preparing client packages.
+
+## Qualification — 9 October 2026
+
+CNN/FedAvg completed three rounds on an Android phone and a Linux CPU Python
+client, each using a separate 320-image CIFAR training partition. Neither client
+had image-content overlap with the official 10,000-image test split. Each of the
+six accepted contributions replayed exactly on its original runtime, and their
+aggregates reconstructed the registered final checkpoint exactly. Changed-label
+controls produced different updates.
+
+This run continued from a preceding three-round checkpoint. Independent registry
+reload gave 25.83% test accuracy, matching server evaluation. This establishes
+the mixed-device training path; it does not establish exact numerical agreement
+between Android ExecuTorch and PyTorch. Phone uploads were 248,805 bytes per
+round; measured training took about 3.2 seconds per round.
+
+NIH preparation with two clients, seed 42 and a 20% validation fraction produced
+68,959 training images, 17,565 validation images and all 25,596 official test
+images. Client partitions contain 34,328/34,631 images and 346/338 pneumonia
+positives. All 112,120 source images are accounted for, with no patient or image
+overlap among clients, validation and test. NIH platform training remains
+pending the dataset-specific label contract and evaluation loader.
+
+Validation: 533 runtime tests passed (29 slow tests deselected); 63 focused
+data/client tests also passed on Linux. The source loader is unit-tested for
+grayscale pneumonia and resized RGB ResNet preparation. Those recipes have not
+yet been qualified in mixed-device live runs.
