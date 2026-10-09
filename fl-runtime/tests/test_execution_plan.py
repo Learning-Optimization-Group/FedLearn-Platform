@@ -1242,3 +1242,19 @@ def test_adam_recipe_strategy_plans_state_the_shared_server_settings(recipe, str
     assert plan.HasField('fedprox_mu') == (strategy == 'FedProx')
     if strategy == 'FedProx':
         assert plan.fedprox_mu == settings.FEDPROX_CLIENT_PROXIMAL_MU
+
+
+@pytest.mark.parametrize('recipe', ['MLP', 'CNN', 'CIFAR_RESNET18', 'PNEUMONIA_CNN'])
+@pytest.mark.parametrize('strategy', ['FedOpt', 'FedProx'])
+def test_adam_round_cross_check_reads_the_selected_optimizer_rate(monkeypatch, recipe, strategy):
+    import client
+    contract = _contract_for('FedOpt', pb.STRATEGY_FEDOPT)
+    plan = execution_plan.resolve_model_training(recipe, strategy, 'FULL', data_source='LOCAL_SNAPSHOT')
+    contract.model_training.CopyFrom(plan)
+    monkeypatch.setattr(client, 'EXECUTION_CONTRACT', contract)
+    config = {'learning_rate': str(plan.local_training.adam.learning_rate), 'local_epochs': '1'}
+    if strategy == 'FedProx':
+        config['proximal_mu'] = str(plan.fedprox_mu)
+    client._refuse_round_outside_contract(config)
+    with pytest.raises(ValueError, match='execution contract'):
+        client._refuse_round_outside_contract(dict(config, learning_rate='0.001'))

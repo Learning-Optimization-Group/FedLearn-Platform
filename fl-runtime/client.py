@@ -667,9 +667,13 @@ def _refuse_round_outside_contract(config: dict) -> None:
         return
     local = EXECUTION_CONTRACT.model_training.local_training
     rate = _coerce_learning_rate(config)
-    if rate is not None and rate != local.sgd.learning_rate:
+    optimizer = local.WhichOneof('optimizer')
+    if optimizer not in ('sgd', 'adam', 'adamw', 'rmsprop'):
+        raise ValueError('first-order round requires a first-order optimizer in the execution contract')
+    stated_rate = getattr(local, optimizer).learning_rate
+    if rate is not None and rate != stated_rate:
         raise ValueError(f"the server asked for learning_rate {rate!r}; the execution contract states "
-                         f"{local.sgd.learning_rate!r}")
+                         f"{stated_rate!r}")
     if "local_epochs" in config and _coerce_local_epochs(config, None) != local.local_epochs:
         raise ValueError(f"the server asked for local_epochs {config['local_epochs']!r}; the execution contract "
                          f"states {local.local_epochs}")
