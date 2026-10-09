@@ -320,7 +320,7 @@ RECIPE_METADATA = [
                     "dog", "frog", "horse", "ship", "truck"],
         "base_models": ["resnet18"],
         "optimizers": ["Adam", "SGD", "AdamW"],
-        "requirements": {"min_ram_gb": 4, "min_storage_gb": 0.2, "mobile_safe": False,
+        "requirements": {"min_ram_gb": 4, "min_storage_gb": 0.2, "mobile_safe": True,
                          "max_trainable_params": 12000000},
     },
     {

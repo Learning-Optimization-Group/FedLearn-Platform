@@ -1,0 +1,313 @@
+{
+  "native_runtime": {
+    "source_commit": "eb8b7f2884397db7a68a7b2367fad0ce3436575e",
+    "apk_sha256": "72f047a1c33e260a3c9dd30fb6f832294e5fcb86e57442f620c2f41301b42308",
+    "signer_sha256": "4a6dc31e7b840e5425462c2ccfe395295f0cb1d48460f39a030648620d2c86f6",
+    "native_archive_sha256": "4cc1c7bdc054fcc55f76936a1f2ebb2cf6f4a0233c11a33a141df580a9baff2a",
+    "build_result": "successful",
+    "installed": true,
+    "dataset_preservation": {
+      "dataset_files": 27,
+      "all_dataset_hashes_unchanged": true,
+      "installed_apk_sha256": "72f047a1c33e260a3c9dd30fb6f832294e5fcb86e57442f620c2f41301b42308"
+    },
+    "native_capability": {
+      "bridgeAbiVersion": 5,
+      "protocolVersion": 2,
+      "supportsAdamProximal": true
+    }
+  },
+  "old_native_refusal": "Positive Adam proximal training refused before provisioning without supportsAdamProximal.",
+  "runs": [
+    {
+      "strategy": "FedOpt",
+      "recipe": "MLP",
+      "run_id": "3d1f1b2c-a1e3-42b8-a1cd-235b043eb695",
+      "project_id": "7deefaa1-24d4-466f-a47a-4336eb632032",
+      "artifact_id": "a8b72773-b468-4e1e-a594-2a13892f51b5",
+      "checkpoint_sha256": "0f359aced095d535a942008d915621d0bc24a88f3af7ca22955f459a5fe7ae86",
+      "contract_id": "a90d4a7e005e0e1fef1d1160e8f00ffc91f0ffdcdf28ae95d574d734c69d410a",
+      "python_runtime_source_commit": "04f4674bff3ec56220f432a006479cd844c89428",
+      "rounds": 2,
+      "local_rows": [
+        300,
+        300
+      ],
+      "batch_size": 128,
+      "local_epochs": 1,
+      "optimizer": "Adam reset per round",
+      "client_learning_rate": 0.01,
+      "proximal_mu": 0,
+      "phone": {
+        "state": "completed",
+        "logs": [
+          "Execution contract a90d4a7e005e\u2026 accepted.",
+          "Provisioning model + on-device data\u2026",
+          "Model loaded \u2014 13314 trainable params (tier 1M).",
+          "Model qualified on this device (probe 19 ms).",
+          "On-device data staged. Training starts \u2014 your data never leaves this device.",
+          "Round 1: loss 0.1156 \u00b7 0 scalars up \u00b7 150ms",
+          "Round 2: loss 86.7277 \u00b7 0 scalars up \u00b7 117ms",
+          "Run training_complete."
+        ],
+        "rounds": [
+          {
+            "round": 1,
+            "loss": 0.11560258696476619,
+            "accuracy": 0.9466666666666667,
+            "scalarsTransmitted": 0,
+            "uplinkBytes": 53727,
+            "downlinkBytes": 53725,
+            "computeMs": 150,
+            "reverted": false
+          },
+          {
+            "round": 2,
+            "loss": 86.72767120361328,
+            "accuracy": 0.9033333333333333,
+            "scalarsTransmitted": 0,
+            "uplinkBytes": 53727,
+            "downlinkBytes": 53725,
+            "computeMs": 117,
+            "reverted": false
+          }
+        ]
+      },
+      "original_cpu_replay": {
+        "run_id": "3d1f1b2c-a1e3-42b8-a1cd-235b043eb695",
+        "torch": "2.12.0+cpu",
+        "rounds": [
+          {
+            "round": 1,
+            "examples": 300,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          },
+          {
+            "round": 2,
+            "examples": 300,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          }
+        ],
+        "wrong_label_control_max_abs_diff": 0.024248413741588593
+      },
+      "original_phone_replay": {
+        "rounds_exact": 2,
+        "float32_bitwise_equal": true,
+        "changed_label_control_differs": true,
+        "wrong_rate_control_differs": true,
+        "zero_mu_control_differs": null,
+        "log": "ECG replay round=1 control=0 max_abs_diff=0 bitwise_equal=1 uplink=53727 downlink=53725\nECG replay round=1 control=1 max_abs_diff=0.02278067172 bitwise_equal=0 uplink=53727 downlink=53725\nECG replay round=1 control=2 max_abs_diff=0.03034602292 bitwise_equal=0 uplink=53727 downlink=53725\nECG replay round=2 control=0 max_abs_diff=0 bitwise_equal=1 uplink=53727 downlink=53725"
+      },
+      "aggregate_replay_exact": true,
+      "accepted_update_receipts": [
+        {
+          "round": 1,
+          "participant": "g14",
+          "examples": 300,
+          "sha256": "246a6a9893f6702b4956e0fb33ab2912a06538905097ad5b3967bf5b6c89463f"
+        },
+        {
+          "round": 1,
+          "participant": "phone",
+          "examples": 300,
+          "sha256": "cfa5d0b4a39713e7b4172b36d952c9cfcd4319de0717da0fbe1474fc3d9894b9"
+        },
+        {
+          "round": 2,
+          "participant": "g14",
+          "examples": 300,
+          "sha256": "7b270fb1528b395762266960425f76525767d0fd8d74095c483aa23c3cc13f02"
+        },
+        {
+          "round": 2,
+          "participant": "phone",
+          "examples": 300,
+          "sha256": "8c693bd107cdd706d0ed953b86b165b9e84529a852d88558896b3c422d0a9a45"
+        }
+      ],
+      "server_evaluation": {
+        "recipe_key": "MLP",
+        "strategy": "FedOpt",
+        "rounds": 2,
+        "final_loss": 17180.801513671875,
+        "final_accuracy": 58.40425531914894,
+        "torch_version": "2.12.0",
+        "seed": 2144588455,
+        "framework": "fedlearn",
+        "training_arm": "FULL",
+        "trainable_prefixes": null
+      }
+    },
+    {
+      "strategy": "FedProx",
+      "recipe": "MLP",
+      "run_id": "12d59cb2-94eb-47b4-84ba-8434e834ce9e",
+      "project_id": "669f4712-29d3-4c85-80bd-395d01bd6d2b",
+      "artifact_id": "b1a17e4a-2fcd-4bf7-9ea3-22d85ce13126",
+      "checkpoint_sha256": "c88f70f7d6d0a3c1e56ec5979bf19fb2968be351cd21785aca45330d9ee04979",
+      "contract_id": "078b63de1857fd42ef8f65ff26011f239274d3ed76f2cf2fae8d120192c33d8f",
+      "python_runtime_source_commit": "337a3aeba044e44205c225e7195084c935f05246",
+      "rounds": 2,
+      "local_rows": [
+        300,
+        300
+      ],
+      "batch_size": 128,
+      "local_epochs": 1,
+      "optimizer": "Adam reset per round",
+      "client_learning_rate": 0.01,
+      "proximal_mu": 0.1,
+      "phone": {
+        "state": "completed",
+        "logs": [
+          "Execution contract 078b63de1857\u2026 accepted.",
+          "Provisioning model + on-device data\u2026",
+          "Model loaded \u2014 13314 trainable params (tier 1M).",
+          "Model qualified on this device (probe 19 ms).",
+          "On-device data staged. Training starts \u2014 your data never leaves this device.",
+          "Round 1: loss 0.0786 \u00b7 0 scalars up \u00b7 140ms",
+          "Round 2: loss 0.0485 \u00b7 0 scalars up \u00b7 163ms",
+          "Run training_complete."
+        ],
+        "rounds": [
+          {
+            "round": 1,
+            "loss": 0.07859510272741317,
+            "accuracy": 0.9666666666666667,
+            "scalarsTransmitted": 0,
+            "uplinkBytes": 53727,
+            "downlinkBytes": 53725,
+            "computeMs": 140,
+            "reverted": false
+          },
+          {
+            "round": 2,
+            "loss": 0.04845626344283422,
+            "accuracy": 0.9933333333333333,
+            "scalarsTransmitted": 0,
+            "uplinkBytes": 53727,
+            "downlinkBytes": 53713,
+            "computeMs": 163,
+            "reverted": false
+          }
+        ]
+      },
+      "original_cpu_replay": {
+        "run_id": "12d59cb2-94eb-47b4-84ba-8434e834ce9e",
+        "torch": "2.12.0+cpu",
+        "rounds": [
+          {
+            "round": 1,
+            "examples": 300,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          },
+          {
+            "round": 2,
+            "examples": 300,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          }
+        ],
+        "wrong_label_control_max_abs_diff": 0.012676160782575607
+      },
+      "original_phone_replay": {
+        "rounds_exact": 2,
+        "float32_bitwise_equal": true,
+        "changed_label_control_differs": true,
+        "wrong_rate_control_differs": true,
+        "zero_mu_control_differs": true,
+        "log": "ECG replay round=1 control=0 max_abs_diff=0 bitwise_equal=1 uplink=53727 downlink=53725\nECG replay round=1 control=1 max_abs_diff=0.01381720603 bitwise_equal=0 uplink=53727 downlink=53725\nECG replay round=1 control=2 max_abs_diff=0.02964240313 bitwise_equal=0 uplink=53727 downlink=53725\nECG replay round=1 control=3 max_abs_diff=0.03291751444 bitwise_equal=0 uplink=53727 downlink=53725\nECG replay round=2 control=0 max_abs_diff=0 bitwise_equal=1 uplink=53727 downlink=53725"
+      },
+      "aggregate_replay_exact": true,
+      "accepted_update_receipts": [
+        {
+          "round": 1,
+          "participant": "g14",
+          "examples": 300,
+          "sha256": "6430b025553c4e0c21f7ca4cc35e4435a6b1673714b1a3215ecb417663e2598e"
+        },
+        {
+          "round": 1,
+          "participant": "phone",
+          "examples": 300,
+          "sha256": "5ee6da8bee50a4e182315c0cdf3a48ce6c5211b89f2c17349d84e941254f2ada"
+        },
+        {
+          "round": 2,
+          "participant": "g14",
+          "examples": 300,
+          "sha256": "2bb4ce625a37f1b7e8013c39e64757d822036ce537e13bfc3eda9837293de2d4"
+        },
+        {
+          "round": 2,
+          "participant": "phone",
+          "examples": 300,
+          "sha256": "9bbce3b4aa94be9a179f913de004dc4a6606417c9f6a9dc2dcbee4dd5d7e4644"
+        }
+      ],
+      "server_evaluation": {
+        "recipe_key": "MLP",
+        "strategy": "FedProx",
+        "rounds": 2,
+        "final_loss": 0.0847075633937493,
+        "final_accuracy": 98.40425531914893,
+        "torch_version": "2.12.0",
+        "seed": 496058862,
+        "framework": "fedlearn",
+        "training_arm": "FULL",
+        "trainable_prefixes": null
+      }
+    }
+  ],
+  "fedopt_server_settings": {
+    "variant": "Adam",
+    "learning_rate": 1,
+    "beta1": 0.9,
+    "beta2": 0.99,
+    "tau": 0.001
+  },
+  "fixes": [
+    "Python cross-checks the selected optimizer learning rate.",
+    "All contracted finite batches train; non-finite loss refuses the update.",
+    "Native proximal gradient uses a fixed round anchor before Adam moments."
+  ],
+  "limits": [
+    "ECG qualifies mixed-device FedOpt/FedProx execution, not their predictive benefit.",
+    "Default FedAdam server settings produced severe loss growth; server learning rate tuning remains.",
+    "Other newly enabled real-model FedOpt/FedProx combinations have contract/native tests but no mixed-device live qualification.",
+    "NIH remains FedAvg/Robust only.",
+    "Real-model subset arms and DeComFL remain outside this qualification."
+  ],
+  "partition_provenance": {
+    "source_rows": 4998,
+    "phone_rows": 300,
+    "desktop_rows": 300,
+    "excluded_source_rows": 300,
+    "server_evaluation_rows": 940,
+    "pairwise_feature_overlap": 0,
+    "server_split_seed": 42,
+    "server_test_fraction": 0.2,
+    "phone_snapshot_id": "afdcd844eb89ba9c882c3715082a9fd9d5bdf5bc07057b49f259e64944cef628",
+    "desktop_snapshot_id": "0fe1fef5418ffddf0ff6fee207e28c1d8b36626566636d4f45bceeee4fbe0e86",
+    "phone_label_counts": [
+      124,
+      176
+    ],
+    "desktop_label_counts": [
+      138,
+      162
+    ],
+    "evaluation_label_counts": [
+      391,
+      549
+    ],
+    "source_sha256": "72ce7b040ca0c6ed36c3368e570c6ac4ddf20100476e47373c63b2395e012df1",
+    "server_source_sha256": "3018a0ff5dbe635b1ccedb8c07e55c3a62c5d3f22f54fdfba4f4414f05dfdbe7",
+    "qualification": "Row/content separation; source provides no patient identifiers",
+    "record_receipt_sha256": "44343dccf6fed4ae7fdaf6c2b4c2c48e762fc2fd87cae208fa539bb7f1198d3e",
+    "patient_separation": "Not claimed; source has no patient IDs."
+  }
+}
