@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+from contextlib import contextmanager
 import json
 import math
 from pathlib import Path
@@ -45,15 +46,21 @@ def _preparation(requirement, classes):
     return shape, schema, preparation
 
 
-def _check_zip_directory(path):
+def _check_zip_directory(file):
     """Bound ZIP's metadata before ZipFile materializes its central-directory entries."""
-    size = path.stat().st_size
-    with path.open("rb") as file:
-        file.seek(max(0, size - 65557))  # EOCD plus the maximum ZIP comment
-        tail = file.read(65557)
+    size = file.seek(0, 2)
+    if size > MAX_BYTES:
+        raise ValueError("local image package exceeds the size limit")
+    file.seek(max(0, size - 65557))  # EOCD plus the maximum ZIP comment
+    tail = file.read(65557)
     end = tail.rfind(b"PK\x05\x06")
     if end < 0 or end + 22 > len(tail):
         raise ValueError("image package has no valid ZIP directory footer")
+    absolute_end = size - len(tail) + end
+    if absolute_end >= 20:
+        file.seek(absolute_end - 20)
+        if file.read(4) == b"PK\x06\x07":
+            raise ValueError("ZIP64 directory is unsupported for bounded two-file image packages")
     _, disk, directory_disk, disk_entries, entries, directory_size, offset, comment = struct.unpack_from(
         "<4s4H2IH", tail, end)
     if (disk != 0 or directory_disk != 0 or entries != 2 or disk_entries != 2
@@ -62,12 +69,20 @@ def _check_zip_directory(path):
         raise ValueError("unsupported or oversized ZIP directory")
 
 
+@contextmanager
+def _open_package(path):
+    with path.open("rb") as file:
+        _check_zip_directory(file)
+        # Reuse the checked file descriptor even if the source path is replaced.
+        with zipfile.ZipFile(file) as package:
+            yield package
+
+
 def _package(path, requirement, shape, classes, schema, preparation):
     if path.stat().st_size > MAX_BYTES:
         raise ValueError("local image package exceeds the size limit")
-    _check_zip_directory(path)
     try:
-        with zipfile.ZipFile(path) as z:
+        with _open_package(path) as z:
             infos = z.infolist()
             if len(infos) != 2 or {i.filename for i in infos} != {"dataset.json", "records.jsonl"}:
                 raise ValueError("image package must contain exactly dataset.json and records.jsonl")

@@ -171,13 +171,21 @@ def test_image_budget_is_enforced_before_tensor_allocation(tmp_path, monkeypatch
         load_local_snapshot(path, training().data, recipes.get_recipe("CNN").classes)
 
 
-@pytest.mark.parametrize("damage", ["many_entries", "huge_directory"])
+@pytest.mark.parametrize("damage", ["many_entries", "huge_directory", "conflicting_zip64"])
 def test_zip_metadata_budget_is_enforced_before_full_directory_parsing(tmp_path, monkeypatch, damage):
     from local_snapshot import load_local_snapshot
     path, _ = package(tmp_path)
-    if damage == "many_entries":
+    if damage in ("many_entries", "conflicting_zip64"):
         with zipfile.ZipFile(path, "w") as z:
             for i in range(2000): z.writestr(f"empty-{i}", b"")
+        if damage == "conflicting_zip64":
+            raw = path.read_bytes()
+            fields = struct.unpack("<4s4H2IH", raw[-22:])
+            zip64 = struct.pack("<4sQ2H2I4Q", b"PK\x06\x06", 44, 45, 45, 0, 0,
+                                2000, 2000, fields[5], fields[6])
+            locator = struct.pack("<4sIQI", b"PK\x06\x07", 0, len(raw) - 22, 1)
+            ordinary = struct.pack("<4s4H2IH", b"PK\x05\x06", 0, 0, 2, 2, 1, fields[6], 0)
+            path.write_bytes(raw[:-22] + zip64 + locator + ordinary)
     else:
         raw = bytearray(path.read_bytes())
         struct.pack_into("<I", raw, len(raw) - 22 + 12, 128 * 1024 * 1024)
