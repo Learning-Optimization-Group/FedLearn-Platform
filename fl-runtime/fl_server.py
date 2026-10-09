@@ -1179,6 +1179,9 @@ def main():
         strategy=strategy,
     )
 
+    if not final_parameters:
+        raise RuntimeError('Federated training ended without a completed model; no artifact or completion callback will be emitted.')
+
     logging.info("--- Federated Learning session complete. ---")
 
     # Print training summary

@@ -58,10 +58,18 @@ class FLCoordinator:
                  round_timeout_s: Optional[float] = None,
                  grad_clip_threshold: Optional[float] = 1000.0,
                  client_update_l2_clip: Optional[float] = None,
-                 num_rounds: Optional[int] = None):
+                 num_rounds: Optional[int] = None,
+                 async_round_completion: bool = False):
         self.strategy = strategy
         self.min_clients = min_clients_for_aggregation
         self.clients_per_round = clients_per_round
+        # Network servers acknowledge receipt before potentially slow evaluation.
+        # In-process callers can retain synchronous round completion.
+        self.async_round_completion = async_round_completion
+        self._aggregation_in_progress = False
+        self._aggregation_worker = None
+        self._completed_round_number = 0
+        self._completed_round_metrics = {}
 
         # SE-3 poisoning defense (layer 2): clamp each DeComFL gradient scalar into
         # [-grad_clip_threshold, +grad_clip_threshold] at ingress. The honest zeroth-order scalar
@@ -104,6 +112,7 @@ class FLCoordinator:
         self._partition_to_client: dict[int, str] = {}
         self._client_to_partition: dict[str, int] = {}
         self.current_round = 1  # Start at round 1
+        self._round_started_number = 0
         # The run's length, when the server knows it: no round beyond it is ever handed out. None keeps the
         # historical open-ended behaviour for callers that drive rounds themselves.
         self.num_rounds = num_rounds
@@ -134,13 +143,21 @@ class FLCoordinator:
         # the verified-partition context lives. Returns None when the round is not secure.
         self._secure_session_provider = None
 
-    def start_round(self):
+    def start_round(self, round_number=None):
         """Called by the main loop to begin a new round."""
         with self._lock:
+            if self.async_round_completion and self._round_started_number == self.current_round:
+                expected = self.current_round if round_number is None else round_number
+                if self._completed_round_number < expected and not self.stop_requested:
+                    self._round_complete_event.clear()
+                else:
+                    self._round_complete_event.set()
+                return  # the worker already opened this round atomically
             self._client_updates_received.clear()  # Prevent stale state leakage across rounds
             self._round_started_at = time.monotonic()  # Reset the dropout deadline for this round
             self._round_started_wall = time.time()
-        self._round_complete_event.clear()
+            self._round_started_number = self.current_round
+            self._round_complete_event.clear()
 
     def wait_for_round_to_complete(self):
         """Called by the main loop. Blocks until the current round finishes.
@@ -226,7 +243,7 @@ class FLCoordinator:
         with self._lock:
             # A client may have completed the round between the caller's decision and our
             # acquiring the lock; if so, the trigger already fired.
-            if self._round_complete_event.is_set():
+            if self._round_complete_event.is_set() or self._aggregation_in_progress:
                 return
 
             # P2-2: a secure round resolves differently, and the difference is not a special case
@@ -437,7 +454,7 @@ class FLCoordinator:
         accepted.
         """
         with self._lock:
-            if self.training_complete or self.stop_requested or self._past_last_round():
+            if self.training_complete or self.stop_requested or self._past_last_round() or self._aggregation_in_progress:
                 return False  # the run is over: a late update belongs to no round that will aggregate
             if trained_on_round < self.current_round:
                 return False  # Ignore stale updates
@@ -604,6 +621,9 @@ class FLCoordinator:
         event signal are therefore atomic with respect to concurrent RPC
         threads calling submit_client_update or get_global_model_for_client.
         """
+        if self.async_round_completion:
+            self._start_async_round_completion()
+            return
         log.debug(
             "Aggregating %d updates for round %d",
             len(self._client_updates_received), self.current_round,
@@ -638,11 +658,65 @@ class FLCoordinator:
         self.current_round += 1
         self._round_complete_event.set()
 
+    def _start_async_round_completion(self):
+        """Freeze one cohort under the lock; publish its result only after evaluation.
+
+        The worker runs model work outside the coordinator lock. While it runs,
+        uploads for this round are refused and control RPCs still see the old
+        parent and round. Stop discards a late result; worker failures terminate
+        the round instead of leaving the main loop waiting forever.
+        """
+        if self._aggregation_in_progress:
+            return
+        round_number = self.current_round
+        results = list(self._client_updates_received)
+        self._client_updates_received.clear()
+        self._aggregation_in_progress = True
+
+        def complete():
+            try:
+                aggregate = self.strategy.aggregate_fit(round_number, results)
+                if aggregate is None:
+                    raise RuntimeError('aggregation returned no model')
+                evaluation = self.strategy.evaluate(round_number, aggregate)
+                metrics = None if evaluation is None else {'loss': evaluation[0], **evaluation[1]}
+            except Exception:
+                log.exception('Aggregation/evaluation failed for round %d', round_number)
+                with self._lock:
+                    self._aggregation_in_progress = False
+                    if not self.stop_requested:
+                        self.last_round_failed = True
+                        self.last_round_message = f'Round {round_number} aggregation/evaluation failed; server stopped.'
+                        self.stop_requested = True
+                    self._round_complete_event.set()
+                return
+            with self._lock:
+                self._aggregation_in_progress = False
+                if self.stop_requested or self.current_round != round_number:
+                    return
+                self._global_model_params = aggregate
+                self.latest_metrics = metrics
+                self._completed_round_number = round_number
+                self._completed_round_metrics[round_number] = metrics
+                self.current_round += 1
+                # Open the next round before publishing it to clients. The main
+                # loop must not discard an update that beats its next iteration.
+                self._round_started_number = self.current_round
+                self._round_started_at = time.monotonic()
+                self._round_started_wall = time.time()
+                self._round_complete_event.set()
+
+        self._aggregation_worker = threading.Thread(target=complete, daemon=True,
+                                                    name=f'round-{round_number}-completion')
+        self._aggregation_worker.start()
+
     def set_initial_parameters(self, params: Optional[OrderedDict[str, torch.Tensor]]):
         self._global_model_params = params
 
-    def get_latest_metrics(self) -> Optional[dict]:
+    def get_latest_metrics(self, round_number=None) -> Optional[dict]:
         """Returns the metrics from the last completed round."""
+        if self.async_round_completion and round_number in self._completed_round_metrics:
+            return self._completed_round_metrics[round_number]
         return self.latest_metrics
 
     def signal_stop(self):

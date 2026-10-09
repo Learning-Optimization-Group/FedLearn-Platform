@@ -73,6 +73,7 @@ def build_coordinator(strategy, config: ServerConfig) -> FLCoordinator:
         min_clients_for_aggregation=strategy.min_fit_clients,
         clients_per_round=strategy.clients_per_round,
         num_rounds=config.num_rounds,
+        async_round_completion=True,
     )
     coordinator.update_recorder = recorder
     return coordinator
@@ -210,6 +211,8 @@ def start_server(
         grpc_server.add_insecure_port(server_address)
         logging.warning("gRPC server running without TLS. Set FEDLEARN_GRPC_USE_TLS=1 for production.")
 
+    # Open the first round before clients can submit to the listening server.
+    coordinator.start_round(1)
     # Start server
     grpc_server.start()
     logging.info(f"gRPC server started and listening on {server_address}")
@@ -220,7 +223,7 @@ def start_server(
 
         for round_num in range(1,config.num_rounds+1):
 
-            coordinator.start_round()
+            coordinator.start_round(round_num)
             logging.info(f"[Server] Starting round {round_num}/{config.num_rounds}")
             logging.info(f"[Server] Waiting for {coordinator.min_clients} clients to submit updates...")
 
@@ -232,7 +235,7 @@ def start_server(
                 break
 
             # Get metrics from completed round
-            metrics = coordinator.get_latest_metrics()
+            metrics = coordinator.get_latest_metrics(round_num)
             if metrics:
                 history.append((round_num, metrics))
                 logging.info(f"[Server] Round {round_num} complete. Metrics: {metrics}")
@@ -242,6 +245,10 @@ def start_server(
             # Note: Round advancement is handled by coordinator._trigger_aggregation_and_evaluation()
             # Do NOT increment here — it was causing double-increment (rounds 1→3→5).
 
+
+        if coordinator.stop_requested:
+            # A stopped/failed worker has no completed checkpoint to publish.
+            return history, {}
 
         # Get final parameters
         final_parameters = coordinator.get_global_model_params()
