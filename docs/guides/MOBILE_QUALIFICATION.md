@@ -172,10 +172,44 @@ matches the earlier qualified runtime, and the app reused its cached probe.
 This short run does not establish convergence or FedProx superiority. Its initial
 state matches the earlier FedProx run, but the round seed differs; the earlier
 10% result is historical context, not a matched mixed-runtime rate comparison.
-FedOpt at the corrected client rate has CPU evidence and contract/server tests;
-it still needs a new mixed phone run before a native stability claim.
 
 See the [corrected-rate FedProx receipt](../../research/results/on-device/resnet-fedprox-client-rate-2026-10-10.json).
+
+## ResNet FedOpt at the corrected client rate
+
+A fresh mixed vivo/g14 run completed two rounds with client Adam 0.001 and
+explicitly saved server Adam rate 0.01, betas 0.9/0.99 and tau 0.001. Each client
+used its preserved 64 CIFAR training images, with two batches of 32 per round.
+The phone reported losses 0.7840 and 0.8353, with approximately 392 and 389
+seconds of training compute and 44.8 MB uploaded per round. Independent reload
+of the registered checkpoint scores 3383/10000 (33.83%) on the official test set,
+with mean cross-entropy 2.26524. Official test images were unused for rate selection.
+
+Both original phone contributions and both original Python CPU contributions
+replay bitwise on their respective runtimes. The accepted updates reconstruct
+both aggregate parents and the registered checkpoint exactly. Floating BatchNorm
+variances remain finite and nonnegative, and integer counters remain unchanged.
+The installed APK and replay binary hashes match; all 30 pre-run phone dataset
+files retain their hashes. Isolated native replay processes exited successfully
+and their temporary files were removed. Replay equality covers model arrays,
+not full wire metadata or numerical identity between the phone and Python.
+
+The initial state matches both the earlier FedOpt run and corrected-rate FedProx,
+but round seeds differ. These scores do not establish algorithm superiority or a
+matched mixed-runtime rate comparison. Two rounds establish bounded execution,
+not convergence or good classification across all classes: the final model has
+zero recall for two classes. The default FedOpt server rate 1.0 remains unqualified.
+The app reused a cached qualification probe, and no new native counterfactual
+controls were run; earlier controls retain their original provenance.
+
+An earlier attempt stopped after host sleep interrupted forwarding following
+round 1. Its accepted updates and original desktop replay are retained separately;
+it has no final checkpoint and is excluded from completed-run evidence. Keeping
+the host awake enabled the fresh run; mobile suspension and interruption recovery
+remain unqualified.
+
+See the [corrected-rate FedOpt receipt](../../research/results/on-device/resnet-fedopt-client-rate-2026-10-10.json)
+and [interrupted-attempt receipt](../../research/results/on-device/resnet-fedopt-host-sleep-interruption-2026-10-10.json).
 
 ## Remaining work
 
