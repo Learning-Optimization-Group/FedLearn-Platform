@@ -11,10 +11,9 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 
-// Foreground service for the lifetime of a training run (task 16 / E5). Keeps the process at
-// foreground priority so the JS round loop survives Doze, and samples device state on a timer so
-// per-round telemetry (thermal/battery) is fresh. Backgrounding the app no longer silently kills
-// the run; stopping the service is the clean stop path.
+// Foreground service for the lifetime of a training run. Gives the process foreground
+// priority and samples device state; round pacing uses TrainingDelayScheduler because
+// the activity's React Native timers pause in the background. This is not a Doze exemption.
 class FlForegroundService : Service() {
   private val handler = Handler(Looper.getMainLooper())
   private val sampleIntervalMs = 5000L

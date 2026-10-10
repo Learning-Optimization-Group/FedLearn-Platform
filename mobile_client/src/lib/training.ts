@@ -3,6 +3,7 @@
 // (forward passes, DeComFL perturbations, first-order updates) happens natively ON THE DEVICE;
 // DeComFL uploads scalars and first-order strategies upload trainable weights; training batches are not uploaded.
 import nativeCore, { type RoundConfig, type RoundResult, type Strategy } from './nativeCore';
+import { foregroundService } from './foregroundService';
 import { joinRun, RunJoinRefusedError, type JoinedRun, type RunManifest } from './runJoin';
 import { provisionTrainingBundle } from './modelProvisioning';
 import { snapshotMismatches, type DatasetSnapshot } from './datasetService';
@@ -161,7 +162,7 @@ function roundConfigFor(joined: JoinedRun, strategy: Strategy, projection: Contr
   };
 }
 
-const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const delay = (ms: number) => foregroundService.delay(ms);
 
 // ---------------------------------------------------------------------------
 // MO-8: bounded retry / backoff / rejoin so one network blip doesn't end participation.
@@ -430,6 +431,7 @@ export async function runTrainingLoop(
   const requiresAdamProximal = modelTraining?.localTraining?.optimizer.case === 'adam'
     && (modelTraining.fedproxMu ?? 0) > 0;
   await assertNativeCompatibility(nativeCore, requiresAdamProximal);
+  foregroundService.assertSchedulingAvailable();
   hooks.onLog(`Execution contract ${projection.contractId.slice(0, 12)}… accepted.`);
   hooks.onLog('Provisioning model + on-device data…');
   const ownData = projection.dataSource === 'LOCAL_SNAPSHOT' ? dataset : undefined;
