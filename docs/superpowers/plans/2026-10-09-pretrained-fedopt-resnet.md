@@ -22,3 +22,11 @@ Base: 22dadcf. Work stays on the existing isolated feature branch; no push or me
 - FedOpt and frozen NIH baseline implementation: focused tests pass. Backend/full frontend/runtime verification in progress.
 - Ruling: expose Adam and Yogi only, because the production aggregator implements those variants.
 - NIH preflight: existing tensors are normalized by .5/.5; explicitly undo this before RGB ImageNet normalization. Refusal log retained.
+
+- Verification: backend 1172 tests / 167 suites, no failures; coverage passes. Frontend 138 tests, lint and build pass (explicit local development API origin). Runtime 628 passed, 30 slow deselected; initial sandbox tokenizer-network failure retried successfully.
+- NIH fixed ten-epoch frozen baseline completed: balanced validation AUROC .619263, proportional reference .604084 (six positives); checkpoint hash and reload verified. Source ac1a495.
+- ResNet: imported 64 phone images through the native picker; importer/Python snapshot IDs match. Two mixed FedOpt rounds running at saved server rate .01; live results pending.
+
+- Final code review: no correctness blockers or important defects. Independent focused runtime 12, UI 32 and framework 18 assertions passed; NIH package/disjointness/report checks passed. Live ResNet evidence still pending.
+- Final: minor (deferred): pretrained weight verification uses official eight-character hash prefix; public receipt retains the full actual SHA-256.
+- Final: minor (deferred): dashboard test verifies settings removal after success/reset; explicit manual method switching and Yogi submission deserve additional coverage.

@@ -76,7 +76,8 @@ in-place installation preserved all 27 dataset files by SHA-256.
 FedProx's recorded server ECG accuracy was 98.40%. FedOpt's default server rate
 of 1.0 produced severe loss growth and 58.40% accuracy. These small execution
 runs do not compare algorithm quality: they have different initial weights and
-seeds. Exposing and qualifying appropriate FedOpt server settings remains work.
+seeds. Server settings are now configurable as described below; appropriate rates still
+need qualification for each workload.
 See the [strategy receipts](../../research/results/on-device/ecg-adaptive-strategies-2026-10-09.json).
 
 ## Adaptive CNN continuation
@@ -113,3 +114,14 @@ See the [adaptive CNN receipts](../../research/results/on-device/cnn-adaptive-20
 
 [NIH and private image guide](NIH_AND_LOCAL_IMAGES.md) records sampling and
 learning limits. [XGBoost guide](FEDERATED_XGBOOST.md) records the tree workload.
+
+## Recorded FedOpt server settings
+
+Starts can now specify `fedOpt` with `variant` (`adam` or `yogi`),
+`serverLearningRate`, `beta1`, `beta2` and `tau`. The resolved values are persisted
+with the run and returned in its manifest, and the server receives those stored
+values. The dashboard exposes variant and server rate. Omitted values preserve
+Adam, rate 1.0, betas 0.9/0.99 and tau 0.001; omission is not a stability guarantee.
+Settings on other strategies and non-finite or out-of-range values are refused.
+The server rate is separate from the device learning rate published in the
+execution contract. No protobuf change is needed for these server-only settings.

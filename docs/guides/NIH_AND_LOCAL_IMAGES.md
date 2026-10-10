@@ -231,5 +231,27 @@ exactly with the recorded thread count. The official test set was unused.
 The [extended report](../../research/results/nih/extended-diagnostics-2026-10-09.json)
 retains all twenty epochs, initial-model controls, package/checkpoint hashes,
 thread timing and reference metrics. Research rates do not change the current
-platform NIH contract. A suitable pretrained image baseline and stronger
-validation remain the next learning investigation before platform integration.
+platform NIH contract. The frozen pretrained baseline below and stronger validation are the next
+learning investigation before platform integration.
+
+## Frozen pretrained baseline — 9 October 2026
+
+A centralized ImageNet ResNet18 baseline now uses the same 512 pooled training
+examples, 256 balanced validation examples and 512-example proportional
+reference. The backbone and its BatchNorm state remain frozen; only a seeded
+two-class linear head trains, for a predefined ten epochs at Adam rate 0.001.
+The existing grayscale snapshot normalization is undone, the channel is
+repeated to RGB and ImageNet channel normalization is applied. This uses the
+existing prepared 224-pixel images, without an additional resize or crop.
+
+Final training AUROC was 0.8365, balanced validation AUROC 0.6193 and
+proportional-reference AUROC 0.6041. The reference contains only six positives:
+the 0.5 threshold found three and produced 189 false positives. This remains
+weak evidence and does not establish a useful NIH classifier. The two validation
+samples overlap as described above; the official test set was unused.
+
+The [pretrained report](../../research/results/nih/pretrained-baseline-2026-10-09.json)
+retains all epochs, the full official weights hash, transform, package identities,
+unchanged-backbone check and exact head-checkpoint reload. The runnable driver
+is `research/benchmarks/nih_pretrained.py`; this research result does not add
+pretrained NIH training to the Android contract.
