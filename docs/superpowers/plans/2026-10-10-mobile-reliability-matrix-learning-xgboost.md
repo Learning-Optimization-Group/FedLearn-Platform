@@ -35,16 +35,16 @@ do not claim numerical equality across phone and Python runtimes.
 
 ## Task 2: remaining support matrix
 
-- [ ] Enumerate execution-plan/native/mobile recipe/strategy/arm combinations
+- [x] Enumerate execution-plan/native/mobile recipe/strategy/arm combinations
   against curated live receipts. Distinguish supported gaps from deliberate
   refusals: subset arms, image DeComFL and iOS are not silently enabled.
-- [ ] Qualify supported gaps using prepared data and preserved runtime, beginning
+- [x] Qualify supported gaps using prepared data and preserved runtime, beginning
   with missing Robust real-model and pneumonia adaptive cases. Bind contracts,
   contributors, original-runtime replays and aggregate/checkpoint hashes.
-- [ ] Audit packaged desktop bundle, enrollment and local-data handoff. Qualify
+- [x] Audit packaged desktop bundle, enrollment and local-data handoff. Qualify
   an actual packaged-client run with its required bundle; fix concrete gaps with
   tests. Python CLI execution does not count as packaged-client evidence.
-- [ ] Retain a machine-readable matrix and guide with evidence, refusal or concrete
+- [x] Retain a machine-readable matrix and guide with evidence, refusal or concrete
   missing prerequisite for every cell.
 
 ## Task 3: learning diagnostics

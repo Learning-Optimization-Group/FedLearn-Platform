@@ -2264,6 +2264,320 @@
         "reverted": false
       },
       "terminal_status_cleared": true
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "Robust",
+      "training_arm": "FULL",
+      "project_id": "e746df68-d966-481a-a87f-f33d4738b11c",
+      "run_id": "2a9f0033-e8cb-4ab6-bdb6-6429aa142d88",
+      "robust_method": "MEDIAN",
+      "contract_sha256": "7e201e7b9569472d65fbb35b09680fbacd0302073b27a225abd7d56e26083604",
+      "initial_npz_sha256": "7841208ea107636db7a210d8266a821b6d5e5e63640f1e3ee21570387e3ee5ef",
+      "data_partition": {
+        "dataset": "CIFAR10",
+        "recipe": "CIFAR_RESNET18",
+        "seed": 42,
+        "source_split": "train",
+        "evaluation_split": "official_test",
+        "official_test_rows": 10000,
+        "pairwise_processed_image_overlap": 0,
+        "clients": {
+          "phone": {
+            "indices": [
+              712,
+              24774,
+              45142,
+              27119,
+              21139,
+              19129,
+              6433,
+              38854,
+              22489,
+              31104,
+              21349,
+              29116,
+              10772,
+              18332,
+              1003,
+              22156,
+              26453,
+              17039,
+              7166,
+              48310,
+              12187,
+              20284,
+              1052,
+              13752,
+              37139,
+              29727,
+              41854,
+              40333,
+              33248,
+              9680,
+              16805,
+              14652,
+              15793,
+              30210,
+              47426,
+              20875,
+              4161,
+              40340,
+              28286,
+              13256,
+              48934,
+              11935,
+              48447,
+              15492,
+              32513,
+              36099,
+              39260,
+              46517,
+              33095,
+              3,
+              21683,
+              13446,
+              49515,
+              27943,
+              29059,
+              32738,
+              445,
+              32216,
+              18250,
+              1684,
+              2899,
+              39428,
+              40758,
+              29154
+            ],
+            "count": 64,
+            "snapshot_id": "517a3a7b4ef5d892d47d920960737a5936c9a5cba739889bd4d583e58372b2d3",
+            "package_sha256": "66284fa4e30445747c6a40c80235b7f5696f49ffaf4c081b8c74c060f00452f7",
+            "label_counts": [
+              3,
+              5,
+              7,
+              9,
+              8,
+              8,
+              3,
+              6,
+              5,
+              10
+            ]
+          },
+          "desktop": {
+            "indices": [
+              43958,
+              33814,
+              34153,
+              43609,
+              10762,
+              17898,
+              43653,
+              14233,
+              39520,
+              18138,
+              9212,
+              6456,
+              22948,
+              7591,
+              29996,
+              10378,
+              27337,
+              19965,
+              24405,
+              45135,
+              11274,
+              1941,
+              48940,
+              36794,
+              21994,
+              49944,
+              43442,
+              45096,
+              42430,
+              42255,
+              5771,
+              8320,
+              48807,
+              2675,
+              37658,
+              45710,
+              15813,
+              7135,
+              31775,
+              31772,
+              25160,
+              36108,
+              1260,
+              37885,
+              41535,
+              44889,
+              28184,
+              25319,
+              11010,
+              33880,
+              19307,
+              12236,
+              13805,
+              5814,
+              48485,
+              12248,
+              458,
+              319,
+              21496,
+              20390,
+              33691,
+              33872,
+              46987,
+              26772
+            ],
+            "count": 64,
+            "snapshot_id": "98244872eea82ac56a6c274a7b354bfe0de38b8b3afa9454f9f7ef9a6c8c11b6",
+            "package_sha256": "064cc9cc140aea19fa92787883bb92ebdd0b989604ab9bd90911485df6cb6406",
+            "label_counts": [
+              8,
+              4,
+              7,
+              5,
+              8,
+              9,
+              4,
+              6,
+              5,
+              8
+            ]
+          }
+        }
+      },
+      "rounds": 2,
+      "local_rows": [
+        64,
+        64
+      ],
+      "client_adam_rate": 0.001,
+      "phone_provider_state": {
+        "machine": "joined",
+        "joining": false,
+        "stopping": false,
+        "error": null,
+        "joined": {
+          "runId": "2a9f0033-e8cb-4ab6-bdb6-6429aa142d88",
+          "projectId": "e746df68-d966-481a-a87f-f33d4738b11c",
+          "partitionId": 1
+        },
+        "session": {
+          "rounds": 2,
+          "scalarsTransmitted": 0,
+          "bytesUp": 89548332,
+          "bytesDown": 89548162,
+          "computeMs": 791196
+        },
+        "latestRound": {
+          "round": 2,
+          "loss": 0.663641179446131,
+          "accuracy": 0.8125,
+          "scalarsTransmitted": 0,
+          "uplinkBytes": 44774166,
+          "downlinkBytes": 44774081,
+          "computeMs": 391417,
+          "reverted": false
+        },
+        "serverStatus": null,
+        "logs": [
+          {
+            "text": "Execution contract f1c9db389a51\u2026 accepted."
+          },
+          {
+            "text": "Provisioning model + on-device data\u2026"
+          },
+          {
+            "text": "Model loaded \u2014 11191242 trainable params (tier 10M)."
+          },
+          {
+            "text": "Model qualified on this device (probe 102629 ms)."
+          },
+          {
+            "text": "On-device data staged. Training starts \u2014 your data never leaves this device."
+          },
+          {
+            "text": "Round 1: loss 0.6928 \u00b7 0 scalars up \u00b7 399779ms"
+          },
+          {
+            "text": "Round 2: loss 0.6636 \u00b7 0 scalars up \u00b7 391417ms"
+          },
+          {
+            "text": "Run ended."
+          }
+        ]
+      },
+      "original_python_replay": {
+        "run_id": "2a9f0033-e8cb-4ab6-bdb6-6429aa142d88",
+        "torch": "2.12.0+cpu",
+        "torch_num_threads": 1,
+        "rounds": [
+          {
+            "round": 1,
+            "examples": 64,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          },
+          {
+            "round": 2,
+            "examples": 64,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          }
+        ],
+        "wrong_label_control_max_abs_diff": 0.0017391219735145569
+      },
+      "original_phone_replay": {
+        "rounds_bitwise_exact": 2,
+        "wrong_label_control_differs": true,
+        "log": "RESNET replay round=1 control=0 max_abs_diff=0 bitwise_equal=1 uplink=44774166 downlink=44774165\nRESNET replay round=1 control=1 max_abs_diff=0.001738789491 bitwise_equal=0 uplink=44774166 downlink=44774165\nRESNET replay round=2 control=0 max_abs_diff=0 bitwise_equal=1 uplink=44774166 downlink=44774165\n"
+      },
+      "aggregate_replay_exact": true,
+      "finite_state": true,
+      "batchnorm_variances_nonnegative": true,
+      "integer_counters_unchanged": true,
+      "artifact_id": "6ab5af53-e08c-4dc3-9df1-7bac7b4a69f5",
+      "registered_checkpoint_sha256": "da2706511102acc0fd45af2053c16bbeed353198cf7b5de8d9bf8b2b4a499e5a",
+      "replay_apk_source_commit": "f627a98",
+      "replay_apk_sha256": "5459bafb3312c1ce0762a3a4d6445ef968e926a3688b674a4362ff47e319dd2c",
+      "numerical_core_unchanged": true,
+      "accepted_update_receipts": [
+        {
+          "round": 1,
+          "client_id": "project_e746df68-d966-481a-a87f-f33d4738b11c_client_0",
+          "examples": 64,
+          "sha256": "b9a478de4a4f1c6a903394adbce29be2eb04cebad85cc01a67209bac67f6da3a"
+        },
+        {
+          "round": 1,
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "examples": 64,
+          "sha256": "6580965328bab228cab4c78f4ad6a012592d3d29c7f75f1255ac40cacc75e3c7"
+        },
+        {
+          "round": 2,
+          "client_id": "project_e746df68-d966-481a-a87f-f33d4738b11c_client_0",
+          "examples": 64,
+          "sha256": "d7bde80b9b83528891cc812ab320e07dd96fbbb5538d20d68792e1b8cb1bd04d"
+        },
+        {
+          "round": 2,
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "examples": 64,
+          "sha256": "6d4251658e66476ced609a3493ca78a052764cb2ace9156be7cf663aedbc5614"
+        }
+      ],
+      "limits": [
+        "Two-client median execution; no Byzantine-tolerance claim.",
+        "No image-duration interruption or forced Doze qualification.",
+        "Native replay used the later activity-fixed APK numerical core, whose archive hash is unchanged from the training APK.",
+        "Two rounds on small own-data partitions establish bounded execution, not convergence or useful classification."
+      ]
     }
   ]
 }

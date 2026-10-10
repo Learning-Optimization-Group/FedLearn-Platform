@@ -1,5 +1,9 @@
 # On-device training — end-to-end spec
 
+Current device evidence and remaining support are tracked in the
+[October qualification matrix](../wikis/mobile/13-qualification-matrix.md).
+The July status below is retained as the original implementation record.
+
 **Goal:** make the mobile client run a **real on-device DeComFL round against a real server**, with training data staying on the device (only perturbation seeds + gradient scalars leave).
 
 **Status today:** all six phases below have landed — the framework server speaks `fedlearn.v2`,
