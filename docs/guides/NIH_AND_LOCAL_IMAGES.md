@@ -199,3 +199,37 @@ precision do not estimate performance at NIH's disease prevalence. The
 proportional reference sample and official test set must remain separate from
 training or parameter selection. These research flags do not change the
 platform's published NIH execution contract.
+
+
+## Extended diagnostic results — 9 October 2026
+
+The continuation doubled pooled training to 512 balanced, unique-patient
+images and used a separate balanced validation sample with 128 positive and
+128 negative patients. Both predefined persistent-Adam configurations completed
+ten epochs from the same retained initial state and seed. Four CPU threads
+were recorded after a two-sample synthetic batch timing probe; the incomplete
+one-thread pilot was retained
+and excluded from completed-control claims.
+
+| Fixed rate | Training AUROC | Balanced validation AUROC | Balanced validation accuracy | Proportional reference AUROC |
+| --- | --- | --- | --- | --- |
+| 0.0001 | 0.8313 | 0.6410 | 61.72% | 0.4107 |
+| 0.00001 | 0.7109 | 0.6286 | 59.38% | 0.3883 |
+
+The untrained initial model scored AUROC 0.4606 on balanced validation. The
+new controls avoid all-positive collapse and show modest discrimination in
+that diagnostic sample. They still do not establish useful NIH performance.
+The original proportional reference has only six positive cases: the first
+control found three but produced 264 false positives; the second found one and
+produced 188 false positives. Neither is a useful classifier at that threshold.
+
+The balanced and proportional held-out samples share 169 patients and 134
+source images; they are not independent replications. Neither overlaps training.
+Both final checkpoint reloads reproduce their balanced validation metrics
+exactly with the recorded thread count. The official test set was unused.
+
+The [extended report](../../research/results/nih/extended-diagnostics-2026-10-09.json)
+retains all twenty epochs, initial-model controls, package/checkpoint hashes,
+thread timing and reference metrics. Research rates do not change the current
+platform NIH contract. A suitable pretrained image baseline and stronger
+validation remain the next learning investigation before platform integration.

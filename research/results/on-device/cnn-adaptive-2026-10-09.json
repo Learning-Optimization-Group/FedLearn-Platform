@@ -516,10 +516,9 @@
       "installed_apk_sha256": "72f047a1c33e260a3c9dd30fb6f832294e5fcb86e57442f620c2f41301b42308"
     },
     "native_capability": {
-      "result": {
-        "type": "string",
-        "value": "{\"state\":\"checked\",\"value\":{\"bridgeAbiVersion\":5,\"protocolVersion\":2,\"supportsAdamProximal\":true}}"
-      }
+      "bridgeAbiVersion": 5,
+      "protocolVersion": 2,
+      "supportsAdamProximal": true
     }
   },
   "phone_preservation": {

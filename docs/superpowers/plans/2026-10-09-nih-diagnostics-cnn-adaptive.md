@@ -30,8 +30,8 @@ to published NIH platform contracts.
 
 - [x] Driver regression tests RED, implementation, focused suite; local commit.
 - [x] Sequential CNN/FedProx and CNN/FedOpt mixed qualification and exact replays.
-- [ ] NIH source-bound packages,10-epoch controls, checkpoint reload, reference.
-- [ ] Curated reports/guides, final fresh whole-branch review, fixes/tests as
+- [x] NIH source-bound packages,10-epoch controls, checkpoint reload, reference.
+- [x] Curated reports/guides, final fresh whole-branch review, fixes/tests as
   appropriate, local commits, g14 fast-forward and root status context.
 
 Ruling: use enriched patient-unique validation because six proportional positives
@@ -63,3 +63,27 @@ restart both fixed10-epoch configurations with4 threads, recorded in results.
 Cost: comparisons/replays must use their own retained thread configuration;
 old/new experiment numerical equivalence is not claimed. No configuration was
 selected from reference/test performance. Driver defaults still pin1 thread.
+
+
+NIH completed: both fixed10-epoch rates1e-4/1e-5, persistent Adam,512 training/
+256 balanced validation rows,4 threads. Final balanced AUROC.640991/.628601;
+training AUROC.831314/.710876. Checkpoint/hash/state and reloaded balanced
+metrics match exactly. Initial balanced AUROC.460571. Separate proportional
+reference AUROC.410738/.388340, only6 positives; poor performance. Held-out
+samples share169 patients/134 images; neither overlaps training. All20 epochs,
+source/package/checkpoint receipts and incomplete pilot retained. Full runtime
+616 passed (30 slow deselected); focused20 passed. Official test untouched.
+
+
+Final review: no blocking correctness findings. Public CNN updates/replay/cards
+and NIH all20 sequential epochs/common seed/initial/hash/exactreload/reference
+match retained receipts. Focused20 tests independently passed. Final reports
+strip transient pilot PID, identify timing as synthetic16-image batches with
+one warmup/two measurements and concurrent pilot, and use observational wording
+for collapse avoidance rather than attribute causality to changed factors.
+No code changes needed after final review; no deferred minor findings.
+
+Final: Ruling: reviewer did not rerun physical hardware, full raw NIH inventory
+or model execution on g14; it checked code and retained receipts. These live
+checks were performed during execution. Clinical utility and general efficacy
+are outside proof. Cost: further independent/clinical experiments remain needed.

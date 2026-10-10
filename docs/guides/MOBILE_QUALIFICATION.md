@@ -100,8 +100,9 @@ See the [adaptive CNN receipts](../../research/results/on-device/cnn-adaptive-20
 
 ## Remaining work
 
-- Improve NIH learning with a larger, adequately positive held-out sample and a
-  suitable training configuration; current results miss every positive case.
+- Improve NIH generalization: extended lower-rate controls use 512 training
+  images and 128 positive validation patients, but proportional reference
+  performance remains poor. The earlier federated model missed every positive.
 - Qualify newly enabled adaptive strategies on image recipes and the remaining
   real-data/strategy combinations. Real-model subset arms and DeComFL image
   training remain outside the verified matrix.
