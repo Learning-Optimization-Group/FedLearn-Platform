@@ -1,0 +1,13 @@
+{
+  "source_commit": "f627a9871915dd6936cadbab6ac78293bbc633ad",
+  "apk_sha256": "5459bafb3312c1ce0762a3a4d6445ef968e926a3688b674a4362ff47e319dd2c",
+  "numeric_core_archive_sha256": "4cc1c7bdc054fcc55f76936a1f2ebb2cf6f4a0233c11a33a141df580a9baff2a",
+  "failed_case": "Returning from Android DocumentsUI tried to restore ScreenStackFragment after process recreation",
+  "verification": "Fixed live process recreation passed: DocumentsUI opened, no training service, am kill, observed package selected, new process20627 returned; no new crash in that PID. Import then retried through normal picker and completed.",
+  "automatic_import_resumption_claimed": false,
+  "new_snapshot_id": "195fd49e3f08f215a1f925d9699f655fbb2dff153ef2ddf0cffae7437636c5c7",
+  "new_snapshot_records": 16,
+  "original_dataset_files": 30,
+  "total_dataset_files": 33,
+  "original_hashes_unchanged": true
+}

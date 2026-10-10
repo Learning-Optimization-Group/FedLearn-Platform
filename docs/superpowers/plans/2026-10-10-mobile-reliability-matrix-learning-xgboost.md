@@ -49,30 +49,30 @@ do not claim numerical equality across phone and Python runtimes.
 
 ## Task 3: learning diagnostics
 
-- [ ] Bind existing NIH patient/image-disjoint packages and CIFAR train partitions;
+- [x] Bind existing NIH patient/image-disjoint packages and CIFAR train partitions;
   official test data stays outside hyperparameter selection.
-- [ ] Diagnose class-wise failure, preprocessing, target mapping and pretrained
+- [x] Diagnose class-wise failure, preprocessing, target mapping and pretrained
   baseline. Run fixed longer ResNet training controls with heldout validation and
   matched initial state/seed, preserving complete trajectories.
-- [ ] Run a bounded NIH follow-up justified by the diagnosis. Use validation for
+- [x] Run a bounded NIH follow-up justified by the diagnosis. Use validation for
   selection, disclose separate reference evaluation, record budgets/package hashes
   and independently reload final checkpoints.
-- [ ] Report improvements or lack of improvement; no promise of useful NIH
+- [x] Report improvements or lack of improvement; no promise of useful NIH
   classification or clinical efficacy from these small research samples.
 
 ## Task 4: breast-cancer XGBoost
 
-- [ ] Trace four-feature assumptions through project creation, contract, CSV,
+- [x] Trace four-feature assumptions through project creation, contract, CSV,
   delta validation, aggregation and artifact inference.
-- [ ] Add an explicit bounded ordered thirty-feature Wisconsin Diagnostic Breast
+- [x] Add an explicit bounded ordered thirty-feature Wisconsin Diagnostic Breast
   Cancer schema, preserving four-feature Iris behavior and contracts. Bind the
   schema to the initial model, every delta, CSV header and inference width.
-- [ ] Prepare deterministic client/train/validation/test splits with source identity,
+- [x] Prepare deterministic client/train/validation/test splits with source identity,
   feature/label mapping and duplicate-group separation. No client rows on server.
-- [ ] Write regressions before implementation for reordered/duplicate/missing
+- [x] Write regressions before implementation for reordered/duplicate/missing
   features, wrong-width model/delta/inference, non-finite values, malformed trees
   and legacy compatibility.
-- [ ] Qualify authenticated collaborative Mac/g14 training, original local/aggregate
+- [x] Qualify authenticated collaborative Mac/g14 training, original local/aggregate
   replay, external heldout metrics, fixed centralized tree-budget controls,
   registered artifact reload and normal inference. Android tree training remains
   explicitly refused.
