@@ -110,12 +110,12 @@ counters. Native changed-label/rate controls differ; removing the proximal term
 also changes the FedProx update, proving it affects training after the first batch.
 
 FedOpt used explicitly recorded server Adam rate 0.01, betas 0.9/0.99 and tau
-0.001. Both strategies used the current client Adam rate 0.01. This did not
+0.001. Those runs used client Adam rate 0.01. This did not
 produce useful learning: independent official test reload scores 1000/10000
 (10%) for each. Phone losses rose from 32108 to 48104681 for FedOpt and from
 9388 to 30350732 for FedProx. The initial model states match, but round seeds
 and aggregation differ; these runs do not establish algorithm superiority.
-Client and server rates need joint investigation before another efficacy claim.
+The lower client-rate controls below follow up this failure; these historical runs retain their original contracts.
 
 Phone training compute was approximately 389/385 seconds for FedOpt and
 402/485 seconds for FedProx, with about 44.8 MB uploaded per round. The app
@@ -127,6 +127,55 @@ three files were added for the 64-image snapshot. An unused prematurely staged
 FedProx run was stopped and excluded from completed-run evidence.
 
 See the [adaptive ResNet receipt](../../research/results/on-device/resnet-adaptive-2026-10-09.json).
+
+## ResNet client-rate controls
+
+New CIFAR_RESNET18 FedOpt and FedProx runs now use client Adam at 0.001,
+the base recipe rate. The shared resolver supplies both the execution plan and
+server round settings. Other recipes retain their existing rates; FedOpt's server
+rate remains independently configured. Historical contracts keep their recorded
+values, and a different server round rate is rejected before training.
+
+A bounded CPU diagnostic compared 0.01, 0.001 and 0.0001 with identical initial
+weights, seeds, two 64-example partitions and two rounds. Both partitions ran
+on Python CPU. With 0.01, final aggregate loss on the 128 training examples was
+about 8.25 million for FedProx and 286.49 for FedOpt. At 0.001 it was 0.332 and
+0.648 respectively. The smaller 0.0001 control also remained bounded. FedOpt's
+server rate was explicitly 0.01 and FedProx mu was 0.1 in all matching controls.
+
+All six controls reproduced numerically. This diagnoses the rate's effect on
+these CPU runs; training-set diagnostics do not establish generalization or
+native-runtime stability. Official test images were unused for rate selection.
+The retained driver checks the contracted initial state and refuses a different
+recipe, round/batch budget or snapshot size.
+
+See the [matched client-rate controls](../../research/results/on-device/resnet-client-rate-controls-2026-10-09.json)
+and [benchmark driver](../../research/benchmarks/resnet_client_rates.py).
+
+## ResNet FedProx at the corrected client rate
+
+A fresh mixed vivo/g14 run completed two rounds at client Adam 0.001 and mu
+0.1, with the same prepared 64 images per client and two batches of 32. The
+phone reported losses 0.9980 and 0.7992, with approximately 400 and 408 seconds
+of training compute. The independently reloaded registered checkpoint scores
+4333/10000 (43.33%) on the untouched official CIFAR test set; mean cross-entropy
+is 1.77117. Official test data was unused in selecting the rate.
+
+All four accepted contributions reconstruct the registered checkpoint exactly,
+and both original g14 updates replay bitwise with OMP/MKL pinned to one thread.
+Both original phone updates also replay bitwise, including BatchNorm statistics.
+The native replay exits successfully; these comparisons cover model arrays,
+not full wire metadata or cross-runtime numerical equality.
+All 30 pre-run phone dataset files retain their hashes. The installed APK hash
+matches the earlier qualified runtime, and the app reused its cached probe.
+
+This short run does not establish convergence or FedProx superiority. Its initial
+state matches the earlier FedProx run, but the round seed differs; the earlier
+10% result is historical context, not a matched mixed-runtime rate comparison.
+FedOpt at the corrected client rate has CPU evidence and contract/server tests;
+it still needs a new mixed phone run before a native stability claim.
+
+See the [corrected-rate FedProx receipt](../../research/results/on-device/resnet-fedprox-client-rate-2026-10-10.json).
 
 ## Remaining work
 

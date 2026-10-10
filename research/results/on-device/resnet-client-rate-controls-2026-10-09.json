@@ -1,0 +1,437 @@
+{
+  "seed": "11662129375383962215",
+  "initial_sha256": "7841208ea107636db7a210d8266a821b6d5e5e63640f1e3ee21570387e3ee5ef",
+  "scope": "offline CPU counterfactuals; both partitions use Python, not a phone run; official test unused",
+  "contract_sha256": "3c9a15d7368e1ea45e153258a7b3f7b7b2566998fec17f7b862bf64314bc4e61",
+  "package_sha256": {
+    "phone": "66284fa4e30445747c6a40c80235b7f5696f49ffaf4c081b8c74c060f00452f7",
+    "desktop": "064cc9cc140aea19fa92787883bb92ebdd0b989604ab9bd90911485df6cb6406"
+  },
+  "torch": "2.12.0",
+  "torch_num_threads": 1,
+  "server_learning_rate": 0.01,
+  "proximal_mu": 0.1,
+  "rates": [
+    {
+      "strategy": "FedProx",
+      "rate": 0.01,
+      "rounds": [
+        {
+          "round": 1,
+          "clients": [
+            {
+              "partition": 0,
+              "batch_losses": [
+                2.4593400955200195,
+                5.5648627281188965
+              ]
+            },
+            {
+              "partition": 1,
+              "batch_losses": [
+                2.4446163177490234,
+                4.917869567871094
+              ]
+            }
+          ],
+          "aggregate_training_diagnostic": [
+            {
+              "loss": 1493.734619140625,
+              "correct": 9,
+              "count": 64
+            },
+            {
+              "loss": 1778.4898681640625,
+              "correct": 5,
+              "count": 64
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "clients": [
+            {
+              "partition": 0,
+              "batch_losses": [
+                4.374321460723877,
+                5.647719383239746
+              ]
+            },
+            {
+              "partition": 1,
+              "batch_losses": [
+                3.6516807079315186,
+                5.48685359954834
+              ]
+            }
+          ],
+          "aggregate_training_diagnostic": [
+            {
+              "loss": 8403695.0,
+              "correct": 8,
+              "count": 64
+            },
+            {
+              "loss": 8095717.5,
+              "correct": 9,
+              "count": 64
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "strategy": "FedProx",
+      "rate": 0.001,
+      "rounds": [
+        {
+          "round": 1,
+          "clients": [
+            {
+              "partition": 0,
+              "batch_losses": [
+                2.4593400955200195,
+                2.1157567501068115
+              ]
+            },
+            {
+              "partition": 1,
+              "batch_losses": [
+                2.4446163177490234,
+                2.170762062072754
+              ]
+            }
+          ],
+          "aggregate_training_diagnostic": [
+            {
+              "loss": 0.8743442893028259,
+              "correct": 46,
+              "count": 64
+            },
+            {
+              "loss": 0.875316321849823,
+              "correct": 42,
+              "count": 64
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "clients": [
+            {
+              "partition": 0,
+              "batch_losses": [
+                0.479560911655426,
+                0.7974993586540222
+              ]
+            },
+            {
+              "partition": 1,
+              "batch_losses": [
+                0.442355751991272,
+                0.7213415503501892
+              ]
+            }
+          ],
+          "aggregate_training_diagnostic": [
+            {
+              "loss": 0.3270111680030823,
+              "correct": 61,
+              "count": 64
+            },
+            {
+              "loss": 0.33724746108055115,
+              "correct": 57,
+              "count": 64
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "strategy": "FedProx",
+      "rate": 0.0001,
+      "rounds": [
+        {
+          "round": 1,
+          "clients": [
+            {
+              "partition": 0,
+              "batch_losses": [
+                2.4593400955200195,
+                2.291060209274292
+              ]
+            },
+            {
+              "partition": 1,
+              "batch_losses": [
+                2.4446163177490234,
+                2.4799704551696777
+              ]
+            }
+          ],
+          "aggregate_training_diagnostic": [
+            {
+              "loss": 1.865016222000122,
+              "correct": 24,
+              "count": 64
+            },
+            {
+              "loss": 2.0348832607269287,
+              "correct": 19,
+              "count": 64
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "clients": [
+            {
+              "partition": 0,
+              "batch_losses": [
+                1.575082540512085,
+                1.462562084197998
+              ]
+            },
+            {
+              "partition": 1,
+              "batch_losses": [
+                1.6696643829345703,
+                1.5752172470092773
+              ]
+            }
+          ],
+          "aggregate_training_diagnostic": [
+            {
+              "loss": 1.3977514505386353,
+              "correct": 40,
+              "count": 64
+            },
+            {
+              "loss": 1.5783514976501465,
+              "correct": 35,
+              "count": 64
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "strategy": "FedOpt",
+      "rate": 0.01,
+      "rounds": [
+        {
+          "round": 1,
+          "clients": [
+            {
+              "partition": 0,
+              "batch_losses": [
+                2.4593400955200195,
+                5.5648627281188965
+              ]
+            },
+            {
+              "partition": 1,
+              "batch_losses": [
+                2.4446163177490234,
+                4.917869567871094
+              ]
+            }
+          ],
+          "aggregate_training_diagnostic": [
+            {
+              "loss": 30.314483642578125,
+              "correct": 9,
+              "count": 64
+            },
+            {
+              "loss": 29.318588256835938,
+              "correct": 5,
+              "count": 64
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "clients": [
+            {
+              "partition": 0,
+              "batch_losses": [
+                1.7249655723571777,
+                7.768410682678223
+              ]
+            },
+            {
+              "partition": 1,
+              "batch_losses": [
+                2.0575804710388184,
+                7.548220157623291
+              ]
+            }
+          ],
+          "aggregate_training_diagnostic": [
+            {
+              "loss": 292.7656555175781,
+              "correct": 8,
+              "count": 64
+            },
+            {
+              "loss": 280.2111511230469,
+              "correct": 9,
+              "count": 64
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "strategy": "FedOpt",
+      "rate": 0.001,
+      "rounds": [
+        {
+          "round": 1,
+          "clients": [
+            {
+              "partition": 0,
+              "batch_losses": [
+                2.4593400955200195,
+                2.1157567501068115
+              ]
+            },
+            {
+              "partition": 1,
+              "batch_losses": [
+                2.4446163177490234,
+                2.170762062072754
+              ]
+            }
+          ],
+          "aggregate_training_diagnostic": [
+            {
+              "loss": 0.8234683871269226,
+              "correct": 49,
+              "count": 64
+            },
+            {
+              "loss": 0.851453423500061,
+              "correct": 45,
+              "count": 64
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "clients": [
+            {
+              "partition": 0,
+              "batch_losses": [
+                0.5032958984375,
+                0.8367354869842529
+              ]
+            },
+            {
+              "partition": 1,
+              "batch_losses": [
+                0.4745810627937317,
+                0.6976938247680664
+              ]
+            }
+          ],
+          "aggregate_training_diagnostic": [
+            {
+              "loss": 0.6899479627609253,
+              "correct": 48,
+              "count": 64
+            },
+            {
+              "loss": 0.605209231376648,
+              "correct": 52,
+              "count": 64
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "strategy": "FedOpt",
+      "rate": 0.0001,
+      "rounds": [
+        {
+          "round": 1,
+          "clients": [
+            {
+              "partition": 0,
+              "batch_losses": [
+                2.4593400955200195,
+                2.291060209274292
+              ]
+            },
+            {
+              "partition": 1,
+              "batch_losses": [
+                2.4446163177490234,
+                2.4799704551696777
+              ]
+            }
+          ],
+          "aggregate_training_diagnostic": [
+            {
+              "loss": 1.8717315196990967,
+              "correct": 23,
+              "count": 64
+            },
+            {
+              "loss": 2.041656970977783,
+              "correct": 18,
+              "count": 64
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "clients": [
+            {
+              "partition": 0,
+              "batch_losses": [
+                1.5848431587219238,
+                1.472639799118042
+              ]
+            },
+            {
+              "partition": 1,
+              "batch_losses": [
+                1.6803224086761475,
+                1.5855616331100464
+              ]
+            }
+          ],
+          "aggregate_training_diagnostic": [
+            {
+              "loss": 1.1435902118682861,
+              "correct": 47,
+              "count": 64
+            },
+            {
+              "loss": 1.307564616203308,
+              "correct": 42,
+              "count": 64
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "runtime_source_commit": "eba45fe",
+  "driver_sha256": "951582a8accd64e170b6500eb83f2fdc77a3f543e5e199b1b1d6843530bba492",
+  "retained_results_sha256": "6bd69bdfd05b9ec9c5cbe40e7fe4f64709db2ecf41904d0188e398b7ece68d69",
+  "retained_log_sha256": "c877ebc9a6f88c1de00b2d54322850097ea9236df530a5dfa7d1d88357f01129",
+  "numerical_reproduction_exact": true,
+  "decision": "Use base-recipe .001 for new adaptive ResNet client training; .0001 also stays bounded in these controls. Other recipes remain unchanged. Qualify .001 on vivo before any native stability claim.",
+  "limitations": [
+    "Both partitions use Python CPU, not the native phone runtime.",
+    "Only two rounds and 64 images per client; diagnostics reuse training data.",
+    "No official test evaluation or selection, algorithm superiority or useful-generalization claim.",
+    "FedOpt server .01 is an explicit control setting, not a changed default."
+  ],
+  "guarded_reproduction_date": "2026-10-10"
+}
