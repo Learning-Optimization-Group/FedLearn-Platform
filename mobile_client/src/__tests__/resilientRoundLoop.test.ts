@@ -13,7 +13,8 @@ import {
   type RoundOps,
   type ResiliencePolicy,
 } from '../lib/training';
-import type { RoundConfig, RoundResult } from '../lib/nativeCore';
+import type { RoundConfig, RoundResult, ServerStatus } from '../lib/nativeCore';
+import { startServerStatusHeartbeat } from '../lib/statusHeartbeat';
 import { RunJoinRefusedError } from '../lib/runJoin';
 
 const CFG: RoundConfig = {
@@ -113,6 +114,41 @@ describe('runResilientRoundLoop (MO-8)', () => {
     expect(displayedState).toBeNull();
     expect(h.rounds).toEqual([]);
   });
+  it.each(['runFedAvgRound', 'runDeComFLRound'] as const)(
+    'retires this client telemetry on native STOP without retrying (%s)', async (op) => {
+      let displayedState: string | null = 'TRAINING';
+      let resolveStatus!: (s: ServerStatus) => void;
+      const heartbeat = startServerStatusHeartbeat({
+        runId: 'r',
+        getStatus: () => new Promise<ServerStatus>((resolve) => { resolveStatus = resolve; }),
+        onStatus: (s) => { displayedState = s.serverState; },
+      });
+      const onRunEnded = jest.fn(() => {
+        heartbeat.stop();
+        displayedState = null;
+      });
+      const ops = baseOps({ [op]: jest.fn().mockRejectedValue(
+        new Error('STOP: server ended participation')) });
+      const h = {...hooks(), onRunEnded};
+
+      await runResilientRoundLoop({runId: 'r', isFedAvg: op === 'runFedAvgRound', cfg: CFG},
+        ops, POLICY, h);
+
+      expect(displayedState).toBeNull();
+      expect(onRunEnded).toHaveBeenCalledTimes(1);
+      expect(ops[op]).toHaveBeenCalledTimes(1);
+      expect(ops.delay).not.toHaveBeenCalled();
+      expect(ops.rejoin).not.toHaveBeenCalled();
+      expect(ops.runEnded).not.toHaveBeenCalled();
+      expect(h.rounds).toEqual([]);
+      resolveStatus({serverState: 'TRAINING', currentRound: 1,
+        requiredClientsForRound: 2, receivedUpdatesThisRound: 1,
+        activeClients: 2, roundDeadlineUnixMs: 0});
+      await Promise.resolve();
+      expect(displayedState).toBeNull();
+    },
+  );
+
   it('stops without training a replacement run when reconnect returns another run ID', async () => {
     const trainedRuns: string[] = [];
     let statusCalls = 0;

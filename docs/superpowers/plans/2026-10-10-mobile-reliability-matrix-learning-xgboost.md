@@ -79,7 +79,7 @@ do not claim numerical equality across phone and Python runtimes.
 
 ## Final verification
 
-- [ ] Appropriate full checks for changed components, proto mirrors, one fresh
+- [x] Appropriate full checks for changed components, proto mirrors, one fresh
   whole-slice review/fixes, curated receipts/docs, local commits and clean g14
   synchronization. Update ignored status context with actual HEADs and next work.
 
@@ -127,3 +127,35 @@ do not claim numerical equality across phone and Python runtimes.
   status. Ruling: use a termination notification, not invented full RPC counters,
   because RoundOps intentionally exposes only state/round. Cost: Home omits expired
   progress; exact completed state remains in project API and retained receipts.
+
+## Final outcome
+
+All four tasks completed. Final review of fb9c2b7..5863304 found one important
+STOP-path telemetry defect and no critical or minor findings. Two regressions
+failed with stale TRAINING status, then passed after notifying the existing
+cleanup callback. They also verify that an in-flight heartbeat cannot restore
+stale telemetry, and that neither retry nor rejoin occurs. Full mobile suite:
+671 tests; lint/types pass. No native numerical changes in this follow-up.
+Earlier native61, desktop305, backend full/coverage, framework1362, runtime654,
+tree61, learning30 and all five proto-mirror checks remain applicable.
+
+Matrix verification:90 unique resolver-checked cells,19 retained live receipts,
+4 historical September reports,67 refusals; every evidence digest matches.
+All five final image cases have unique accepted-update records, exact original
+phone/Linux replays, differing changed-label controls and exact aggregation.
+All33 phone dataset files retain their baseline hashes. Foreground service is
+absent after completion. The task wake guard expired; services/routes preserved.
+
+Decisions retained for review:
+- Keep the established worktree and local branch; upstream integration stays
+  separate and no push/main merge is performed.
+- Use TinyNet for bounded interruption tests; image-duration and forced-Doze
+  reliability require additional evidence.
+- Retire expired live telemetry through the termination callback; completed
+  run state remains available in the API and receipts.
+- Forward recorded model presets and permit consented CSV/ZIP selection while
+  retaining directories; the actual packaged Mac CSV training path qualified
+  the handoff, while Docker/Linux/Windows package runs remain unqualified.
+
+No deferred minor findings. Keep the feature worktree and fresh Mac app for
+continued work; the old installed app remains recoverable in Trash.

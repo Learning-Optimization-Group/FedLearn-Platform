@@ -29,7 +29,7 @@ export interface TrainingHooks {
   onLog: (line: string) => void;
   onRound: (r: RoundResult) => void;
   shouldStop: () => boolean;
-  /** Retire live polling once the server or backend confirms this run ended. */
+  /** Retire live polling when the run ends or the server stops this client. */
   onRunEnded?: () => void;
 }
 
@@ -329,6 +329,7 @@ export async function runResilientRoundLoop(
       if (e instanceof RoundCheckpointError || e instanceof InvalidServerStatusError) throw e;
       // The native layer rejects a clean stop with a "STOP:"-prefixed message (abort / server ended).
       if (isStopSignal(e)) {
+        hooks.onRunEnded?.();
         hooks.onLog('Server ended this client’s participation.');
         return;
       }
