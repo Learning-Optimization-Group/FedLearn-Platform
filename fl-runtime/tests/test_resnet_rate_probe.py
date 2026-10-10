@@ -50,3 +50,18 @@ def test_probe_refuses_loss_overflow_even_with_finite_logits():
     spec.loader.exec_module(module)
     with pytest.raises(ValueError, match='non-finite'):
         module.finite_cross_entropy(torch.tensor([[-3e38, 3e38]]), torch.tensor([0]))
+
+
+def test_longer_controls_refuse_training_examples_in_validation():
+    import importlib.util
+    import torch
+    driver = Path(__file__).resolve().parents[2] / 'research/benchmarks/resnet_client_rates.py'
+    spec = importlib.util.spec_from_file_location('resnet_rate_probe', driver)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    from torch.utils.data import TensorDataset
+    first = TensorDataset(torch.tensor([[1., 2.], [3., 4.]]), torch.tensor([0, 1]))
+    heldout = TensorDataset(torch.tensor([[1., 2.]]), torch.tensor([1]))
+    with pytest.raises(ValueError, match='overlap'):
+        module.require_validation_disjoint([first], heldout)
+    separated = TensorDataset(torch.tensor([[5., 6.]]), torch.tensor([1]))
+    module.require_validation_disjoint([first], separated)

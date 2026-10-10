@@ -19,6 +19,20 @@ MEAN = [.485, .456, .406]
 STD = [.229, .224, .225]
 
 
+def configure_fine_tuning(net):
+    """Limit the follow-up's trainable state to the last block and classifier."""
+    net.requires_grad_(False)
+    net.layer4.requires_grad_(True)
+    net.fc.requires_grad_(True)
+
+
+def fine_tuning_mode(net):
+    net.train()
+    for layer in net.modules():
+        if isinstance(layer, torch.nn.modules.batchnorm._BatchNorm):
+            layer.eval()
+
+
 def imagenet_input(x):
     if x.ndim != 4 or x.shape[1:] != (1, 224, 224) or not torch.isfinite(x).all() or x.min() < -1 or x.max() > 1:
         raise ValueError('expected finite NIH grayscale tensors normalized by mean=.5/std=.5')

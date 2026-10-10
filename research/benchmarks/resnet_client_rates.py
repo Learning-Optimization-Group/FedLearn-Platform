@@ -26,6 +26,29 @@ def finite_cross_entropy(logits, targets):
     return loss.item()
 
 
+def require_validation_disjoint(training, validation):
+    def identities(dataset):
+        return {hashlib.sha256(x.numpy().tobytes()).hexdigest() for x, _ in dataset}
+    heldout = identities(validation)
+    if any(identities(dataset) & heldout for dataset in training):
+        raise ValueError('training/validation image overlap')
+
+
+def validation_metrics(net, dataset):
+    from torch.utils.data import DataLoader
+    net.eval()
+    logits, labels = [], []
+    with torch.no_grad():
+        for x, y in DataLoader(dataset, batch_size=32, shuffle=False):
+            logits.append(net(x)); labels.append(y)
+    scores, targets = torch.cat(logits), torch.cat(labels)
+    prediction = scores.argmax(1)
+    confusion = torch.bincount(targets * 10 + prediction, minlength=100).reshape(10, 10)
+    return dict(loss=finite_cross_entropy(scores, targets), correct=int((prediction == targets).sum()),
+                count=len(targets), confusion=confusion.tolist(),
+                recall=[float(confusion[i,i] / confusion[i].sum()) if confusion[i].sum() else None for i in range(10)])
+
+
 def main():
     parser = ArgumentParser(description='Bounded offline ResNet client-rate controls; no official test selection')
     parser.add_argument('--contract', type=Path, required=True)
@@ -33,7 +56,11 @@ def main():
     parser.add_argument('--phone-package', type=Path, required=True)
     parser.add_argument('--desktop-package', type=Path, required=True)
     parser.add_argument('--output-dir', type=Path, required=True)
+    parser.add_argument('--longer', action='store_true', help='Fixed six-round .001 FedAvg/FedProx/FedOpt profiles')
+    parser.add_argument('--validation-package', type=Path)
     options = parser.parse_args()
+    if options.longer != (options.validation_package is not None):
+        parser.error('longer controls require an explicit disjoint validation package')
     out = options.output_dir
     out.mkdir(parents=True, exist_ok=False)
     torch.set_num_threads(1)
@@ -57,8 +84,10 @@ def main():
     from fedlearn.communication.safetensors_codec import save_safetensors
     assert hashlib.sha256(save_safetensors([(k, t.numpy()) for k, t in initial.items()])).hexdigest() == base.model_training.initial_state_sha256
     report = {'seed': str(base.seed), 'initial_sha256': hashlib.sha256(options.initial_state.read_bytes()).hexdigest(), 'scope': 'offline CPU counterfactuals; both partitions use Python, not a phone run; official test unused', 'contract_sha256': hashlib.sha256(options.contract.read_bytes()).hexdigest(), 'package_sha256': {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in [('phone', options.phone_package), ('desktop', options.desktop_package)]}, 'torch': torch.__version__, 'torch_num_threads': torch.get_num_threads(), 'server_learning_rate': 0.01, 'proximal_mu': 0.1, 'rates': []}
-    for strategy in ('FedProx', 'FedOpt'):
-        for rate in (0.01, 0.001, 0.0001):
+    report['validation_package_sha256'] = hashlib.sha256(options.validation_package.read_bytes()).hexdigest() if options.longer else None
+    report['selection'] = 'Fixed six-round profiles and final-epoch metrics; official test unused' if options.longer else 'fixed two-round rate controls'
+    for strategy in (('FedAvg', 'FedProx', 'FedOpt') if options.longer else ('FedProx', 'FedOpt')):
+        for rate in ((0.001,) if options.longer else (0.01, 0.001, 0.0001)):
             import strategy_client_settings
             # These counterfactual settings exist only in this diagnostic process.
             strategy_client_settings.RESNET_CLIENT_LEARNING_RATE = rate
@@ -67,9 +96,10 @@ def main():
             tag = f'{strategy}-{rate:g}'
             contract = parse_contract_json(options.contract.read_text())
             from execution_plan import pb
-            contract.strategy = getattr(pb, 'STRATEGY_FEDOPT' if strategy == 'FedOpt' else 'STRATEGY_FEDPROX')
+            contract.strategy = getattr(pb, {'FedAvg':'STRATEGY_FEDAVG','FedOpt':'STRATEGY_FEDOPT','FedProx':'STRATEGY_FEDPROX'}[strategy])
+            if options.longer: contract.num_rounds = 6
             contract.model_training.local_training.adam.learning_rate = rate
-            if strategy == 'FedOpt':
+            if strategy != 'FedProx':
                 contract.model_training.ClearField('fedprox_mu')
             path = out / (tag + '-contract.json')
             path.write_text(MessageToJson(contract))
@@ -82,9 +112,16 @@ def main():
                     client.enforce_execution_contract(args, 'CIFAR_RESNET18', 'FULL')
                     participants.append(client.ZOSLClient(partition_id=part, dataset_name='cifar10'))
                     assert len(participants[-1].trainloader.dataset) == 64
+                validation = None
+                if options.longer:
+                    from local_snapshot import load_local_snapshot
+                    import recipes
+                    validation = load_local_snapshot(options.validation_package, contract.model_training.data,
+                        recipes.get_recipe('CIFAR_RESNET18').classes).dataset
+                    require_validation_disjoint([p.trainloader.dataset for p in participants], validation)
                 current = OrderedDict(((k, v.clone()) for k, v in initial.items()))
                 aggregator = fl_server.select_strategy(Namespace(strategy=strategy, min_clients=2, clients_per_round=2, model_type='CIFAR_RESNET18', fedopt_server_learning_rate=0.01), current, None)
-                for r in (1, 2):
+                for r in range(1, contract.num_rounds + 1):
                     updates = []
                     round_result = {'round': r, 'clients': []}
                     for part, p in enumerate(participants):
@@ -118,7 +155,18 @@ def main():
                             evals.append({'loss': finite_cross_entropy(logits, ys), 'correct': int((logits.argmax(1) == ys).sum()), 'count': len(ys)})
                     assert all((torch.isfinite(v).all() for v in current.values()))
                     round_result['aggregate_training_diagnostic'] = evals
+                    if validation is not None:
+                        round_result['validation'] = validation_metrics(participants[0].net, validation)
                     entry['rounds'].append(round_result)
+                if validation is not None:
+                    checkpoint = out / (tag + '.npz')
+                    np.savez(checkpoint, **{k:v.detach().numpy() for k,v in participants[0].net.state_dict().items()})
+                    restored = client.ZOSLClient(partition_id=0, dataset_name='cifar10').net
+                    with np.load(checkpoint, allow_pickle=False) as archive:
+                        restored.load_state_dict({k:torch.from_numpy(archive[k].copy()) for k in archive.files}, strict=True)
+                    if validation_metrics(restored, validation) != entry['rounds'][-1]['validation']:
+                        raise ValueError('checkpoint validation reload differs')
+                    entry.update(checkpoint_sha256=hashlib.sha256(checkpoint.read_bytes()).hexdigest(), reload_exact=True)
             log.close()
             report['rates'].append(entry)
             (out / 'results.json').write_text(json.dumps(report, indent=2, allow_nan=False) + '\n')
