@@ -529,16 +529,16 @@ _PLANS = {
 }
 
 
-def _adaptive_adam_plan(build, strategy):
+def _adaptive_adam_plan(build, strategy, recipe):
     """Resolve the same client settings that the first-order server sends."""
     def resolve(initial_state_path=None):
         plan = build(initial_state_path)
         local = plan.local_training
         if strategy == 'FedOpt':
-            local.adam.learning_rate = strategy_client_settings.FEDOPT_CLIENT_LEARNING_RATE
+            local.adam.learning_rate = strategy_client_settings.client_learning_rate(strategy, recipe)
             local.local_epochs = strategy_client_settings.FEDOPT_CLIENT_LOCAL_EPOCHS
         else:
-            local.adam.learning_rate = strategy_client_settings.FEDPROX_CLIENT_LEARNING_RATE
+            local.adam.learning_rate = strategy_client_settings.client_learning_rate(strategy, recipe)
             local.local_epochs = strategy_client_settings.FEDPROX_CLIENT_LOCAL_EPOCHS
             plan.fedprox_mu = strategy_client_settings.FEDPROX_CLIENT_PROXIMAL_MU
         return plan
@@ -547,7 +547,7 @@ def _adaptive_adam_plan(build, strategy):
 
 for _recipe in ('MLP', 'CNN', 'CIFAR_RESNET18', 'PNEUMONIA_CNN'):
     for _strategy in ('FedOpt', 'FedProx'):
-        _PLANS[(_recipe, _strategy, 'FULL')] = _adaptive_adam_plan(_PLANS[(_recipe, 'FedAvg', 'FULL')], _strategy)
+        _PLANS[(_recipe, _strategy, 'FULL')] = _adaptive_adam_plan(_PLANS[(_recipe, 'FedAvg', 'FULL')], _strategy, _recipe)
 
 
 # The run intent's TrainingDataSource names, as the backend passes them.

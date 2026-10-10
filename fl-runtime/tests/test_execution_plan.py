@@ -1234,7 +1234,7 @@ def test_first_order_neural_fit_uses_server_rate_in_its_real_adam_optimizer(monk
 def test_adam_recipe_strategy_plans_state_the_shared_server_settings(recipe, strategy):
     import strategy_client_settings as settings
     plan = execution_plan.resolve_model_training(recipe, strategy, 'FULL', data_source='LOCAL_SNAPSHOT')
-    expected_rate = settings.FEDOPT_CLIENT_LEARNING_RATE if strategy == 'FedOpt' else settings.FEDPROX_CLIENT_LEARNING_RATE
+    expected_rate = .001 if recipe == 'CIFAR_RESNET18' else .01
     assert plan.local_training.adam.learning_rate == expected_rate
     assert plan.local_training.local_epochs == 1
     assert plan.local_training.reset_optimizer_each_round
@@ -1257,7 +1257,7 @@ def test_adam_round_cross_check_reads_the_selected_optimizer_rate(monkeypatch, r
         config['proximal_mu'] = str(plan.fedprox_mu)
     client._refuse_round_outside_contract(config)
     with pytest.raises(ValueError, match='execution contract'):
-        client._refuse_round_outside_contract(dict(config, learning_rate='0.001'))
+        client._refuse_round_outside_contract(dict(config, learning_rate=str(plan.local_training.adam.learning_rate * 2)))
 
 
 @pytest.mark.parametrize('strategy,pb_strategy', [
