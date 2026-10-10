@@ -147,7 +147,18 @@ public class RunService {
     public Run createForStart(Project project, String strategy, int numRounds, int minClients,
                               int clientsPerRound, RobustAggregationSettings robust, Integer secureAggThreshold,
                               TrainingDataSource dataSource) {
+        return createForStart(project, strategy, numRounds, minClients, clientsPerRound, robust,
+                secureAggThreshold, dataSource, "FedOpt".equals(strategy) ? FedOptSettings.defaults() : null);
+    }
+
+    public Run createForStart(Project project, String strategy, int numRounds, int minClients,
+                              int clientsPerRound, RobustAggregationSettings robust, Integer secureAggThreshold,
+                              TrainingDataSource dataSource, FedOptSettings fedOpt) {
+        if (fedOpt != null && !"FedOpt".equals(strategy)) {
+            throw new IllegalArgumentException("FedOpt settings apply only to FedOpt");
+        }
         Run run = new Run();
+        run.setFedOpt("FedOpt".equals(strategy) ? (fedOpt == null ? FedOptSettings.defaults() : fedOpt) : null);
         run.setProjectId(project.getId());
         run.setStrategy(strategy);
         run.setNumRounds(numRounds);
@@ -289,6 +300,7 @@ public class RunService {
         m.setProjectId(run.getProjectId());
         m.setRecipeKey(run.getRecipeKey());
         m.setStrategy(run.getStrategy());
+        m.setFedOpt(run.getFedOpt());
         m.setNumRounds(run.getNumRounds());
         m.setClientsPerRound(run.getClientsPerRound());
         m.setPartitioningMode(run.getPartitioningMode().name());

@@ -1,6 +1,7 @@
 package com.federated.fl_platform_api.orchestration;
 
 import com.federated.fl_platform_api.model.RobustAggregationSettings;
+import com.federated.fl_platform_api.model.FedOptSettings;
 
 import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
@@ -264,7 +265,9 @@ public class FlServerManager {
             String initModelPath = registryModelResolver.resolveModelPath(project).orElse(null);
             List<String> command = buildServerCommand(
                     project, intent, strategy, numRounds, minClients, freePort, absoluteScriptPath, isWindows,
-                    initModelPath, robust, secureAggThreshold, clientsPerRound);
+                    initModelPath, robust, secureAggThreshold, clientsPerRound,
+                    "FedOpt".equals(strategy) && project.getActiveRunId() != null
+                            ? runRepository.findById(project.getActiveRunId()).orElseThrow().getFedOpt() : null);
 
             String treeContractBase64 = null;
             if ("XGBOOST".equals(project.getModelType())) {
@@ -627,6 +630,18 @@ public class FlServerManager {
                                            boolean isWindows, String initModelPath,
                                            RobustAggregationSettings robust, Integer secureAggThreshold,
                                            Integer clientsPerRound) {
+        return buildServerCommand(project, intent, strategy, numRounds, minClients, freePort, absoluteScriptPath,
+                isWindows, initModelPath, robust, secureAggThreshold, clientsPerRound, null);
+    }
+
+    static List<String> buildServerCommand(Project project, RunIntent intent, String strategy, Integer numRounds,
+                                           Integer minClients, int freePort, String absoluteScriptPath,
+                                           boolean isWindows, String initModelPath,
+                                           RobustAggregationSettings robust, Integer secureAggThreshold,
+                                           Integer clientsPerRound, FedOptSettings fedOpt) {
+        if (fedOpt != null && !"FedOpt".equals(strategy)) {
+            throw new IllegalArgumentException("FedOpt settings apply only to FedOpt");
+        }
         // Robust settings mean something only to the Robust strategy. Anywhere else fl_server.py would ignore
         // them, and the run record would name a rule that never ran.
         if (robust != null && !"Robust".equals(strategy)) {
@@ -761,6 +776,12 @@ public class FlServerManager {
             // Robust aggregation rule and settings. The flag names are a pinned contract with fl_server.py's
             // argparse. The method comes from an enum (still allowlist-checked); numbers go through
             // String.valueOf, and each is emitted only when set, so 0.0 is passed rather than dropped.
+            if (fedOpt != null) {
+                command.addAll(List.of("--fedopt-variant", fedOpt.variant(),
+                        "--fedopt-server-learning-rate", fedOpt.serverLearningRate().toString(),
+                        "--fedopt-beta1", fedOpt.beta1().toString(),
+                        "--fedopt-beta2", fedOpt.beta2().toString(), "--fedopt-tau", fedOpt.tau().toString()));
+            }
             if (robust != null) {
                 String wire = robust.method().wireName();
                 requireSafeToken("robust-method", wire);

@@ -397,3 +397,18 @@ describe('StartProjectModal — training data', () => {
     expect(screen.queryByLabelText(DATA)).not.toBeInTheDocument();
   });
 });
+
+
+it('submits adaptive server settings and drops them after switching methods', async () => {
+  const onSubmit = vi.fn().mockResolvedValue(undefined);
+  render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={onSubmit} />);
+  fireEvent.change(screen.getByRole('combobox'), {target:{value:'FedOpt'}});
+  fireEvent.change(screen.getByLabelText('Server learning rate'), {target:{value:'0.01'}});
+  fireEvent.click(screen.getByRole('button', {name:/start training/i}));
+  await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('p1', expect.objectContaining({
+    fedOpt:{variant:'adam',serverLearningRate:0.01},
+  })));
+  fireEvent.click(screen.getByRole('button', {name:/start training/i}));
+  await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+  expect(onSubmit.mock.calls[1][1]).not.toHaveProperty('fedOpt');
+});

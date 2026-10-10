@@ -604,6 +604,20 @@ class RunServiceTest {
     // from Bulyan, which lets two different experiments share one label (the bug class V22 closed for
     // the training arm).
 
+    @Test
+    void fedOptRecordsResolvedDefaultsAndCustomSettings() {
+        when(runRepository.save(any(Run.class))).thenAnswer(inv -> inv.getArgument(0));
+        var p = project(UUID.randomUUID());
+        var defaults = runService.createForStart(p, "FedOpt", 2, 2, 2);
+        assertEquals(FedOptSettings.defaults(), defaults.getFedOpt());
+        var settings = new FedOptSettings("yogi", .01, .8, .95, .002);
+        var custom = runService.createForStart(p, "FedOpt", 2, 2, 2, null, null, TrainingDataSource.LOCAL_SNAPSHOT, settings);
+        assertEquals(settings, custom.getFedOpt());
+        assertEquals(settings, runService.legacyManifest(custom).getFedOpt());
+        assertThrows(IllegalArgumentException.class, () -> runService.createForStart(p, "FedAvg", 2, 2, 2,
+                null, null, TrainingDataSource.FIXTURE, settings));
+    }
+
     private Run savedRun(String strategy, RobustAggregationSettings robust) {
         when(runRepository.save(any(Run.class))).thenAnswer(inv -> inv.getArgument(0));
         return runService.createForStart(project(UUID.randomUUID()), strategy, 5, 20, 20, robust);

@@ -17,6 +17,10 @@ import jakarta.validation.constraints.Pattern;
  * command.
  */
 public class StartProject {
+    private com.federated.fl_platform_api.model.FedOptSettings fedOpt;
+    public com.federated.fl_platform_api.model.FedOptSettings getFedOpt() { return fedOpt; }
+    public void setFedOpt(com.federated.fl_platform_api.model.FedOptSettings settings) { fedOpt = settings; }
+
 
     /**
      * Gradient strategies mirror those registered in

@@ -513,6 +513,10 @@ public class ProjectService {
                 project.getModelType(),
                 request != null ? request.getStrategy() : null);
 
+        if (request != null && request.getFedOpt() != null && !"FedOpt".equals(strategyToUse)) {
+            throw new IllegalArgumentException("fedOpt settings apply only to FedOpt");
+        }
+
         Integer minClients = (request != null && request.getMinClients() != null)
                 ? request.getMinClients()
                 : 1;
@@ -565,8 +569,14 @@ public class ProjectService {
 
             Run run = null;
             try {
-                run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
-                        robustSettings, secureAggThreshold, dataSource);
+                if ("FedOpt".equals(strategyToUse)) {
+                    run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
+                            robustSettings, secureAggThreshold, dataSource,
+                            request != null ? request.getFedOpt() : null);
+                } else {
+                    run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
+                            robustSettings, secureAggThreshold, dataSource);
+                }
                 project.setActiveRunId(run.getId());
                 projectRepository.save(project);
 

@@ -18,7 +18,7 @@ const STRATEGIES: { value: string; label: string }[] = [
   { value: 'FedAvg', label: 'Standard — averages everyone\'s learning (recommended)' },
   { value: 'FedProx', label: 'Stable — keeps clients close to the shared model on uneven data' },
   { value: 'DeComFL', label: 'Low-bandwidth — sends tiny updates' },
-  { value: 'FedOpt', label: 'Adaptive — faster convergence on varied data' },
+  { value: 'FedOpt', label: 'Adaptive — adjusts how the server combines updates' },
   { value: 'Robust', label: 'Robust — resists a few bad or noisy clients' },
   { value: 'FoT', label: 'For text models' },
 ];
@@ -48,6 +48,8 @@ const SECURE_AGG_MIN_THRESHOLD = 2;
 
 export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartProjectModalProps) {
   const [strategy, setStrategy] = useState('FedAvg');
+  const [fedOptVariant, setFedOptVariant] = useState<'adam' | 'yogi'>('adam');
+  const [serverLearningRate, setServerLearningRate] = useState(1);
   const [numRounds, setNumRounds] = useState(5);
   const [minClients, setMinClients] = useState(2);
   const [robustMethod, setRobustMethod] = useState('MEDIAN');
@@ -108,6 +110,9 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
       // Robust fields are added only for the Robust method, and only the parameter the chosen rule
       // reads. The backend rejects robust fields on any other method, so leftovers from a rule the user
       // looked at and then switched away from must never ride along.
+      if (!isLlmLora && effectiveStrategy === 'FedOpt') {
+        config.fedOpt = {variant: fedOptVariant, serverLearningRate: Number(serverLearningRate)};
+      }
       if (showRobust && selectedRule) {
         config.robustMethod = selectedRule.value;
         if (selectedRule.param === 'fraction') config.byzantineFraction = Number(byzantineFraction);
@@ -130,6 +135,8 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
       await onSubmit(project.id, config);
       // Reset form defaults upon success
       setStrategy('FedAvg');
+      setFedOptVariant('adam');
+      setServerLearningRate(1);
       setNumRounds(5);
       setMinClients(2);
       setRobustMethod('MEDIAN');
@@ -196,6 +203,18 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
           </FormField>
         )}
 
+        {!isLlmLora && effectiveStrategy === 'FedOpt' && (
+          <>
+            <FormField label="Server optimizer">
+              <Select value={fedOptVariant} onChange={(e) => setFedOptVariant(e.target.value as 'adam' | 'yogi')}>
+                <option value="adam">Adam</option><option value="yogi">Yogi</option>
+              </Select>
+            </FormField>
+            <FormField label="Server learning rate" help="Controls the server update, separately from each device's training rate. Large values can make training unstable. Historical default: 1.">
+              <Input type="number" min="0.00000001" max="10" step="any" required value={serverLearningRate} onChange={(e) => setServerLearningRate(Number(e.target.value))} />
+            </FormField>
+          </>
+        )}
         {showRobust && (
           <>
             <FormField label="Aggregation rule" help={selectedRule?.help}>

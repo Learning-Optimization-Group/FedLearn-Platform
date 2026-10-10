@@ -342,6 +342,21 @@ def nih_benchmark_metrics(metrics):
     return {target: metrics[source] for source, target in names.items()}
 
 
+def resolve_fedopt_settings(args):
+    defaults = dict(variant="adam", server_learning_rate=1., beta1=.9, beta2=.99, tau=.001)
+    supplied = {name: getattr(args, "fedopt_" + name, None) for name in defaults}
+    if args.strategy.lower() != "fedopt" and any(value is not None for value in supplied.values()):
+        raise ValueError("FedOpt settings apply only to FedOpt")
+    settings = {name: defaults[name] if value is None else value for name, value in supplied.items()}
+    if (settings['variant'] not in ('adam', 'yogi')
+            or any(not np.isfinite(settings[name]) for name in ('server_learning_rate', 'beta1', 'beta2', 'tau'))
+            or not 0 < settings['server_learning_rate'] <= 10
+            or not 0 <= settings['beta1'] < 1 or not 0 <= settings['beta2'] < 1
+            or not 0 < settings['tau'] <= 1):
+        raise ValueError("invalid FedOpt server settings")
+    return settings
+
+
 def select_strategy(args, initial_parameters, evaluate_fn):
     """Map ``--strategy`` to a constructed framework Strategy instance.
 
@@ -493,9 +508,10 @@ def select_strategy(args, initial_parameters, evaluate_fn):
     elif args.strategy.lower() == 'fedopt':
         # FR-11: server-side adaptive optimisation (FedAdam by default). Standard FedAdam
         # hyperparameters (Reddi et al. 2021); moments persist across rounds inside the strategy.
-        fedopt_variant = "adam"
-        server_learning_rate = 1.0
-        beta1, beta2, tau = 0.9, 0.99, 1e-3
+        settings = resolve_fedopt_settings(args)
+        fedopt_variant = settings['variant']
+        server_learning_rate = settings['server_learning_rate']
+        beta1, beta2, tau = settings['beta1'], settings['beta2'], settings['tau']
         logging.info(f"Using FedOpt strategy (variant={fedopt_variant}, "
                      f"server_lr={server_learning_rate}, β1={beta1}, β2={beta2}, τ={tau})")
         strategy = FedOpt(
@@ -617,6 +633,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
                              "return a summed share. Must be >= 2 (a threshold of 1 admits a "
                              "single-survivor round, whose aggregate IS that client's own "
                              "contribution) and <= the cohort. Default: 2")
+    parser.add_argument("--fedopt-variant", choices=['adam', 'yogi'], default=None)
+    for field in ('server-learning-rate', 'beta1', 'beta2', 'tau'):
+        parser.add_argument('--fedopt-' + field, type=float, default=None)
     parser.add_argument("--robust-method", type=str, default=None,
                         choices=["median", "trimmed_mean", "krum", "multi_krum", "bulyan",
                                  "centered_clip"],
@@ -683,6 +702,7 @@ def resolve_run_seed(args) -> int:
 
 def main():
     args = build_arg_parser().parse_args()
+    resolve_fedopt_settings(args)
     resolve_run_seed(args)  # DA-3: seed RNGs before any data loading/training; card records it
 
     # if args.model_type == 'TRANSFORMER' and args.strategy.lower() == 'decomfl':

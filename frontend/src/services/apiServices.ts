@@ -51,6 +51,8 @@ export interface ProjectData {
 }
 
 export interface StartServerData {
+    /** Server optimizer settings, only for FedOpt; omitted values retain historical defaults. */
+    fedOpt?: {variant?: 'adam' | 'yogi'; serverLearningRate?: number; beta1?: number; beta2?: number; tau?: number};
     strategy?: string;
     numRounds?: number;
     minClients?: number;

@@ -8,6 +8,28 @@ import java.util.UUID;
 @Entity
 @Table(name = "runs")
 public class Run {
+    @Column(name = "fedopt_variant")
+    private String fedoptVariant;
+    @Column(name = "fedopt_server_learning_rate")
+    private Double fedoptServerLearningRate;
+    @Column(name = "fedopt_beta1")
+    private Double fedoptBeta1;
+    @Column(name = "fedopt_beta2")
+    private Double fedoptBeta2;
+    @Column(name = "fedopt_tau")
+    private Double fedoptTau;
+
+    public FedOptSettings getFedOpt() {
+        return fedoptVariant == null ? null : new FedOptSettings(fedoptVariant, fedoptServerLearningRate, fedoptBeta1, fedoptBeta2, fedoptTau);
+    }
+    public void setFedOpt(FedOptSettings settings) {
+        fedoptVariant = settings == null ? null : settings.variant();
+        fedoptServerLearningRate = settings == null ? null : settings.serverLearningRate();
+        fedoptBeta1 = settings == null ? null : settings.beta1();
+        fedoptBeta2 = settings == null ? null : settings.beta2();
+        fedoptTau = settings == null ? null : settings.tau();
+    }
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)

@@ -5,6 +5,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.UUID;
 
 public class RunManifestDto {
+    private com.federated.fl_platform_api.model.FedOptSettings fedOpt;
+    public com.federated.fl_platform_api.model.FedOptSettings getFedOpt() { return fedOpt; }
+    public void setFedOpt(com.federated.fl_platform_api.model.FedOptSettings settings) { fedOpt = settings; }
+
     private UUID runId;
     private UUID projectId;
     private String recipeKey;
