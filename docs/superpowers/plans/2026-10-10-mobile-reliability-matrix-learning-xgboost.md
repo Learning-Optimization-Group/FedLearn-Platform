@@ -18,18 +18,18 @@ do not claim numerical equality across phone and Python runtimes.
 
 ## Task 1: interruption reliability
 
-- [ ] Trace training checkpoints, enrollment/rejoin, provider and foreground
+- [x] Trace training checkpoints, enrollment/rejoin, provider and foreground
   service lifecycle. Establish a green full mobile baseline.
-- [ ] Create isolated TinyNet three-round fixture runs via normal API. Use actual
+- [x] Create isolated TinyNet three-round fixture runs via normal API. Use actual
   phone UI enrollment/start and verify service and accepted-update records.
   Delay the second participant to hold a known round during interventions.
-- [ ] Exercise screen off/background and temporary gRPC route loss, restore the
+- [x] Exercise screen off/background and temporary gRPC route loss, restore the
   route and verify accepted round IDs/counts without duplicate submissions.
   A brief screen-off check does not qualify forced Doze or long suspension.
-- [ ] Exercise Stop/rejoin and server stop on isolated runs; check cancellation,
+- [x] Exercise Stop/rejoin and server stop on isolated runs; check cancellation,
   service removal, bounded loop exit, submitted-round preservation and server
   process cleanup. Restore forwarding and preserve datasets.
-- [ ] Reproduce failures with regressions before minimal fixes; run full mobile
+- [x] Reproduce failures with regressions before minimal fixes; run full mobile
   tests/types/lint and native checks for native changes. Retain actual API,
   device/recorder evidence, timestamps, source/APK identities and limitations.
 

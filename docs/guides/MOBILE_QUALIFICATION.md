@@ -7,8 +7,8 @@ establish useful predictive performance.
 
 | Recipe | Mixed phone/Python qualification | Remaining evidence |
 | --- | --- | --- |
-| MLP / ECG | FedAvg; multi-batch FedOpt and FedProx | FedOpt server settings need tuning; broader datasets |
-| CNN / CIFAR-10 | FedAvg; two-round FedOpt/FedProx, 320 images/client | Useful adaptive learning and subset arms |
+| MLP / ECG | FedAvg; multi-batch FedOpt and FedProx; two-round Robust | FedOpt server settings need tuning; broader datasets |
+| CNN / CIFAR-10 | FedAvg; two-round FedOpt/FedProx/Robust, 320 images/client | Useful adaptive learning and subset arms |
 | CIFAR_RESNET18 | FedAvg; two-round FedOpt/FedProx, 64 images/client | Useful adaptive learning, subset arms, larger runs |
 | NIH_PNEUMONIA_CNN | FedAvg, two rounds, 32 images/client | Useful learning, live Robust; remains FedAvg/Robust only |
 | PNEUMONIA_CNN | Earlier phone training; source/contract support | A mixed run with the original NORMAL/PNEUMONIA dataset |
@@ -238,3 +238,29 @@ Adam, rate 1.0, betas 0.9/0.99 and tau 0.001; omission is not a stability guaran
 Settings on other strategies and non-finite or out-of-range values are refused.
 The server rate is separate from the device learning rate published in the
 execution contract. No protobuf change is needed for these server-only settings.
+
+## Android interruption checks — 10 October
+
+An actual screen-off run exposed paused React Native timers despite an active
+foreground service. Android training waits now use a bounded native scheduler;
+Stop cancels pending waits and older APKs without that scheduler are refused.
+The installed APK retains the same numerical core and all 30 pre-existing
+phone dataset files have identical hashes.
+
+Fresh three-round TinyNet runs passed brief background/screen-off training,
+an actual six-second socket outage with rejected reconnects, and Stop/rejoin.
+Stop took 69 ms; checkpoint 1 survived, rejoin skipped the already accepted
+round, and the resumed run reached checkpoint 3. Each successful run accepted
+six unique contributions. Removing an ADB reverse mapping did not break an
+existing socket and is retained as an ineffective outage probe.
+
+[Lifecycle receipt](../../research/results/on-device/android-lifecycle-2026-10-10.json)
+retains the failed attempt and successful cases. These USB-powered fixture
+checks do not qualify forced Doze, long suspension, unplugged battery operation,
+mid-upload acknowledgement loss, or image-duration interruptions.
+
+The actual mounted provider also completed ECG/CNN Robust runs and cleared
+obsolete server telemetry. Both original devices replayed their contributions
+bitwise, changed labels/rates failed the controls, and the aggregate matched
+the registered model. [Robust receipt](../../research/results/on-device/mobile-robust-real-models-2026-10-10.json).
+Two clients using median aggregation establish execution support only.
