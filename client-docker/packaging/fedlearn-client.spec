@@ -44,6 +44,7 @@ FULL_COLLECT = (
     'scipy',
     'sklearn',
     'fedlearn',        # installed via `pip install -e ../../framework`
+    'xgboost',         # tree protocol requires its pinned native library
 )
 
 for pkg in FULL_COLLECT:

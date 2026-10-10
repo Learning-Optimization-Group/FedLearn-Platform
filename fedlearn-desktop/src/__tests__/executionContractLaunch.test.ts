@@ -117,9 +117,31 @@ describe('client-docker entrypoint', () => {
     expect(argv[argv.indexOf('--run-id') + 1]).toBe(RUN_ID);
   });
 
+  it('forwards the named model and mounted own-data file to the canonical client', () => {
+    const argv=launch({MODEL_NAME:'xgboost_breast_cancer',DATASET_PATH:'/data/input.csv'}).split('\n');
+    expect(argv).toContain('--model-name');
+    expect(argv[argv.indexOf('--model-name')+1]).toBe('xgboost_breast_cancer');
+    expect(argv).toContain('--dataset-path');
+    expect(argv[argv.indexOf('--dataset-path')+1]).toBe('/data/input.csv');
+  });
+
   it('passes neither on a legacy launch', () => {
     const argv = launch({}).split('\n');
     expect(argv).not.toContain('--execution-contract');
     expect(argv).not.toContain('--run-id');
   });
+});
+
+
+test('container CSV mount preserves its format and empty selection mounts nothing', () => {
+  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'tree-csv-'));
+  const file=path.join(folder,'patient measurements.csv');fs.writeFileSync(file,'data');
+  try {
+    const cfg={...BASE,datasetPath:file,modelName:'xgboost_breast_cancer'};
+    expect(buildContainerEnv(cfg)).toContain('DATASET_PATH=/data/input.csv');
+    expect(buildContainerEnv(cfg)).toContain('MODEL_NAME=xgboost_breast_cancer');
+    expect(buildContainerBinds(cfg)).toContain(`${file}:/data/input.csv`);
+    expect(buildContainerBinds({...BASE,datasetPath:''})).toEqual([]);
+    expect(buildContainerEnv({...BASE,datasetPath:''}).some(v=>v.startsWith('DATASET_PATH='))).toBe(false);
+  } finally { fs.rmSync(folder,{recursive:true,force:true}); }
 });

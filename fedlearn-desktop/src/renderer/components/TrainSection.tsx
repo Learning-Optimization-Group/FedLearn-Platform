@@ -210,9 +210,9 @@ export const TrainSection: React.FC<TrainSectionProps> = ({
     }
   }, [status]);
 
-  const handleSelectDataset = useCallback(async () => {
+  const handleSelectDataset = useCallback(async (kind?: 'file' | 'directory') => {
     try {
-      const result = await window.fedLearnAPI.selectDatasetPath();
+      const result = await window.fedLearnAPI.selectDatasetPath(kind);
       if (result.success && result.path) {
         setDatasetPath(result.path);
         setDatasetSkipped(false);
@@ -257,6 +257,7 @@ export const TrainSection: React.FC<TrainSectionProps> = ({
         serverAddress: c.serverAddress,
         partitionId: String(c.partitionId),
         modelType: c.modelType,
+        modelName: c.modelName,
         datasetPath: datasetPath.trim(),
         connectionToken: c.connectionToken,
         strategy: c.strategy,
@@ -453,7 +454,7 @@ export const TrainSection: React.FC<TrainSectionProps> = ({
             {/* 2 — Training data */}
             <div className="form-group">
               <label className="form-label" htmlFor="config-dataset-path">
-                Dataset folder
+                Dataset
               </label>
               <div className="form-input-row">
                 <input
@@ -462,7 +463,7 @@ export const TrainSection: React.FC<TrainSectionProps> = ({
                   type="text"
                   value={datasetPath}
                   readOnly
-                  placeholder="No folder selected"
+                  placeholder="No data selected"
                   aria-describedby="config-dataset-path-help"
                   disabled={starting}
                 />
@@ -474,6 +475,8 @@ export const TrainSection: React.FC<TrainSectionProps> = ({
                 >
                   Browse…
                 </button>
+                <button type="button" className="btn btn-secondary" disabled={starting}
+                  onClick={() => { void handleSelectDataset('file'); }}>Select CSV / ZIP</button>
                 {datasetPath !== '' && (
                   <button
                     type="button"
@@ -486,7 +489,7 @@ export const TrainSection: React.FC<TrainSectionProps> = ({
                 )}
               </div>
               <p className="form-help" id="config-dataset-path-help">
-                Choose the local folder containing your training data.
+                Choose a local dataset folder, CSV file, or image package ZIP.
               </p>
               <label className="dataset-skip">
                 <input

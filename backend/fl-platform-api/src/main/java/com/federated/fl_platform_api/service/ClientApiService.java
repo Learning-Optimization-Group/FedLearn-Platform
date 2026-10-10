@@ -120,6 +120,7 @@ public class ClientApiService {
         dto.setProjectId(projectId);
         dto.setName(project.getName());
         dto.setModelType(project.getModelType());
+        dto.setModelName(project.getModelName());
         dto.setServerAddress(enrollment.getGrpcEndpoint());
         dto.setPartitionId(enrollment.getPartitionId());
         dto.setStatus(projectStatusService.currentStatus(project).name());   // BA-4
@@ -148,7 +149,10 @@ public class ClientApiService {
         runRepository.findById(project.getActiveRunId()).ifPresent(r -> {
             dto.setStrategy(r.getStrategy());
             // The arm the run recorded when it started (V27) is what its server was spawned with.
-            r.getIntent().ifPresent(intent -> dto.setTrainingArm(intent.trainingArm().name()));
+            r.getIntent().ifPresent(intent -> {
+                dto.setTrainingArm(intent.trainingArm().name());
+                dto.setModelName(intent.modelName());
+            });
         });
         return dto;
     }

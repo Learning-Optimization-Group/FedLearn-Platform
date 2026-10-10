@@ -30,14 +30,21 @@ scikit-learn==1.5.2
 pyarrow==18.0.0
 
 # gRPC
-protobuf==5.28.3
-grpcio==1.68.0
-grpcio-tools==1.68.0
-grpcio-health-checking==1.68.0
+protobuf==5.29.6
+grpcio==1.71.2
+grpcio-tools==1.71.2
+grpcio-health-checking==1.71.2
+
+# Numeric tree workload
+xgboost==3.4.1
 
 # HTTP
 aiohttp==3.11.7
 requests==2.32.3
+
+# Security
+cryptography==46.0.7
+PyJWT==2.13.0
 
 # Monitoring
 psutil==6.1.0

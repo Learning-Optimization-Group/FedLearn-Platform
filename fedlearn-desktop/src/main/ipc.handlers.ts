@@ -89,9 +89,13 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   const inferenceStreamService = new InferenceStreamService(authService, mainWindow);
 
   // ===================== File Dialogs =====================
-  ipcMain.handle('dialog:open-directory', async () => {
+  ipcMain.handle('dialog:open-directory', async (_event, kind: unknown = 'directory') => {
     try {
-      const result = await dialog.showOpenDialog(mainWindow, {
+      if (kind !== 'file' && kind !== 'directory') return { success: false, error: 'Invalid dataset selection kind' };
+      const result = await dialog.showOpenDialog(mainWindow, kind === 'file' ? {
+        properties: ['openFile'], title: 'Select Dataset File',
+        filters: [{ name: 'Dataset CSV or ZIP', extensions: ['csv', 'zip'] }],
+      } : {
         properties: ['openDirectory', 'createDirectory'],
         title: 'Select Dataset Directory'
       });
@@ -146,12 +150,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         return { success: false, error: 'Invalid model type' };
       }
 
+      if (cfg.modelName !== undefined && (typeof cfg.modelName !== 'string' || !/^[a-zA-Z0-9_.-]{1,128}$/.test(cfg.modelName))) {
+        return { success: false, error: 'Invalid model name' };
+      }
       const safeDatasetPath = sanitizeDatasetPath(cfg.datasetPath);
       if (safeDatasetPath === null) {
         log.error('[IPC:docker:start-training] Rejected invalid dataset path');
         return {
           success: false,
-          error: 'Invalid dataset path: must be an existing absolute directory',
+          error: 'Invalid dataset path: must be an existing dataset directory, CSV or ZIP file',
         };
       }
       // A non-empty dataset path is bind-mounted into the container, so it must be one the user actually
@@ -213,6 +220,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         serverAddress: cfg.serverAddress as string,
         partitionId: cfg.partitionId as string,
         modelType: cfg.modelType as string,
+        modelName: cfg.modelName as string | undefined,
         // Use the canonical resolved path, not the raw string from the renderer.
         datasetPath: safeDatasetPath,
         connectionToken,

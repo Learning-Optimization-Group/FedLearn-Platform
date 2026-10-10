@@ -38,6 +38,7 @@ declare global {
         serverAddress: string;
         partitionId: string;
         modelType: string;
+  modelName?: string;
         datasetPath: string;
         connectionToken?: string;
         strategy?: string;
@@ -69,7 +70,7 @@ declare global {
       saveCredentials: (username: string, password: string) => Promise<{ success: boolean }>;
       getSavedCredentials: () => Promise<{ success: boolean; username?: string; password?: string }>;
       clearSavedCredentials: () => Promise<{ success: boolean }>;
-      selectDatasetPath: () => Promise<{ success: boolean; path?: string; error?: string }>;
+      selectDatasetPath: (kind?: 'file' | 'directory') => Promise<{ success: boolean; path?: string; error?: string }>;
       listModels: () => Promise<{ success: boolean; models?: InferableModel[]; error?: string }>;
       runInference: (
         projectId: string,
@@ -319,6 +320,7 @@ const App: React.FC = () => {
       serverAddress: string;
       partitionId: string;
       modelType: string;
+  modelName?: string;
       datasetPath: string;
       connectionToken?: string;
       strategy?: string;

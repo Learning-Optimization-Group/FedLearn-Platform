@@ -786,6 +786,16 @@ describe('DockerService native start argv + env (TE-13)', () => {
     expect(args).not.toContain('--use-llm');
   });
 
+  it('passes the named tree model to the actual native invocation', async () => {
+    const { service, spawnMock } = makeService();
+    jest.spyOn(service as unknown as PrivateDockerService, 'resolveNativeInvocation')
+      .mockReturnValue({command:'fedlearn-client',baseArgs:[],cwd:'/tmp',env:{}});
+    await service.startTraining({...baseConfig,modelType:'XGBOOST',modelName:'xgboost_breast_cancer'} as never);
+    const args=spawnMock.mock.calls[0][1] as string[];
+    expect(args).toContain('--model-name');
+    expect(args[args.indexOf('--model-name')+1]).toBe('xgboost_breast_cancer');
+  });
+
   it('injects FEDLEARN_CONNECTION_TOKEN into the spawn env when a token is set, and omits it otherwise', async () => {
     const withTok = makeService();
     jest

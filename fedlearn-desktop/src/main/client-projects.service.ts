@@ -19,6 +19,7 @@ export interface ClientProject {
   projectId: string;
   name: string;
   modelType: string;
+  modelName?: string;
   status: string;
   visibility: string | null;
   requirements?: import('../shared/deviceCapabilities.types').DeviceRequirements;
@@ -28,6 +29,7 @@ export interface ProjectConnection {
   projectId: string;
   name: string;
   modelType: string;
+  modelName?: string;
   serverAddress: string;
   partitionId: number;
   status: string;

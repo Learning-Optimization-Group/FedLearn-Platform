@@ -27,6 +27,12 @@ if [ -n "$MODEL_TYPE" ]; then
     echo "[entrypoint] MODEL_TYPE=$MODEL_TYPE"
     EXTRA_ARGS+=(--model-type "$MODEL_TYPE")
 fi
+if [ -n "$MODEL_NAME" ]; then
+    EXTRA_ARGS+=(--model-name "$MODEL_NAME")
+fi
+if [ -n "$DATASET_PATH" ]; then
+    EXTRA_ARGS+=(--dataset-path "$DATASET_PATH")
+fi
 if [ -n "$STRATEGY" ]; then
     echo "[entrypoint] STRATEGY=$STRATEGY"
     EXTRA_ARGS+=(--strategy "$STRATEGY")

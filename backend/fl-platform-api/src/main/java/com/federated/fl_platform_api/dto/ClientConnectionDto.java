@@ -16,6 +16,7 @@ public class ClientConnectionDto {
     private String contractUnavailableReason;
     private String name;
     private String modelType;
+    private String modelName;
     private String serverAddress;
     private Integer partitionId;
     private String status;
@@ -42,6 +43,8 @@ public class ClientConnectionDto {
     public void setName(String name) { this.name = name; }
     public String getModelType() { return modelType; }
     public void setModelType(String modelType) { this.modelType = modelType; }
+    public String getModelName() { return modelName; }
+    public void setModelName(String modelName) { this.modelName = modelName; }
     public String getServerAddress() { return serverAddress; }
     public void setServerAddress(String serverAddress) { this.serverAddress = serverAddress; }
     public Integer getPartitionId() { return partitionId; }

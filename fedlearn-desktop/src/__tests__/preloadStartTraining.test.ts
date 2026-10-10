@@ -108,3 +108,22 @@ describe('preload startTraining — execution contract', () => {
     expect(ipcRenderer.invoke).not.toHaveBeenCalled();
   });
 });
+
+
+test('forwards the named model preset through the preload', async () => {
+  await exposedApi().startTraining({ ...BASE, modelType: 'XGBOOST', modelName: 'xgboost_breast_cancer' });
+  expect(ipcRenderer.invoke).toHaveBeenCalledWith('docker:start-training', expect.objectContaining({modelName:'xgboost_breast_cancer'}));
+});
+
+test('refuses malformed model names before IPC', async () => {
+  const result=await exposedApi().startTraining({ ...BASE, modelName:'bad\0name' });
+  expect(result.success).toBe(false);
+  expect(ipcRenderer.invoke).not.toHaveBeenCalled();
+});
+
+
+test('dataset file selection uses the native consent dialog', async () => {
+  const call=(contextBridge.exposeInMainWorld as jest.Mock).mock.calls.find(([name])=>name==='fedLearnAPI');
+  await call[1].selectDatasetPath('file');
+  expect(ipcRenderer.invoke).toHaveBeenCalledWith('dialog:open-directory','file');
+});

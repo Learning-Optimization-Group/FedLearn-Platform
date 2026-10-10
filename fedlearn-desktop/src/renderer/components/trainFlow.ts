@@ -29,6 +29,7 @@ export interface StartTrainingConfig {
   serverAddress: string;
   partitionId: string;
   modelType: string;
+  modelName?: string;
   datasetPath: string;
   connectionToken?: string;
   // Active run's aggregation strategy; forwarded to the client as --strategy (DeComFL vs default FedAvg).

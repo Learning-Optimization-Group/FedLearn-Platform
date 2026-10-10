@@ -154,6 +154,7 @@ export interface TrainingConfigInput {
   serverAddress: string;
   partitionId: string;
   modelType: string;
+  modelName?: string;
   datasetPath: string;
   connectionToken?: string;
   strategy?: string;
@@ -224,6 +225,9 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
     if (!isValidModelType(config.modelType)) {
       return { success: false, error: 'Invalid model type' };
     }
+    if (config.modelName !== undefined && (typeof config.modelName !== 'string' || !/^[a-zA-Z0-9_.-]{1,128}$/.test(config.modelName))) {
+      return { success: false, error: 'Invalid model name' };
+    }
     if (!isValidDatasetPath(config.datasetPath)) {
       return { success: false, error: 'Invalid dataset path' };
     }
@@ -261,6 +265,7 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
       serverAddress: config.serverAddress,
       partitionId: config.partitionId,
       modelType: config.modelType,
+      modelName: config.modelName,
       datasetPath: config.datasetPath,
       connectionToken: config.connectionToken,
       strategy: config.strategy,
@@ -408,8 +413,8 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   /**
    * Trigger native system file dialog to select a dataset path securely.
    */
-  selectDatasetPath: async (): Promise<{ success: boolean; path?: string; error?: string }> => {
-    return ipcRenderer.invoke('dialog:open-directory');
+  selectDatasetPath: async (kind?: 'file' | 'directory'): Promise<{ success: boolean; path?: string; error?: string }> => {
+    return kind === 'file' ? ipcRenderer.invoke('dialog:open-directory', 'file') : ipcRenderer.invoke('dialog:open-directory');
   },
 
   // ===================== Client Projects ("models I can train") =====================
