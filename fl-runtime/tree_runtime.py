@@ -144,6 +144,8 @@ def server_main():
         while True:
             with coordinator.condition:
                 coordinator.check_deadline()
+                if coordinator.state == p.TreeModel.FAILED:
+                    raise RuntimeError("tree run failed before finalization")
                 while coordinator.completed_rounds:
                     round_number, model, updates = coordinator.completed_rounds.pop(0)
                     record = dict(round=round_number, model_sha256=hashlib.sha256(model).hexdigest(), updates=updates,
