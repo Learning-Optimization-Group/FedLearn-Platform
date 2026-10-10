@@ -19,13 +19,14 @@ from fedlearn.security.tls import check_server_tls_policy
 from fedlearn.tree.contract import validate_contract
 from fedlearn.tree.coordinator import TreeCoordinator
 from fedlearn.tree.model import _xgb, canonical, initial_model, load_model, validate_model
+from fedlearn.tree.schema import MODEL_SCHEMAS, model_schema
 from fedlearn.tree.transport import add_tree_services
 
 
 def _base_parser(description):
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--model-type", choices=["XGBOOST"], required=True)
-    parser.add_argument("--model-name", choices=["xgboost_binary"], required=True)
+    parser.add_argument("--model-name", choices=list(MODEL_SCHEMAS), required=True)
     return parser
 
 
@@ -38,19 +39,19 @@ def init_main():
     args = parser.parse_args()
     path = Path(args.out)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(bytes(load_model(initial_model()).save_raw(raw_format="ubj")))
+    path.write_bytes(bytes(load_model(initial_model(feature_names=model_schema(args.model_name))).save_raw(raw_format="ubj")))
     print("Initialized XGBoost 3.4.1 binary model with zero trained trees", flush=True)
     return 0
 
 
-def read_checkpoint(path):
+def read_checkpoint(path, *, feature_names=None):
     raw = Path(path).read_bytes()
     if not 0 < len(raw) <= 16 * 1024 * 1024:
         raise ValueError("tree checkpoint exceeds byte limit")
     # Only platform-owned, hash-verified registry/init artifacts enter this path.
     booster = _xgb().Booster(params={"device": "cpu", "nthread": 1})
     booster.load_model(bytearray(raw))
-    validate_model(bytes(booster.save_raw(raw_format="json")))
+    validate_model(bytes(booster.save_raw(raw_format="json")), feature_names=feature_names)
     return booster
 
 
@@ -63,14 +64,15 @@ def infer_main():
     args = parser.parse_args()
     input_error = False
     try:
-        booster = read_checkpoint(args.model_path)
+        names = model_schema(args.model_name)
+        booster = read_checkpoint(args.model_path, feature_names=names)
         payload = json.loads(Path(args.input_path).read_text())
         values = payload.get("values")
-        if payload.get("kind") != "vector" or not isinstance(values, list) or len(values) != 4 \
+        if payload.get("kind") != "vector" or not isinstance(values, list) or len(values) != len(names) \
                 or any(type(v) not in (float, int) or not np.isfinite(v)
                        or abs(v) > float(np.finfo(np.float32).max) for v in values):
             input_error = True
-            raise ValueError("XGBoost input requires four finite float32 values in f0,f1,f2,f3 order")
+            raise ValueError(f"XGBoost input requires {len(names)} finite float32 values in the preset feature order")
         probability = float(booster.inplace_predict(np.array([values], dtype="float32"))[0])
         index = int(probability > .5)
         margin = float(booster.inplace_predict(np.array([values], dtype="float32"), predict_type="margin")[0])
@@ -104,6 +106,8 @@ def server_main():
     args = parser.parse_args()
     contract = c.ExecutionContract.FromString(base64.b64decode(os.environ["FEDLEARN_TREE_CONTRACT_B64"], validate=True))
     validate_contract(contract, project_id=args.project_id, run_id=os.environ.get("FEDLEARN_RUN_ID"))
+    if tuple(contract.tree_training.feature_names) != model_schema(args.model_name):
+        raise ValueError("tree launch model preset disagrees with the contract")
     if args.num_rounds != contract.num_rounds or args.min_clients != contract.clients_per_round \
             or (args.clients_per_round is not None and args.clients_per_round != contract.clients_per_round):
         raise ValueError("tree launch arguments disagree with the published contract")
@@ -155,7 +159,7 @@ def server_main():
         temporary = path.with_suffix(path.suffix + ".part")
         temporary.write_bytes(final); temporary.replace(path)
         card = dict(recipe_key="XGBOOST", strategy="XgbBagging", rounds=contract.num_rounds,
-                    xgboost_version="3.4.1", feature_names=["f0", "f1", "f2", "f3"],
+                    xgboost_version="3.4.1", feature_names=list(contract.tree_training.feature_names),
                     objective="binary:logistic", cohort_size=contract.clients_per_round,
                     seed=str(contract.seed), accepted_updates=coordinator.accepted_count, history=history,
                     evaluation="No server training or evaluation data; held-out evaluation is external")

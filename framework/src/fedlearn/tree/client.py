@@ -13,6 +13,7 @@ from fedlearn.security.client_interceptor import maybe_wrap_channel
 from .contract import contract_id, parse_contract
 from .data import load_csv
 from .model import _xgb, canonical, train_delta, validate_model
+from .schema import MODEL_SCHEMAS, model_schema
 
 
 def _channel(address, contract):
@@ -49,7 +50,10 @@ def run_client(args):
     identifier = contract_id(contract)
     if args.strategy != "XgbBagging" or args.training_arm != "FULL" or args.device != "cpu":
         raise ValueError("XGBoost requires XgbBagging, FULL and cpu")
-    features, labels, fingerprint = load_csv(args.dataset_path)
+    names = tuple(contract.tree_training.feature_names)
+    if names != model_schema(args.model_name):
+        raise ValueError("tree model preset differs from the execution contract")
+    features, labels, fingerprint = load_csv(args.dataset_path, feature_names=names)
     client_id = f"project_{args.project_id}_client_{args.partition_id}"
     raw_channel, channel = _channel(args.server_address, contract)
     try:
@@ -99,14 +103,14 @@ def run_client(args):
                     raise ValueError("initial tree artifact is not the contracted model")
                 booster = _xgb().Booster(params={"device": "cpu", "nthread": 1})
                 booster.load_model(bytearray(initial))
-                initial_json = canonical(validate_model(bytes(booster.save_raw(raw_format="json"))))
+                initial_json = canonical(validate_model(bytes(booster.save_raw(raw_format="json")), feature_names=names))
                 if state.server_round == 1 and initial_json != bytes(state.model_json):
                     raise ValueError("first-round model differs from the contracted initial ensemble")
                 initial_digest = hashlib.sha256(initial).hexdigest()
             parent = bytes(state.model_json)
             if hashlib.sha256(parent).hexdigest() != state.parent_sha256:
                 raise ValueError("tree parent model digest mismatch")
-            validate_model(parent)
+            validate_model(parent, feature_names=names)
             started = time.monotonic()
             delta = train_delta(parent, features, labels, cohort_size=contract.clients_per_round,
                                 seed=(contract.seed + state.server_round) % (2**64))
@@ -128,7 +132,7 @@ def run_client(args):
 def main():
     parser = argparse.ArgumentParser(description="Train XGBoost on the participant's own numeric CSV")
     parser.add_argument("--model-type", choices=["XGBOOST"], required=True)
-    parser.add_argument("--model-name", choices=["xgboost_binary"], default="xgboost_binary")
+    parser.add_argument("--model-name", choices=list(MODEL_SCHEMAS), default="xgboost_binary")
     parser.add_argument("--project-id", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--server-address", required=True)

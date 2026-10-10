@@ -17,7 +17,8 @@ class TreeCoordinator:
             raise ValueError("initial tree artifact digest mismatch")
         booster = _xgb().Booster(params={"device": "cpu", "nthread": 1})
         booster.load_model(bytearray(initial_ubj))
-        self.parent = canonical(validate_model(bytes(booster.save_raw(raw_format="json"))))
+        self.parent = canonical(validate_model(bytes(booster.save_raw(raw_format="json")),
+            feature_names=contract.tree_training.feature_names))
         self.server_round = 1
         self.state = p.TreeModel.WAITING
         self.clock = clock
@@ -83,7 +84,7 @@ class TreeCoordinator:
             blob = bytes(request.new_trees_json)
             if hashlib.sha256(blob).hexdigest() != request.delta_sha256:
                 raise ValueError("tree delta digest mismatch")
-            validate_model(blob, expected_trees=1)
+            validate_model(blob, expected_trees=1, feature_names=self.contract.tree_training.feature_names)
             pending = {**self.pending, request.client_id: blob}
             merged = merge_trees(self.parent, list(pending.items())) if len(pending) == self.contract.clients_per_round else None
             self.pending = pending

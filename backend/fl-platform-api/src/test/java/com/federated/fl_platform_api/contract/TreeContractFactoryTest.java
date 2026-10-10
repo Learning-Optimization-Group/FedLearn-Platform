@@ -46,6 +46,24 @@ class TreeContractFactoryTest {
                 new ContractIssue(com.fedlearn.contract.v1.ContractIssueCode.ISSUE_UNKNOWN_ENUM,"strategy"));
     }
 
+    @Test void breastCancerPresetPublishesThirtyOrderedFeatures() throws Exception {
+        Path model=directory.resolve("initial.ubj"); Files.write(model,new byte[]{1});
+        Run r=run();
+        Project project=new Project(); project.setModelType("XGBOOST");
+        project.setModelName("xgboost_breast_cancer"); project.setTrainingArm(TrainingArm.FULL);
+        r.setIntent(RunIntent.capture(project,false,true,120_000L,TrainingDataSource.LOCAL_SNAPSHOT));
+        ExecutionContract c=TreeContractFactory.assemble(r,model);
+        assertThat(c.getTreeTraining().getFeatureNamesList()).hasSize(30)
+            .startsWith("mean_radius","mean_texture","mean_perimeter")
+            .endsWith("worst_concave_points","worst_symmetry","worst_fractal_dimension");
+        assertThat(TreeContractFactory.valid(c,r.getId().toString(),r.getProjectId().toString())).isTrue();
+        assertThat(TreeContractFactory.valid(c.toBuilder().setTreeTraining(c.getTreeTraining().toBuilder()
+            .setFeatureNames(0,"unknown")).build(),r.getId().toString(),r.getProjectId().toString())).isFalse();
+        project.setModelName("unknown");
+        r.setIntent(RunIntent.capture(project,false,true,120_000L,TrainingDataSource.LOCAL_SNAPSHOT));
+        assertThatThrownBy(()->TreeContractFactory.assemble(r,model)).isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test void partialCohortsAndFixtureTrainingAreRefused() throws Exception {
         Path model=directory.resolve("initial.ubj"); Files.write(model,new byte[]{1});
         Run r=run(); r.setMinClients(1);

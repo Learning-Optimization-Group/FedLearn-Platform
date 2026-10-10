@@ -7,7 +7,7 @@ import math
 
 import numpy as np
 
-FEATURES = ("f0", "f1", "f2", "f3")
+from .schema import FEATURES, require_schema
 VERSION = "3.4.1"
 MAX_MODEL_BYTES = 16 * 1024 * 1024
 MAX_DELTA_BYTES = 64 * 1024
@@ -50,7 +50,7 @@ def _finite(value, minimum=-float(np.finfo(np.float32).max), maximum=float(np.fi
         raise ValueError("invalid tree numeric value")
 
 
-def _validate_tree(tree, index):
+def _validate_tree(tree, index, width):
     numeric = ("base_weights", "loss_changes", "split_conditions", "sum_hessian")
     integer = ("default_left", "left_children", "right_children", "parents", "split_indices", "split_type")
     categories = ("categories", "categories_nodes", "categories_segments", "categories_sizes")
@@ -59,7 +59,7 @@ def _validate_tree(tree, index):
         raise ValueError("tree ID is not canonical")
     param = tree["tree_param"]
     _keys(param, ("num_deleted", "num_feature", "num_nodes", "size_leaf_vector"))
-    if param["num_deleted"] != "0" or param["num_feature"] != "4" or param["size_leaf_vector"] != "1":
+    if param["num_deleted"] != "0" or param["num_feature"] != str(width) or param["size_leaf_vector"] != "1":
         raise ValueError("unsupported tree parameters")
     nodes = param["num_nodes"]
     if type(nodes) is not str or nodes not in {str(n) for n in range(1, 16)}:
@@ -76,7 +76,7 @@ def _validate_tree(tree, index):
             elif key in ("default_left", "split_type"):
                 _integer(value, 0, 1 if key == "default_left" else 0)
             elif key == "split_indices":
-                _integer(value, 0, 3)
+                _integer(value, 0, width - 1)
             elif key == "parents":
                 _integer(value, 0, 2147483647)
             else:
@@ -102,7 +102,7 @@ def _validate_tree(tree, index):
         raise ValueError("unreachable tree node")
 
 
-def validate_model(blob: bytes, expected_trees=None):
+def validate_model(blob: bytes, expected_trees=None, *, feature_names=None):
     limit = MAX_DELTA_BYTES if expected_trees == 1 else MAX_MODEL_BYTES
     if not isinstance(blob, bytes) or not 0 < len(blob) <= limit:
         raise ValueError("model byte limit exceeded")
@@ -113,11 +113,15 @@ def validate_model(blob: bytes, expected_trees=None):
             raise ValueError("wrong XGBoost model version")
         learner = model["learner"]
         _keys(learner, ("attributes", "feature_names", "feature_types", "gradient_booster", "learner_model_param", "objective"))
-        if learner["attributes"] != {} or learner["feature_names"] != list(FEATURES) or learner["feature_types"] != ["float"] * 4:
+        names = require_schema(learner["feature_names"])
+        if feature_names is not None and names != require_schema(feature_names):
+            raise ValueError("model differs from the expected feature schema")
+        width = len(names)
+        if learner["attributes"] != {} or learner["feature_types"] != ["float"] * width:
             raise ValueError("incompatible feature schema")
         if learner["objective"] != {"name": "binary:logistic", "reg_loss_param": {"scale_pos_weight": "1"}}:
             raise ValueError("incompatible objective")
-        if learner["learner_model_param"] != {"base_score": "[5E-1]", "boost_from_average": "0", "num_class": "0", "num_feature": "4", "num_target": "1"}:
+        if learner["learner_model_param"] != {"base_score": "[5E-1]", "boost_from_average": "0", "num_class": "0", "num_feature": str(width), "num_target": "1"}:
             raise ValueError("incompatible base prediction or learner shape")
         booster = learner["gradient_booster"]
         _keys(booster, ("name", "model"))
@@ -138,7 +142,7 @@ def validate_model(blob: bytes, expected_trees=None):
         if any(type(value) is not int for value in ensemble["tree_info"] + ensemble["iteration_indptr"]):
             raise ValueError("tree groups require integers")
         for index, tree in enumerate(trees):
-            _validate_tree(tree, index)
+            _validate_tree(tree, index, width)
         return model
     except (KeyError, TypeError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
         raise ValueError("malformed XGBoost model") from exc
@@ -151,11 +155,12 @@ def load_model(blob):
     return booster
 
 
-def initial_model():
+def initial_model(*, feature_names=FEATURES):
+    names = require_schema(feature_names)
     xgb = _xgb()
     # Zero rounds establishes the schema and explicit intercept without fitting data.
-    matrix = xgb.DMatrix(np.zeros((1, 4), dtype="float32"), label=[0],
-                         feature_names=list(FEATURES), feature_types=["float"] * 4)
+    matrix = xgb.DMatrix(np.zeros((1, len(names)), dtype="float32"), label=[0],
+                         feature_names=list(names), feature_types=["float"] * len(names))
     booster = xgb.train({"objective": "binary:logistic", "base_score": .5,
                          "device": "cpu", "nthread": 1}, matrix, num_boost_round=0)
     raw = bytes(booster.save_raw(raw_format="json"))
@@ -163,23 +168,24 @@ def initial_model():
 
 
 def train_delta(parent, features, labels, *, cohort_size, seed):
+    names = tuple(validate_model(parent)["learner"]["feature_names"])
     x, y = np.asarray(features, dtype="float32"), np.asarray(labels, dtype="float32")
-    if x.ndim != 2 or x.shape[1] != 4 or not 1 <= len(x) <= 1_000_000 or y.shape != (len(x),):
-        raise ValueError("expected four features and one binary label per row")
+    if x.ndim != 2 or x.shape[1] != len(names) or not 1 <= len(x) <= 1_000_000 or y.shape != (len(x),):
+        raise ValueError("expected contracted features and one binary label per row")
     if not np.isfinite(x).all() or not np.isfinite(y).all() or not np.isin(y, [0, 1]).all():
         raise ValueError("features must be finite and labels binary")
     _integer(cohort_size, 1, 100)
     _integer(seed, 0, 2**64 - 1)
     xgb = _xgb()
     prior = load_model(parent)
-    matrix = xgb.DMatrix(x, label=y, feature_names=list(FEATURES), feature_types=["float"] * 4)
+    matrix = xgb.DMatrix(x, label=y, feature_names=list(names), feature_types=["float"] * len(names))
     trained = xgb.train({"objective": "binary:logistic", "base_score": .5, "max_depth": 3,
                          "eta": .3 / cohort_size, "tree_method": "hist", "device": "cpu",
                          "nthread": 1, "seed": seed % (2**31), "subsample": 1,
                          "colsample_bytree": 1}, matrix, num_boost_round=1, xgb_model=prior)
     rounds = trained.num_boosted_rounds()
     delta = bytes(trained[rounds - 1:rounds].save_raw(raw_format="json"))
-    return canonical(validate_model(delta, expected_trees=1))
+    return canonical(validate_model(delta, expected_trees=1, feature_names=names))
 
 
 def merge_trees(parent, contributions):
@@ -189,7 +195,7 @@ def merge_trees(parent, contributions):
         raise ValueError("empty or duplicate client contributions")
     ensemble = model["learner"]["gradient_booster"]["model"]
     for client_id, blob in sorted(contributions):
-        delta = validate_model(blob, expected_trees=1)
+        delta = validate_model(blob, expected_trees=1, feature_names=model["learner"]["feature_names"])
         tree = copy.deepcopy(delta["learner"]["gradient_booster"]["model"]["trees"][0])
         tree["id"] = len(ensemble["trees"])
         ensemble["trees"].append(tree)

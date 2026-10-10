@@ -371,13 +371,13 @@ public class ProjectService {
         validateDpConfig(request);
 
         if ("XGBOOST".equals(request.getModelType()) &&
-                (!"xgboost_binary".equals(request.getModelName()) || !"TreeBoosting".equals(request.getOptimizer())
+                ((!"xgboost_binary".equals(request.getModelName()) && !"xgboost_breast_cancer".equals(request.getModelName())) || !"TreeBoosting".equals(request.getOptimizer())
                 || request.getPretrainEpochs() == null || request.getPretrainEpochs() != 0
                 || (request.getTrainingArm() != null && !"FULL".equals(request.getTrainingArm()))
                 || Boolean.TRUE.equals(request.getDpEnabled()) || Boolean.TRUE.equals(request.getRegulated())
                 || Boolean.TRUE.equals(request.getInitFromPretrained())
                 || (request.getTaskType() != null && !"SEQ_CLASSIFICATION".equals(request.getTaskType())))) {
-            throw new IllegalArgumentException("XGBoost requires xgboost_binary, TreeBoosting, zero pretraining and FULL; DP and derivation are unsupported");
+            throw new IllegalArgumentException("XGBoost requires a supported binary preset, TreeBoosting, zero pretraining and FULL; DP and derivation are unsupported");
         }
 
         if ("NIH_PNEUMONIA_CNN".equalsIgnoreCase(request.getModelType())

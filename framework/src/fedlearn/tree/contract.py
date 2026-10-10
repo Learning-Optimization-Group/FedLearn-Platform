@@ -6,7 +6,8 @@ import uuid
 from google.protobuf.json_format import Parse
 
 from fedlearn.communication.generated import execution_contract_pb2 as p
-from .model import FEATURES, VERSION
+from .model import VERSION
+from .schema import require_schema
 
 
 def validate_contract(contract, *, run_id=None, project_id=None):
@@ -36,7 +37,11 @@ def validate_contract(contract, *, run_id=None, project_id=None):
     tree = contract.tree_training
     require(tree.xgboost_version == VERSION and tree.objective == "binary:logistic"
             and tree.booster == "gbtree" and tree.tree_method == "hist", "tree engine")
-    require(list(tree.feature_names) == list(FEATURES) and list(tree.classes) == ["0", "1"], "features/classes")
+    try:
+        require_schema(tree.feature_names)
+    except ValueError as exc:
+        raise ValueError("unsupported tree contract: features/classes") from exc
+    require(list(tree.classes) == ["0", "1"], "classes")
     require(tree.base_score == .5 and tree.learning_rate == .3 and tree.max_depth == 3
             and tree.local_boost_rounds == 1, "training parameters")
     require(tree.input_dtype == "float32" and tree.missing_policy == "reject"

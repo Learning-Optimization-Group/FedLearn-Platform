@@ -9,15 +9,31 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.UUID;
 
 /** Contract version 2 for fixed-cohort, numeric binary XGBoost training. */
 public final class TreeContractFactory {
     private TreeContractFactory() {}
 
-    private static TreeTraining training(String initialDigest) {
+    public static List<String> featureNames(String modelName) {
+        if ("xgboost_binary".equals(modelName)) return List.of("f0","f1","f2","f3");
+        if (!"xgboost_breast_cancer".equals(modelName)) {
+            throw new IllegalArgumentException("Unsupported XGBoost model preset");
+        }
+        List<String> names = new ArrayList<>();
+        for (String prefix : List.of("mean", "error", "worst")) {
+            for (String measure : List.of("radius", "texture", "perimeter", "area", "smoothness",
+                    "compactness", "concavity", "concave_points", "symmetry", "fractal_dimension")) {
+                names.add(prefix + "_" + measure);
+            }
+        }
+        return List.copyOf(names);
+    }
+
+    private static TreeTraining training(String initialDigest, List<String> names) {
         return TreeTraining.newBuilder().setXgboostVersion("3.4.1").setObjective("binary:logistic")
-            .setBooster("gbtree").addAllFeatureNames(List.of("f0","f1","f2","f3"))
+            .setBooster("gbtree").addAllFeatureNames(names)
             .addAllClasses(List.of("0","1")).setBaseScore(.5).setLearningRate(.3)
             .setMaxDepth(3).setLocalBoostRounds(1).setTreeMethod("hist")
             .setInitialModelSha256(initialDigest).setInputDtype("float32").setMissingPolicy("reject")
@@ -45,7 +61,8 @@ public final class TreeContractFactory {
                 .setTransport(intent.tlsRequired()?Transport.TRANSPORT_TLS_REQUIRED:Transport.TRANSPORT_PLAINTEXT_DEV)
                 .setClientAuth(intent.clientAuthRequired()?ClientAuth.CLIENT_AUTH_CONNECTION_TOKEN:ClientAuth.CLIENT_AUTH_DISABLED_DEV)
                 .setSecureAggregation(SecureAggregation.SECAGG_NONE))
-            .setTreeTraining(training(ExecutionContractStore.sha256(Files.readAllBytes(initialModel)))).build();
+            .setTreeTraining(training(ExecutionContractStore.sha256(Files.readAllBytes(initialModel)),
+                featureNames(intent.modelName()))).build();
         if (!valid(result,run.getId().toString(),run.getProjectId().toString())) {
             throw new IllegalArgumentException("Invalid tree execution contract");
         }
@@ -69,7 +86,10 @@ public final class TreeContractFactory {
                 && c.getSecurity().getSecureAggregation()==SecureAggregation.SECAGG_NONE
                 && !c.getSecurity().hasSecureAggThreshold() && !c.getSecurity().hasCentralDp()
                 && c.getTreeTraining().getInitialModelSha256().matches("[a-f0-9]{64}")
-                && c.getTreeTraining().equals(training(c.getTreeTraining().getInitialModelSha256()));
+                && (c.getTreeTraining().getFeatureNamesList().equals(featureNames("xgboost_binary"))
+                    || c.getTreeTraining().getFeatureNamesList().equals(featureNames("xgboost_breast_cancer")))
+                && c.getTreeTraining().equals(training(c.getTreeTraining().getInitialModelSha256(),
+                    c.getTreeTraining().getFeatureNamesList()));
         } catch (IllegalArgumentException e) { return false; }
     }
 }
