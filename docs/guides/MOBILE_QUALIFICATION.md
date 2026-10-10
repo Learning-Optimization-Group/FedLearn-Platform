@@ -9,14 +9,14 @@ establish useful predictive performance.
 | --- | --- | --- |
 | MLP / ECG | FedAvg; multi-batch FedOpt and FedProx | FedOpt server settings need tuning; broader datasets |
 | CNN / CIFAR-10 | FedAvg; two-round FedOpt/FedProx, 320 images/client | Useful adaptive learning and subset arms |
-| CIFAR_RESNET18 | FedAvg, two rounds, 32 images/client | Live adaptive strategies, subset arms, larger training runs |
+| CIFAR_RESNET18 | FedAvg; two-round FedOpt/FedProx, 64 images/client | Useful adaptive learning, subset arms, larger runs |
 | NIH_PNEUMONIA_CNN | FedAvg, two rounds, 32 images/client | Useful learning, live Robust; remains FedAvg/Robust only |
 | PNEUMONIA_CNN | Earlier phone training; source/contract support | A mixed run with the original NORMAL/PNEUMONIA dataset |
 | XGBOOST | Two Python CPU clients with real Iris rows | Android trees, broader schemas and clinical features |
 
 MLP, CNN, ResNet and the original pneumonia recipe have tested FULL-arm
 FedAvg/Robust/FedOpt/FedProx contracts. The new live adaptive-strategy evidence
-covers ECG and CNN. Other combinations must not be described as live-qualified solely
+covers ECG, CNN and ResNet. Other combinations must not be described as live-qualified solely
 because their execution plans pass validation.
 
 ## ResNet-18
@@ -46,7 +46,7 @@ ResNet/FedOpt keeps BatchNorm running mean and variance out of server optimizer
 moments and instead averages them with client example weights. This prevents
 valid variances from becoming negative under an adaptive step. Two-round
 regressions verify unequal client weights and finite BatchNorm evaluation;
-this image/adaptive combination still awaits a mixed-device live test.
+the mixed-device adaptive continuation below now verifies this behavior live.
 
 The catalog now allows ResNet on Android. Each device must still pass its own
 program self-test and resource checks. This decision does not qualify iOS.
@@ -99,11 +99,41 @@ retained as a numerical reproducibility check.
 
 See the [adaptive CNN receipts](../../research/results/on-device/cnn-adaptive-2026-10-09.json).
 
+## Adaptive ResNet continuation
+
+FedOpt and FedProx each completed two mixed vivo/g14 rounds with 64 private
+CIFAR training images per client and two local batches of 32. The native phone
+importer and Python preparation agree on the snapshot hash. All eight accepted
+contributions replay bitwise on their original runtimes, including floating-point
+BatchNorm statistics. Both registered aggregates are exact and preserve integer
+counters. Native changed-label/rate controls differ; removing the proximal term
+also changes the FedProx update, proving it affects training after the first batch.
+
+FedOpt used explicitly recorded server Adam rate 0.01, betas 0.9/0.99 and tau
+0.001. Both strategies used the current client Adam rate 0.01. This did not
+produce useful learning: independent official test reload scores 1000/10000
+(10%) for each. Phone losses rose from 32108 to 48104681 for FedOpt and from
+9388 to 30350732 for FedProx. The initial model states match, but round seeds
+and aggregation differ; these runs do not establish algorithm superiority.
+Client and server rates need joint investigation before another efficacy claim.
+
+Phone training compute was approximately 389/385 seconds for FedOpt and
+402/485 seconds for FedProx, with about 44.8 MB uploaded per round. The app
+reported a cached qualification probe; no fresh probe timing is claimed.
+Offline native comparisons use the installed core in isolated processes and
+compare parameter/buffer arrays, not full wire-blob metadata or cross-runtime
+numerical equality. All 27 existing dataset files retain their hashes; only
+three files were added for the 64-image snapshot. An unused prematurely staged
+FedProx run was stopped and excluded from completed-run evidence.
+
+See the [adaptive ResNet receipt](../../research/results/on-device/resnet-adaptive-2026-10-09.json).
+
 ## Remaining work
 
 - Improve NIH generalization: extended lower-rate controls use 512 training
   images and 128 positive validation patients, but proportional reference
-  performance remains poor. The earlier federated model missed every positive.
+  performance remains poor. A frozen pretrained baseline also remains weak.
+  The earlier federated model missed every positive.
 - Qualify newly enabled adaptive strategies on image recipes and the remaining
   real-data/strategy combinations. Real-model subset arms and DeComFL image
   training remain outside the verified matrix.
