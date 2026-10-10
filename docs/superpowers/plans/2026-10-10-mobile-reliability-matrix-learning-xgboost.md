@@ -112,3 +112,18 @@ do not claim numerical equality across phone and Python runtimes.
   regression is now being added before changing the older-runtime guard.
 - Remaining Task1: updated same-signed APK, preservation and fresh full interruption,
   cancellation/rejoin qualification. Tasks2–4 remain pending; no broad completion.
+
+- Fixed background and actual socket-outage tests completed. Network proxy closes
+  an active phone connection and rejects reconnects; six-second outage produces
+  actual transient errors then recovery. Each completed run has six unique updates.
+  ADB reverse removal alone does not kill established sockets; retain that ineffective
+  probe without a network-recovery claim. Normal mapping restored and proxy stopped.
+- Stop/rejoin test completed: stop69ms, service absent, checkpoint1 retained; same-run
+  restart skips already accepted round1, finishes rounds2/3, six unique updates and
+  final checkpoint3. Mounted provider methods used for network/rejoin, without replacing
+  loop operations; touch automation is not claimed for those cases.
+- Terminal telemetry follow-up: two regressions failed on staleTRAINING display after
+  actual terminal status/backend-ended confirmation. Hook retires polling/clears old
+  status. Ruling: use a termination notification, not invented full RPC counters,
+  because RoundOps intentionally exposes only state/round. Cost: Home omits expired
+  progress; exact completed state remains in project API and retained receipts.

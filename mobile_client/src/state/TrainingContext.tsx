@@ -33,7 +33,7 @@ import {
   MobileFedAvgUnsupportedError,
   MobileSecureAggregationUnsupportedError,
 } from '../lib/training';
-import { startServerStatusHeartbeat } from '../lib/statusHeartbeat';
+import { startServerStatusHeartbeat, type ServerStatusHeartbeatHandle } from '../lib/statusHeartbeat';
 import { ModelDeliveryUnavailableError } from '../lib/modelProvisioning';
 import type { DatasetSnapshot } from '../lib/datasetService';
 import { readError } from '../lib/errors';
@@ -64,6 +64,7 @@ const TrainingContext = createContext<TrainingContextValue | null>(null);
 export function TrainingProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(trainingReducer, initialTrainingState);
   const stompRef = useRef<StompHandle | null>(null);
+  const heartbeatRef = useRef<ServerStatusHeartbeatHandle | null>(null);
   const stopRef = useRef(false); // cooperative stop flag polled by the training loop
   const participationFlight = useRef(new SingleFlight());
   const joined = state.joined;
@@ -115,8 +116,10 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
         /* best-effort telemetry — the card holds its last value until a poll succeeds */
       },
     });
+    heartbeatRef.current = hb;
     return () => {
       hb.stop();
+      if (heartbeatRef.current === hb) heartbeatRef.current = null;
     };
   }, [joined]);
 
@@ -169,6 +172,11 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
               .catch(() => {});
           },
           shouldStop: () => stopRef.current,
+          onRunEnded: () => {
+            heartbeatRef.current?.stop();
+            heartbeatRef.current = null;
+            dispatch({ type: 'SERVER_STATUS', status: null });
+          },
         }, {
           // A run's contract is published while its bundle stages, so wait for it rather than refusing at once.
           contract: { fetchManifest: fetchRunManifest },

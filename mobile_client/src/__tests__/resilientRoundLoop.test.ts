@@ -88,6 +88,31 @@ function baseOps(over: Partial<RoundOps> = {}): RoundOps {
 }
 
 describe('runResilientRoundLoop (MO-8)', () => {
+  it('retires stale training telemetry after the actual terminal server report', async () => {
+    const terminal = {serverState: 'TRAINING_COMPLETE', currentRound: 3,
+      requiredClientsForRound: 2, receivedUpdatesThisRound: 2, activeClients: 2,
+      roundDeadlineUnixMs: 0};
+    let displayedState: string | null = 'TRAINING';
+    const h = {...hooks(), onRunEnded: () => {
+      displayedState = null;
+    }};
+    await runResilientRoundLoop({runId: 'r', isFedAvg: true, cfg: CFG},
+      baseOps({getServerStatus: jest.fn().mockResolvedValue(terminal)}), POLICY, h);
+    expect(displayedState).toBeNull();
+    expect(h.rounds).toEqual([]);
+  });
+
+  it('clears stale training telemetry when the backend confirms a departed server run ended', async () => {
+    let displayedState: string | null = 'TRAINING';
+    const h = {...hooks(), onRunEnded: () => {
+      displayedState = null;
+    }};
+    await runResilientRoundLoop({runId: 'r', isFedAvg: true, cfg: CFG},
+      baseOps({getServerStatus: jest.fn().mockRejectedValue(new Error('connection closed')),
+        runEnded: jest.fn().mockResolvedValue(true)}), POLICY, h);
+    expect(displayedState).toBeNull();
+    expect(h.rounds).toEqual([]);
+  });
   it('stops without training a replacement run when reconnect returns another run ID', async () => {
     const trainedRuns: string[] = [];
     let statusCalls = 0;

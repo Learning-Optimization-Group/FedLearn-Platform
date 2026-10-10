@@ -29,6 +29,8 @@ export interface TrainingHooks {
   onLog: (line: string) => void;
   onRound: (r: RoundResult) => void;
   shouldStop: () => boolean;
+  /** Retire live polling once the server or backend confirms this run ended. */
+  onRunEnded?: () => void;
 }
 
 /**
@@ -276,6 +278,7 @@ export async function runResilientRoundLoop(
     try {
       const status = await ops.getServerStatus(runId);
       if (TERMINAL_STATES.has(status.serverState)) {
+        hooks.onRunEnded?.();
         hooks.onLog(`Run ${status.serverState.toLowerCase()}.`);
         return;
       }
@@ -334,6 +337,7 @@ export async function runResilientRoundLoop(
       // A server exits shortly after its last round; a device still busy then finds it gone. Ask the backend
       // before treating that as a network failure. If it cannot be asked, retry as for any blip.
       if (await ops.runEnded(runId).catch(() => false)) {
+        hooks.onRunEnded?.();
         hooks.onLog('Run ended.');
         return;
       }
