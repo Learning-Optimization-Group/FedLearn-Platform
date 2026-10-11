@@ -42,3 +42,37 @@ signing cases and both APK variants' allocator ELF checks passed. The90-cell
 resolver matrix still has19 retained live receipts,4 historical reports and67
 refusals, and every referenced evidence hash matches. No backend, desktop or
 protocol behavior changed in this continuation.
+
+The final review identified two Important lifecycle gaps: native Stop could race
+client replacement/heartbeat startup, and failed registration could resume rounds
+without a renewed heartbeat. Both are fixed in`73ca4bf`. The native lifecycle lock
+covers ownership and heartbeat changes independently of the round/RPC state lock.
+Three native interleaving regressions fail with that protection removed; all four
+lifecycle tests and the complete host native suite pass. Three reconnect regressions
+failed before the explicit registration-required state; all681 mobile tests,
+lint and TypeScript checks pass after the fix.
+
+The retained image run predates this review correction. Its completed updates and
+numerical replays remain valid, but its recovered status RPCs do not establish a
+renewed native heartbeat. The final fix is verified separately; this continuation
+does not relabel the old image run as a new physical image-outage qualification.
+
+Review boundaries retained: production deployment/physical Release training still
+need identity and endpoint verification; natural Doze/thermal/long suspension and
+upload interruption need further device runs; generalized ResNet/clinical NIH
+performance need independent evaluation; unchanged unsupported mobile features
+remain unavailable; hash-bound private physical evidence was inspected without an
+independent repetition of the raw fixture/datasets. No Minor findings were deferred.
+
+The [review-fix receipt](../../results/on-device/android-lifecycle-review-fixes-2026-10-11.json)
+records the regression failures and final real-device native cancellation/heartbeat
+checks. The final Debug and locally signed Release APKs contain`73ca4bf`; the
+signing/TLS receipt binds their hashes. Release app execution and deployed secure
+training remain unperformed.
+
+Final phone verification passed after restoring an expired development tunnel:
+Stop cancelled the blocked registration in371ms, no heartbeat started for that
+cancelled registration, and a fresh accepted registration produced a server-observed
+heartbeat. Both native fixture processes exited successfully and removed their
+owned TLS forwarding route. All33 dataset files remain hash-identical and the
+training service is absent. Development API/Metro routes remain available.

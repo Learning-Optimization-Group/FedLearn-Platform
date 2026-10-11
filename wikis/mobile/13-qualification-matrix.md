@@ -50,6 +50,14 @@ rejoins back off instead of exhausting recovery immediately. This forced-idle
 case uses simulated unplug and USB routes; natural wireless Doze, hour-scale
 suspension and sustained thermal behavior remain unqualified.
 
+Final review found that this retained run's recovered status RPCs did not prove
+renewed heartbeat after failed registration. The subsequent
+[lifecycle corrections](../../research/results/on-device/android-lifecycle-review-fixes-2026-10-11.json)
+require accepted re-registration before further rounds and serialize native
+client replacement/heartbeat lifecycle against Stop. Regression tests and a
+real native cancellation/re-registration fixture verify those corrections;
+a new physical image-outage run on that final source is not claimed here.
+
 [Release readiness](14-release-readiness.md) records explicit signing gates,
 local signed packaging, update-signature controls, preserved datasets and native
 TLS positive/negative cases. Production signing and deployed HTTPS/gRPC checks

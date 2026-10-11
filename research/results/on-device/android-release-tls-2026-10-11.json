@@ -1,6 +1,6 @@
 {
   "date": "2026-10-11",
-  "source_commit": "0a26b7e",
+  "source_commit": "73ca4bf",
   "scope": "Local release packaging, debug-app update-signature behavior and real native gRPC TLS fixture",
   "signing": {
     "real_gradle_cases": 8,
@@ -10,18 +10,18 @@
     "temporary_keys_removed": true
   },
   "release": {
-    "apk_sha256": "5e14e621c94335f2be6c92d1206c5c836b2a916269fea5ca9bf01eb00a945c1b",
-    "apk_bytes": 44294419,
+    "apk_sha256": "7253c5cb968fb0261eb669cb07d04a2e0cb8e2091eb420736a9378c84605137c",
+    "apk_bytes": 44294683,
     "identity": "Temporary local qualification certificate, not a production release identity",
     "private_key_retained": false
   },
   "installation": {
     "scope": "Local signed qualification APK; no production release identity or deployment",
     "installed_certificate_sha256": "4a6dc31e7b840e5425462c2ccfe395295f0cb1d48460f39a030648620d2c86f6",
-    "qualification_release_certificate_sha256": "b4d92b50ad26ab72a23427718ecdc923090e50cec405794126e5cf314cd3e427",
+    "qualification_release_certificate_sha256": "2e10c171ab64de80ff8b0f55de1dce792453084de84ee63c0385b8b284a39643",
     "debug_certificate_sha256": "4a6dc31e7b840e5425462c2ccfe395295f0cb1d48460f39a030648620d2c86f6",
-    "release_apk_sha256": "5e14e621c94335f2be6c92d1206c5c836b2a916269fea5ca9bf01eb00a945c1b",
-    "debug_apk_sha256": "d4a5f1f763b618916a8ccf31214acd974fea55c3ebba38f26a41cf203b6623e0",
+    "release_apk_sha256": "7253c5cb968fb0261eb669cb07d04a2e0cb8e2091eb420736a9378c84605137c",
+    "debug_apk_sha256": "7e73377281a583a7f64158c36438d17a4d7a57bb5c8ef12bda25024eb1d1a755",
     "different_signer_update_refused": true,
     "same_signer_debug_update_succeeded": true,
     "private_qualification_key_retained": false
@@ -33,14 +33,14 @@
   },
   "native_tls": {
     "scope": "Real vivo native gRPC transport against a fixed-response local TLS server; not full HTTPS enrollment or federated-training qualification",
-    "server_certificate_sha256": "47269a5a2b118a1ef201a83fc581f22c064351f325ff2c313a60dec4f65768cd",
+    "server_certificate_sha256": "f0274ae5fc718b1a8964a4b105efe87bbf38761aaf9fbf411fa57cd6344e00eb",
     "private_key_persisted": false,
     "successful_registration_count": 1,
     "cases": [
       {
         "case": "trusted",
         "accepted": true,
-        "seconds": 1.586222749989247,
+        "seconds": 0.8726995000033639,
         "result": {
           "state": "done",
           "result": {
@@ -62,7 +62,7 @@
       {
         "case": "wrong-root",
         "accepted": false,
-        "seconds": 1.1667805839970242,
+        "seconds": 0.4657225830014795,
         "result": {
           "state": "refused",
           "error": "RegisterClient failed: gRPC code 14: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:58443: Ssl handshake failed (TSI_PROTOCOL_FAILURE): SSL_ERROR_SSL: error:1000007d:SSL routines:OPENSSL_internal:CERTIFICATE_VERIFY_FAILED"
@@ -71,7 +71,7 @@
       {
         "case": "wrong-hostname",
         "accepted": false,
-        "seconds": 0.9806054590153508,
+        "seconds": 0.5032709579973016,
         "result": {
           "state": "refused",
           "error": "RegisterClient failed: gRPC code 14: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:58443: Peer name 127.0.0.1 is not in peer certificate"
@@ -80,7 +80,7 @@
       {
         "case": "default-untrusted-roots",
         "accepted": false,
-        "seconds": 0.9266338330053259,
+        "seconds": 0.46297516601043753,
         "result": {
           "state": "refused",
           "error": "RegisterClient failed: gRPC code 14: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:58443: Ssl handshake failed (TSI_PROTOCOL_FAILURE): SSL_ERROR_SSL: error:1000007d:SSL routines:OPENSSL_internal:CERTIFICATE_VERIFY_FAILED"
@@ -89,7 +89,7 @@
       {
         "case": "plaintext-to-tls",
         "accepted": false,
-        "seconds": 0.447203540999908,
+        "seconds": 0.44356124999467283,
         "result": {
           "state": "refused",
           "error": "RegisterClient failed: gRPC code 14: failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:58443: Socket closed"
@@ -105,7 +105,8 @@
     "fix": "Only Android crypto archive reference renamed; original cache and Folly references preserved",
     "retained_intermediate_probes": [
       "Whole-library wrap recovered TLS but was replaced to avoid rewriting legitimate Folly data references.",
-      "Debugger/provider startup attempts failed before TLS calls; final fixture uses the actual native TurboModule after readiness."
+      "Debugger/provider startup attempts failed before TLS calls; final fixture uses the actual native TurboModule after readiness.",
+      "Final APK startup qualification initially lacked its expired development tunnel; no new crash was observed. The route was restored and actual native fixtures passed."
     ]
   },
   "release_native_plaintext_capability": false,

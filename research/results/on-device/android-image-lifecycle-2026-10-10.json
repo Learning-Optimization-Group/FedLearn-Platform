@@ -217,6 +217,7 @@
     "Stop is cooperative and can wait for a native graph to finish; 1247ms is this measured case, not a worst-case bound.",
     "Network interruption occurred while waiting for the gated peer after phone round two, not during model upload.",
     "Post-run native replay reproduces update computation; it does not replay UI, RPC timing or post-training inference metrics.",
-    "Later second-abort/late-registration cleanup is covered by regression tests; it is not separately claimed as physically raced here."
+    "Later second-abort/late-registration cleanup is covered by regression tests; it is not separately claimed as physically raced here.",
+    "This retained pre-review run establishes recovered status RPCs and completed contributions, but not renewed native heartbeat after failed registration. Later registration-required and native lifecycle fixes are verified separately; a fresh physical image-outage run on that final source is not claimed."
   ]
 }

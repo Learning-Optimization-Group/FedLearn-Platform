@@ -50,6 +50,13 @@ the server. This used a fixed-response local server over USB/SSH routes, with a
 server key held only in memory. It qualifies native transport behavior, not
 HTTPS login/enrollment or a complete federated run over deployed TLS.
 
+The final [native lifecycle check](../../research/results/on-device/android-lifecycle-review-fixes-2026-10-11.json)
+also cancels a deliberately blocked registration through the real phone's Stop
+method. Stop completion was observed after371ms; the cancelled registration
+started no heartbeat. A fresh accepted registration then produced a heartbeat
+observed by the server. This is a bounded native fixture measurement, not a
+worst-case Stop bound during model computation.
+
 Production release work still needs a persistent backed-up signing key, an
 HTTPS API endpoint and reachable TLS gRPC service, followed by full authenticated
 training and a same-release-key install/update check. The local qualification

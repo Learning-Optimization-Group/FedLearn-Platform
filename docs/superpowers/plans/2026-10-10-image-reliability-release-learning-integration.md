@@ -49,7 +49,7 @@ exists; prepare signing and qualify local TLS without a production claim.
 
 - [x] Verify branch range and root user edits; prepare a reproducible integration
   candidate in an isolated checkout if needed, leaving mobSupp/main untouched.
-- [ ] Run appropriate checks for changes, retain curated evidence and source
+- [x] Run appropriate checks for changes, retain curated evidence and source
   identities, update status/remaining work, and perform one fresh final review.
-- [ ] Keep local commits and clean g14 synchronization. Publishing/merging remains
+- [x] Keep local commits and clean g14 synchronization. Publishing/merging remains
   a separate decision after a concrete reviewable result exists.
