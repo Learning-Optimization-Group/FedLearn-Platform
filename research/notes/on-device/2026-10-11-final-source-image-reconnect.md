@@ -21,7 +21,7 @@ server return accepted registration, followed by an acknowledged heartbeat,
 before the peer was released. Another heartbeat was acknowledged while resumed
 native work was pending. The proxy forwards raw HTTP/2 bytes unchanged and
 requires successful upstream gRPC trailers; it records selected fields without
-credentials. Five protocol checks cover fragmented frames/header continuation,
+credentials. Five protocol checks cover fragmented frames/request-header continuation,
 acknowledgement, failure responses, large model streams and missing trailers.
 
 The [fresh receipt](../../results/on-device/android-image-reconnect-final-2026-10-11.json)
@@ -47,3 +47,11 @@ not establish accurate per-round progress telemetry. Boundary battery readings
 are not peak-temperature measurements. This experiment does not qualify natural
 wireless Doze, hour-scale suspension, sustained thermal load, interrupted update
 uploads, physical Release training or deployed HTTPS/TLS enrollment and training.
+
+The private observer has one deferred robustness limitation: terminal response
+headers split across CONTINUATION can lose their completion record. This cannot
+manufacture the successful upstream responses retained here. Preserve the bound
+historical driver; a future reusable observer should defer stream removal until
+the complete header block and add that response-fragmentation test. The five protocol checks and final helper-absence checks were executed in the
+qualification session. Read-only review inspected the hash-bound artifacts
+without repeating the physical run.

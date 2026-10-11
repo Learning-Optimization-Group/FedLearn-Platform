@@ -339,7 +339,8 @@
     "Pending native status probes establish serialized native work, not whether graph compute or a model RPC is holding the lock.",
     "Native heartbeat round/step fields remain fixed at registration; acknowledged liveness does not qualify per-round progress telemetry.",
     "Socket cut occurred while awaiting the peer after a completed checkpoint; interruption during model-update upload remains unqualified.",
-    "Private physical harness and local datasets are hash-bound; no independent repetition is claimed."
+    "Private physical harness and local datasets are hash-bound; no independent repetition is claimed.",
+    "Private observer may miss a completion when terminal response headers span CONTINUATION; request-header fragmentation is tested, terminal-response fragmentation is deferred. This cannot fabricate the retained successful responses."
   ],
   "private_evidence_sha256": {
     "events.json": "64c00ca770e9d80e09b4160fb37b09a5862ef47fdb9a0e07e6cd3acbca13bc7a",
@@ -369,5 +370,11 @@
     "image_reconnect_desktop_replay.py": "ef76223ed534a3c75c2280634610f8beba1de004b2a48b1da2bf024dd8254024",
     "run_image_reconnect_phone_replay.py": "e7f10dae8100a17e2f736be2f3410813f45a4f7cb19b10891e0148679f938179",
     "verify_image_reconnect.py": "b7e42be3ed1c705e675fc6d936d7d71b88698a2aca45e5891a8431f5d7ce248d"
+  },
+  "review": {
+    "range": "50a01ca..e7fa231",
+    "blocking_findings": 0,
+    "deferred_minor": "Private observer may miss completion when terminal response HEADERS span CONTINUATION; cannot fabricate retained successful responses. Preserve the historical driver and fix/test a future revision.",
+    "physical_repetition": false
   }
 }
