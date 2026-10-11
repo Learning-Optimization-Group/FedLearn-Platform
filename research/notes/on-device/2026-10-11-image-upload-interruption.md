@@ -25,7 +25,8 @@ The completed run has six unique 16-example contributions, checkpoint three and
 no foreground training service. Three original phone outputs replay bit-for-bit
 on the original phone runtime, and all three Linux outputs replay exactly.
 Changing one label changes each client's result. Reconstructing their aggregate
-matches the registered final artifact, including unchanged integer counters.
+matches the registered final artifact. This pneumonia architecture has no integer
+counters or BatchNorm variance tensors; those generic checks add no coverage.
 All 14 transferred replay files match their hashes. Both replay jobs exit
 successfully, owned helpers are absent, and all 33 dataset files remain unchanged.
 The [receipt](../../results/on-device/android-image-upload-interruption-2026-10-11.json)
@@ -50,3 +51,9 @@ traffic and compute. Boundary battery readings are not peak measurements. Native
 The private datasets and physical harness are hash-bound; independent physical
 repetition is not claimed. Earlier regression suites were not repeated for this
 follow-up, which changes documentation and private qualification tools only.
+
+Read-only review reran all ten protocol checks and the evidence verifier, checked
+the bound hashes and independently reconstructed the aggregate. It found no
+blocking issues. The zero-counter wording was corrected after checking both
+initial and registered dtype inventories. No physical repetition or fresh
+device attestation was performed during review.

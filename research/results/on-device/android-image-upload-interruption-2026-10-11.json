@@ -266,7 +266,10 @@
     "bitwise_equal": true,
     "integer_counters_unchanged": true,
     "finite_state": true,
-    "batchnorm_variances_nonnegative": true
+    "batchnorm_variances_nonnegative": true,
+    "integer_tensor_count": 0,
+    "batchnorm_variance_tensor_count": 0,
+    "empty_state_scope": "This pneumonia architecture has no integer tensors or BatchNorm variance tensors; their preservation/validity checks are vacuous, not extra exercised coverage."
   },
   "registered_artifact": {
     "sha256": "60d767adecc3c4bdf170479be63814097f35e6215b60bc71eeb35c014c4b3e8a",
@@ -411,5 +414,17 @@
     "mounted-auth-driver.js": "01c2269595279917840d3099d55b9c1b2159548285c63f3123154466f8052897",
     "lifecycle-network/provider-driver.js": "fbce02b7e93178afc038e184359d4fae554f6abea8396efe4b39732ddad966aa",
     "lifecycle/provider-state.js": "371099fcf1a175feb3afe268e7dfaf27bb33fef66a372dc2a1460ef628f1784c"
+  },
+  "review": {
+    "range": "d2f659c5e9108af021b99b3bf20636028f70dcd4..16560dc4ac7b431f5055f4e26eb64b0f8b568dd2",
+    "critical_findings": 0,
+    "important_findings": 0,
+    "minor_wording_correction": "Initial and registered pneumonia states have zero integer/BatchNorm variance tensors; generic preservation/validity checks are vacuous and add no coverage.",
+    "deferred_minors": [],
+    "protocol_checks_rerun": 10,
+    "evidence_verifier_rerun": true,
+    "aggregate_reconstructed_independently": true,
+    "physical_repetition": false,
+    "fresh_device_attestation": false
   }
 }
