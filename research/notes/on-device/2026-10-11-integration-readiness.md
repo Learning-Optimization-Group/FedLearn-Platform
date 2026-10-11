@@ -57,7 +57,7 @@ numerical replays remain valid, but its recovered status RPCs do not establish a
 renewed native heartbeat. The final fix is verified separately; this continuation
 does not relabel the old image run as a new physical image-outage qualification.
 
-Review boundaries retained: production deployment/physical Release training still
+The original review retained these boundaries: production deployment/physical Release training still
 need identity and endpoint verification; natural Doze/thermal/long suspension and
 upload interruption need further device runs; generalized ResNet/clinical NIH
 performance need independent evaluation; unchanged unsupported mobile features
@@ -90,5 +90,15 @@ Continued liveness during pending native work, six unique contributions, exact
 original phone/Linux/aggregate replay and preserved datasets are separately bound
 in the new receipt. This supplements the earlier source-bound run. Heartbeat
 round/step telemetry remains fixed at registration; pending native work does not
-identify graph computation. Natural wireless Doze, graph-boundary Stop, upload
-interruption and production release/security qualification remain open.
+identify graph computation. That run left natural wireless Doze, graph-boundary
+Stop, upload interruption and production release/security qualification open.
+
+The subsequent [partial-upload qualification](2026-10-11-image-upload-interruption.md)
+closes the bounded incomplete-image-upload case: no partial contribution or
+checkpoint, recovery on the same run, one accepted phone round-one update and
+three-round completion. Original phone/Linux outputs and the registered aggregate
+replay exactly, with preserved datasets and owned helpers removed. The new
+observer fixes/tests terminal-response CONTINUATION without modifying earlier
+hash-bound drivers. This adds no application behavior. Complete-upload
+acknowledgement loss, long suspension, natural wireless Doze, accurate progress
+telemetry and production release/security qualification remain open.

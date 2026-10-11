@@ -1,4 +1,4 @@
-# Android qualification matrix — 10 October 2026
+# Android qualification matrix — 11 October 2026
 
 Android portable CPU training is implemented for the 23 FULL-arm plans below.
 Declared plans and live qualification are separate facts. The
@@ -64,6 +64,18 @@ forced idle and Stop/rejoin, without relabeling the older receipt. Native heartb
 round/step fields remain fixed at registration; this proves liveness rather than
 accurate per-round telemetry. Pending native work does not distinguish graph
 computation from a model RPC.
+
+A separate [partial-upload qualification](../../research/results/on-device/android-image-upload-interruption-2026-10-11.json)
+cuts an original-pneumonia phone update after two complete chunks, before its
+final chunk. No contribution or submitted checkpoint is accepted for that partial
+stream. After an eight-second refusal window, the real provider re-registers and
+retries; round one counts once. Three rounds finish with six unique updates, exact
+original phone/Linux/aggregate replay and all 33 dataset files preserved. Matching
+client-declared hashes do not prove the interrupted attempt's complete contents;
+replay verifies the accepted retry tensors. This foreground USB case leaves
+complete-upload acknowledgement loss, long suspension and production Release/TLS
+training unqualified. The new observer tests terminal-response CONTINUATION;
+the earlier hash-bound observer and receipt remain unchanged.
 
 [Release readiness](14-release-readiness.md) records explicit signing gates,
 local signed packaging, update-signature controls, preserved datasets and native

@@ -1,0 +1,415 @@
+{
+  "date": "2026-10-11",
+  "scope": "Real mounted vivo provider and canonical Linux CPU client: cut a partial image-model upload, observe bounded retry, three-round completion and original-runtime replay",
+  "project_id": "364a2a23-36f7-437b-919a-65e7c4b82cd2",
+  "run_id": "6992f588-f8fd-4860-abb5-2a4befa70941",
+  "strategy": "FedAvg",
+  "rounds": 3,
+  "rows_per_client": 16,
+  "client_adam_rate": 0.001,
+  "contract_sha256": "eead5d195015fe54f835dd8d1429c7a3bf46938da253173a3992f6e0b2996801",
+  "initial_npz_sha256": "f78a52a66a413460d3e5158b5fa695c3e6faf0e42ceb47ffe5f99db57ba30f02",
+  "source": {
+    "source_commit": "50a01ca9ad80f586b7944cc8fc6ee434f31a2b82",
+    "native_source_commit": "73ca4bf",
+    "qualification_checkout": "d2f659c5e9108af021b99b3bf20636028f70dcd4",
+    "g14_checkout": "d2f659c5e9108af021b99b3bf20636028f70dcd4",
+    "apk_sha256": "7e73377281a583a7f64158c36438d17a4d7a57bb5c8ef12bda25024eb1d1a755",
+    "installed_apk_sha256": "7e73377281a583a7f64158c36438d17a4d7a57bb5c8ef12bda25024eb1d1a755",
+    "numerical_core_sha256": "4cc1c7bdc054fcc55f76936a1f2ebb2cf6f4a0233c11a33a141df580a9baff2a",
+    "native_replay_binary_sha256": "fdfd21b7c32a175eb3a08091433b075770e06ccc15de38a2afb36f26eef71af9",
+    "application_source_unchanged_since_50a01ca": true
+  },
+  "phone_snapshot_sha256": "195fd49e3f08f215a1f925d9699f655fbb2dff153ef2ddf0cffae7437636c5c7",
+  "desktop_package_sha256": "0b78ede069b937df804686c86b01d8dd9585561710c0e452b794d7d6754c4d64",
+  "events": [
+    {
+      "at_utc": "2026-10-11T18:50:58.410840+00:00",
+      "name": "before_training",
+      "battery_temperature_c": 24.0
+    },
+    {
+      "at_utc": "2026-10-11T18:50:58.883588+00:00",
+      "name": "initial_checkpoint_absent"
+    },
+    {
+      "at_utc": "2026-10-11T18:53:38.251055+00:00",
+      "name": "partial_upload_not_accepted_or_checkpointed",
+      "trigger": {
+        "at_utc": "2026-10-11T18:53:37.602914+00:00",
+        "refusal_seconds": 8,
+        "connection": 1,
+        "stream": 77,
+        "method": "SubmitModelUpdateStream",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "6992f588-f8fd-4860-abb5-2a4befa70941",
+        "trained_on_round": 1,
+        "chunk_index": 1,
+        "total_chunks": 99,
+        "is_final_chunk": false,
+        "chunk_bytes": 1048576,
+        "total_bytes": 103135097,
+        "sha256": "ae1523e2f12c4e6e6aacddc4a927b931658e0180345cdd682a6d1f5ca2efbafb",
+        "num_examples": 16
+      },
+      "checkpoint": null
+    },
+    {
+      "at_utc": "2026-10-11T18:53:46.837296+00:00",
+      "name": "proxy_refusal_window_ended",
+      "observation": {
+        "at_utc": "2026-10-11T18:53:45.662184+00:00",
+        "name": "resumed",
+        "active_connections": 0,
+        "accepted": 1,
+        "rejected": 3,
+        "closed_for_outage": 1
+      }
+    },
+    {
+      "at_utc": "2026-10-11T18:57:11.297143+00:00",
+      "name": "after_round1_retry",
+      "battery_temperature_c": 25.0
+    },
+    {
+      "at_utc": "2026-10-11T18:57:11.428625+00:00",
+      "name": "round1_retry_accepted_once",
+      "attempts": [
+        {
+          "at_utc": "2026-10-11T18:53:37.478138+00:00",
+          "name": "upload_chunk",
+          "active_connections": 1,
+          "accepted": 1,
+          "rejected": 0,
+          "closed_for_outage": 0,
+          "connection": 1,
+          "stream": 77,
+          "method": "SubmitModelUpdateStream",
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "run_id": "6992f588-f8fd-4860-abb5-2a4befa70941",
+          "trained_on_round": 1,
+          "chunk_index": 0,
+          "total_chunks": 99,
+          "is_final_chunk": false,
+          "chunk_bytes": 1048576,
+          "total_bytes": 103135097,
+          "sha256": "ae1523e2f12c4e6e6aacddc4a927b931658e0180345cdd682a6d1f5ca2efbafb",
+          "num_examples": 16
+        },
+        {
+          "at_utc": "2026-10-11T18:56:06.721694+00:00",
+          "name": "upload_chunk",
+          "active_connections": 1,
+          "accepted": 3,
+          "rejected": 3,
+          "closed_for_outage": 1,
+          "connection": 3,
+          "stream": 61,
+          "method": "SubmitModelUpdateStream",
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "run_id": "6992f588-f8fd-4860-abb5-2a4befa70941",
+          "trained_on_round": 1,
+          "chunk_index": 0,
+          "total_chunks": 99,
+          "is_final_chunk": false,
+          "chunk_bytes": 1048576,
+          "total_bytes": 103135097,
+          "sha256": "ae1523e2f12c4e6e6aacddc4a927b931658e0180345cdd682a6d1f5ca2efbafb",
+          "num_examples": 16
+        }
+      ],
+      "declared_full_update_sha256_equal": true,
+      "checkpoint": 1
+    },
+    {
+      "at_utc": "2026-10-11T18:57:11.544447+00:00",
+      "name": "desktop_round_released",
+      "round": 1
+    },
+    {
+      "at_utc": "2026-10-11T19:00:52.245037+00:00",
+      "name": "after_round2",
+      "battery_temperature_c": 26.0
+    },
+    {
+      "at_utc": "2026-10-11T19:00:52.370767+00:00",
+      "name": "desktop_round_released",
+      "round": 2
+    },
+    {
+      "at_utc": "2026-10-11T19:04:30.700259+00:00",
+      "name": "after_round3",
+      "battery_temperature_c": 27.0
+    },
+    {
+      "at_utc": "2026-10-11T19:04:30.844736+00:00",
+      "name": "desktop_round_released",
+      "round": 3
+    },
+    {
+      "at_utc": "2026-10-11T19:04:51.677435+00:00",
+      "name": "completed",
+      "unique_updates": 6,
+      "checkpoint": 3,
+      "foreground_service_absent": true,
+      "source_commit": "d2f659c"
+    },
+    {
+      "at_utc": "2026-10-11T19:04:53.015021+00:00",
+      "name": "owned_device_route_restored",
+      "success": true
+    }
+  ],
+  "interrupted_upload": {
+    "round": 1,
+    "complete_chunks_observed_before_cut": 2,
+    "total_chunks_declared": 99,
+    "total_bytes_declared": 103135097,
+    "cut_before_final_chunk": true,
+    "partial_update_not_accepted": true,
+    "partial_checkpoint": null,
+    "requested_refusal_seconds": 8,
+    "observed_refusal_interval_seconds": 8.059022,
+    "retry_attempts_observed": 2,
+    "same_declared_full_update_sha256": true,
+    "declared_full_update_sha256": "ae1523e2f12c4e6e6aacddc4a927b931658e0180345cdd682a6d1f5ca2efbafb",
+    "accepted_phone_round1_updates": 1,
+    "hash_scope": "Full-update hashes are client declarations. The interrupted attempt was not fully captured; exact replay verifies the accepted retry tensors.",
+    "authoritative_acceptance": "Server coordinator accepted-update recorder, not proxy connection counters or received acknowledgement alone"
+  },
+  "accepted_updates": [
+    {
+      "client": "phone",
+      "round": 1,
+      "examples": 16,
+      "state_sha256": "de917baa5cdaa1ea1e3932bed813fc7c2f03add54acddab7ab7768eb51448705"
+    },
+    {
+      "client": "linux",
+      "round": 1,
+      "examples": 16,
+      "state_sha256": "96ff1fba9d7560a044e1c72869f1f17f4e26cebcaeb5e879491d16c2e6619452"
+    },
+    {
+      "client": "phone",
+      "round": 2,
+      "examples": 16,
+      "state_sha256": "f4894d56929aa984d38bbe87b23bf8999279ab96bcdba964125a34e7dd369890"
+    },
+    {
+      "client": "linux",
+      "round": 2,
+      "examples": 16,
+      "state_sha256": "1c885818d84e0beeaa9c5c961ef5e5cd280648eac2562f1addf8f3d934a8c467"
+    },
+    {
+      "client": "phone",
+      "round": 3,
+      "examples": 16,
+      "state_sha256": "556946bbb3b67c75fc50b8fdf21de647f8c98282e1daafc4ea54c38b0ec3e95c"
+    },
+    {
+      "client": "linux",
+      "round": 3,
+      "examples": 16,
+      "state_sha256": "60404af5e75db9a8424ff4c00bc757b19ec445e25ee686b6a2960a8e1393d188"
+    }
+  ],
+  "phone_replay": {
+    "rounds": [
+      {
+        "round": 1,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      },
+      {
+        "round": 2,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      },
+      {
+        "round": 3,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      }
+    ],
+    "wrong_label_control_max_abs_diff": 0.00199999637,
+    "wrong_label_control_bitwise_equal": false
+  },
+  "linux_replay": {
+    "run_id": "6992f588-f8fd-4860-abb5-2a4befa70941",
+    "torch": "2.12.0+cpu",
+    "torch_num_threads": 8,
+    "rounds": [
+      {
+        "round": 1,
+        "examples": 16,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      },
+      {
+        "round": 2,
+        "examples": 16,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      },
+      {
+        "round": 3,
+        "examples": 16,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      }
+    ],
+    "wrong_label_control_max_abs_diff": 0.001999996369704604
+  },
+  "aggregate_replay": {
+    "bitwise_equal": true,
+    "integer_counters_unchanged": true,
+    "finite_state": true,
+    "batchnorm_variances_nonnegative": true
+  },
+  "registered_artifact": {
+    "sha256": "60d767adecc3c4bdf170479be63814097f35e6215b60bc71eeb35c014c4b3e8a",
+    "registered_npz_sha256": "60d767adecc3c4bdf170479be63814097f35e6215b60bc71eeb35c014c4b3e8a"
+  },
+  "replay_inputs_sha256": {
+    "global-3.safetensors": "d66b7e61891b9d271c8a071a08850d948c6f68c4d53ca09b3800202a7e9f512e",
+    "inputs.f32": "2cd95f141d584b71626bf48652ea5c3c5e01885e7f05a65f309a4fa88bd9730e",
+    "phone-3.safetensors": "556946bbb3b67c75fc50b8fdf21de647f8c98282e1daafc4ea54c38b0ec3e95c",
+    "seed.txt": "755d83d92a14382a9880ad5d1b492f0aa2996bbd406877438ef7664f1210b6b7",
+    "phone-2.safetensors": "f4894d56929aa984d38bbe87b23bf8999279ab96bcdba964125a34e7dd369890",
+    "targets.i64": "617e68376fdabdad143eeb7ebecc8ab8b129d6f3cc03d6e70747a6607b2edf6c",
+    "trainable.pte": "71a15394f3a4ecf5d6f7e126eb007a06377d6326bd055d9094ff27595d832378",
+    "phone-1.safetensors": "de917baa5cdaa1ea1e3932bed813fc7c2f03add54acddab7ab7768eb51448705",
+    "loss.pte": "fa07950ea8100e6f5ad4737168677a56ec5a858344854d6053044c25d117fcc2",
+    "desktop-3.safetensors": "60404af5e75db9a8424ff4c00bc757b19ec445e25ee686b6a2960a8e1393d188",
+    "desktop-2.safetensors": "1c885818d84e0beeaa9c5c961ef5e5cd280648eac2562f1addf8f3d934a8c467",
+    "desktop-1.safetensors": "96ff1fba9d7560a044e1c72869f1f17f4e26cebcaeb5e879491d16c2e6619452",
+    "global-2.safetensors": "e7ce574e3d1eb365f25c522450288dba485e5ab1ed09d2b0fa6f81bbb4378ed0",
+    "global-1.safetensors": "ce4fc7640c3f981b9a3ebbf573094899c282821517baa98412ccd4ceaaf92e94"
+  },
+  "replay_jobs": {
+    "phone": {
+      "kind": "phone",
+      "started_utc": "2026-10-11T19:06:27.868704+00:00",
+      "finished_utc": "2026-10-11T19:19:01.040054+00:00",
+      "exit_code": 0
+    },
+    "linux": {
+      "kind": "linux",
+      "started_utc": "2026-10-11T19:06:27.869679+00:00",
+      "finished_utc": "2026-10-11T19:06:35.359052+00:00",
+      "exit_code": 0
+    }
+  },
+  "preservation": {
+    "files": 33,
+    "all_sha256_unchanged": true,
+    "foreground_service_absent": true
+  },
+  "owned_helpers": {
+    "replay_directory_absent": true,
+    "replay_binary_absent": true,
+    "proxy_absent": true,
+    "desktop_absent": true
+  },
+  "provider_session": {
+    "rounds": 3,
+    "scalarsTransmitted": 0,
+    "bytesUp": 309405291,
+    "bytesDown": 309405288,
+    "computeMs": 454123
+  },
+  "provider_session_scope": "Successful reported rounds only; failed-upload/retraining traffic and compute are omitted.",
+  "observer": {
+    "hpack_version": "4.1.0",
+    "protocol_checks_passed_each_host": 10,
+    "regressions_failed_before_fix": 3,
+    "response_cap_regression_failed_before_fix": 1,
+    "terminal_response_continuation_tested": true,
+    "forwarding": "Unmodified raw HTTP/2 bytes; bounded incremental passive protobuf decoding; successful selected responses require upstream grpc-status=0 trailers",
+    "passive_observation_errors": 0,
+    "credentials_or_model_payload_logged": false,
+    "counter_scope": "accepted/rejected/closed_for_outage count proxy connections, not accepted updates"
+  },
+  "host_transport_smoke": {
+    "scope": "Synthetic real-gRPC transport check, separate from physical federated training",
+    "result": {
+      "scope": "Synthetic local real-gRPC forwarding/interruption smoke; not phone or federated training qualification",
+      "unmodified_payload_sha256": "680d153acb1f311ef580d87b478e7abe54514a40d6569af057ed92092261c80a",
+      "complete_uploads": [
+        {
+          "chunks": 6,
+          "sha256": "680d153acb1f311ef580d87b478e7abe54514a40d6569af057ed92092261c80a"
+        },
+        {
+          "chunks": 6,
+          "sha256": "680d153acb1f311ef580d87b478e7abe54514a40d6569af057ed92092261c80a"
+        }
+      ],
+      "partial_counts": [
+        2
+      ],
+      "cut_triggered": true,
+      "observer_errors": 0,
+      "credentials_and_model_content_not_logged": true
+    }
+  },
+  "retained_preflight_failure": "App debug session was absent because ADB routes were missing after host downtime. Routes restored and unchanged app reopened; no phone training in that attempt.",
+  "limitations": [
+    "Debug APK and authenticated development plaintext; no physical Release or deployed HTTPS/TLS training qualification.",
+    "Eight-second controlled upload interruption; no ambiguous full-upload acknowledgement-loss, sustained network fault or long suspension claim.",
+    "Interrupted attempt full model bytes were not retained; matching declared hashes do not independently establish its full contents. Accepted retry tensors replay exactly.",
+    "Foreground USB-connected phone; no new forced/natural Doze, graph-boundary Stop or thermal-load qualification.",
+    "Boundary temperature readings are not peak measurements.",
+    "Native heartbeat round/step values remain fixed at registration; successful heartbeats establish liveness only.",
+    "Private physical datasets/harness are hash-bound; no independent physical repetition is claimed."
+  ],
+  "private_evidence_sha256": {
+    "events.json": "b4c9d156a4c6e241eb58b95a643ef70f154ea36d3c55c1d9ac9ade983e6fe129",
+    "proxy-events.jsonl": "68d0ae19936d2bb9c67bb0670de73f80dfcff3164f668bff1eb1eb34e0fa93af",
+    "exercise.log": "30365b1736dab9a7e37c5e716980181ba914ea999287a1cc65a74afa5bb168fb",
+    "provider-final.json": "b7d6826b82ab7054afdb5c63cb00ebec225a6a77d675987745ecffa98539d65d",
+    "phone-native-replay.log": "adbd692cd8129c0e7713753a758ca7c0b122142c052ab760f89af2daf9a63d10",
+    "desktop-replay.json": "0629d064417a51984507ce57ba3c960f3ddb576e9d8792b8f0f5f1c448c86e41",
+    "aggregate-replay.json": "b1a2c3f1e259a99ad88d878e8566e92308f1931b20774963259efa6a5738a54b",
+    "phone-preservation.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+    "helper-absence.json": "8c395caab42c958ed1bdbe8bde29788bf209a8a41352ac1dcc3ee53dbcb3c13e",
+    "source-binding.json": "9f5d09ce020825dfeda4239e790cedd33573332150c33d2b2fa1f79988c478dd",
+    "exercise-preflight-failed.log": "bf3a75104a24072bb592cd4c01b7b4bddbf72788fa8d818a7f1fb6df835c2298",
+    "events-preflight-failed.json": "63164df211fdd3fb26b3d97f7360da7b82380d4cfe499b4414ac196f5dca2298",
+    "phone-replay-job.json": "c37870798790fe6e04887f96c081c0ef6c4759bcb40514b1b7747d8fc4c424c4",
+    "linux-replay-job.json": "4e7db1980113ce4de468de6cf54d62de7a241fa811139c9c598d4bff6287f1dd",
+    "replay-transfer-sha256.json": "b3bb2964c0f6150b0496967d120822cc7775ce9408b0cea959613ba53d5a498c",
+    "observer-red.log": "c552c6485f7225a518e25ada6f81c36b973afc27aef55be8f091a73d54b62bf4",
+    "response-cap-red.log": "76360d87aa918af1b3e34b1923067e9c252c2228b3ad7f1c5c5d1bdcbd39d915",
+    "observer-green.log": "cf8d3a2572a7898fcf32a4c2dd1445509b3d59e66061853243c4627f80695068",
+    "observer-g14-green.log": "643c7cfc3921e5830e047bed28578bc933677c101c9c5a9f6610b6207052d03c",
+    "wire-smoke/result.json": "800d63ddde858e33ef7f7583cfde9d746d721d9ae695c8ca1df57a0aeb7f2051",
+    "verification.log": "c5dcdd7b0eb4da918b0781a373036853727afc532019134ea7fa45359275c970"
+  },
+  "private_driver_sha256": {
+    "image_upload_observer.py": "531f543781613b126b2ed4f9eac24bd2924377ad39fe18f3af85565275d87423",
+    "image_upload_observer_test.py": "1e0fa9d403460e14360b6ef7cb4772fe7c78a68bcc64e4bd1333fa35293c044c",
+    "image_upload_proxy.py": "b0e2b047aeaafc21adb4fbfd4a9884d54140c77b605ca1a7f64bee5f4901d5a2",
+    "image_upload_wire_smoke.py": "752ad3501b1ec04bf13ba7fc5c148cc54b9418ba7fbec82f9a95313fd2a031e6",
+    "image_upload_exercise.py": "a528138f98e50634969e6accdadb535e570ce25b1549b474cf8eaa30a286fa0f",
+    "image_upload_setup.py": "dd42c6e73f8f2b52a5452e47703a667f6e68d78223d3d9fb2ecd0b3e189a69b1",
+    "image_upload_desktop.py": "24e565be41313b51ead5ef4cdcf8bc3f65bce77f66db8b763b3f63362d995b40",
+    "image_upload_prepare_replay.py": "6df2faa91ceb904f27d0b5581ab4ac5c935dc193b065a6e3cf96a9ed401974ce",
+    "image_upload_desktop_replay.py": "4e6aad96b0e43726a107db982c1bb7d758345bd6c974a1cc818fc3a8b89e8c10",
+    "run_image_upload_phone_replay.py": "4e162898a4d8d7c8f664b75f84538b42b42dccadaf506b86e1f9929d78c96197",
+    "image_upload_replay_job.py": "5890103674e38ca7f73ab6026944a0751fc81c6a01770b66c7d9358828e8216f",
+    "image_upload_launch_replay.py": "7fe3e01ef37b12e91581bc3b7d093138aecc4eca0f8f4eef4b12c43eeba676b1",
+    "image_upload_collect.py": "933e50e54144554c2b4edc5b7da439bbd5e052778bd357f2501fa836a16bfb69",
+    "image_upload_preservation.py": "cca46971dc0f498287624e8265451bfd48712afe6fff28c7a84d9b1966c50dbc",
+    "verify_image_upload.py": "91d3f8d949be7347482991d20a516a698f77f9d51ed2c51bc1e48ce0c6fad48a",
+    "curate_image_upload.py": "3a224ba065e9db72bbeaa1002bf2bf1ca59cb4028931d8c859bf2b1b8ec267a2"
+  },
+  "shared_provider_driver_sha256": {
+    "cdp.cjs": "76ed4346e2594a57312bbb6fd1c43c82825ac7b2de78eee5f6801c7ebd28b87a",
+    "mounted-auth-driver.js": "01c2269595279917840d3099d55b9c1b2159548285c63f3123154466f8052897",
+    "lifecycle-network/provider-driver.js": "fbce02b7e93178afc038e184359d4fae554f6abea8396efe4b39732ddad966aa",
+    "lifecycle/provider-state.js": "371099fcf1a175feb3afe268e7dfaf27bb33fef66a372dc2a1460ef628f1784c"
+  }
+}
