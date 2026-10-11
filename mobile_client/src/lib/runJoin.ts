@@ -131,6 +131,9 @@ export async function joinRun(p: JoinParams): Promise<JoinedRun> {
 
   const clientId = await getOrCreateClientId();
   const useTls = p.useTls ?? enroll.grpcTls ?? false;
+  if (!__DEV__ && !useTls) {
+    throw new RunJoinRefusedError('Release training requires TLS from the FL server.');
+  }
   const reg = await nativeCore.registerClient(
     enroll.grpcEndpoint, runId, clientId, enroll.connectionToken, useTls, enroll.grpcServerCertPem ?? '',
   );

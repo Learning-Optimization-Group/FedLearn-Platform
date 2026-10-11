@@ -372,7 +372,16 @@ export async function runResilientRoundLoop(
         } catch (rejoinErr) {
           if (rejoinErr instanceof RunJoinRefusedError) throw rejoinErr;
           // A failed rejoin still counts toward the budget; loop retries a rejoin or gives up below.
-          hooks.onLog(`Rejoin failed: ${String(rejoinErr)}`);
+          hooks.onLog(`Rejoin failed: ${readError(rejoinErr)}`);
+          // Continue exponential backoff beyond the round retry streak. Failed registrations can
+          // return immediately; consuming both rejoin attempts at once defeats short outage recovery.
+          let remainingMs = Math.min(60000,
+            policy.baseBackoffMs * 2 ** (policy.maxRoundRetries + rejoinsUsed - 1));
+          while (remainingMs > 0 && !hooks.shouldStop()) {
+            const waitMs = Math.min(remainingMs, 1000);
+            await ops.delay(waitMs);
+            remainingMs -= waitMs;
+          }
           continue;
         }
       }

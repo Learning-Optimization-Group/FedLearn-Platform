@@ -9,6 +9,7 @@
 // per-RPC deadlines — out of scope here and flagged in the impl).
 import {
   ModelExecutionFailedError,
+  DEFAULT_RESILIENCE,
   runResilientRoundLoop,
   type RoundOps,
   type ResiliencePolicy,
@@ -148,6 +149,48 @@ describe('runResilientRoundLoop (MO-8)', () => {
       expect(displayedState).toBeNull();
     },
   );
+
+  it('recovers from twenty seconds of immediate connection failures with bounded rejoin backoff', async () => {
+    let elapsed = 0;
+    let trained = false;
+    const ops = baseOps({
+      delay: jest.fn(async (ms: number) => { elapsed += ms; }),
+      getServerStatus: jest.fn(async () => {
+        if (elapsed < 20000) throw {message: 'socket unavailable'};
+        return {serverState: trained ? 'COMPLETED' : 'TRAINING', currentRound: 1};
+      }),
+      rejoin: jest.fn(async () => {
+        if (elapsed < 20000) throw {message: 'registration unavailable'};
+        return {runId: 'r'};
+      }),
+      runFedAvgRound: jest.fn(async () => { trained = true; return round(1); }),
+    });
+    const h = hooks();
+    await runResilientRoundLoop({runId: 'r', isFedAvg: true, cfg: CFG}, ops, DEFAULT_RESILIENCE, h);
+    expect(ops.rejoin).toHaveBeenCalledTimes(2);
+    expect(ops.runFedAvgRound).toHaveBeenCalledTimes(1);
+    expect(h.logs.some(line => line.includes('registration unavailable'))).toBe(true);
+    expect(elapsed).toBeGreaterThanOrEqual(20000);
+    expect(elapsed).toBeLessThan(40000);
+  });
+
+  it('cooperative Stop interrupts failed-rejoin backoff within one native wait', async () => {
+    let stop = false;
+    const rejoin = jest.fn().mockRejectedValue({message: 'registration unavailable'});
+    const waits: number[] = [];
+    const ops = baseOps({
+      getServerStatus: jest.fn().mockRejectedValue(new Error('socket unavailable')),
+      rejoin,
+      delay: jest.fn(async (ms: number) => {
+        if (rejoin.mock.calls.length) { waits.push(ms); stop = true; }
+      }),
+    });
+    await runResilientRoundLoop({runId: 'r', isFedAvg: true, cfg: CFG}, ops, DEFAULT_RESILIENCE,
+      {...hooks(), shouldStop: () => stop});
+    expect(rejoin).toHaveBeenCalledTimes(1);
+    expect(waits).toEqual([1000]);
+    expect(ops.runFedAvgRound).not.toHaveBeenCalled();
+  });
 
   it('stops without training a replacement run when reconnect returns another run ID', async () => {
     const trainedRuns: string[] = [];

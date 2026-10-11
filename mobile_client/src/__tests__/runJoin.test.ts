@@ -196,6 +196,20 @@ describe('joinRun — server trust from enrollment', () => {
     expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', false, '');
   });
 
+  test('a release build refuses plaintext enrollment before native registration', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, '__DEV__');
+    Object.defineProperty(globalThis, '__DEV__', {value: false, writable: true, configurable: true});
+    try {
+      stubHappyPath();
+      enrollWith({grpcTls: false, grpcServerCertPem: null});
+      await expect(joinRun({projectId: 'p1'})).rejects.toThrow(/TLS.*release|release.*TLS/i);
+      expect(mCore.registerClient).not.toHaveBeenCalled();
+    } finally {
+      if (descriptor) Object.defineProperty(globalThis, '__DEV__', descriptor);
+      else Reflect.deleteProperty(globalThis, '__DEV__');
+    }
+  });
+
   test('an explicit useTls still wins over the backend', async () => {
     stubHappyPath();
     enrollWith({ grpcTls: true, grpcServerCertPem: 'SERVER-PEM' });
