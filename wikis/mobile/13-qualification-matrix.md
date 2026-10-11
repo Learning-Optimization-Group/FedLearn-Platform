@@ -73,9 +73,21 @@ retries; round one counts once. Three rounds finish with six unique updates, exa
 original phone/Linux/aggregate replay and all 33 dataset files preserved. Matching
 client-declared hashes do not prove the interrupted attempt's complete contents;
 replay verifies the accepted retry tensors. This foreground USB case leaves
-complete-upload acknowledgement loss, long suspension and production Release/TLS
-training unqualified. The new observer tests terminal-response CONTINUATION;
+long suspension and production Release/TLS training unqualified; complete-upload
+acknowledgement loss is tested separately below. The new observer tests terminal-response CONTINUATION;
 the earlier hash-bound observer and receipt remain unchanged.
+
+The [accepted-upload/lost-completion qualification](../../research/results/on-device/android-image-acknowledgement-loss-2026-10-11.json)
+then exercises the other boundary: the server accepts the complete phone update,
+but its successful response is withheld while the peer remains held. The phone
+has no checkpoint, reconnects and submits again. Both full attempts complete at
+the upstream server; the accepted recorder counts round one once, and the phone
+saves its checkpoint before the peer is released. Three-round completion, exact
+accepted phone/Linux/aggregate replay and all 33 preserved dataset files are
+separately bound. Duplicate retry hashes are declarations; its tensor equivalence
+is not independently captured. This covers one eight-second foreground USB
+response outage, leaving server restart, client process death, prolonged partitions
+and natural wireless background behavior unqualified.
 
 [Release readiness](14-release-readiness.md) records explicit signing gates,
 local signed packaging, update-signature controls, preserved datasets and native

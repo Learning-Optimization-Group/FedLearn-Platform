@@ -99,6 +99,16 @@ checkpoint, recovery on the same run, one accepted phone round-one update and
 three-round completion. Original phone/Linux outputs and the registered aggregate
 replay exactly, with preserved datasets and owned helpers removed. The new
 observer fixes/tests terminal-response CONTINUATION without modifying earlier
-hash-bound drivers. This adds no application behavior. Complete-upload
+hash-bound drivers. This adds no application behavior. That partial-stream test left complete-upload
 acknowledgement loss, long suspension, natural wireless Doze, accurate progress
-telemetry and production release/security qualification remain open.
+telemetry and production release/security qualification open.
+
+A separate [accepted-upload/lost-completion run](2026-10-11-image-acknowledgement-loss.md)
+now verifies full server acceptance with a withheld response and no phone checkpoint.
+The real provider reconnects and resubmits, the coordinator counts its contribution
+once, and the phone checkpoints before the held Linux peer proceeds. All six
+accepted outputs and their aggregate replay exactly; datasets and helper cleanup
+are verified. The scope is one eight-second foreground USB response outage,
+with unchanged application source. Accurate heartbeat progress, natural wireless
+Doze, long suspension, server restart, client process death, thermal endurance
+and production release/security qualification remain open.
