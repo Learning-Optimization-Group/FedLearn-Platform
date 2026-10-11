@@ -120,6 +120,25 @@ if(FEDLEARN_BUILD_GRPC)
   # full transitive graph (utf8_validity, utf8_range, abseil). GRPC_DIR is on CMAKE_PREFIX_PATH.
   find_package(protobuf CONFIG REQUIRED)
   find_package(gRPC CONFIG REQUIRED)
+  if(ANDROID AND TARGET gRPC::crypto)
+    # Isolate BoringSSL's optional weak function from Folly's exported sdallocx
+    # function-pointer variable. Rename only the crypto archive's reference: a
+    # whole-library --wrap would also rewrite legitimate Folly variable references.
+    get_target_property(_crypto_configs gRPC::crypto IMPORTED_CONFIGURATIONS)
+    foreach(_config IN LISTS _crypto_configs)
+      get_target_property(_crypto_archive gRPC::crypto "IMPORTED_LOCATION_${_config}")
+      set(_isolated_crypto "${CMAKE_BINARY_DIR}/libcrypto-${_config}-isolated.a")
+      execute_process(
+        COMMAND "${CMAKE_OBJCOPY}" --redefine-sym=sdallocx=fedlearn_boringssl_sdallocx
+                "${_crypto_archive}" "${_isolated_crypto}"
+        RESULT_VARIABLE _crypto_rename_result)
+      if(NOT _crypto_rename_result EQUAL 0)
+        message(FATAL_ERROR "Could not isolate the BoringSSL allocator symbol")
+      endif()
+      set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_crypto_archive}")
+      set_property(TARGET gRPC::crypto PROPERTY "IMPORTED_LOCATION_${_config}" "${_isolated_crypto}")
+    endforeach()
+  endif()
   file(GLOB FEDLEARN_GENERATED_SRCS "${GENERATED_PROTO_DIR}/fedlearn/v2/*.cc")
   add_library(fedlearn_grpc STATIC
     src/FedLearnClient.cpp

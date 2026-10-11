@@ -1,0 +1,152 @@
+{
+  "scope": "Threshold diagnosis of an existing fixed checkpoint; no learning or deployment claim",
+  "checkpoint_sha256": "73975fce707aa08ebc5b3507227212de225edffeea20ffe089dc2aa7d54aeb1a",
+  "state_sha256": "550b5b0d52ec4b61925c7d9a5c973d358c7b1e689ad9e619e298a1b93cc8befa",
+  "driver_sha256": "0eb0aa560a72308036e4cb00a1c33f3d339fedb06a2369d587ff66841ea43609",
+  "official_test_used": false,
+  "target_validation_sensitivity": 0.8,
+  "selected_threshold": 0.3229761719703674,
+  "selection": "Largest score boundary retaining target positive validation fraction; reference not used",
+  "heldout_patient_overlap": 169,
+  "train_heldout_patient_and_prepared_image_overlap": 0,
+  "inference_state_unchanged": true,
+  "repeated_validation_inference_exact": true,
+  "packages": [
+    {
+      "package_sha256": "64ed0a8ffb35f502f311a299cc3b794e502499480b1a41097dd4e8f5c851678e",
+      "snapshot_id": "69c62a3f9d83f6c8f231618a0bd10c02e94c4216a61c17b49d103ea44a8de96b",
+      "records": 256
+    },
+    {
+      "package_sha256": "2b54c4e8bce83f9f36b259b18942ce76001eed0b05048970bd01c419f2b769c9",
+      "snapshot_id": "bf1941f0a834fcfcbdb9ecd8ea613c1097b890e0f68ee3bf5923350a64b05394",
+      "records": 256
+    },
+    {
+      "package_sha256": "998ec030f975943f8127b0ffd217bb22e5b20bba096a190d995ef0cd8a24739e",
+      "snapshot_id": "b1f4771279e4812172ba65d5c2058b6536caf30ad798d3c767f6dcb09a494a0e",
+      "records": 256
+    },
+    {
+      "package_sha256": "4f6b19b714635a3dba2a90a4cc12f0deadb6f7f35e07c78b46876e688c182ec0",
+      "snapshot_id": "0184223d2a2b7259b0e627d26aec7992e60032b1cb208d4a7e694128aac2f28b",
+      "records": 512
+    }
+  ],
+  "validation": {
+    "ranking": {
+      "accuracy": 0.59375,
+      "balanced_accuracy": 0.59375,
+      "auroc": 0.6319580078125,
+      "average_precision": 0.6553982326104757,
+      "majority_accuracy": 0.5,
+      "true_positive": 95,
+      "false_negative": 33,
+      "true_negative": 57,
+      "false_positive": 71,
+      "positive_images": 128,
+      "negative_images": 128,
+      "record_count": 256,
+      "confusion": {
+        "tn": 57,
+        "fp": 71,
+        "fn": 33,
+        "tp": 95
+      },
+      "majority_baseline_accuracy": 0.5,
+      "predicted_positive_fraction": 0.6484375,
+      "positive_probability_quantiles": [
+        0.021336166188120842,
+        0.3436611518263817,
+        0.6971424520015717,
+        0.8931582719087601,
+        0.9972730278968811
+      ]
+    },
+    "default": {
+      "threshold": 0.5,
+      "count": 256,
+      "true_positive": 95,
+      "false_negative": 33,
+      "true_negative": 57,
+      "false_positive": 71,
+      "accuracy": 0.59375,
+      "sensitivity": 0.7421875,
+      "specificity": 0.4453125,
+      "positive_predictive_value": 0.572289156626506
+    },
+    "calibrated": {
+      "threshold": 0.3229761719703674,
+      "count": 256,
+      "true_positive": 103,
+      "false_negative": 25,
+      "true_negative": 34,
+      "false_positive": 94,
+      "accuracy": 0.53515625,
+      "sensitivity": 0.8046875,
+      "specificity": 0.265625,
+      "positive_predictive_value": 0.5228426395939086
+    }
+  },
+  "reference": {
+    "ranking": {
+      "accuracy": 0.443359375,
+      "balanced_accuracy": 0.636034255599473,
+      "auroc": 0.5540184453227932,
+      "average_precision": 0.027287875819147454,
+      "majority_accuracy": 0.98828125,
+      "true_positive": 5,
+      "false_negative": 1,
+      "true_negative": 222,
+      "false_positive": 284,
+      "positive_images": 6,
+      "negative_images": 506,
+      "record_count": 512,
+      "confusion": {
+        "tn": 222,
+        "fp": 284,
+        "fn": 1,
+        "tp": 5
+      },
+      "majority_baseline_accuracy": 0.98828125,
+      "predicted_positive_fraction": 0.564453125,
+      "positive_probability_quantiles": [
+        0.016761889681220055,
+        0.2886296957731247,
+        0.5845533013343811,
+        0.8584171235561371,
+        0.9995786547660828
+      ]
+    },
+    "default": {
+      "threshold": 0.5,
+      "count": 512,
+      "true_positive": 5,
+      "false_negative": 1,
+      "true_negative": 222,
+      "false_positive": 284,
+      "accuracy": 0.443359375,
+      "sensitivity": 0.8333333333333334,
+      "specificity": 0.43873517786561267,
+      "positive_predictive_value": 0.01730103806228374
+    },
+    "calibrated": {
+      "threshold": 0.3229761719703674,
+      "count": 512,
+      "true_positive": 5,
+      "false_negative": 1,
+      "true_negative": 142,
+      "false_positive": 364,
+      "accuracy": 0.287109375,
+      "sensitivity": 0.8333333333333334,
+      "specificity": 0.28063241106719367,
+      "positive_predictive_value": 0.013550135501355014
+    }
+  },
+  "date": "2026-10-10",
+  "limits": [
+    "Threshold selection changes the operating point, not score ranking or model weights.",
+    "Proportional reference contains only six positive images; no clinical or deployed threshold recommendation.",
+    "Training is patient/prepared-image disjoint from heldout packages, but heldout packages share169patients."
+  ]
+}

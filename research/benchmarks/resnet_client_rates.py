@@ -49,6 +49,14 @@ def validation_metrics(net, dataset):
                 recall=[float(confusion[i,i] / confusion[i].sum()) if confusion[i].sum() else None for i in range(10)])
 
 
+def make_aggregator(strategy, initial, server_learning_rate):
+    settings = dict(strategy=strategy, min_clients=2, clients_per_round=2,
+                    model_type='CIFAR_RESNET18')
+    if strategy == 'FedOpt':
+        settings['fedopt_server_learning_rate'] = server_learning_rate
+    return fl_server.select_strategy(Namespace(**settings), initial, None)
+
+
 def main():
     parser = ArgumentParser(description='Bounded offline ResNet client-rate controls; no official test selection')
     parser.add_argument('--contract', type=Path, required=True)
@@ -58,9 +66,17 @@ def main():
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--longer', action='store_true', help='Fixed six-round .001 FedAvg/FedProx/FedOpt profiles')
     parser.add_argument('--validation-package', type=Path)
+    parser.add_argument('--strategies', nargs='+', choices=('FedAvg', 'FedProx', 'FedOpt'))
+    parser.add_argument('--fedopt-server-learning-rate', type=float, default=.01)
     options = parser.parse_args()
     if options.longer != (options.validation_package is not None):
         parser.error('longer controls require an explicit disjoint validation package')
+    if not options.longer and options.strategies and 'FedAvg' in options.strategies:
+        parser.error('FedAvg requires --longer; two-round controls vary only adaptive client rates')
+    if (not np.isfinite(options.fedopt_server_learning_rate)
+            or not 0 < options.fedopt_server_learning_rate <= 10
+            or options.strategies and len(set(options.strategies)) != len(options.strategies)):
+        parser.error("invalid server learning rate or duplicated strategies")
     out = options.output_dir
     out.mkdir(parents=True, exist_ok=False)
     torch.set_num_threads(1)
@@ -83,10 +99,10 @@ def main():
     initial = OrderedDict(((name, initial[name]) for name in layout))
     from fedlearn.communication.safetensors_codec import save_safetensors
     assert hashlib.sha256(save_safetensors([(k, t.numpy()) for k, t in initial.items()])).hexdigest() == base.model_training.initial_state_sha256
-    report = {'seed': str(base.seed), 'initial_sha256': hashlib.sha256(options.initial_state.read_bytes()).hexdigest(), 'scope': 'offline CPU counterfactuals; both partitions use Python, not a phone run; official test unused', 'contract_sha256': hashlib.sha256(options.contract.read_bytes()).hexdigest(), 'package_sha256': {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in [('phone', options.phone_package), ('desktop', options.desktop_package)]}, 'torch': torch.__version__, 'torch_num_threads': torch.get_num_threads(), 'server_learning_rate': 0.01, 'proximal_mu': 0.1, 'rates': []}
+    report = {'seed': str(base.seed), 'initial_sha256': hashlib.sha256(options.initial_state.read_bytes()).hexdigest(), 'scope': 'offline CPU counterfactuals; both partitions use Python, not a phone run; official test unused', 'contract_sha256': hashlib.sha256(options.contract.read_bytes()).hexdigest(), 'package_sha256': {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in [('phone', options.phone_package), ('desktop', options.desktop_package)]}, 'torch': torch.__version__, 'torch_num_threads': torch.get_num_threads(), 'server_learning_rate': options.fedopt_server_learning_rate, 'proximal_mu': 0.1, 'rates': []}
     report['validation_package_sha256'] = hashlib.sha256(options.validation_package.read_bytes()).hexdigest() if options.longer else None
     report['selection'] = 'Fixed six-round profiles and final-epoch metrics; official test unused' if options.longer else 'fixed two-round rate controls'
-    for strategy in (('FedAvg', 'FedProx', 'FedOpt') if options.longer else ('FedProx', 'FedOpt')):
+    for strategy in (options.strategies or (('FedAvg', 'FedProx', 'FedOpt') if options.longer else ('FedProx', 'FedOpt'))):
         for rate in ((0.001,) if options.longer else (0.01, 0.001, 0.0001)):
             import strategy_client_settings
             # These counterfactual settings exist only in this diagnostic process.
@@ -120,7 +136,7 @@ def main():
                         recipes.get_recipe('CIFAR_RESNET18').classes).dataset
                     require_validation_disjoint([p.trainloader.dataset for p in participants], validation)
                 current = OrderedDict(((k, v.clone()) for k, v in initial.items()))
-                aggregator = fl_server.select_strategy(Namespace(strategy=strategy, min_clients=2, clients_per_round=2, model_type='CIFAR_RESNET18', fedopt_server_learning_rate=0.01), current, None)
+                aggregator = make_aggregator(strategy, current, options.fedopt_server_learning_rate)
                 for r in range(1, contract.num_rounds + 1):
                     updates = []
                     round_result = {'round': r, 'clients': []}

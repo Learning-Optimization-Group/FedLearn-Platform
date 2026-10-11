@@ -65,3 +65,34 @@ def test_longer_controls_refuse_training_examples_in_validation():
         module.require_validation_disjoint([first], heldout)
     separated = TensorDataset(torch.tensor([[5., 6.]]), torch.tensor([1]))
     module.require_validation_disjoint([first], separated)
+
+
+def test_server_rate_control_changes_real_fedopt_updates_without_changing_client_rate():
+    import importlib.util
+    from collections import OrderedDict
+    import torch
+    driver = Path(__file__).resolve().parents[2] / 'research/benchmarks/resnet_client_rates.py'
+    spec = importlib.util.spec_from_file_location('resnet_rate_probe', driver)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    initial = OrderedDict(w=torch.tensor([0.]))
+    # Aggregation consumes its input dictionaries; each independent control needs fresh updates.
+    results = [module.make_aggregator('FedOpt', initial, rate).aggregate_fit(1,
+        [('0', OrderedDict(w=torch.tensor([.1])), 64),
+         ('1', OrderedDict(w=torch.tensor([.1])), 64)])['w'] for rate in (.001, .01)]
+    assert torch.allclose(results[1], results[0] * 10)
+    assert results[0].item() > 0
+    import strategy_client_settings
+    assert strategy_client_settings.client_learning_rate('FedOpt', 'CIFAR_RESNET18') == .001
+
+
+def test_two_round_probe_refuses_fedavg_rate_labels_before_opening_inputs(tmp_path):
+    driver = Path(__file__).resolve().parents[2] / 'research/benchmarks/resnet_client_rates.py'
+    command = [sys.executable, str(driver)]
+    for option in ('contract', 'initial-state', 'phone-package', 'desktop-package'):
+        command += ['--'+option, str(tmp_path/'absent')]
+    output = tmp_path/'results'
+    result = subprocess.run(command + ['--output-dir', str(output), '--strategies', 'FedAvg'],
+                            text=True, capture_output=True)
+    assert result.returncode != 0
+    assert 'FedAvg requires --longer' in result.stderr
+    assert not output.exists()
