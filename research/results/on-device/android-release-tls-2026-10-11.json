@@ -1,0 +1,120 @@
+{
+  "date": "2026-10-11",
+  "source_commit": "0a26b7e",
+  "scope": "Local release packaging, debug-app update-signature behavior and real native gRPC TLS fixture",
+  "signing": {
+    "real_gradle_cases": 8,
+    "mandatory_gate": "preReleaseBuild",
+    "debug_identity_refused": true,
+    "passwords_absent_from_output": true,
+    "temporary_keys_removed": true
+  },
+  "release": {
+    "apk_sha256": "5e14e621c94335f2be6c92d1206c5c836b2a916269fea5ca9bf01eb00a945c1b",
+    "apk_bytes": 44294419,
+    "identity": "Temporary local qualification certificate, not a production release identity",
+    "private_key_retained": false
+  },
+  "installation": {
+    "scope": "Local signed qualification APK; no production release identity or deployment",
+    "installed_certificate_sha256": "4a6dc31e7b840e5425462c2ccfe395295f0cb1d48460f39a030648620d2c86f6",
+    "qualification_release_certificate_sha256": "b4d92b50ad26ab72a23427718ecdc923090e50cec405794126e5cf314cd3e427",
+    "debug_certificate_sha256": "4a6dc31e7b840e5425462c2ccfe395295f0cb1d48460f39a030648620d2c86f6",
+    "release_apk_sha256": "5e14e621c94335f2be6c92d1206c5c836b2a916269fea5ca9bf01eb00a945c1b",
+    "debug_apk_sha256": "d4a5f1f763b618916a8ccf31214acd974fea55c3ebba38f26a41cf203b6623e0",
+    "different_signer_update_refused": true,
+    "same_signer_debug_update_succeeded": true,
+    "private_qualification_key_retained": false
+  },
+  "phone_data": {
+    "files": 33,
+    "all_sha256_unchanged": true,
+    "foreground_service_absent": true
+  },
+  "native_tls": {
+    "scope": "Real vivo native gRPC transport against a fixed-response local TLS server; not full HTTPS enrollment or federated-training qualification",
+    "server_certificate_sha256": "47269a5a2b118a1ef201a83fc581f22c064351f325ff2c313a60dec4f65768cd",
+    "private_key_persisted": false,
+    "successful_registration_count": 1,
+    "cases": [
+      {
+        "case": "trusted",
+        "accepted": true,
+        "seconds": 1.586222749989247,
+        "result": {
+          "state": "done",
+          "result": {
+            "accepted": true,
+            "message": "local TLS fixture",
+            "assignedRound": 1,
+            "serverProtocolVersion": 2
+          },
+          "status": {
+            "serverState": "TRAINING_COMPLETE",
+            "currentRound": 1,
+            "requiredClientsForRound": 1,
+            "receivedUpdatesThisRound": 1,
+            "activeClients": 1,
+            "roundDeadlineUnixMs": 0
+          }
+        }
+      },
+      {
+        "case": "wrong-root",
+        "accepted": false,
+        "seconds": 1.1667805839970242,
+        "result": {
+          "state": "refused",
+          "error": "RegisterClient failed: gRPC code 14: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:58443: Ssl handshake failed (TSI_PROTOCOL_FAILURE): SSL_ERROR_SSL: error:1000007d:SSL routines:OPENSSL_internal:CERTIFICATE_VERIFY_FAILED"
+        }
+      },
+      {
+        "case": "wrong-hostname",
+        "accepted": false,
+        "seconds": 0.9806054590153508,
+        "result": {
+          "state": "refused",
+          "error": "RegisterClient failed: gRPC code 14: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:58443: Peer name 127.0.0.1 is not in peer certificate"
+        }
+      },
+      {
+        "case": "default-untrusted-roots",
+        "accepted": false,
+        "seconds": 0.9266338330053259,
+        "result": {
+          "state": "refused",
+          "error": "RegisterClient failed: gRPC code 14: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:58443: Ssl handshake failed (TSI_PROTOCOL_FAILURE): SSL_ERROR_SSL: error:1000007d:SSL routines:OPENSSL_internal:CERTIFICATE_VERIFY_FAILED"
+        }
+      },
+      {
+        "case": "plaintext-to-tls",
+        "accepted": false,
+        "seconds": 0.447203540999908,
+        "result": {
+          "state": "refused",
+          "error": "RegisterClient failed: gRPC code 14: failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:58443: Socket closed"
+        }
+      }
+    ]
+  },
+  "native_tls_fixture_driver_sha256": "ddaf790a79b069181ff8f2d029ab4a08aca58272ba8e5283bb27511c345878d5",
+  "native_tls_initial_failure": {
+    "signal": "SIGSEGV",
+    "path": "BoringSSL OPENSSL_free -> sdallocx resolved to React Native Folly data symbol",
+    "symbol_regression": "Original ELF lacked isolated weak allocator reference; final Debug and Release ELF checks pass",
+    "fix": "Only Android crypto archive reference renamed; original cache and Folly references preserved",
+    "retained_intermediate_probes": [
+      "Whole-library wrap recovered TLS but was replaced to avoid rewriting legitimate Folly data references.",
+      "Debugger/provider startup attempts failed before TLS calls; final fixture uses the actual native TurboModule after readiness."
+    ]
+  },
+  "release_native_plaintext_capability": false,
+  "numerical_core_archive_sha256": "4cc1c7bdc054fcc55f76936a1f2ebb2cf6f4a0233c11a33a141df580a9baff2a",
+  "limits": [
+    "Temporary local qualification signer; no persistent production key exists.",
+    "Differently signed release was refused, not installed. Positive update is same-signer Debug, not release-to-release.",
+    "Fixed-response local TLS server, not HTTPS enrollment or a full secure federated-training run.",
+    "USB/SSH routes and a self-signed localhost certificate; no deployed endpoint is qualified.",
+    "Native Debug TLS transport tested physically; Release TLS requirement and allocator isolation verified by compile/ELF and regression checks, not a physical release-app run."
+  ]
+}

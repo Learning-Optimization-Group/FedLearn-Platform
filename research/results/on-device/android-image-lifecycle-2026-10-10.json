@@ -1,0 +1,222 @@
+{
+  "date": "2026-10-10",
+  "scope": "Three-round original-pneumonia image interruption qualification on mounted production provider and canonical Linux client",
+  "project_id": "65820203-bc1c-4b94-b971-8b6be7de86b8",
+  "run_id": "3d5d6ef1-8288-4921-892a-cce1dfec1a73",
+  "strategy": "FedAvg",
+  "rounds": 3,
+  "rows_per_client": 16,
+  "client_adam_rate": 0.001,
+  "contract_sha256": "973bcfea8b88237838bd2c2efcbeb1ac696bb2b07a90c8dc40973d77dd50a3b6",
+  "initial_npz_sha256": "07928a521661bfa179dfec5c97ecd636c9484070bcd4191d096a5baa5f3e80d2",
+  "native_apk_source_commit": "f627a9871915dd6936cadbab6ac78293bbc633ad",
+  "native_apk_sha256": "5459bafb3312c1ce0762a3a4d6445ef968e926a3688b674a4362ff47e319dd2c",
+  "js_source_commit": "2842904",
+  "numerical_core_archive_sha256": "4cc1c7bdc054fcc55f76936a1f2ebb2cf6f4a0233c11a33a141df580a9baff2a",
+  "events": [
+    {
+      "at_utc": "2026-10-11T00:43:15.186071+00:00",
+      "name": "before_training",
+      "battery_temperature_c": 27.0
+    },
+    {
+      "at_utc": "2026-10-11T00:43:51.778031+00:00",
+      "name": "forced_idle_observation",
+      "device_idle": true,
+      "power_manager_idle": true,
+      "asleep": true,
+      "usb_transport": true,
+      "battery_reporting_simulated": true
+    },
+    {
+      "at_utc": "2026-10-11T00:46:59.027285+00:00",
+      "name": "phone_round1_runtime_complete"
+    },
+    {
+      "at_utc": "2026-10-11T00:46:59.575349+00:00",
+      "name": "after_round1",
+      "battery_temperature_c": 27.0
+    },
+    {
+      "at_utc": "2026-10-11T00:46:59.742897+00:00",
+      "name": "desktop_round_released",
+      "round": 1
+    },
+    {
+      "at_utc": "2026-10-11T00:47:24.203490+00:00",
+      "name": "native_round2_status_probe",
+      "state": "pending"
+    },
+    {
+      "at_utc": "2026-10-11T00:47:24.711200+00:00",
+      "name": "state_after_stop_request",
+      "machine": "training",
+      "stopping": true
+    },
+    {
+      "at_utc": "2026-10-11T00:47:27.959153+00:00",
+      "name": "stop_completed_after_native_unwind",
+      "elapsed_ms": 1247,
+      "checkpoint": 1,
+      "no_round2_upload": true
+    },
+    {
+      "at_utc": "2026-10-11T00:47:30.504617+00:00",
+      "name": "same_run_rejoin_after_stop_completed"
+    },
+    {
+      "at_utc": "2026-10-11T00:51:15.810460+00:00",
+      "name": "after_round2",
+      "battery_temperature_c": 27.0
+    },
+    {
+      "at_utc": "2026-10-11T00:51:15.811041+00:00",
+      "name": "phone_round2_complete_peer_still_held"
+    },
+    {
+      "at_utc": "2026-10-11T00:51:15.978556+00:00",
+      "name": "socket_outage_started",
+      "duration_seconds": 20
+    },
+    {
+      "at_utc": "2026-10-11T00:51:36.128774+00:00",
+      "name": "socket_outage_restored"
+    },
+    {
+      "at_utc": "2026-10-11T00:51:56.811973+00:00",
+      "name": "outage_recovered_without_duplicate_round2",
+      "native_round": 2
+    },
+    {
+      "at_utc": "2026-10-11T00:51:57.016673+00:00",
+      "name": "desktop_round_released",
+      "round": 2
+    },
+    {
+      "at_utc": "2026-10-11T00:55:22.049206+00:00",
+      "name": "after_round3",
+      "battery_temperature_c": 27.0
+    },
+    {
+      "at_utc": "2026-10-11T00:55:22.196668+00:00",
+      "name": "desktop_round_released",
+      "round": 3
+    },
+    {
+      "at_utc": "2026-10-11T00:55:38.990434+00:00",
+      "name": "completed",
+      "unique_updates": 6,
+      "checkpoint": 3,
+      "foreground_service_absent": true,
+      "js_source_commit": "2842904"
+    },
+    {
+      "at_utc": "2026-10-11T00:55:40.237577+00:00",
+      "name": "owned_device_state_and_route_restored",
+      "success": true
+    }
+  ],
+  "accepted_updates": [
+    {
+      "round": 1,
+      "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+      "examples": 16,
+      "sha256": "6a768ca8f86d636dc63d0cde01eec901d4290cf8dee7e7e46a08050be3d9b35b"
+    },
+    {
+      "round": 1,
+      "client_id": "project_65820203-bc1c-4b94-b971-8b6be7de86b8_client_0",
+      "examples": 16,
+      "sha256": "661edd5f05eaa3a55ac16a3983ebab260508bf055e7a2aa3bf8b71eba544975e"
+    },
+    {
+      "round": 2,
+      "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+      "examples": 16,
+      "sha256": "d2ea3a2fbe46885b2eb77fd6000143705c2a23196b9a9b08801a25bbafd0841a"
+    },
+    {
+      "round": 2,
+      "client_id": "project_65820203-bc1c-4b94-b971-8b6be7de86b8_client_0",
+      "examples": 16,
+      "sha256": "cd6bb22eb6681c86ac7087ca0b05e80ed762ee89815d3befe27b557994a38cac"
+    },
+    {
+      "round": 3,
+      "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+      "examples": 16,
+      "sha256": "eaca9f5f301407d26e16183d94a2511eed9e9e806459b426e0f434d88c3dde26"
+    },
+    {
+      "round": 3,
+      "client_id": "project_65820203-bc1c-4b94-b971-8b6be7de86b8_client_0",
+      "examples": 16,
+      "sha256": "cbb24d5234bf396f2bdbf9ea9cc8032c8ed19785f2755924d085715c64347e6a"
+    }
+  ],
+  "original_python_replay": {
+    "run_id": "3d5d6ef1-8288-4921-892a-cce1dfec1a73",
+    "torch": "2.12.0+cpu",
+    "torch_num_threads": 1,
+    "rounds": [
+      {
+        "round": 1,
+        "examples": 16,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      },
+      {
+        "round": 2,
+        "examples": 16,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      },
+      {
+        "round": 3,
+        "examples": 16,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      }
+    ],
+    "wrong_label_control_max_abs_diff": 0.001999998465180397
+  },
+  "original_phone_replay": {
+    "rounds_bitwise_exact": 3,
+    "wrong_label_control_max_abs_diff": 0.001999998465,
+    "finite": true,
+    "log_sha256": "1132fed7bf2d6a4f8403cdca25cd3c3b47bc4adabccbffa4f24726a289ffe973"
+  },
+  "aggregate_replay_exact": true,
+  "registered_artifact_sha256": "ef219b3379bed992845618522af521943ac3b03caa206325cc59b83895468fed",
+  "registered_artifact_exact": true,
+  "final_checkpoint": 3,
+  "foreground_service_absent": true,
+  "retained_failures": [
+    {
+      "failure": "Initial driver observed accepted update before post-training evaluation and checkpoint persistence; its early checkpoint assertion was inconclusive."
+    },
+    {
+      "failure": "Stop previously returned before native work quiesced and immediate rejoin was refused; plain native STOP object was also misclassified as a transient network failure.",
+      "fix": "b4b455c"
+    },
+    {
+      "failure": "Twenty-second outage exhausted immediate failed rejoins before connectivity returned.",
+      "fix": "2842904",
+      "terminal_observation": {
+        "project_id": "ca205487-ad2a-4c95-b4f5-4804a30a1bce",
+        "status": "FAILED",
+        "artifact_http_status": 404
+      }
+    }
+  ],
+  "limits": [
+    "Debug APK with authenticated development plaintext over USB/SSH routes.",
+    "Forced idle and asleep state confirmed at entry and held through round-one runtime completion; USB-assisted simulated unplug, not natural wireless Doze.",
+    "One bounded image run with 16 examples per client; not hour-scale suspension or sustained thermal qualification.",
+    "Battery temperature was 27C at boundaries; simulated unplug freezes battery reporting, so this is not a peak-temperature measurement.",
+    "Stop is cooperative and can wait for a native graph to finish; 1247ms is this measured case, not a worst-case bound.",
+    "Network interruption occurred while waiting for the gated peer after phone round two, not during model upload.",
+    "Post-run native replay reproduces update computation; it does not replay UI, RPC timing or post-training inference metrics.",
+    "Later second-abort/late-registration cleanup is covered by regression tests; it is not separately claimed as physically raced here."
+  ]
+}

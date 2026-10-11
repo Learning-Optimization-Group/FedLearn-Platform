@@ -41,6 +41,20 @@ contributions after rejoin. The
 binds the native activity fix and preserved datasets. Automatic recovery of a
 JavaScript import promise after process death is not claimed.
 
+The [longer image interruption receipt](../../research/results/on-device/android-image-lifecycle-2026-10-10.json)
+adds a three-round,16-image-per-client run: forced idle/screen off through the
+first phone round, cooperative Stop/rejoin, and recovery from a20second active
+socket outage while waiting for the peer. All six original contributions replay
+exactly. Stop now keeps the stopping state until native work quiesces; failed
+rejoins back off instead of exhausting recovery immediately. This forced-idle
+case uses simulated unplug and USB routes; natural wireless Doze, hour-scale
+suspension and sustained thermal behavior remain unqualified.
+
+[Release readiness](14-release-readiness.md) records explicit signing gates,
+local signed packaging, update-signature controls, preserved datasets and native
+TLS positive/negative cases. Production signing and deployed HTTPS/gRPC checks
+remain open.
+
 The fresh Mac package qualified its normal login, native CSV file picker,
 enrollment, selected model preset and Start flow in the
 [breast-cancer XGBoost run](../../research/results/xgboost/breast-cancer-mixed-cpu-2026-10-10.json).
@@ -66,8 +80,10 @@ before the server polling loop, which previously left a failed run waiting.
 - iOS needs a native training bridge and physical-device qualification.
 - GPU/XNNPACK variants need probes, fallback/quarantine and replay evidence.
 - Android secure aggregation is not implemented; the phone refuses secure runs.
-- Signed release packaging, deployed TLS, forced Doze, long suspension,
-  sustained thermal behavior and image-duration interruption tests remain open.
+- A persistent release identity, same-release-key update, deployed HTTPS/TLS
+  training, natural wireless Doze, long suspension and sustained thermal behavior
+  remain open. Local packaging/TLS and the bounded image interruption case above
+  are now measured.
 - Android tree training needs a tree runtime, transport and feature-schema data
   path. The working Mac/Linux XGBoost path does not enable it.
 
@@ -77,3 +93,6 @@ quality is evaluated separately in the
 [bounded learning controls](../../research/notes/on-device/2026-10-10-learning-controls.md),
 which show that successful training does not yet yield useful NIH classification
 or reliable longer ResNet convergence.
+The [learning follow-up](../../research/notes/on-device/2026-10-11-learning-followup.md)
+records an improved offline ResNet server-step candidate and a failed NIH
+threshold adjustment, without changing platform defaults or claiming deployment.
