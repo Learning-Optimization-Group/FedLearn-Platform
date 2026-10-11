@@ -56,7 +56,14 @@ renewed heartbeat after failed registration. The subsequent
 require accepted re-registration before further rounds and serialize native
 client replacement/heartbeat lifecycle against Stop. Regression tests and a
 real native cancellation/re-registration fixture verify those corrections;
-a new physical image-outage run on that final source is not claimed here.
+the [fresh final-source image run](../../research/results/on-device/android-image-reconnect-final-2026-10-11.json)
+now separately observes accepted re-registration and an acknowledged upstream
+heartbeat after a failed rejoin, before releasing the held peer. Another heartbeat
+is acknowledged while resumed native work is pending. The new run also repeats
+forced idle and Stop/rejoin, without relabeling the older receipt. Native heartbeat
+round/step fields remain fixed at registration; this proves liveness rather than
+accurate per-round telemetry. Pending native work does not distinguish graph
+computation from a model RPC.
 
 [Release readiness](14-release-readiness.md) records explicit signing gates,
 local signed packaging, update-signature controls, preserved datasets and native

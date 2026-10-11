@@ -81,3 +81,14 @@ Signing checks preserve the installed identity and app data; same-signer Debug
 updates were allowed to qualify native fixes. This clarifies the plan's initial
 APK-freeze wording. The cost of that choice is retaining earlier physical runs
 against their original APK instead of extending them to the updated transport.
+
+A subsequent [fresh final-source image qualification](2026-10-11-final-source-image-reconnect.md)
+closes the explicitly retained image-outage gap. It uses native `73ca4bf` and
+JavaScript/Linux `50a01ca`: after a failed rejoin, the real upstream server accepts
+registration and acknowledges a heartbeat before the held peer is released.
+Continued liveness during pending native work, six unique contributions, exact
+original phone/Linux/aggregate replay and preserved datasets are separately bound
+in the new receipt. This supplements the earlier source-bound run. Heartbeat
+round/step telemetry remains fixed at registration; pending native work does not
+identify graph computation. Natural wireless Doze, graph-boundary Stop, upload
+interruption and production release/security qualification remain open.

@@ -1,0 +1,373 @@
+{
+  "date": "2026-10-11",
+  "scope": "Fresh three-round original-pneumonia image interruption qualification on final corrected transport and reconnect source; real mounted phone provider and canonical Linux CPU client",
+  "project_id": "79df86a3-9b6e-4f9e-9288-91f9a9f0c3e4",
+  "run_id": "0c234fc1-af43-4611-8d96-5c5b4010ec0d",
+  "strategy": "FedAvg",
+  "rounds": 3,
+  "rows_per_client": 16,
+  "client_adam_rate": 0.001,
+  "contract_sha256": "90454843cc109ff537b75b5e609fd62055739b6d8c938a24640a1d1868b72d7b",
+  "initial_npz_sha256": "95e99536434d335ca30307c529130e4b3344a8a0476ab014b0b2292ec2b999d2",
+  "native_apk_source_commit": "73ca4bf",
+  "native_apk_sha256": "7e73377281a583a7f64158c36438d17a4d7a57bb5c8ef12bda25024eb1d1a755",
+  "js_source_commit": "50a01ca9ad80f586b7944cc8fc6ee434f31a2b82",
+  "numerical_core_archive_sha256": "4cc1c7bdc054fcc55f76936a1f2ebb2cf6f4a0233c11a33a141df580a9baff2a",
+  "native_replay_binary_sha256": "fdfd21b7c32a175eb3a08091433b075770e06ccc15de38a2afb36f26eef71af9",
+  "phone_snapshot_sha256": "195fd49e3f08f215a1f925d9699f655fbb2dff153ef2ddf0cffae7437636c5c7",
+  "desktop_package_sha256": "0b78ede069b937df804686c86b01d8dd9585561710c0e452b794d7d6754c4d64",
+  "replay_inputs_sha256": {
+    "global-3.safetensors": "e5265b0bdad5e3c88f49e52f6fba93b47f40e9d4ec5f0e2d2f8264ec151680f8",
+    "inputs.f32": "2cd95f141d584b71626bf48652ea5c3c5e01885e7f05a65f309a4fa88bd9730e",
+    "phone-3.safetensors": "3f2b0961f4b251d0617ee716a2bd73b587c4fd0c08743e5c5fe657db92757a87",
+    "seed.txt": "a006f9bfe7c2daedbbba897aa1ad0d8b83f4c1d893791de6071192356ed51c3c",
+    "phone-2.safetensors": "ad30790416285f7bbafcf4bd804e4c85f04c21afdc101cdae3db9fa6050a73bf",
+    "targets.i64": "617e68376fdabdad143eeb7ebecc8ab8b129d6f3cc03d6e70747a6607b2edf6c",
+    "trainable.pte": "71a15394f3a4ecf5d6f7e126eb007a06377d6326bd055d9094ff27595d832378",
+    "phone-1.safetensors": "494456bb7b2c89a3822351fc7fa19e00f5c300443b1fe70f1f3494153dbddc44",
+    "loss.pte": "fa07950ea8100e6f5ad4737168677a56ec5a858344854d6053044c25d117fcc2",
+    "desktop-3.safetensors": "6eb2c77eca1adc29582bd668f87f4a22d1f8ad7af6d2b89855af572f129db49b",
+    "desktop-2.safetensors": "227307a873eca3ff865c687378bb64964d02a322db730f6830f11cd3c909de68",
+    "desktop-1.safetensors": "214f82c14581ac2736192448df1f212d94b1f84bc945470bb83fe8566acbdf6e",
+    "global-2.safetensors": "179fde07fdf809e0006743d5e41d5a89fc83dee5133916fecae2c209808babe8",
+    "global-1.safetensors": "30cd086c57237864fd70005e3a41a5e29996f2811bdd0bbfb17a609648ec9c42"
+  },
+  "events": [
+    {
+      "at_utc": "2026-10-11T08:03:08.469842+00:00",
+      "name": "before_training",
+      "battery_temperature_c": 27.0
+    },
+    {
+      "at_utc": "2026-10-11T08:03:36.089086+00:00",
+      "name": "forced_idle_observation",
+      "device_idle": true,
+      "power_manager_idle": true,
+      "asleep": true,
+      "usb_transport": true,
+      "battery_reporting_simulated": true
+    },
+    {
+      "at_utc": "2026-10-11T08:08:28.909625+00:00",
+      "name": "phone_round1_runtime_complete"
+    },
+    {
+      "at_utc": "2026-10-11T08:08:29.759247+00:00",
+      "name": "after_round1",
+      "battery_temperature_c": 26.0
+    },
+    {
+      "at_utc": "2026-10-11T08:08:29.971221+00:00",
+      "name": "desktop_round_released",
+      "round": 1
+    },
+    {
+      "at_utc": "2026-10-11T08:09:37.275196+00:00",
+      "name": "native_round2_status_probe",
+      "state": "pending"
+    },
+    {
+      "at_utc": "2026-10-11T08:09:38.364322+00:00",
+      "name": "state_after_stop_request",
+      "machine": "training",
+      "stopping": true
+    },
+    {
+      "at_utc": "2026-10-11T08:09:43.290293+00:00",
+      "name": "stop_completed_after_native_unwind",
+      "elapsed_ms": 1703,
+      "checkpoint": 1,
+      "no_round2_upload": true
+    },
+    {
+      "at_utc": "2026-10-11T08:09:46.481249+00:00",
+      "name": "same_run_rejoin_after_stop_completed"
+    },
+    {
+      "at_utc": "2026-10-11T08:13:43.478184+00:00",
+      "name": "after_round2",
+      "battery_temperature_c": 27.0
+    },
+    {
+      "at_utc": "2026-10-11T08:13:43.478791+00:00",
+      "name": "phone_round2_complete_peer_still_held"
+    },
+    {
+      "at_utc": "2026-10-11T08:13:43.609995+00:00",
+      "name": "socket_outage_started",
+      "duration_seconds": 20
+    },
+    {
+      "at_utc": "2026-10-11T08:14:03.812703+00:00",
+      "name": "socket_outage_restored"
+    },
+    {
+      "at_utc": "2026-10-11T08:14:17.399988+00:00",
+      "name": "upstream_accepted_re_registration_and_renewed_heartbeat",
+      "registration": {
+        "at_utc": "2026-10-11T08:14:16.606637+00:00",
+        "name": "rpc_completed",
+        "active_connections": 1,
+        "accepted": 4,
+        "rejected": 8,
+        "closed_for_outage": 1,
+        "connection": 4,
+        "stream": 1,
+        "method": "RegisterClient",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "0c234fc1-af43-4611-8d96-5c5b4010ec0d",
+        "registration_status": 1,
+        "assigned_round": 2
+      },
+      "heartbeat": {
+        "at_utc": "2026-10-11T08:14:16.662874+00:00",
+        "name": "rpc_completed",
+        "active_connections": 1,
+        "accepted": 4,
+        "rejected": 8,
+        "closed_for_outage": 1,
+        "connection": 4,
+        "stream": 3,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "0c234fc1-af43-4611-8d96-5c5b4010ec0d",
+        "current_round": 2,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 0,
+        "acknowledged": true,
+        "should_stop": false
+      }
+    },
+    {
+      "at_utc": "2026-10-11T08:14:17.400309+00:00",
+      "name": "outage_recovered_without_duplicate_round2",
+      "native_round": 2
+    },
+    {
+      "at_utc": "2026-10-11T08:14:17.537223+00:00",
+      "name": "desktop_round_released",
+      "round": 2
+    },
+    {
+      "at_utc": "2026-10-11T08:14:40.163265+00:00",
+      "name": "resumed_native_work_probe",
+      "state": "pending",
+      "round3_update_absent": true
+    },
+    {
+      "at_utc": "2026-10-11T08:14:40.908843+00:00",
+      "name": "resumed_work_upstream_heartbeat_observed",
+      "heartbeat": {
+        "at_utc": "2026-10-11T08:14:40.598315+00:00",
+        "name": "rpc_completed",
+        "active_connections": 1,
+        "accepted": 4,
+        "rejected": 8,
+        "closed_for_outage": 1,
+        "connection": 4,
+        "stream": 37,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "0c234fc1-af43-4611-8d96-5c5b4010ec0d",
+        "current_round": 2,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 0,
+        "acknowledged": true,
+        "should_stop": false
+      }
+    },
+    {
+      "at_utc": "2026-10-11T08:18:14.012707+00:00",
+      "name": "after_round3",
+      "battery_temperature_c": 27.0
+    },
+    {
+      "at_utc": "2026-10-11T08:18:14.155504+00:00",
+      "name": "desktop_round_released",
+      "round": 3
+    },
+    {
+      "at_utc": "2026-10-11T08:18:35.389395+00:00",
+      "name": "completed",
+      "unique_updates": 6,
+      "checkpoint": 3,
+      "foreground_service_absent": true,
+      "js_source_commit": "50a01ca"
+    },
+    {
+      "at_utc": "2026-10-11T08:18:37.487441+00:00",
+      "name": "owned_device_state_and_route_restored",
+      "success": true
+    }
+  ],
+  "outage": {
+    "requested_seconds": 20,
+    "observed_event_interval_seconds": 20.202708,
+    "first_rejoin_failed": true,
+    "accepted_registration_and_acknowledged_heartbeat_before_peer_release": true,
+    "resumed_native_work_heartbeat_acknowledged": true,
+    "passive_observation_errors": 0
+  },
+  "accepted_updates": [
+    {
+      "client": "phone",
+      "round": 1,
+      "examples": 16,
+      "state_sha256": "494456bb7b2c89a3822351fc7fa19e00f5c300443b1fe70f1f3494153dbddc44"
+    },
+    {
+      "client": "linux",
+      "round": 1,
+      "examples": 16,
+      "state_sha256": "214f82c14581ac2736192448df1f212d94b1f84bc945470bb83fe8566acbdf6e"
+    },
+    {
+      "client": "phone",
+      "round": 2,
+      "examples": 16,
+      "state_sha256": "ad30790416285f7bbafcf4bd804e4c85f04c21afdc101cdae3db9fa6050a73bf"
+    },
+    {
+      "client": "linux",
+      "round": 2,
+      "examples": 16,
+      "state_sha256": "227307a873eca3ff865c687378bb64964d02a322db730f6830f11cd3c909de68"
+    },
+    {
+      "client": "phone",
+      "round": 3,
+      "examples": 16,
+      "state_sha256": "3f2b0961f4b251d0617ee716a2bd73b587c4fd0c08743e5c5fe657db92757a87"
+    },
+    {
+      "client": "linux",
+      "round": 3,
+      "examples": 16,
+      "state_sha256": "6eb2c77eca1adc29582bd668f87f4a22d1f8ad7af6d2b89855af572f129db49b"
+    }
+  ],
+  "phone_replay": {
+    "rounds": [
+      {
+        "round": 1,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      },
+      {
+        "round": 2,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      },
+      {
+        "round": 3,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      }
+    ],
+    "wrong_label_control_max_abs_diff": 0.001999996603,
+    "wrong_label_control_bitwise_equal": false
+  },
+  "linux_replay": {
+    "run_id": "0c234fc1-af43-4611-8d96-5c5b4010ec0d",
+    "torch": "2.12.0+cpu",
+    "torch_num_threads": 8,
+    "rounds": [
+      {
+        "round": 1,
+        "examples": 16,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      },
+      {
+        "round": 2,
+        "examples": 16,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      },
+      {
+        "round": 3,
+        "examples": 16,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      }
+    ],
+    "wrong_label_control_max_abs_diff": 0.001999996602535248
+  },
+  "aggregate_replay": {
+    "bitwise_equal": true,
+    "integer_counters_unchanged": true,
+    "finite_state": true,
+    "batchnorm_variances_nonnegative": true
+  },
+  "registered_artifact": {
+    "sha256": "363b97180d5c5732636bd3bcf171cffc535623fba5cc456c6b272d8f59f02351",
+    "registered_npz_sha256": "363b97180d5c5732636bd3bcf171cffc535623fba5cc456c6b272d8f59f02351"
+  },
+  "preservation": {
+    "files": 33,
+    "all_sha256_unchanged": true,
+    "foreground_service_absent": true
+  },
+  "provider_session": {
+    "rounds": 2,
+    "scalarsTransmitted": 0,
+    "bytesUp": 206270194,
+    "bytesDown": 206270192,
+    "computeMs": 323320
+  },
+  "provider_session_scope": "Rounds2 and3 after Stop/rejoin; round1 completed in the preceding provider session",
+  "observer": {
+    "hpack_version": "4.1.0",
+    "protocol_checks_passed": 5,
+    "forwarding": "Unmodified raw HTTP/2 bytes; selected request/response protobufs decoded passively, successful unary calls require upstream grpc-status=0 trailers",
+    "credentials_recorded": false,
+    "counter_scope": "accepted/rejected/closed_for_outage are proxy connection counters, not registration or update counts"
+  },
+  "retained_initial_attempts": [
+    "Development SSH tunnel expired before phone registration; no phone training in that attempt.",
+    "Desktop token expired during route restoration; real enrollment refreshed the same partition. No authentication policy change."
+  ],
+  "limitations": [
+    "Debug APK and authenticated development plaintext, not production Release or deployed HTTPS/TLS training.",
+    "Forced idle uses simulated unplug and USB transport; natural wireless Doze, long suspension and sustained thermal behavior remain unqualified.",
+    "Boundary battery observations are not peak-temperature measurements.",
+    "Pending native status probes establish serialized native work, not whether graph compute or a model RPC is holding the lock.",
+    "Native heartbeat round/step fields remain fixed at registration; acknowledged liveness does not qualify per-round progress telemetry.",
+    "Socket cut occurred while awaiting the peer after a completed checkpoint; interruption during model-update upload remains unqualified.",
+    "Private physical harness and local datasets are hash-bound; no independent repetition is claimed."
+  ],
+  "private_evidence_sha256": {
+    "events.json": "64c00ca770e9d80e09b4160fb37b09a5862ef47fdb9a0e07e6cd3acbca13bc7a",
+    "proxy-events.jsonl": "f3ddae74816feb953c3de467c2e838ab285baf3393da618148438ffb52ddbc54",
+    "exercise.log": "194531a8a1931d2de8dd499717c4313d4b757b92a979aad9538d4fcea34e0550",
+    "provider-final.json": "33ef3b42bd6471aeb93cad325bf1894a0bb9b606382b7442c5c34c14e668ebec",
+    "phone-native-replay.log": "1a0845bb1880d264887eefc659d6f21941149ae9facefaa37840a4a5dc06a4ea",
+    "desktop-replay.json": "649d67b517744de93d112c1a7cc6c49058cb649c1da5f7dcdc3c52b9f049c66e",
+    "aggregate-replay.json": "36c72ab141cefa5cf194433a73cb3d7decf2f1bae706a8841ba4c9607c6e9342",
+    "phone-preservation.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+    "source-binding.json": "4f49dd2e8998893dbc190da4997a38670ba384e4d8245929db04223027ca3f92",
+    "exercise-initial-route-failure.log": "67b209c1aa44e7e9436c8eb3decf7a38236eb33962c0107d08828eb0dfbce5e1",
+    "desktop-expired-token.log": "406865cf312afbb56b8d9f8d10f179ac2c4bf6b6af8b792a8a8e6ea7b6daad28",
+    "desktop-initial-route-failure.log": "c311374f03dca90fc0fdc3d0e333fa389f68b6dbb9dfb29a3bbab454bd354b17",
+    "phone-replay-job.json": "df63123be9c44acd643d81f792a4505ef4f51d13305e9ab4e86a84e64bf29687",
+    "linux-replay-job.json": "d6708af13bf0b87ddbf201a2c228905edbcb7a35e5acb08ba96b7abbd7bfeb49",
+    "replay-transfer-sha256.json": "6c2247cb6c0e8b1f4778259cde73b5e96d988082ecb52fedc17e05286eeadfe0"
+  },
+  "private_driver_sha256": {
+    "image_reconnect_observer.py": "c4b28c63db937d27073e1d4ab5ed1587bdf1b5cd200f3701e5c91ca8fe367b21",
+    "image_reconnect_observer_test.py": "913394cb5fba2ec71679da200aebca9c3f88d640bb258c541b83e5501f20580a",
+    "image_reconnect_proxy.py": "000172cf96b9fff575933fe4d81639bfe442b74b415b3e6b4d930e0c62b542c6",
+    "image_reconnect_exercise.py": "803a3ab9dc13a836c40db1bbffaf74a1f72508bc8f72f8adeff1d96c3ee1aaa5",
+    "image_reconnect_setup.py": "3480bc822655bb6603431abb245ffd14fd10fd5a09e44d7359d0b1c4ad97623c",
+    "image_reconnect_desktop.py": "aa466ed09a700222c4cd0469335211dfe6fdae888adba3ebc88c48655614991e",
+    "image_reconnect_prepare_replay.py": "01e7f146170f73ae8689e339e9733e6b24e899a332c103ccee697c92dedc2c3e",
+    "image_reconnect_desktop_replay.py": "ef76223ed534a3c75c2280634610f8beba1de004b2a48b1da2bf024dd8254024",
+    "run_image_reconnect_phone_replay.py": "e7f10dae8100a17e2f736be2f3410813f45a4f7cb19b10891e0148679f938179",
+    "verify_image_reconnect.py": "b7e42be3ed1c705e675fc6d936d7d71b88698a2aca45e5891a8431f5d7ce248d"
+  }
+}
