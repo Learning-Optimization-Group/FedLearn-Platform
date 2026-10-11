@@ -71,3 +71,44 @@ test('an abort error still waits for the operation to unwind before it propagate
   await Promise.all([work, stopped]);
   expect(rejected).toBe(true);
 });
+
+test('a registration created while Stop waits is also shut down before completion', async () => {
+  const flight = new SingleFlight();
+  let finish!: () => void;
+  let heartbeatActive = false;
+  const joining = flight.run(async () => {
+    await new Promise<void>(resolve => { finish = resolve; });
+    heartbeatActive = true;
+  });
+  const abort = jest.fn(async () => { heartbeatActive = false; });
+  const stopping = flight.abortAndWait(abort);
+  await Promise.resolve();
+  finish();
+  await Promise.all([joining, stopping]);
+  expect(heartbeatActive).toBe(false);
+  expect(abort).toHaveBeenCalledTimes(2);
+});
+
+test('joining stays excluded while final Stop cleanup is still pending', async () => {
+  const flight = new SingleFlight();
+  let finishWork!: () => void;
+  let finishCleanup!: () => void;
+  const work = flight.run(() => new Promise<void>(resolve => { finishWork = resolve; }));
+  let calls = 0;
+  const abort = jest.fn(() => ++calls === 1 ? Promise.resolve()
+    : new Promise<void>(resolve => { finishCleanup = resolve; }));
+  const stopping = flight.abortAndWait(abort);
+  finishWork();
+  await work;
+  for (let i = 0; i < 4; i++) await Promise.resolve();
+  expect(abort).toHaveBeenCalledTimes(2);
+  const join = jest.fn().mockResolvedValue(undefined);
+  const busy = jest.fn();
+  await flight.run(join, busy);
+  expect(join).not.toHaveBeenCalled();
+  expect(busy).toHaveBeenCalledTimes(1);
+  finishCleanup();
+  await stopping;
+  await flight.run(join, busy);
+  expect(join).toHaveBeenCalledTimes(1);
+});

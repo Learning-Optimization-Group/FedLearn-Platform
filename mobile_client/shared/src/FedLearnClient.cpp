@@ -45,6 +45,12 @@ void FedLearnClient::validateCodec(const std::string& codec) {
 }
 
 std::shared_ptr<grpc::Channel> FedLearnClient::makeChannel() const {
+#if defined(FEDLEARN_ALLOW_INSECURE_GRPC) && FEDLEARN_ALLOW_INSECURE_GRPC
+  constexpr bool allowInsecure = true;
+#else
+  constexpr bool allowInsecure = false;
+#endif
+  requireTlsTransport(cfg_.useTls, allowInsecure);
   grpc::ChannelArguments args;
   args.SetMaxReceiveMessageSize(cfg_.maxMessageBytes);
   args.SetMaxSendMessageSize(cfg_.maxMessageBytes);

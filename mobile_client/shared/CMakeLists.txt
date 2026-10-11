@@ -135,6 +135,8 @@ if(FEDLEARN_BUILD_GRPC)
     protobuf::libprotobuf
   )
   target_compile_features(fedlearn_grpc PUBLIC cxx_std_17)
+  target_compile_definitions(fedlearn_grpc PRIVATE
+    "$<$<CONFIG:Debug>:FEDLEARN_ALLOW_INSECURE_GRPC=1>")
 
   if(FEDLEARN_BUILD_TESTS)
     add_executable(fedlearn_grpc_tests tests/grpc_marshal_test.cpp)

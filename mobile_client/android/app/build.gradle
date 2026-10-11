@@ -48,7 +48,6 @@ android {
 
   buildTypes {
     release {
-      signingConfig signingConfigs.debug   // VERIFY-BEFORE-USE: replace with a real release signing config
       // Minification is OFF (RN's own template default: `enableProguardInReleaseBuilds = false`). With it
       // ON, R8 obfuscated React Native's own ViewManager/component classes (logcat showed renamed classes
       // like `com.facebook.react.uimanager.U`) because RN 0.80's consumer keep-rules don't fully cover the
@@ -76,3 +75,5 @@ dependencies {
   // FL core via the JNI/TurboModule and never ExecuTorch's Java API, so adding the AAR would only
   // ship a second, unused ET runtime — risking an in-process symbol / kernel-registration collision.
 }
+
+apply from: "release-signing.gradle"

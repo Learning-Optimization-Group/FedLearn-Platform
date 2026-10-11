@@ -15,6 +15,13 @@
 
 namespace fedlearn {
 
+// Plaintext is an explicit development-build capability, not a fallback from failed TLS.
+inline void requireTlsTransport(bool useTls, bool allowInsecure) {
+  if (!useTls && !allowInsecure) {
+    throw std::runtime_error("FedLearnClient: release transport requires TLS");
+  }
+}
+
 // Reads a certificate or key file; throws std::runtime_error when the file cannot be read.
 using FileReader = std::function<std::string(const std::string& path)>;
 
