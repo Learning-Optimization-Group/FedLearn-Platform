@@ -208,7 +208,7 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'STOP_START' });
     stopRef.current = true; // break the training loop before the native abort
     try {
-      await nativeCore.stop();
+      await participationFlight.current.abortAndWait(() => nativeCore.stop());
     } catch {
       /* already stopped / not registered */
     }

@@ -209,7 +209,7 @@ export const DEFAULT_RESILIENCE: ResiliencePolicy = {
   rejoinRecoveryRounds: 5,
 };
 
-const isStopSignal = (e: unknown): boolean => String(e).includes('STOP:');
+const isStopSignal = (e: unknown): boolean => readError(e).includes('STOP:');
 
 // The native bridge prefixes a model-execution failure (fedlearn::ModelExecutionError: ExecuTorch refused to load or
 // run a program on this device's data) so the loop can tell it from a network blip.

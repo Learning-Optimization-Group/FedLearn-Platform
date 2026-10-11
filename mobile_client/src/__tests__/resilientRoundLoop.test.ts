@@ -274,6 +274,17 @@ describe('runResilientRoundLoop (MO-8)', () => {
     expect(ops.rejoin).not.toHaveBeenCalled();
   });
 
+  it('recognizes a native plain-object STOP instead of retrying it as a network error', async () => {
+    const stopped = jest.fn();
+    const ops = baseOps({runFedAvgRound: jest.fn().mockRejectedValue({message: 'STOP: abort during local SGD'})});
+    await runResilientRoundLoop({runId: 'r', isFedAvg: true, cfg: CFG}, ops, POLICY,
+      {...hooks(), onRunEnded: stopped});
+    expect(stopped).toHaveBeenCalledTimes(1);
+    expect(ops.runFedAvgRound).toHaveBeenCalledTimes(1);
+    expect(ops.delay).not.toHaveBeenCalled();
+    expect(ops.rejoin).not.toHaveBeenCalled();
+  });
+
   it('ends cleanly on a STOP: round rejection without retrying or rejoining', async () => {
     const ops = baseOps({
       getServerStatus: jest.fn().mockResolvedValue({ serverState: 'TRAINING', currentRound: 1 }),
