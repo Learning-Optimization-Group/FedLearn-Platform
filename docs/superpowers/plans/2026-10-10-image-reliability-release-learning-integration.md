@@ -31,7 +31,9 @@ exists; prepare signing and qualify local TLS without a production claim.
   Keep debug and native unit checks usable; never print signing passwords.
 - [x] Verify missing/partial/wrong/valid signing configuration through real Gradle
   tasks. Any generated key is temporary qualification material, not a production
-  identity; do not replace the installed phone app or uninstall preserved data.
+  identity; do not replace the installed Debug app with a different signing
+  identity or uninstall preserved data. Same-key Debug updates are permitted for
+  native qualification fixes, with dataset hashes checked afterwards.
 - [x] Exercise existing native gRPC TLS against local trusted/wrong-host/wrong-root
   fixtures where tooling permits, retaining negative controls. HTTPS deployment
   and real signed-app update remain explicit prerequisites for production.

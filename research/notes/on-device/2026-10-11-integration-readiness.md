@@ -76,3 +76,8 @@ cancelled registration, and a fresh accepted registration produced a server-obse
 heartbeat. Both native fixture processes exited successfully and removed their
 owned TLS forwarding route. All33 dataset files remain hash-identical and the
 training service is absent. Development API/Metro routes remain available.
+
+Signing checks preserve the installed identity and app data; same-signer Debug
+updates were allowed to qualify native fixes. This clarifies the plan's initial
+APK-freeze wording. The cost of that choice is retaining earlier physical runs
+against their original APK instead of extending them to the updated transport.
