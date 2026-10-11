@@ -21,6 +21,7 @@ set(FEDLEARN_CONTRACT_DIR "${CMAKE_SOURCE_DIR}/../framework/tests/fixtures/execu
 
 add_executable(fedlearn_core_tests
   randn_parity_test.cpp
+  transport_lifecycle_test.cpp
   dtype_map_test.cpp
   sha256_test.cpp
   model_manager_test.cpp

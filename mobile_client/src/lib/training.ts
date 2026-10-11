@@ -267,12 +267,55 @@ export async function runResilientRoundLoop(
   let consecutiveFailures = 0;
   let consecutiveSuccesses = 0;
   let rejoinsUsed = 0;
+  let registrationRequired = false;
+  let reconnectError: unknown;
   let submittedRound = await ops.loadSubmittedRound(runId);
 
   for (;;) {
     if (hooks.shouldStop()) {
       hooks.onLog('Training stopped.');
       return;
+    }
+
+    if (registrationRequired) {
+      if (await ops.runEnded(runId).catch(() => false)) {
+        hooks.onRunEnded?.();
+        hooks.onLog('Run ended.');
+        return;
+      }
+      if (rejoinsUsed >= policy.maxRejoins) throw reconnectError;
+      // Wait before each bounded attempt, so short outages do not consume the
+      // registration budget before connectivity has had time to recover.
+      let remainingMs = Math.min(60000,
+        policy.baseBackoffMs * 2 ** (policy.maxRoundRetries + rejoinsUsed));
+      while (remainingMs > 0 && !hooks.shouldStop()) {
+        const waitMs = Math.min(remainingMs, 1000);
+        await ops.delay(waitMs);
+        remainingMs -= waitMs;
+      }
+      if (hooks.shouldStop()) continue;
+      rejoinsUsed += 1;
+      hooks.onLog(`Reconnecting to the run (rejoin ${rejoinsUsed}/${policy.maxRejoins})…`);
+      try {
+        const rejoined = await ops.rejoin();
+        if (rejoined.runId !== runId) {
+          throw new RunJoinRefusedError('Reconnect returned a different run. Training stopped because the run '
+            + 'changed; join again to provision and qualify it.');
+        }
+        submittedRound = await ops.loadSubmittedRound(rejoined.runId);
+        registrationRequired = false;
+        consecutiveFailures = 0;
+      } catch (rejoinErr) {
+        if (rejoinErr instanceof RunJoinRefusedError) throw rejoinErr;
+        if (isStopSignal(rejoinErr)) {
+          hooks.onRunEnded?.();
+          hooks.onLog('Server ended this client’s participation.');
+          return;
+        }
+        reconnectError = rejoinErr;
+        hooks.onLog(`Rejoin failed: ${readError(rejoinErr)}`);
+      }
+      continue;
     }
 
     try {
@@ -355,39 +398,10 @@ export async function runResilientRoundLoop(
         continue;
       }
 
-      // Retry budget exhausted for this streak — escalate to a bounded rejoin.
-      if (rejoinsUsed < policy.maxRejoins) {
-        rejoinsUsed += 1;
-        hooks.onLog(`Reconnecting to the run (rejoin ${rejoinsUsed}/${policy.maxRejoins})…`);
-        try {
-          const rejoined = await ops.rejoin();
-          if (rejoined.runId !== runId) {
-            throw new RunJoinRefusedError('Reconnect returned a different run. Training stopped because the run '
-              + 'changed; join again to provision and qualify it.');
-          }
-          const resumedRound = await ops.loadSubmittedRound(rejoined.runId);
-          submittedRound = resumedRound;
-          consecutiveFailures = 0;
-          continue;
-        } catch (rejoinErr) {
-          if (rejoinErr instanceof RunJoinRefusedError) throw rejoinErr;
-          // A failed rejoin still counts toward the budget; loop retries a rejoin or gives up below.
-          hooks.onLog(`Rejoin failed: ${readError(rejoinErr)}`);
-          // Continue exponential backoff beyond the round retry streak. Failed registrations can
-          // return immediately; consuming both rejoin attempts at once defeats short outage recovery.
-          let remainingMs = Math.min(60000,
-            policy.baseBackoffMs * 2 ** (policy.maxRoundRetries + rejoinsUsed - 1));
-          while (remainingMs > 0 && !hooks.shouldStop()) {
-            const waitMs = Math.min(remainingMs, 1000);
-            await ops.delay(waitMs);
-            remainingMs -= waitMs;
-          }
-          continue;
-        }
-      }
-
-      // Out of both retries and rejoins — give up, surfacing the last error to the caller.
-      throw e;
+      // A failed registration replaces the native client and retires its heartbeat.
+      // Status recovery alone cannot establish a fully reconnected participant.
+      registrationRequired = true;
+      reconnectError = e;
     }
   }
 }

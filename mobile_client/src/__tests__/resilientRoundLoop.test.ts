@@ -153,6 +153,7 @@ describe('runResilientRoundLoop (MO-8)', () => {
   it('recovers from twenty seconds of immediate connection failures with bounded rejoin backoff', async () => {
     let elapsed = 0;
     let trained = false;
+    let registered = false;
     const ops = baseOps({
       delay: jest.fn(async (ms: number) => { elapsed += ms; }),
       getServerStatus: jest.fn(async () => {
@@ -161,9 +162,13 @@ describe('runResilientRoundLoop (MO-8)', () => {
       }),
       rejoin: jest.fn(async () => {
         if (elapsed < 20000) throw {message: 'registration unavailable'};
+        registered = true;
         return {runId: 'r'};
       }),
-      runFedAvgRound: jest.fn(async () => { trained = true; return round(1); }),
+      runFedAvgRound: jest.fn(async () => {
+        expect(registered).toBe(true); // accepted native registration restores the heartbeat
+        trained = true; return round(1);
+      }),
     });
     const h = hooks();
     await runResilientRoundLoop({runId: 'r', isFedAvg: true, cfg: CFG}, ops, DEFAULT_RESILIENCE, h);
@@ -172,6 +177,40 @@ describe('runResilientRoundLoop (MO-8)', () => {
     expect(h.logs.some(line => line.includes('registration unavailable'))).toBe(true);
     expect(elapsed).toBeGreaterThanOrEqual(20000);
     expect(elapsed).toBeLessThan(40000);
+  });
+
+  it('refuses to train when status recovers but every registration still fails', async () => {
+    let statusCalls = 0;
+    let trained = false;
+    const ops = baseOps({
+      getServerStatus: jest.fn(async () => {
+        if (++statusCalls <= DEFAULT_RESILIENCE.maxRoundRetries + 1) throw new Error('socket unavailable');
+        return {serverState: trained ? 'COMPLETED' : 'TRAINING', currentRound: 1};
+      }),
+      rejoin: jest.fn().mockRejectedValue(new Error('registration unavailable')),
+      runFedAvgRound: jest.fn(async () => { trained = true; return round(1); }),
+    });
+    await expect(runResilientRoundLoop({runId: 'r', isFedAvg: true, cfg: CFG}, ops,
+      DEFAULT_RESILIENCE, hooks())).rejects.toThrow('registration unavailable');
+    expect(ops.rejoin).toHaveBeenCalledTimes(DEFAULT_RESILIENCE.maxRejoins);
+    expect(ops.runFedAvgRound).not.toHaveBeenCalled();
+  });
+
+  it('Stop during the first reconnect wait prevents another registration or round', async () => {
+    let stop = false;
+    const waits: number[] = [];
+    const ops = baseOps({
+      getServerStatus: jest.fn().mockRejectedValue(new Error('socket unavailable')),
+      delay: jest.fn(async (ms: number) => {
+        waits.push(ms);
+        if (waits.length > DEFAULT_RESILIENCE.maxRoundRetries) stop = true;
+      }),
+    });
+    await runResilientRoundLoop({runId: 'r', isFedAvg: true, cfg: CFG}, ops,
+      DEFAULT_RESILIENCE, {...hooks(), shouldStop: () => stop});
+    expect(waits.slice(-1)).toEqual([1000]);
+    expect(ops.rejoin).not.toHaveBeenCalled();
+    expect(ops.runFedAvgRound).not.toHaveBeenCalled();
   });
 
   it('cooperative Stop interrupts failed-rejoin backoff within one native wait', async () => {

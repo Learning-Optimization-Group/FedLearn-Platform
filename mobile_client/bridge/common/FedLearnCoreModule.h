@@ -22,6 +22,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include "fedlearn/TransportLifecycle.h"
 #include <thread>
 #include <vector>
 
@@ -154,7 +155,7 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
   std::mutex stateMutex_;  // the JS thread calls in; rounds run on a worker — guard shared state
   fedlearn::RoundFlight roundFlight_;
   fedlearn::ModelManager mm_;
-  std::unique_ptr<fedlearn::FedLearnClient> net_;
+  fedlearn::TransportLifecycle<fedlearn::FedLearnClient> net_;
   std::unique_ptr<fedlearn::FederatedLoop> loop_;
   std::unique_ptr<fedlearn::ExecutorchModel> model_;       // loss graph: forward(flat,x,y)->loss
   std::unique_ptr<fedlearn::ExecutorchModel> inferModel_;  // infer graph: forward(flat,x)->logits

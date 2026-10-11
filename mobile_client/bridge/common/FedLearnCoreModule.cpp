@@ -205,9 +205,9 @@ FedLearnCoreModule::FedLearnCoreModule(std::shared_ptr<react::CallInvoker> jsInv
       dataDir_(std::move(dataDir)) {}
 
 FedLearnCoreModule::~FedLearnCoreModule() {
-  if (net_) net_->requestAbort();  // trip the abort so any in-flight round returns promptly
+  net_.stop();                     // cancel any in-flight RPC/round without taking its state mutex
   joinAllWorkers();                // wait for worker threads BEFORE members are destroyed (no UAF)
-  if (net_) net_->stopHeartbeat();
+  net_.stop();                     // registration may have published a client while workers unwound
 }
 
 void FedLearnCoreModule::reapFinishedWorkers() {
@@ -258,7 +258,7 @@ void FedLearnCoreModule::applyModelManifest(const ModelManifest& manifest) {
 // ============================================================================
 void FedLearnCoreModule::requireReady() const {
   if (!modelLoaded_) throw std::runtime_error("loadModel must be called before a round");
-  if (!net_) throw std::runtime_error("registerClient must be called before a round");
+  if (!net_.get()) throw std::runtime_error("registerClient must be called before a round");
   if (!dataLoaded_)
     throw std::runtime_error("on-device training data not set (wired by the RN app layer, task 14)");
 }
@@ -292,13 +292,14 @@ RegisterResult FedLearnCoreModule::doRegister(const std::string& serverAddress,
     cfg.clientKeyPath = clientKey;
   }
 
-  net_ = std::make_unique<fedlearn::FedLearnClient>(cfg);
+  net_.replace(std::make_unique<fedlearn::FedLearnClient>(cfg));
+  auto* client = net_.get();
   clientId_ = clientId;
   // No torch_version gate: RandnEngine makes the perturbation RNG version-independent (T9).
-  loop_ = std::make_unique<fedlearn::FederatedLoop>(*net_, mm_);
+  loop_ = std::make_unique<fedlearn::FederatedLoop>(*client, mm_);
 
   v2::RegisterClientResponse resp =
-      net_->registerClient(runId, clientId, enrollmentToken, kProtocolVersion);
+      client->registerClient(runId, clientId, enrollmentToken, kProtocolVersion);
 
   RegisterResult out;
   out.accepted = (resp.status() == v2::RegisterClientResponse::ACCEPTED);
@@ -306,15 +307,16 @@ RegisterResult FedLearnCoreModule::doRegister(const std::string& serverAddress,
   out.assignedRound = resp.assigned_round();
   out.serverProtocolVersion = resp.protocol_version();
   if (out.accepted) {
-    net_->startHeartbeat(runId, clientId, resp.assigned_round());  // dual-heartbeat (§6.4)
+    net_.startHeartbeat(client, runId, clientId, resp.assigned_round());  // dual-heartbeat (§6.4)
   }
   return out;
 }
 
 ServerStatus FedLearnCoreModule::doGetServerStatus(const std::string& runId) {
   std::lock_guard<std::mutex> lk(stateMutex_);
-  if (!net_) throw std::runtime_error("registerClient must be called before getServerStatus");
-  v2::GetServerStatusResponse r = net_->getServerStatus(runId);
+  auto* client = net_.get();
+  if (!client) throw std::runtime_error("registerClient must be called before getServerStatus");
+  v2::GetServerStatusResponse r = client->getServerStatus(runId);
   ServerStatus s;
   s.serverState = v2::GetServerStatusResponse::ServerState_Name(r.server_state());
   s.currentRound = r.current_round();
@@ -327,12 +329,9 @@ ServerStatus FedLearnCoreModule::doGetServerStatus(const std::string& runId) {
 
 void FedLearnCoreModule::doStop() {
   // Do NOT take stateMutex_: a running round holds it for its ENTIRE duration, so acquiring it here
-  // would block stop() until the round already finished (a no-op mid-round). Flip the abort flag
-  // lock-free so the round's shouldStop() poll breaks out, then stop the heartbeat.
-  if (net_) {
-    net_->requestAbort();
-    net_->stopHeartbeat();
-  }
+  // would block stop() until the round already finished. The independent lifecycle
+  // lock protects replacement and heartbeat startup while cancellation remains prompt.
+  net_.stop();
 }
 
 ModelInfo FedLearnCoreModule::doLoadModel(const std::string& modelPath,
