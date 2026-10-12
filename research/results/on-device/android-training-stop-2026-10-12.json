@@ -36,6 +36,7 @@
     "checkpoint": 2,
     "device_sample_count": 42,
     "device_sample_max_gap_seconds": 15.380341,
+    "phone_states_match_wire_declared_uploads": true,
     "sampled_battery_temperature_min_c": 23.0,
     "sampled_battery_temperature_max_c": 24.0,
     "exact_kernel_entry_observed": false,
@@ -363,12 +364,12 @@
     "phone-preservation.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
     "helper-absence.json": "ae84348159f6004fe452671f8af0a0637b0910ad0da0b4cc113ef264b566d924",
     "aggregate-verification.json": "2bc6e15e94069eee5e208cd5f9c65bb991283d5cceda962a2f208090f81bfcc9",
-    "stop-verification.json": "1252f714647209091d3d81b6bbf83a14110ee098514139f4e34f9d0d5c6205fb",
+    "stop-verification.json": "5f01bf7c76d0f657904cc702d47c22e63ec4b0997866e3f5faaa825f510528fb",
     "workspace-preservation.json": "4018e100d72f0a5a5a1a2148101413a9a14d50ffe505a75eb81374d4d5018324",
     "root-preservation-before.json": "08544f929ea6924195cf0f56b1cf85a04f5a6c09548f3ad620bdc32acf2c9efb",
     "artifact.json": "5eccf4fe658d94d20ac5eda145f8646f51a39830cfb31fd362a6bd26b8edeb50",
     "collect.log": "6a5434805175240685a981dee86239a9b7de5213246141ea3b9c0828e0d6b4e5",
-    "verification.log": "262d96744ebb6f20d49e6b5b6a03ba05ce31a86449b2775a3a2d8983ee35313e"
+    "verification.log": "c42e5d2bfafa776d8ee43bf016c9af8cf3a7e4e466efebfc1cc3bd63c4d1f732"
   },
   "private_driver_sha256": {
     "training_stop_setup.py": "d109de533e36585e21ec2e99416409b6b1ad4273b9116d13dda1faf5bcefd9f9",
@@ -380,7 +381,7 @@
     "training_stop_postflight.py": "27516f02d40d3c9f3ec7d08bda0994a6923530df53cb1140b8a2f9e29a320a84",
     "training_stop_aggregate.py": "f41ec21919b797201aa484be3e812193c47d13e7aeaacf42544f5fec5f0c587b",
     "training_stop_preservation.py": "6f24a6082fe4e8da31ddfdd6eae4cff85fcefe64099b0d024196bb6e7f6c5f48",
-    "verify_training_stop.py": "efb633490f9a435815669bdf0737027c42277b0be20b2ba7f7c7a24afd2d19ca",
+    "verify_training_stop.py": "dbb26db5740bad31e0694a658da5764641dcdd584f14eb5760b90bdf776ecdab",
     "curate_training_stop.py": "bc3e352857129dc30d49f78b71c74f2659b7f90beaace989f70c142c284c1cee",
     "training_stop_provider_state.js": "be6d0f85bfd3b5edb38fe1d1b68b9df93cdd39ac97c360a9b905d513573c3e15"
   },
@@ -390,5 +391,23 @@
     "mounted-auth-driver.js": "01c2269595279917840d3099d55b9c1b2159548285c63f3123154466f8052897",
     "lifecycle-network/provider-driver.js": "fbce02b7e93178afc038e184359d4fae554f6abea8396efe4b39732ddad966aa"
   },
-  "physical_driver": "training_stop_exercise.py"
+  "physical_driver": "training_stop_exercise.py",
+  "evidence_review": {
+    "range": "9920eae7816cfe1717e3da3905800e6ce6fdd2a6..5a11ac174fd53e878432307c9691ccac790c9211",
+    "material_findings": 0,
+    "private_bindings_verified": 50,
+    "historical_bindings_verified": 193,
+    "initial_state_and_package_hashes_verified": true,
+    "cancellation_and_registration_chronology_verified": true,
+    "all_upload_chunk_sequences_verified": true,
+    "sealed_recorder_window_checked_without_filtering": true,
+    "both_parents_and_final_aggregate_reconstructed_independently": true,
+    "independent_arithmetic": "NumPy float32 with manual safetensors codec; no product aggregator or codec import.",
+    "phone_states_reencoded_to_match_wire_declared_hash_and_length": true,
+    "evidence_verifier_rerun": true,
+    "post_review_linkage_gate_local_pass": true,
+    "physical_repetition": false,
+    "network_access": false,
+    "physical_client_replay_repeated": false
+  }
 }

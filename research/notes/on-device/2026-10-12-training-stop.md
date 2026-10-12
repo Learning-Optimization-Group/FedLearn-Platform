@@ -48,3 +48,13 @@ peaks. The measured 107-second delay is one case, not a worst-case Stop bound.
 Wireless Doze, prolonged suspension, server restart/client death, thermal
 endurance, physical Release training and deployed TLS remain separate cases.
 Successful-round counters also omit the cancelled computation.
+
+Read-only evidence review of `9920eae..5a11ac1` verified all 50 new and 193 older
+bindings, cancelled/registration/rejoin chronology, full upload sequences and
+the unfiltered four-row recorder interval. Independent NumPy float32 arithmetic
+and a manual codec reconstruct both parent hashes and the final registered
+tensors exactly. Restoring the recorder's stripped example-count metadata also
+matches both phone states to same-run declared upload hashes and lengths; this
+is now an additional passing verifier gate, not raw-payload capture. No material
+findings remain. Network/physical actions and client numerical replay were not
+repeated.
