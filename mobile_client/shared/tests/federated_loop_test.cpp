@@ -13,6 +13,7 @@
 #include "fedlearn/Types.h"
 
 #include "fixtures.h"
+#include "progress_test_support.h"
 
 #include <gtest/gtest.h>
 
@@ -37,6 +38,7 @@ class MockFedLearnClient : public fedlearn::IFedLearnClient {
 
   // canned FedAvg global-model blob
   std::string globalBlob;
+  std::vector<fedtest::Progress> downloadProgress;
   int globalRound = 0;
 
   // recorders
@@ -82,6 +84,7 @@ class MockFedLearnClient : public fedlearn::IFedLearnClient {
   std::string getGlobalModelStream(const std::string&, const std::string&,
                                    int* outCurrentRound,
                                    std::map<std::string, std::string>* outConfig = nullptr) override {
+    downloadProgress.push_back(fedtest::progressOf(*this));
     if (outCurrentRound) *outCurrentRound = globalRound;
     if (outConfig) outConfig->clear();
     return globalBlob;
@@ -314,3 +317,25 @@ INSTANTIATE_TEST_SUITE_P(
         ServerDeviation{"CentralEstimator",
                         [](fedlearn::DeComFLConfig& c) { c.config.method = fedlearn::GradEstimateMethod::Central; }}),
     [](const ::testing::TestParamInfo<ServerDeviation>& info) { return std::string(info.param.name); });
+
+TEST(FederatedLoop, DeComFLProgressUsesLocalStepsRatherThanPerturbations) {
+  LoopFixture f;
+  MockFedLearnClient net;
+  net.cfg = makeDeComFLConfig();
+  net.cfg.seeds = {{11, 22, 33}, {44, 55, 66}};  // K=2, P=3
+  fedlearn::FederatedLoop loop(net, f.mm);
+  loop.deComFLRound(f.model, "run", "client", f.batch);
+  EXPECT_EQ(fedtest::progressOf(net), (fedtest::Progress{"WAITING", 3, 2, 2}));
+}
+
+TEST(FederatedLoop, DeComFLInitialDownloadDoesNotClaimTrainingHasStarted) {
+  LoopFixture f;
+  MockFedLearnClient net;
+  net.cfg = contractedConfig();
+  net.globalBlob = globalBlobFrom(initialState());
+  const auto contract = contractFor(net.cfg);
+  fedlearn::FederatedLoop loop(net, f.mm);
+  loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
+  ASSERT_EQ(net.downloadProgress.size(), 1u);
+  EXPECT_EQ(net.downloadProgress[0], (fedtest::Progress{"DOWNLOADING", 1, 0, 2}));
+}

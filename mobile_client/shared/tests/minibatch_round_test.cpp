@@ -8,6 +8,7 @@
 #include "fedlearn/ModelManager.h"
 #include "fedlearn/TrainableExecutorchModel.h"
 #include "fixtures.h"
+#include "progress_test_support.h"
 
 #include <gtest/gtest.h>
 
@@ -39,7 +40,11 @@ class RoundMock : public fedlearn::IFedLearnClient {
   std::string lastModelBlob;
   int64_t lastNumExamples = -1;
 
-  bool shouldStop() const override { return false; }
+  mutable std::vector<fedtest::Progress> observations;
+  bool shouldStop() const override {
+    observations.push_back(fedtest::progressOf(*this));
+    return false;
+  }
   fedlearn::DeComFLConfig getDeComFLConfig(const std::string&, const std::string&) override { return {}; }
   void submitGradientScalars(const std::string&, const std::string&, int, const fedlearn::Seeds2D&,
                              const fedlearn::GradientScalars2D&, int64_t) override {}
@@ -117,4 +122,16 @@ TEST(MinibatchRound, AnInvalidBatchSizeIsRefusedBeforeUpload) {
   RoundMock mock;
   EXPECT_THROW(runRound(mock, fedlearn::LocalBatching{-1, true, kSeed}), std::runtime_error);
   EXPECT_TRUE(mock.lastModelBlob.empty());
+}
+
+TEST(MinibatchRound, ProgressCountsAllMinibatchesIncludingThePartialBatch) {
+  RoundMock net;
+  runRound(net, fedlearn::LocalBatching{kBatchSize, true, kSeed});
+  std::vector<fedtest::Progress> training;
+  for (const auto& p : net.observations) if (std::get<0>(p) == "TRAINING") training.push_back(p);
+  const std::vector<fedtest::Progress> expected = {
+      {"TRAINING", 1, 0, 6}, {"TRAINING", 1, 1, 6}, {"TRAINING", 1, 2, 6},
+      {"TRAINING", 1, 3, 6}, {"TRAINING", 1, 4, 6}, {"TRAINING", 1, 5, 6}, {"TRAINING", 1, 6, 6}};
+  EXPECT_EQ(training, expected);
+  EXPECT_EQ(fedtest::progressOf(net), (fedtest::Progress{"WAITING", 1, 6, 6}));
 }

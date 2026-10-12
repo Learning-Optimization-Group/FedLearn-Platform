@@ -8,10 +8,13 @@
 #include "fedlearn/ModelManager.h"
 #include "fedlearn/TrainableExecutorchModel.h"
 #include "fixtures.h"
+#include "progress_test_support.h"
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <atomic>
+#include <thread>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -39,18 +42,28 @@ class RoundMock : public fedlearn::IFedLearnClient {
   int64_t lastNumExamples = -1;
   std::map<std::string, std::string> globalConfig;
 
-  bool shouldStop() const override { return false; }
+  mutable std::vector<fedtest::Progress> observations;
+  bool failUpload = false;
+  bool failDownload = false;
+  bool shouldStop() const override {
+    observations.push_back(fedtest::progressOf(*this));
+    return false;
+  }
   fedlearn::DeComFLConfig getDeComFLConfig(const std::string&, const std::string&) override { return {}; }
   void submitGradientScalars(const std::string&, const std::string&, int, const fedlearn::Seeds2D&,
                              const fedlearn::GradientScalars2D&, int64_t) override {}
   std::string getGlobalModelStream(const std::string&, const std::string&, int* outCurrentRound,
                                    std::map<std::string, std::string>* outConfig = nullptr) override {
+    observations.push_back(fedtest::progressOf(*this));
+    if (failDownload) throw std::runtime_error("download unavailable");
     if (outCurrentRound) *outCurrentRound = globalRound;
     if (outConfig) *outConfig = globalConfig;
     return globalBlob;
   }
   void submitModelUpdate(const std::string&, const std::string&, int, const std::string& modelBlob,
                          int64_t numExamples) override {
+    observations.push_back(fedtest::progressOf(*this));
+    if (failUpload) throw std::runtime_error("upload confirmation lost");
     submitCalled = true;
     lastModelBlob = modelBlob;
     lastNumExamples = numExamples;
@@ -286,3 +299,84 @@ INSTANTIATE_TEST_SUITE_P(
                       ProximalDisagreement{"FedProxServerSendsZero", 0.1, "0.0"},
                       ProximalDisagreement{"FedOptServerSendsAMu", 0.0, "0.1"}),
     [](const ::testing::TestParamInfo<ProximalDisagreement>& info) { return std::string(info.param.name); });
+
+TEST(FedAvgFirstOrderRound, ProgressTracksCompletedStepsAndServerRound) {
+  RoundMock net;
+  net.globalBlob = blobFromFlat(fedtest::readF32(fedtest::goldenPath("zo_flat.f32")));
+  net.globalRound = 3;
+  fedlearn::TrainableExecutorchModel model(fedtest::goldenPath(kTrainablePte), kTrainablePteSha, kParamNames);
+  auto manager = fedtest::makeManager();
+  fedlearn::FederatedLoop loop(net, manager);
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  const fedlearn::DataBatch data{x.data(), {8, 4}, y.data(), 8};
+  loop.firstOrderRound(model, "run", "client", data, 5, 0.1);
+  std::vector<fedtest::Progress> training;
+  for (const auto& p : net.observations) if (std::get<0>(p) == "TRAINING") training.push_back(p);
+  const std::vector<fedtest::Progress> expected = {
+      {"TRAINING", 3, 0, 5}, {"TRAINING", 3, 1, 5}, {"TRAINING", 3, 2, 5},
+      {"TRAINING", 3, 3, 5}, {"TRAINING", 3, 4, 5}, {"TRAINING", 3, 5, 5}};
+  EXPECT_EQ(training, expected);
+  EXPECT_EQ(net.observations.back(), (fedtest::Progress{"UPLOADING", 3, 5, 5}));
+  EXPECT_EQ(fedtest::progressOf(net), (fedtest::Progress{"WAITING", 3, 5, 5}));
+}
+
+TEST(FedAvgFirstOrderRound, FailedUploadIsNotReportedAsSubmittedAndRetryResetsSteps) {
+  RoundMock net;
+  net.globalBlob = blobFromFlat(fedtest::readF32(fedtest::goldenPath("zo_flat.f32")));
+  net.globalRound = 4;
+  net.failUpload = true;
+  fedlearn::TrainableExecutorchModel model(fedtest::goldenPath(kTrainablePte), kTrainablePteSha, kParamNames);
+  auto manager = fedtest::makeManager();
+  fedlearn::FederatedLoop loop(net, manager);
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  const fedlearn::DataBatch data{x.data(), {8, 4}, y.data(), 8};
+  EXPECT_THROW(loop.firstOrderRound(model, "run", "client", data, 2, 0.1), std::runtime_error);
+  EXPECT_EQ(fedtest::progressOf(net), (fedtest::Progress{"ERROR", 4, 2, 2}));
+  net.failUpload = false;
+  net.observations.clear();
+  loop.firstOrderRound(model, "run", "client", data, 2, 0.1);
+  const auto firstTraining = std::find_if(net.observations.begin(), net.observations.end(),
+      [](const auto& p) { return std::get<0>(p) == "TRAINING"; });
+  ASSERT_NE(firstTraining, net.observations.end());
+  EXPECT_EQ(*firstTraining, (fedtest::Progress{"TRAINING", 4, 0, 2}));
+  EXPECT_EQ(fedtest::progressOf(net), (fedtest::Progress{"WAITING", 4, 2, 2}));
+}
+
+TEST(FedAvgFirstOrderRound, ProgressSnapshotCannotMixRoundPhaseAndCounters) {
+  RoundMock net;
+  const fedtest::Progress a{"TRAINING", 3, 1, 5};
+  const fedtest::Progress b{"UPLOADING", 8, 6, 6};
+  fedtest::publishTo(net, a);
+  std::atomic<bool> done{false};
+  std::thread writer([&] {
+    for (int i = 0; i < 10000; ++i) {
+      fedtest::publishTo(net, b);
+      fedtest::publishTo(net, a);
+    }
+    done = true;
+  });
+  bool invalid = false;
+  do {
+    const auto p = fedtest::progressOf(net);
+    if (p != a && p != b) invalid = true;
+  } while (!done.load());
+  writer.join();
+  EXPECT_FALSE(invalid);
+}
+
+TEST(FedAvgFirstOrderRound, DownloadFailureRetainsLastConfirmedRoundWithFreshCounters) {
+  RoundMock net;
+  net.failDownload = true;
+  net.updateProgress("WAITING", 4, 5, 5);
+  fedlearn::TrainableExecutorchModel model(fedtest::goldenPath(kTrainablePte), kTrainablePteSha, kParamNames);
+  auto manager = fedtest::makeManager();
+  fedlearn::FederatedLoop loop(net, manager);
+  const auto x = fedtest::zoInputs();
+  const auto y = fedtest::zoTargets();
+  const fedlearn::DataBatch data{x.data(), {8, 4}, y.data(), 8};
+  EXPECT_THROW(loop.firstOrderRound(model, "run", "client", data, 5, 0.1), std::runtime_error);
+  EXPECT_EQ(net.observations.back(), (fedtest::Progress{"DOWNLOADING", 4, 0, 0}));
+  EXPECT_EQ(fedtest::progressOf(net), (fedtest::Progress{"ERROR", 4, 0, 0}));
+}

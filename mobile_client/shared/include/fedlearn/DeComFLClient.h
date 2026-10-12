@@ -6,6 +6,7 @@
 // Libtorch-free (Phase 3c): parameters are std::vector<float>, the forward/loss runs through
 // ExecutorchModel, and the perturbation is fedlearn::flat_randn (byte-exact canonical z).
 //
+#include <functional>
 #include <vector>
 
 #include "fedlearn/EtZeroOrder.h"
@@ -31,7 +32,8 @@ class DeComFLClient {
   // cost contract assertable in a test. Production instantiates it with ExecutorchModel.
   template <class Model>
   GradientScalars2D fit(Model& model, const std::vector<float>& flatIn, const Seeds2D& seeds,
-                        const DataBatch& batch, double mu) {
+                        const DataBatch& batch, double mu,
+                        const std::function<void(int)>& onStepCompleted = {}) {
     std::vector<float> x = flatIn;  // local working copy; flatIn is left untouched (implicit revert)
     const int64_t d = static_cast<int64_t>(x.size());
 
@@ -54,6 +56,7 @@ class DeComFLClient {
       // Local step with the 1/P averaging factor (matches the server after the Bug-1 fix).
       const float step = static_cast<float>(eta_ / P_);
       for (int64_t i = 0; i < d; ++i) x[i] -= step * delta[i];
+      if (onStepCompleted) onStepCompleted(k + 1);
     }
     return out;  // scalars only — z is never serialized or uploaded; flatIn unchanged
   }

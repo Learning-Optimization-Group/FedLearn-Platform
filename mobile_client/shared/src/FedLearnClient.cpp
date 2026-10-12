@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cmath>
 #include <fstream>
+#include <limits>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
@@ -353,15 +354,24 @@ void FedLearnClient::startHeartbeat(const std::string& runId, const std::string&
   stopHeartbeat();  // ensure no prior thread
   heartbeatStop_.store(false);
   abortFlag_.store(false);
+  updateProgress("IDLE", currentRound, 0, 0);
 
-  heartbeatThread_ = std::thread([this, runId, clientId, currentRound]() {
+  heartbeatThread_ = std::thread([this, runId, clientId]() {
     int consecutiveFailures = 0;
     while (!heartbeatStop_.load()) {
       v2::HeartbeatRequest req;
       req.set_client_id(clientId);
       req.set_run_id(runId);
-      req.set_status("TRAINING");
-      req.set_current_round(currentRound);
+      const auto progress = progressSnapshot();
+      req.set_status(progress.status);
+      req.set_current_round(progress.round);
+      // The existing wire uses int32 counts. An unrepresentable total is
+      // unknown (0/0), rather than a wrapped count or a false percentage.
+      if (progress.totalSteps > 0 && progress.totalSteps <= std::numeric_limits<int32_t>::max() &&
+          progress.currentStep >= 0 && progress.currentStep <= progress.totalSteps) {
+        req.set_current_step(static_cast<int32_t>(progress.currentStep));
+        req.set_total_steps(static_cast<int32_t>(progress.totalSteps));
+      }
 
       v2::HeartbeatResponse resp;
       grpc::ClientContext ctx;

@@ -9,11 +9,19 @@
 // marshaling); unit tests supply a mock. This header uses only core types and standard headers.
 //
 #include <map>
+#include <mutex>
 #include <string>
 
 #include "fedlearn/Types.h"
 
 namespace fedlearn {
+
+struct ClientProgress {
+  std::string status = "IDLE";
+  int round = 0;
+  int64_t currentStep = 0;
+  int64_t totalSteps = 0;
+};
 
 // The DeComFL per-round server config, marshaled to core types (no proto).
 struct DeComFLConfig {
@@ -34,6 +42,18 @@ struct DeComFLConfig {
 class IFedLearnClient {
  public:
   virtual ~IFedLearnClient() = default;
+  // Publish one coherent tuple to the independent heartbeat. Never hold this
+  // lock during model execution or a network call.
+  void updateProgress(const std::string& status, int round, int64_t currentStep, int64_t totalSteps) {
+    std::lock_guard<std::mutex> lock(progressMutex_);
+    progress_ = {status, round, currentStep, totalSteps};
+  }
+
+  ClientProgress progressSnapshot() const {
+    std::lock_guard<std::mutex> lock(progressMutex_);
+    return progress_;
+  }
+
   virtual bool shouldStop() const = 0;
   virtual DeComFLConfig getDeComFLConfig(const std::string& runId, const std::string& clientId) = 0;
   // Unified scalar upload (Constraint 7): seeds + g-scalars + num_examples. For DeComFL the server
@@ -53,6 +73,10 @@ class IFedLearnClient {
   virtual void submitModelUpdate(const std::string& runId, const std::string& clientId,
                                  int trainedOnRound, const std::string& modelBlob,
                                  int64_t numExamples) = 0;
+
+ private:
+  mutable std::mutex progressMutex_;
+  ClientProgress progress_;
 };
 
 }  // namespace fedlearn

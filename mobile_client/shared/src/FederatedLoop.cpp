@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 
@@ -15,6 +16,35 @@
 
 namespace fedlearn {
 namespace {
+
+// This scope reports a failed attempt on exceptions and never treats completed
+// local computation as a successful submission. All numeric training stays outside it.
+class RoundProgress {
+ public:
+  explicit RoundProgress(IFedLearnClient& net) : net_(net), round_(net.progressSnapshot().round) {
+    phase("DOWNLOADING");
+  }
+  ~RoundProgress() {
+    if (!finished_) {
+      try { phase("ERROR"); } catch (...) { /* preserve the original failure */ }
+    }
+  }
+  void configure(int round, int64_t total, const char* status = "TRAINING") {
+    round_ = round;
+    total_ = total;
+    completed_ = 0;
+    phase(status);
+  }
+  void advance(int64_t completed) { completed_ = completed; phase("TRAINING"); }
+  void phase(const char* status) { net_.updateProgress(status, round_, completed_, total_); }
+  void finish(const char* status) { phase(status); finished_ = true; }
+ private:
+  IFedLearnClient& net_;
+  int round_ = 0;
+  int64_t total_ = 0;
+  int64_t completed_ = 0;
+  bool finished_ = false;
+};
 
 bool hasEdgeWhitespace(const std::string& raw) {
   return raw.empty() || std::isspace(static_cast<unsigned char>(raw.front())) ||
@@ -58,8 +88,10 @@ FederatedLoop::FederatedLoop(IFedLearnClient& net, ModelManager& mm) : net_(net)
 RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::string& runId,
                                          const std::string& clientId, const DataBatch& batch,
                                          const ZerothOrderContract* contract) {
+  RoundProgress progress(net_);
   RoundOutcome out;
   if (net_.shouldStop()) {
+    progress.finish("STOPPED");
     out.shouldStop = true;
     out.note = "heartbeat/abort flag set before round";
     return out;
@@ -67,15 +99,18 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
 
   DeComFLConfig cfg = net_.getDeComFLConfig(runId, clientId);
   out.round = cfg.currentRound;
+  progress.configure(cfg.currentRound, 0, "DOWNLOADING");
   // Server-authoritative completion: the config path no longer carries should_stop (that lives on the
   // heartbeat), so the server signals "training complete" with current_round == -1 (matches the Python
   // client's decomfl_start sentinel). Terminate cleanly.
   if (cfg.currentRound < 0) {
+    progress.finish("STOPPED");
     out.shouldStop = true;
     out.note = "training complete (server signalled round -1)";
     return out;
   }
   if (cfg.shouldStop) {
+    progress.finish("STOPPED");
     out.shouldStop = true;
     out.note = "server should_stop in DeComFL config";
     return out;
@@ -85,6 +120,7 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
 
   const Seeds2D& seeds = cfg.seeds;
   if (seeds.empty() || seeds[0].empty()) {
+    progress.finish("WAITING");
     out.note = "empty seed set from server; skipping round";
     return out;
   }
@@ -111,6 +147,7 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
       throw std::runtime_error("the server's gradient estimator disagrees with the execution contract");
     }
   }
+  progress.configure(cfg.currentRound, K, "DOWNLOADING");
   out.scalarsK = K;  // server-authoritative K/P actually used (for accurate comm-cost reporting)
   out.scalarsP = P;
 
@@ -140,8 +177,10 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
   if (!cfg.rebuildHistory.empty()) {
     RebuildHistory hist = cfg.rebuildHistory;
     for (auto& r : hist) r.learningRate = cfg.config.learningRate;
+    progress.phase("REBUILDING");
     client.rebuildModel(flatState_, hist);
     if (net_.shouldStop()) {
+      progress.finish("STOPPED");
       out.shouldStop = true;
       out.note = "abort after rebuild";
       return out;
@@ -151,16 +190,21 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
   // Evaluation reports the model this round trains from, not a state the DeComFL path never updates.
   mm_.setFlatParams(flatState_);
 
+  progress.phase("TRAINING");
   // fit() works on a copy and reverts flatState_ (the server owns the true global trajectory).
-  GradientScalars2D scalars = client.fit(model, flatState_, seeds, batch, cfg.config.mu);
+  GradientScalars2D scalars = client.fit(model, flatState_, seeds, batch, cfg.config.mu,
+      [&](int completed) { progress.advance(completed); });
 
   if (net_.shouldStop()) {  // check between the (blocking) fit and the upload
+    progress.finish("STOPPED");
     out.shouldStop = true;
     out.note = "abort after fit (heartbeat death / server should_stop)";
     return out;
   }
 
+  progress.phase("UPLOADING");
   net_.submitGradientScalars(runId, clientId, cfg.currentRound, seeds, scalars, batch.numSamples);
+  progress.finish("WAITING");
   out.ranTraining = true;
   return out;
 }
@@ -176,8 +220,10 @@ RoundOutcome FederatedLoop::fedAvgRound(ExecutorchModel& model, const std::strin
                                         const std::string& clientId, const DataBatch& batch,
                                         int numLocalSteps, double learningRate, double mu,
                                         int numPerturbations) {
+  RoundProgress progress(net_);
   RoundOutcome out;
   if (net_.shouldStop()) {
+    progress.finish("STOPPED");
     out.shouldStop = true;
     out.note = "abort flag set before round";
     return out;
@@ -186,6 +232,7 @@ RoundOutcome FederatedLoop::fedAvgRound(ExecutorchModel& model, const std::strin
   int currentRound = 0;
   std::string blob = net_.getGlobalModelStream(runId, clientId, &currentRound);
   out.round = currentRound;
+  progress.configure(currentRound, numLocalSteps);
   mm_.loadStateDict(blob);            // codec-validated + sha-checked by the stream layer
   flatState_ = mm_.getFlatParams();   // fresh global params each FedAvg round
 
@@ -205,6 +252,7 @@ RoundOutcome FederatedLoop::fedAvgRound(ExecutorchModel& model, const std::strin
 
   for (int k = 0; k < numLocalSteps; ++k) {
     if (net_.shouldStop()) {
+      progress.finish("STOPPED");
       out.shouldStop = true;
       out.note = "abort during local SGD";
       return out;
@@ -222,6 +270,7 @@ RoundOutcome FederatedLoop::fedAvgRound(ExecutorchModel& model, const std::strin
     }
     const float step = static_cast<float>(learningRate / P);  // 1/P averaging, matches DeComFL
     for (int64_t i = 0; i < d; ++i) flatState_[i] -= step * delta[i];
+    progress.advance(k + 1);
   }
   // No model.train()/eval(): ExecuTorch kernels are stateless. etGScalarForward reads params from
   // the flatState_ we pass it, so the model state advances purely through flatState_; push the
@@ -229,12 +278,15 @@ RoundOutcome FederatedLoop::fedAvgRound(ExecutorchModel& model, const std::strin
   mm_.setFlatParams(flatState_);
 
   if (net_.shouldStop()) {
+    progress.finish("STOPPED");
     out.shouldStop = true;
     out.note = "abort after local SGD";
     return out;
   }
 
+  progress.phase("UPLOADING");
   net_.submitGradientScalars(runId, clientId, currentRound, seeds, scalars, batch.numSamples);
+  progress.finish("WAITING");
   out.ranTraining = true;
   return out;
 }
@@ -252,6 +304,7 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
                                             bool requireServerConfig, double proximalMu,
                                             const LocalBatching& batching, const LocalOptimizer& optimizer,
                                             const DropoutSpec& dropout, const BatchNormSpec& batchNorm) {
+  RoundProgress progress(net_);
   RoundOutcome out;
   if (batching.batchSize < 0 || (batching.seededPermutation && batching.batchSize == 0)) {
     throw std::runtime_error("invalid first-order batch_size");
@@ -260,6 +313,7 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
     throw std::runtime_error("the local dataset's shape disagrees with its example count");
   }
   if (net_.shouldStop()) {
+    progress.finish("STOPPED");
     out.shouldStop = true;
     out.note = "abort flag set before round";
     return out;
@@ -269,6 +323,7 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
   std::map<std::string, std::string> serverConfig;
   const std::string blob = net_.getGlobalModelStream(runId, clientId, &currentRound, &serverConfig);
   out.round = currentRound;
+  progress.configure(currentRound, 0, "DOWNLOADING");
   out.downlinkBytes = static_cast<int64_t>(blob.size());
   const auto rate = serverConfig.find("learning_rate");
   const auto epochs = serverConfig.find("local_epochs");
@@ -341,6 +396,13 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
                                " dropout layers");
     }
   }
+  int64_t totalSteps = numLocalSteps;
+  if (batching.seededPermutation) {
+    const int64_t perEpoch = 1 + (batch.numSamples - 1) / batching.batchSize;
+    totalSteps = perEpoch > std::numeric_limits<int64_t>::max() / numLocalSteps
+        ? 0 : perEpoch * numLocalSteps;
+  }
+  progress.configure(currentRound, totalSteps);
   uint64_t step = 0;
   std::vector<std::vector<float>> maskData(maskShapes.size());
   std::vector<InputTensor> masks(maskShapes.size());
@@ -391,6 +453,7 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
       }
     }
     ++step;
+    progress.advance(static_cast<int64_t>(step));
   };
   // One example's feature count: the product of the input shape past the example dimension.
   int64_t rowWidth = 1;
@@ -400,6 +463,7 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
   for (int k = 0; k < numLocalSteps; ++k) {
     if (!batching.seededPermutation) {
       if (net_.shouldStop()) {
+        progress.finish("STOPPED");
         out.shouldStop = true;
         out.note = "abort during local SGD";
         return out;
@@ -412,6 +476,7 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
                                          static_cast<uint64_t>(currentRound), static_cast<uint64_t>(k));
     for (const auto& rows : batches(order, static_cast<uint64_t>(batching.batchSize), /*dropLast=*/false)) {
       if (net_.shouldStop()) {
+        progress.finish("STOPPED");
         out.shouldStop = true;
         out.note = "abort during local SGD";
         return out;
@@ -438,12 +503,15 @@ RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, con
   const std::string upload = mm_.serializeStateDict(batch.numSamples);
 
   if (net_.shouldStop()) {
+    progress.finish("STOPPED");
     out.shouldStop = true;
     out.note = "abort after local SGD";
     return out;
   }
 
+  progress.phase("UPLOADING");
   net_.submitModelUpdate(runId, clientId, currentRound, upload, batch.numSamples);
+  progress.finish("WAITING");
   out.uplinkBytes = static_cast<int64_t>(upload.size());
   out.ranTraining = true;
   return out;
