@@ -307,5 +307,19 @@
     "mounted-auth-driver.js": "01c2269595279917840d3099d55b9c1b2159548285c63f3123154466f8052897",
     "lifecycle-network/provider-driver.js": "fbce02b7e93178afc038e184359d4fae554f6abea8396efe4b39732ddad966aa",
     "lifecycle/provider-state.js": "371099fcf1a175feb3afe268e7dfaf27bb33fef66a372dc2a1460ef628f1784c"
+  },
+  "evidence_review": {
+    "range": "c331e5948e87bdb57eead91633f308168e0dad1c..1b27763aa92341cd263aae0f383b4484f421afbc",
+    "critical_findings": 0,
+    "important_findings": 0,
+    "minor_copy_edit_corrected": "Integration-readiness grammar: remove redundant remain after That run left.",
+    "private_bindings_verified": 38,
+    "wire_request_and_upload_waiting_order_checked": true,
+    "sealed_recorder_window_checked_without_filtering": true,
+    "round_parents_and_aggregate_reconstructed_independently": true,
+    "evidence_verifier_rerun": true,
+    "physical_repetition": false,
+    "fresh_device_attestation": false,
+    "physical_client_replay_repeated": false
   }
 }

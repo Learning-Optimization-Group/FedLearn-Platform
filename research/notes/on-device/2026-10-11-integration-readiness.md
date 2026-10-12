@@ -111,7 +111,7 @@ accepted outputs and their aggregate replay exactly; datasets and helper cleanup
 are verified. The scope is one eight-second foreground USB response outage,
 with unchanged application source. That run left accurate heartbeat progress, natural wireless
 Doze, long suspension, server restart, client process death, thermal endurance
-and production release/security qualification remain open.
+and production release/security qualification open.
 
 
 The [native heartbeat progress follow-up](2026-10-11-heartbeat-progress.md) now

@@ -65,3 +65,10 @@ suspension, graph-boundary Stop, sustained thermal behavior, server restart,
 client death, prolonged partitions, physical Release training and deployed TLS
 remain open. Boundary temperatures are not peak measurements. Code review did
 not independently repeat physical training, device attestation or preservation.
+
+Read-only evidence review of `c331e59..1b27763` verified all 38 bindings, wire
+request/response correspondence, upload-before-waiting order and the unfiltered
+four-row recorder window. It independently reconstructed both parent hashes
+and the final aggregate exactly. No material findings remain; a grammar edit
+in the integration-readiness note was corrected. Physical actions were not
+independently repeated.
