@@ -420,5 +420,22 @@
     "mounted-auth-driver.js": "01c2269595279917840d3099d55b9c1b2159548285c63f3123154466f8052897",
     "lifecycle-network/provider-driver.js": "fbce02b7e93178afc038e184359d4fae554f6abea8396efe4b39732ddad966aa",
     "lifecycle/provider-state.js": "371099fcf1a175feb3afe268e7dfaf27bb33fef66a372dc2a1460ef628f1784c"
+  },
+  "review": {
+    "range": "30473ac84de73ce5b5489d047223cf6498db033f..4750e8f7f9a84eb61a4f974718258c2d92aa53ad",
+    "critical_findings": 0,
+    "important_findings": 0,
+    "minor_findings": 0,
+    "protocol_checks_rerun": 10,
+    "monitor_checks_rerun": 3,
+    "evidence_verifier_rerun": true,
+    "new_bindings_verified": 47,
+    "prior_bindings_verified": 41,
+    "older_bindings_verified": 25,
+    "sealed_recorder_window_checked_without_filtering": true,
+    "round_parents_and_aggregate_reconstructed_independently": true,
+    "physical_repetition": false,
+    "fresh_device_attestation": false,
+    "boundary": "Read-only source and retained-evidence review; no independent repeat of physical training, replay jobs, device/core attestation, dataset preservation or remote helper inspection."
   }
 }
