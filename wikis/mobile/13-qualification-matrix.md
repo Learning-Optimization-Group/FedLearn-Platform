@@ -160,3 +160,14 @@ USB power and battery temperature of 25–26°C. They can miss brief wake events
 and temperature peaks. This strengthens USB-powered Debug background evidence;
 natural wireless Doze, long suspension, thermal endurance, physical Release
 training and deployed TLS remain unqualified.
+
+The [local-training Stop qualification](../../research/results/on-device/android-training-stop-2026-10-12.json)
+requests Stop after two acknowledged `TRAINING round1 0/1` heartbeats. The app
+retains its stopping flag and dataset pin and rejects another Start or Join.
+Stop completes cooperatively after **106.993 seconds**; it is not immediate
+during local computation. The cancelled interval has no accepted update or
+checkpoint, and the observer sees no decoded upload chunks or submissions.
+Same-run rejoin then completes two phone/Linux rounds with four unique updates,
+an exact reconstructed aggregate and unchanged saved data. This verifies Stop
+in the reported local-training phase, without identifying exact kernel entry,
+proving mid-operator preemption or establishing a worst-case latency bound.

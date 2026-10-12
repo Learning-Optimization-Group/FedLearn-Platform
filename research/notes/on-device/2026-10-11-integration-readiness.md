@@ -136,3 +136,13 @@ Independent samples show the display asleep, app/service records present and
 battery temperature of 25–26°C. The run does not establish natural wireless
 Doze, prolonged suspension, peak processor temperature, thermal endurance,
 physical numerical client replay or production Release/TLS training.
+
+The [local-training Stop follow-up](2026-10-12-training-stop.md) verifies the
+actual provider's cancellation and same-run recovery after native `TRAINING`
+is acknowledged. Stop takes 106.993 seconds in this case: the current local
+computation settles before teardown, with the dataset pinned and another
+Start/Join rejected during that wait. No cancelled contribution or checkpoint
+is recorded; resumed training produces four unique updates and an exact final
+aggregate. All saved data/runtime and earlier evidence are preserved. This
+qualifies cooperative Stop in the local-training phase, not exact operator
+entry, immediate preemption or a worst-case latency bound.

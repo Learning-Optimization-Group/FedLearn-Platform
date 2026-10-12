@@ -1,0 +1,394 @@
+{
+  "date": "2026-10-12",
+  "scope": "USB-powered Debug Stop during reported native first-order image training, then same-run rejoin and two complete vivo/Linux rounds",
+  "project_id": "cc9f1826-e92f-4489-b287-dcce71d33a92",
+  "run_id": "0263d26d-5c98-4204-91a2-2aab32285bd1",
+  "model": "PNEUMONIA_CNN",
+  "strategy": "FedAvg",
+  "rounds": 2,
+  "examples_per_client": 16,
+  "local_optimizer": "Adam",
+  "local_updates_per_round": 1,
+  "source": {
+    "native_progress_commit": "c331e5948e87bdb57eead91633f308168e0dad1c",
+    "javascript_and_linux_commit": "50a01ca9ad80f586b7944cc8fc6ee434f31a2b82",
+    "qualification_base_commit": "9920eae7816cfe1717e3da3905800e6ce6fdd2a6",
+    "application_changed": false
+  },
+  "runtime": {
+    "apk_sha256": "8f284fb4974cc926b4c4d7c7f3056770c19ce318d8d54b4f1219ef0d079cb91e",
+    "core_archive_sha256": "eda3234e16df1907e119a9c175010796901b98d2f59c80d029f589eb0ddd6f80",
+    "installed_apk_unchanged_after_run": true,
+    "g14_source_clean_and_unchanged_during_run": true
+  },
+  "contract_sha256": "811bd394aeecd44cc406f76fe2722ebf333ffcafa65c58bca994b1c8804a13e3",
+  "initial_npz_sha256": "dc2dae168d776ee3bdebffad648abe4f4f74f5a5dbbb6fd45ffd217ed1e76fd5",
+  "desktop_package_sha256": "0b78ede069b937df804686c86b01d8dd9585561710c0e452b794d7d6754c4d64",
+  "stop_and_recovery": {
+    "stop_completion_ms": 106993,
+    "cancelled_attempt_accepted_updates": 0,
+    "cancelled_attempt_checkpoint": null,
+    "cancelled_attempt_observed_upload_chunks": 0,
+    "guarded_start_and_join": true,
+    "resumed_same_run": true,
+    "completed_rounds": 2,
+    "unique_updates": 4,
+    "checkpoint": 2,
+    "device_sample_count": 42,
+    "device_sample_max_gap_seconds": 15.380341,
+    "sampled_battery_temperature_min_c": 23.0,
+    "sampled_battery_temperature_max_c": 24.0,
+    "exact_kernel_entry_observed": false,
+    "mid_operator_preemption_claimed": false,
+    "physical_client_replay_repeated": false
+  },
+  "events": [
+    {
+      "at_utc": "2026-10-12T05:03:59.239443+00:00",
+      "name": "proxy_started",
+      "kind": "proxy",
+      "pid": 23626
+    },
+    {
+      "at_utc": "2026-10-12T05:04:00.164478+00:00",
+      "name": "monitor_started",
+      "kind": "monitor",
+      "pid": 23646
+    },
+    {
+      "at_utc": "2026-10-12T05:04:02.958495+00:00",
+      "name": "phone_joined",
+      "run": "0263d26d-5c98-4204-91a2-2aab32285bd1",
+      "partition": 1
+    },
+    {
+      "at_utc": "2026-10-12T05:04:03.609851+00:00",
+      "name": "training_started"
+    },
+    {
+      "at_utc": "2026-10-12T05:04:54.641988+00:00",
+      "name": "cancelled_attempt_training",
+      "observation": {
+        "at_utc": "2026-10-12T05:04:52.748313+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 31,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "0263d26d-5c98-4204-91a2-2aab32285bd1",
+        "current_round": 1,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      }
+    },
+    {
+      "at_utc": "2026-10-12T05:04:58.933421+00:00",
+      "name": "cancelled_attempt_still_training",
+      "observation": {
+        "at_utc": "2026-10-12T05:04:57.780031+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 33,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "0263d26d-5c98-4204-91a2-2aab32285bd1",
+        "current_round": 1,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      }
+    },
+    {
+      "at_utc": "2026-10-12T05:04:59.384422+00:00",
+      "name": "stop_requested"
+    },
+    {
+      "at_utc": "2026-10-12T05:04:59.498882+00:00",
+      "name": "stop_pending_with_dataset_pinned"
+    },
+    {
+      "at_utc": "2026-10-12T05:04:59.750074+00:00",
+      "name": "new_start_and_join_guarded"
+    },
+    {
+      "at_utc": "2026-10-12T05:06:47.744729+00:00",
+      "name": "cancelled_attempt_quiesced",
+      "stop_completion_ms": 106993,
+      "checkpoint": null,
+      "accepted_updates": 0,
+      "service_absent": true
+    },
+    {
+      "at_utc": "2026-10-12T05:06:50.190194+00:00",
+      "name": "phone_joined",
+      "run": "0263d26d-5c98-4204-91a2-2aab32285bd1",
+      "partition": 1
+    },
+    {
+      "at_utc": "2026-10-12T05:06:50.273383+00:00",
+      "name": "rejoined_idle_heartbeat",
+      "observation": {
+        "at_utc": "2026-10-12T05:06:48.203476+00:00",
+        "name": "rpc_completed",
+        "connection": 2,
+        "stream": 3,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "0263d26d-5c98-4204-91a2-2aab32285bd1",
+        "current_round": 1,
+        "status": "IDLE",
+        "current_step": 0,
+        "total_steps": 0,
+        "acknowledged": true,
+        "should_stop": false
+      }
+    },
+    {
+      "at_utc": "2026-10-12T05:06:50.692554+00:00",
+      "name": "training_started"
+    },
+    {
+      "at_utc": "2026-10-12T05:07:45.854372+00:00",
+      "name": "training_heartbeat",
+      "round": 1,
+      "observation": {
+        "at_utc": "2026-10-12T05:07:44.328034+00:00",
+        "name": "rpc_completed",
+        "connection": 2,
+        "stream": 33,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "0263d26d-5c98-4204-91a2-2aab32285bd1",
+        "current_round": 1,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      }
+    },
+    {
+      "at_utc": "2026-10-12T05:10:42.382020+00:00",
+      "name": "waiting_heartbeat",
+      "round": 1,
+      "observation": {
+        "at_utc": "2026-10-12T05:10:41.014569+00:00",
+        "name": "rpc_completed",
+        "connection": 2,
+        "stream": 107,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "0263d26d-5c98-4204-91a2-2aab32285bd1",
+        "current_round": 1,
+        "status": "WAITING",
+        "current_step": 1,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      }
+    },
+    {
+      "at_utc": "2026-10-12T05:10:42.466699+00:00",
+      "name": "desktop_round_released",
+      "round": 1
+    },
+    {
+      "at_utc": "2026-10-12T05:11:25.416447+00:00",
+      "name": "training_heartbeat",
+      "round": 2,
+      "observation": {
+        "at_utc": "2026-10-12T05:11:25.335702+00:00",
+        "name": "rpc_completed",
+        "connection": 2,
+        "stream": 157,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "0263d26d-5c98-4204-91a2-2aab32285bd1",
+        "current_round": 2,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      }
+    },
+    {
+      "at_utc": "2026-10-12T05:14:23.912331+00:00",
+      "name": "waiting_heartbeat",
+      "round": 2,
+      "observation": {
+        "at_utc": "2026-10-12T05:14:22.057151+00:00",
+        "name": "rpc_completed",
+        "connection": 2,
+        "stream": 229,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "0263d26d-5c98-4204-91a2-2aab32285bd1",
+        "current_round": 2,
+        "status": "WAITING",
+        "current_step": 1,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      }
+    },
+    {
+      "at_utc": "2026-10-12T05:14:23.998111+00:00",
+      "name": "desktop_round_released",
+      "round": 2
+    },
+    {
+      "at_utc": "2026-10-12T05:14:45.190504+00:00",
+      "name": "completed",
+      "unique_updates": 4,
+      "checkpoint": 2,
+      "foreground_service_absent": true
+    },
+    {
+      "at_utc": "2026-10-12T05:14:45.230175+00:00",
+      "name": "owned_device_route_restored",
+      "success": true
+    }
+  ],
+  "accepted_updates": [
+    {
+      "client": "phone",
+      "round": 1,
+      "examples": 16,
+      "state_sha256": "82129035dc198e7d4c10c09ad7fb82be997c83b6f67913bdca37a24d879172fb"
+    },
+    {
+      "client": "linux",
+      "round": 1,
+      "examples": 16,
+      "state_sha256": "9b5a374b2d8c135556b19f67f455fef3f8ae6d94e8261399cb9bcbf24215a9fd"
+    },
+    {
+      "client": "phone",
+      "round": 2,
+      "examples": 16,
+      "state_sha256": "4ed6fcf5ab2099c1d40c43698483746a8b460bef179f2083e8c2cf457edbe36b"
+    },
+    {
+      "client": "linux",
+      "round": 2,
+      "examples": 16,
+      "state_sha256": "5fa19828156bb6793cea19ba68f385fcff59288cfd3a34d9f2c9281e3dda81ea"
+    }
+  ],
+  "aggregate_verification": {
+    "accepted_rows_in_unfiltered_recorder_window": 4,
+    "aggregate_bitwise_equal": true,
+    "finite_state": true,
+    "initial_state_matches_contract": true,
+    "reconstructed_parent_sha256": {
+      "1": "a24be381daccd14437997b63f9b2f7c52f1b9008f4f739ffdedd13bcfa38de7b",
+      "2": "e158271c780f8a93be7cc36f83e15bfaf3e3bf2f48dcbc32d6b14205597f641c"
+    },
+    "registered_npz_sha256": "238f16be804a047ec8e93c2945743bde86d58b53b3701fea3c66c55f380abf78",
+    "integer_tensor_count": 0,
+    "batchnorm_variance_tensor_count": 0,
+    "physical_client_replay_repeated": false
+  },
+  "preservation": {
+    "files": 33,
+    "all_sha256_unchanged": true,
+    "foreground_service_absent": true
+  },
+  "owned_run_helpers": {
+    "proxy_absent": true,
+    "desktop_absent": true,
+    "monitor_absent": true,
+    "owned_proxy_route_absent": true,
+    "normal_run_route_restored": true
+  },
+  "previous_evidence_preserved": {
+    "android-heartbeat-progress-2026-10-11.json": 38,
+    "android-screenoff-longrun-2026-10-11.json": 42,
+    "android-image-acknowledgement-loss-2026-10-11.json": 47,
+    "android-image-upload-interruption-2026-10-11.json": 41,
+    "android-image-reconnect-final-2026-10-11.json": 25
+  },
+  "retained_harness_review_gaps": {
+    "running_driver_unchanged": true,
+    "wire_gate": "The running exercise checks records/checkpoints. Final verifier separately requires no cancelled-window decoded upload chunks/submission completions and no observer errors.",
+    "device_gate": "The running exercise checks monitor-error flags. Final verifier separately requires fresh complete USB/awake/non-idle/app-present samples with bounded gaps."
+  },
+  "limitations": [
+    "Stop is cooperative and waited for the current local computation; this measured latency is not an immediate-stop guarantee or a worst-case bound.",
+    "Two acknowledged TRAINING0/1 heartbeats establish the native local-training phase. Exact kernel entry and mid-operator preemption are not observed.",
+    "Cancellation-window wire observation counts decoded upload chunks/completions, not every sub-chunk byte or stream-opening header.",
+    "USB-powered Debug operation with sampled awake/non-idle state and app-process presence; resumed activity ownership is not sampled. This does not establish wireless Doze, long suspension, physical Release or deployed TLS.",
+    "Accepted tensors reconstruct the final aggregate exactly; independent original-runtime numerical client replay is not repeated.",
+    "No application behavior or progress UI changed. Successful-round counters omit cancelled-attempt compute/traffic; the measured Stop wait shows why they do not report total work."
+  ],
+  "private_evidence_sha256": {
+    "events.json": "c60fb75252e300558437ebcd3847348c7a7d9736c8b40ad28544af5bea8f57e2",
+    "proxy-events.jsonl": "16a3291103df713ad239dc4df1aae26f27188157b0879169c1863bf368e9b31e",
+    "device-samples.jsonl": "f52b82015bd5f09769d4920e82377a9baa312ee810d1c921ce78dd407ef56838",
+    "debugger-audit.json": "28277328c0aaee97223ee8732e930f66922b1c15654719c642aeae6cf8d289af",
+    "exercise.log": "1fa6226e93949f23f53dd12d6c86bfeec640a5e53fa44a77947ac405b934ab53",
+    "desktop.log": "28a85d031a4f70e615ab272fa86a81fc84aaaa5631bc9307a4db2a64a4545cc6",
+    "proxy.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "monitor.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "provider-before.json": "5e82dc6ee9d664f337f18e55e862d6bf3d41f845f7c89daaa2a648248c9703b5",
+    "provider-before-stop.json": "63f82b84448fb580eca8882fdd5b328208372971d59e81c2184a2f9ec406a639",
+    "provider-stop-pending.json": "e396bf8824f84daec10c4d4082376ff979394027d938086f0c60485c6a2c3e22",
+    "provider-stop-guarded.json": "877f17ed391660da4ebd9518f073f0a649428a300ae172e6430d83bc7ff5e7b8",
+    "provider-stopped.json": "a780fd8ea8d95c828fda18a065c61fecb2c58e66b1fe14b0206e9fa827d6dd11",
+    "provider-rejoined.json": "5e82dc6ee9d664f337f18e55e862d6bf3d41f845f7c89daaa2a648248c9703b5",
+    "provider-final.json": "f161b73d0f0775d66dfa45194dcad5b2176af8b4c30d84c6fb98930e64fa5b02",
+    "stop-result.json": "8b99b4b1f9e8cd7439e6954422cd3dd4db270834420f9037d3d2864549f6b8eb",
+    "project-completed.json": "18aa038fbbcb9188ce242262c36aa010dac45bc63f2b4577ca607d5b4d3c8b20",
+    "cancelled-updates.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "accepted-updates.json": "518ce84757ff0f2cdc5f82e87f496a50a5bd65320851492f3b8104f464fe05fa",
+    "record-offset.txt": "7f839cbb7cf30dc82d28ea61e6bf9ed6dea7545ecd500e18e55bb1e755d6b114",
+    "cancelled-record-end.txt": "7f839cbb7cf30dc82d28ea61e6bf9ed6dea7545ecd500e18e55bb1e755d6b114",
+    "record-end.txt": "c9aeda156ea65376df5d950f2f04ca794fdd6787820a316cada511cc0c6b29ec",
+    "preflight.json": "9d655466b36a1895eb2af00bd67e1fd85881a05270979341594ac5b863501b09",
+    "runtime-after.json": "4c4d0e8dfa4ee493926d03b1e76ec2ca3a2485c27b4255bfd8a248e1874c0e75",
+    "phone-preservation-before.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+    "phone-preservation.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+    "helper-absence.json": "ae84348159f6004fe452671f8af0a0637b0910ad0da0b4cc113ef264b566d924",
+    "aggregate-verification.json": "2bc6e15e94069eee5e208cd5f9c65bb991283d5cceda962a2f208090f81bfcc9",
+    "stop-verification.json": "1252f714647209091d3d81b6bbf83a14110ee098514139f4e34f9d0d5c6205fb",
+    "workspace-preservation.json": "4018e100d72f0a5a5a1a2148101413a9a14d50ffe505a75eb81374d4d5018324",
+    "root-preservation-before.json": "08544f929ea6924195cf0f56b1cf85a04f5a6c09548f3ad620bdc32acf2c9efb",
+    "artifact.json": "5eccf4fe658d94d20ac5eda145f8646f51a39830cfb31fd362a6bd26b8edeb50",
+    "collect.log": "6a5434805175240685a981dee86239a9b7de5213246141ea3b9c0828e0d6b4e5",
+    "verification.log": "262d96744ebb6f20d49e6b5b6a03ba05ce31a86449b2775a3a2d8983ee35313e"
+  },
+  "private_driver_sha256": {
+    "training_stop_setup.py": "d109de533e36585e21ec2e99416409b6b1ad4273b9116d13dda1faf5bcefd9f9",
+    "training_stop_desktop.py": "1cc8611f3b9bb94e30442c442ce000779331a06e579df78df5464bfb98e073ba",
+    "training_stop_proxy.py": "1376b327a3d9777dbb23fe0d639da90154a52f9ea49407f9a121fec4c4042e45",
+    "training_stop_remote.py": "5911ad2cd7d1d9aa50a0378aa750a6790c40b6343e48a793f542751570ea4481",
+    "training_stop_exercise.py": "91c38663341277a1ccf105e5d815d57d314359901a1a65886dc06a1af6997db6",
+    "training_stop_collect.py": "dd7b102d85786efe62e85980487e22a3c79523026480fa1b13bf12bf6b6678fc",
+    "training_stop_postflight.py": "27516f02d40d3c9f3ec7d08bda0994a6923530df53cb1140b8a2f9e29a320a84",
+    "training_stop_aggregate.py": "f41ec21919b797201aa484be3e812193c47d13e7aeaacf42544f5fec5f0c587b",
+    "training_stop_preservation.py": "6f24a6082fe4e8da31ddfdd6eae4cff85fcefe64099b0d024196bb6e7f6c5f48",
+    "verify_training_stop.py": "efb633490f9a435815669bdf0737027c42277b0be20b2ba7f7c7a24afd2d19ca",
+    "curate_training_stop.py": "bc3e352857129dc30d49f78b71c74f2659b7f90beaace989f70c142c284c1cee",
+    "training_stop_provider_state.js": "be6d0f85bfd3b5edb38fe1d1b68b9df93cdd39ac97c360a9b905d513573c3e15"
+  },
+  "shared_driver_sha256": {
+    "image_upload_observer.py": "531f543781613b126b2ed4f9eac24bd2924377ad39fe18f3af85565275d87423",
+    "cdp.cjs": "76ed4346e2594a57312bbb6fd1c43c82825ac7b2de78eee5f6801c7ebd28b87a",
+    "mounted-auth-driver.js": "01c2269595279917840d3099d55b9c1b2159548285c63f3123154466f8052897",
+    "lifecycle-network/provider-driver.js": "fbce02b7e93178afc038e184359d4fae554f6abea8396efe4b39732ddad966aa"
+  },
+  "physical_driver": "training_stop_exercise.py"
+}
