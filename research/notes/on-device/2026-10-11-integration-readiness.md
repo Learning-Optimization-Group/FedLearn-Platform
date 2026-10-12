@@ -122,5 +122,17 @@ reset. Four accepted updates reconstruct the final aggregate exactly; the app's
 33 dataset files are preserved. Code review corrected two phase/round defects
 before qualification. No new progress UI or physical numerical replay was added.
 Earlier physical receipts remain bound to their original runtime, which was
-preserved before rebuilding. Longer background behavior and production
-Release/TLS training remain unqualified.
+preserved before rebuilding. The separate run below strengthens background
+evidence; production Release/TLS training remains unqualified.
+
+The [ten-round screen-off follow-up](2026-10-11-screenoff-longrun.md) completes
+32.8 minutes of USB-powered Debug background operation with the unchanged
+progress APK. No further debugger calls are made by the harness during that
+window. Acknowledged round/step progression and successful upload-before-waiting
+are verified for each round before the held Linux peer proceeds. Twenty unique
+contributions reconstruct the registered final model exactly; checkpoint ten,
+all 33 dataset files and post-run source/historical-evidence preservation pass.
+Independent samples show the display asleep, app/service records present and
+battery temperature of 25–26°C. The run does not establish natural wireless
+Doze, prolonged suspension, peak processor temperature, thermal endurance,
+physical numerical client replay or production Release/TLS training.

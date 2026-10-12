@@ -1,0 +1,635 @@
+{
+  "date": "2026-10-11",
+  "scope": "Ten-round USB-powered Debug vivo/Linux screen-off original-pneumonia FedAvg qualification",
+  "project_id": "16e2fed9-4075-45be-99b2-2ec76d4c85a8",
+  "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+  "model": "PNEUMONIA_CNN",
+  "strategy": "FedAvg",
+  "rounds": 10,
+  "examples_per_client": 16,
+  "local_optimizer": "Adam",
+  "local_updates_per_round": 1,
+  "source": {
+    "native_progress_commit": "c331e5948e87bdb57eead91633f308168e0dad1c",
+    "javascript_and_linux_commit": "50a01ca9ad80f586b7944cc8fc6ee434f31a2b82",
+    "qualification_base_commit": "a02e0ef6003a32f2d7c31c2c3f6fbd93db1d4c90",
+    "application_changed": false
+  },
+  "runtime": {
+    "apk_sha256": "8f284fb4974cc926b4c4d7c7f3056770c19ce318d8d54b4f1219ef0d079cb91e",
+    "core_archive_sha256": "eda3234e16df1907e119a9c175010796901b98d2f59c80d029f589eb0ddd6f80",
+    "installed_apk_unchanged_after_run": true,
+    "g14_source_clean_and_unchanged_during_run": true
+  },
+  "contract_sha256": "b428fc552ebf7c7dc3ee5de66f4a262b1b67799636ea0714c90fec19e10f535c",
+  "initial_npz_sha256": "94f2916bea444189af7d9fde63027e170c35a9f4278a4c2293314202ffc6411f",
+  "desktop_package_sha256": "0b78ede069b937df804686c86b01d8dd9585561710c0e452b794d7d6754c4d64",
+  "background": {
+    "display_off": "2026-10-12T02:08:36.912191+00:00",
+    "single_training_trigger_before_quiet_window": true,
+    "debugger_quiet_started": "2026-10-12T02:08:37.030970+00:00",
+    "server_completed": "2026-10-12T02:41:03.819787+00:00",
+    "service_absence_observed": "2026-10-12T02:41:27.607952+00:00",
+    "debugger_quiet_ended": "2026-10-12T02:41:27.610965+00:00",
+    "monitoring": "Independent ADB power/battery/service-record/process samples about every15seconds; passive wire metadata observation. The harness made no CDP calls during the background window.",
+    "service_observation": "Presence of the training-service record, not an isForeground flag measurement.",
+    "rounds": 10,
+    "unique_updates": 20,
+    "completed_checkpoint": 10,
+    "screen_off_background_seconds": 1970.463916,
+    "active_service_sample_count": 126,
+    "screen_off_sample_count": 129,
+    "device_sample_max_gap_seconds": 15.381648,
+    "acknowledged_heartbeat_count": 381,
+    "heartbeat_max_gap_seconds": 6.462275,
+    "sampled_battery_temperature_min_c": 25.0,
+    "sampled_battery_temperature_max_c": 26.0,
+    "sampled_battery_level_min": 100,
+    "sampled_battery_level_max": 100,
+    "sampled_natural_idle_seen": false,
+    "debugger_evaluations_during_background": 0,
+    "physical_client_replay_repeated": false
+  },
+  "round_observations": [
+    {
+      "round": 1,
+      "training": {
+        "at_utc": "2026-10-12T02:09:24.229969+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 31,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 1,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "waiting": {
+        "at_utc": "2026-10-12T02:11:35.902537+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 85,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 1,
+        "status": "WAITING",
+        "current_step": 1,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "desktop_released": "2026-10-12T02:11:37.118691+00:00"
+    },
+    {
+      "round": 2,
+      "training": {
+        "at_utc": "2026-10-12T02:12:38.596504+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 113,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 2,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "waiting": {
+        "at_utc": "2026-10-12T02:14:50.040905+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 167,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 2,
+        "status": "WAITING",
+        "current_step": 1,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "desktop_released": "2026-10-12T02:14:51.483666+00:00"
+    },
+    {
+      "round": 3,
+      "training": {
+        "at_utc": "2026-10-12T02:15:52.988527+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 195,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 3,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "waiting": {
+        "at_utc": "2026-10-12T02:18:04.769701+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 249,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 3,
+        "status": "WAITING",
+        "current_step": 1,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "desktop_released": "2026-10-12T02:18:05.841225+00:00"
+    },
+    {
+      "round": 4,
+      "training": {
+        "at_utc": "2026-10-12T02:19:08.274062+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 277,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 4,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "waiting": {
+        "at_utc": "2026-10-12T02:21:19.777160+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 331,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 4,
+        "status": "WAITING",
+        "current_step": 1,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "desktop_released": "2026-10-12T02:21:20.450217+00:00"
+    },
+    {
+      "round": 5,
+      "training": {
+        "at_utc": "2026-10-12T02:22:22.920619+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 359,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 5,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "waiting": {
+        "at_utc": "2026-10-12T02:24:29.375659+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 411,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 5,
+        "status": "WAITING",
+        "current_step": 1,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "desktop_released": "2026-10-12T02:24:30.320989+00:00"
+    },
+    {
+      "round": 6,
+      "training": {
+        "at_utc": "2026-10-12T02:25:36.549399+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 441,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 6,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "waiting": {
+        "at_utc": "2026-10-12T02:27:48.127169+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 495,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 6,
+        "status": "WAITING",
+        "current_step": 1,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "desktop_released": "2026-10-12T02:27:50.367616+00:00"
+    },
+    {
+      "round": 7,
+      "training": {
+        "at_utc": "2026-10-12T02:28:51.027520+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 523,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 7,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "waiting": {
+        "at_utc": "2026-10-12T02:30:57.346636+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 575,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 7,
+        "status": "WAITING",
+        "current_step": 1,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "desktop_released": "2026-10-12T02:31:00.367632+00:00"
+    },
+    {
+      "round": 8,
+      "training": {
+        "at_utc": "2026-10-12T02:32:05.270360+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 605,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 8,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "waiting": {
+        "at_utc": "2026-10-12T02:34:11.530162+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 657,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 8,
+        "status": "WAITING",
+        "current_step": 1,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "desktop_released": "2026-10-12T02:34:15.763633+00:00"
+    },
+    {
+      "round": 9,
+      "training": {
+        "at_utc": "2026-10-12T02:35:19.186652+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 687,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 9,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "waiting": {
+        "at_utc": "2026-10-12T02:37:25.409041+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 739,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 9,
+        "status": "WAITING",
+        "current_step": 1,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "desktop_released": "2026-10-12T02:37:26.195804+00:00"
+    },
+    {
+      "round": 10,
+      "training": {
+        "at_utc": "2026-10-12T02:38:32.887989+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 769,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 10,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "waiting": {
+        "at_utc": "2026-10-12T02:40:39.409845+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 821,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "84077195-6bda-4104-b28e-7143ad25d3bb",
+        "current_round": 10,
+        "status": "WAITING",
+        "current_step": 1,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      },
+      "desktop_released": "2026-10-12T02:40:43.585110+00:00"
+    }
+  ],
+  "accepted_updates": [
+    {
+      "client": "phone",
+      "round": 1,
+      "examples": 16,
+      "state_sha256": "133ae9d3ea185e5c29d03c4e80b593243072d492caef2efadb9af27d26d074bd"
+    },
+    {
+      "client": "linux",
+      "round": 1,
+      "examples": 16,
+      "state_sha256": "45973cced1d61a908d59aaf8c921681163c37bf370cf833028e268b49cc5b556"
+    },
+    {
+      "client": "phone",
+      "round": 2,
+      "examples": 16,
+      "state_sha256": "5a1d6212b3dca3143b4ad4c459c377215bd76506e63bc91a41c4dca93195fdaa"
+    },
+    {
+      "client": "linux",
+      "round": 2,
+      "examples": 16,
+      "state_sha256": "f3e23b2e360639c68598b9cec6fd6153787b44d20287b43ae96fc7ffe96fddf3"
+    },
+    {
+      "client": "phone",
+      "round": 3,
+      "examples": 16,
+      "state_sha256": "39adc1aa6cc33e3008e75640c27991bc8935fb4713fd370eff3c229b9828546f"
+    },
+    {
+      "client": "linux",
+      "round": 3,
+      "examples": 16,
+      "state_sha256": "23b29b3712c6f9e597a809fe957f7db836cc14f3944d4fc8760ca1b2dabf682a"
+    },
+    {
+      "client": "phone",
+      "round": 4,
+      "examples": 16,
+      "state_sha256": "1cf70ee048a89364eaf299a3071f1027448f6c2088ebb6dfd6b932b00d6bdc39"
+    },
+    {
+      "client": "linux",
+      "round": 4,
+      "examples": 16,
+      "state_sha256": "bd5dd6f028c925853a747ff84f994606c3aa93d3dd52b3d6667be2dbbdf875a8"
+    },
+    {
+      "client": "phone",
+      "round": 5,
+      "examples": 16,
+      "state_sha256": "1aaf8b4c314e1957315a47d1425ecc8d9da84c8013e869cf6fdea24e0fbd7c4a"
+    },
+    {
+      "client": "linux",
+      "round": 5,
+      "examples": 16,
+      "state_sha256": "756263a6e6b04287b60c0410b1649d29e072fa82b4d010340278a4563f3cb64e"
+    },
+    {
+      "client": "phone",
+      "round": 6,
+      "examples": 16,
+      "state_sha256": "2ed328067c4af1e6987162dea9e9c4d166ac1728ccd3760900cc9c31380456db"
+    },
+    {
+      "client": "linux",
+      "round": 6,
+      "examples": 16,
+      "state_sha256": "38ecc5a40046199cf3b9fbebd495380fade09e5ce805a6a99c3db34b779d9601"
+    },
+    {
+      "client": "phone",
+      "round": 7,
+      "examples": 16,
+      "state_sha256": "598bb00ab3ae8b1c48389db9d19567cb765cd873c355d3f328d0056e0d83e511"
+    },
+    {
+      "client": "linux",
+      "round": 7,
+      "examples": 16,
+      "state_sha256": "3ad46874eaf0550e69af32ce3f338b11c05717f63d35ac7d6b50c13fd841e2da"
+    },
+    {
+      "client": "phone",
+      "round": 8,
+      "examples": 16,
+      "state_sha256": "a1310cd47ba11be9f9802f7d4d918e50e0c191f9da8df89189105a2a42566d19"
+    },
+    {
+      "client": "linux",
+      "round": 8,
+      "examples": 16,
+      "state_sha256": "30c1c3caab42e23dbbdb4ce0189ec488e0d55d78e439d925a7e47531408d7b3f"
+    },
+    {
+      "client": "phone",
+      "round": 9,
+      "examples": 16,
+      "state_sha256": "f1818927ab22c5b6274cfd703c093536846e50866605e104e2f7f9d922827c9e"
+    },
+    {
+      "client": "linux",
+      "round": 9,
+      "examples": 16,
+      "state_sha256": "a9e71e5da42640e9a6dae1ca59fde455ee3315e95bd462971d302fa5dd760f63"
+    },
+    {
+      "client": "phone",
+      "round": 10,
+      "examples": 16,
+      "state_sha256": "8b5381a81c1a8736af50b714d4712620a4fe31d65a0c19964879cad59674f058"
+    },
+    {
+      "client": "linux",
+      "round": 10,
+      "examples": 16,
+      "state_sha256": "3f9d4c801a98f1693d29dd0a1c3b28ae1b300569eaed2e75f293ccb95aa10040"
+    }
+  ],
+  "aggregate_verification": {
+    "accepted_rows_in_unfiltered_recorder_window": 20,
+    "aggregate_bitwise_equal": true,
+    "finite_state": true,
+    "initial_state_matches_contract": true,
+    "reconstructed_parent_sha256": {
+      "1": "ecd2e323ebe0321454c3a53b85dc63a62ec25f3c7904b40c58567bf33b4a0b48",
+      "2": "33ced1f7b1f3adbcd90d1be04f10c0362ea89df1d0be29b5cdd9e61fa26fc243",
+      "3": "d30b4bded43edd367895e2d713186da831674e05abe08f6155f5aec9a0586ce1",
+      "4": "f7f4111b9ae2c247474c4122e9ecdcab591c1f1d003ce1252c6a6b7353d5d200",
+      "5": "d19e5b09a5ab71f1c5a74c9ad763ac54680fe5581156a0ab1d72bacfd86c932a",
+      "6": "d9c7643a398e72f4b207875428dc6e3f87e0cce71e9e6c2d80af78db4b6ade1a",
+      "7": "b182104ed42ee5b5e5082a1b1459b4c7cd89923af51688afa98c248cba449ba6",
+      "8": "6525ee310f13e9fd35b1fedfac89b8f7c3604c8f0a778c0d4481a85a0b593780",
+      "9": "24d4d5d1df93bd55702a86620868e877c32738d1afa91f04eef686ca49f3716f",
+      "10": "f3168e01e051f0175ba1c6728bd00a0476a108870d74bf06a2c689e06dc0213f"
+    },
+    "registered_npz_sha256": "6e4264341bcdfb3ee90cc00e44594699f2006a9c700c76a8e9d536705ee56a20",
+    "integer_tensor_count": 0,
+    "batchnorm_variance_tensor_count": 0,
+    "physical_client_replay_repeated": false
+  },
+  "preservation": {
+    "files": 33,
+    "all_sha256_unchanged": true,
+    "foreground_service_absent": true
+  },
+  "owned_run_helpers": {
+    "proxy_absent": true,
+    "desktop_absent": true,
+    "monitor_absent": true,
+    "owned_proxy_route_absent": true,
+    "normal_run_route_restored": true
+  },
+  "previous_evidence_preserved": {
+    "android-heartbeat-progress-2026-10-11.json": 38,
+    "android-image-acknowledgement-loss-2026-10-11.json": 47,
+    "android-image-upload-interruption-2026-10-11.json": 41,
+    "android-image-reconnect-final-2026-10-11.json": 25
+  },
+  "inherited_code_checks": "Native/mobile/Android regressions and Debug build belong to the preceding heartbeat-progress receipt; no application code or build changed for this qualification.",
+  "limitations": [
+    "USB-powered Debug foreground-service implementation and development plaintext transport; this does not qualify natural wireless Doze, prolonged suspension, physical Release training or deployed TLS.",
+    "Ten rounds with one local optimizer update per round on16images; this is a bounded background run, not hour-scale or sustained thermal-endurance qualification.",
+    "Device and battery-temperature samples can miss brief display events and temperature peaks; battery temperature is not processor junction temperature. Service records establish presence, not sampled foreground flags.",
+    "Five-second acknowledged native heartbeats may skip short phases/intermediate steps; no new dashboard or phone progress UI.",
+    "Accepted states reconstruct the final registered aggregate exactly; independent original-runtime numerical client replay is not repeated in this qualification.",
+    "Graph-boundary Stop, server restart, client process death, prolonged partitions and alternate/mobile tree/secure-aggregation training remain outside this run."
+  ],
+  "private_evidence_sha256": {
+    "events.json": "2f1f7a735a1c58d925b08e7f0e6554d2f1619d73bd7391645fa0f03d8f5b80d5",
+    "proxy-events.jsonl": "3fb51426ba530a893bd5b86ca8db53440de28d594a6960ae0f2e23fe5c0c4436",
+    "device-samples.jsonl": "9272feae8e4bf040ffe99a49e21dc03365fb97a49ef30f15e45f84ee5b3a947c",
+    "debugger-audit.json": "b195c32d5747f41795479b8917fbb768360432c970f193c7a493653b6c4645e6",
+    "exercise.log": "35e6adde9d77fdf1ffe3bf08995e7e649847235513c0443f712ca7e8530fa1f1",
+    "desktop.log": "16e08fe41f982f032d9e34ecfd90bec7e77baf117ca32a718081d3c24a9af4f1",
+    "proxy.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "monitor.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "provider-before.json": "070773aa30d43dc7daf3dfa8cd24c931b0c92ecdd62b56d4569f09f3c9a91f97",
+    "provider-final.json": "9ed7b3516daa42aa342ab66e9bdd7a18555aa6520fd0d24e56c8516cbed1b56a",
+    "project-completed.json": "1a31b5c3aa190de7183200a5ba31b69724c1ae21381db3f9e7c68923979ebe92",
+    "accepted-updates.json": "f1d5fa03cef6181bcc5a1f607eed84fa95a8e570092e8cac5f86420f0bf6112e",
+    "preflight.json": "ac52a37bc636f59233fd101988ffd7cb0187cf1187fbc6ffe46cbc1e3a05f77e",
+    "runtime-after.json": "3ff45fe503bec1e87e6eb9c1f8e26c0aaf45f92cb567597db94dac635118353b",
+    "phone-preservation-before.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+    "phone-preservation.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+    "helper-absence.json": "ae84348159f6004fe452671f8af0a0637b0910ad0da0b4cc113ef264b566d924",
+    "aggregate-verification.json": "0e52cd3aca6fdd32c88978a81d216819bb9277bcb6f7dbd86f2e442d33e8169f",
+    "screenoff-verification.json": "566ac434f1d298faf994abdc3144004d5c44d8e86fa8713e2d4651fdab6b0c33",
+    "workspace-preservation.json": "7cdc8421d28e64b6be3bd252a62405def25d4a9ab6c8cda874d53218c277c2a7",
+    "root-preservation-before.json": "08544f929ea6924195cf0f56b1cf85a04f5a6c09548f3ad620bdc32acf2c9efb",
+    "record-offset.txt": "5b45c0fb097522cde20361fdfe449b12676fea0a43fbc6efbf36097b646a889e",
+    "record-end.txt": "7f839cbb7cf30dc82d28ea61e6bf9ed6dea7545ecd500e18e55bb1e755d6b114",
+    "artifact.json": "f006def820b035a43c181d189e0442f6b616a404561c2e7a6980efc6d29db71c",
+    "collect.log": "e558783e75aed96b468e8749e22b2f22642ce17aaf3e333071243f47fcca593a",
+    "verification.log": "c686ba0e0c73fc6dc7db1bcfc85c44767686ad854938c71323e2d4875e2d3326"
+  },
+  "private_driver_sha256": {
+    "screenoff_longrun_setup.py": "d1116f885082363851df8e755e8c213fb29144e368b67a54cd8d5a3398627fe8",
+    "screenoff_longrun_desktop.py": "949b4894b06e99be5d566c3ff43ffaf3717a8d535a2dce2599685a2f23466f27",
+    "screenoff_longrun_proxy.py": "6965d805ac7c7f4cf421f708725c89e19cd61610f0439498cff82afbe8bf6250",
+    "screenoff_longrun_remote.py": "e3b9d7c7a40f53816698c69a368fa1483e1c5bc3143613f0f77efd3650c99df7",
+    "screenoff_longrun_exercise.py": "10e07d248c4665dd1ec0e1205de450d459cac9d1a7eab52f5c9331abdaa293eb",
+    "screenoff_longrun_collect.py": "163d5d45ae1ab06d3ca5ff8728452fb2116db8b0334285e3f5c4c11b1a4adedb",
+    "screenoff_longrun_postflight.py": "200d6431385e545d322b57974e4ae07e1cffe7767258ad4818cd22d73ab6eb71",
+    "screenoff_longrun_aggregate.py": "ff7c98f47fb73c0bc8cc36e786f6c6359c38acb87dc2930b64ce2655000ccd4d",
+    "verify_screenoff_longrun.py": "8ef5eec96d3edc3eb91e40bb2193181b3ebf933a21a40cb9486a2c224b567630",
+    "screenoff_longrun_preservation.py": "e5cfbe52212f80a43a7072d5588035f29fd861aa1230303a396391764e451f50",
+    "curate_screenoff_longrun.py": "30cc5ae920753fde51ca58928beb7e60e7ae7e9c5fb4b28855270e3a57375e0a"
+  },
+  "shared_driver_sha256": {
+    "image_upload_observer.py": "531f543781613b126b2ed4f9eac24bd2924377ad39fe18f3af85565275d87423",
+    "cdp.cjs": "76ed4346e2594a57312bbb6fd1c43c82825ac7b2de78eee5f6801c7ebd28b87a",
+    "mounted-auth-driver.js": "01c2269595279917840d3099d55b9c1b2159548285c63f3123154466f8052897",
+    "lifecycle-network/provider-driver.js": "fbce02b7e93178afc038e184359d4fae554f6abea8396efe4b39732ddad966aa",
+    "lifecycle/provider-state.js": "371099fcf1a175feb3afe268e7dfaf27bb33fef66a372dc2a1460ef628f1784c"
+  },
+  "physical_driver": "screenoff_longrun_exercise.py"
+}

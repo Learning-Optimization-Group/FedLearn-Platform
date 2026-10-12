@@ -146,4 +146,17 @@ remain unchanged. Seven host regressions cover step/phase/error semantics;
 all 154 native, 681 mobile and 61 Android checks pass. This changes heartbeat
 fields, without adding a progress UI or extending earlier physical receipts to
 the new APK. Multiple steps/DeComFL are host-verified; fresh physical numerical
-replay, long background runs and Release/TLS qualification remain open.
+replay and Release/TLS qualification remain open. The separate background run
+below qualifies a longer USB screen-off case.
+
+The [ten-round screen-off qualification](../../research/results/on-device/android-screenoff-longrun-2026-10-11.json)
+uses the unchanged progress APK and real vivo/Linux clients. The screen stays
+asleep for 32.8 minutes, with no further debugger calls from the harness until
+completion. Every round has acknowledged `TRAINING 0/1`, successful upload and
+`WAITING 1/1` before the held Linux peer proceeds. Twenty unique accepted states
+reconstruct the registered final model exactly; checkpoint ten and all 33 saved
+data files are verified. The retained samples show app/service-record presence,
+USB power and battery temperature of 25–26°C. They can miss brief wake events
+and temperature peaks. This strengthens USB-powered Debug background evidence;
+natural wireless Doze, long suspension, thermal endurance, physical Release
+training and deployed TLS remain unqualified.
