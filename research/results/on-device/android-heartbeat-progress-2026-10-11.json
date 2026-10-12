@@ -1,0 +1,311 @@
+{
+  "date": "2026-10-11",
+  "scope": "Native heartbeat progress fix, host regressions and two real foreground USB vivo/Linux Pneumonia/FedAvg rounds",
+  "project_id": "0dc3e8b6-672a-4712-bf6f-2204b76c680a",
+  "run_id": "6ef5c49e-9d3c-4431-ad44-2734aef535a8",
+  "model": "PNEUMONIA_CNN",
+  "strategy": "FedAvg",
+  "rounds": 2,
+  "examples_per_client": 16,
+  "source": {
+    "native_progress_commit": "c331e5948e87bdb57eead91633f308168e0dad1c",
+    "javascript_and_linux_commit": "50a01ca9ad80f586b7944cc8fc6ee434f31a2b82",
+    "protocol_changed": false,
+    "heartbeat_cadence_and_channel_changed": false,
+    "numerical_training_operations_changed": false
+  },
+  "runtime": {
+    "apk_sha256": "8f284fb4974cc926b4c4d7c7f3056770c19ce318d8d54b4f1219ef0d079cb91e",
+    "numerical_core_sha256": "eda3234e16df1907e119a9c175010796901b98d2f59c80d029f589eb0ddd6f80",
+    "previous_qualified_runtime_preserved": {
+      "app-debug.apk": "7e73377281a583a7f64158c36438d17a4d7a57bb5c8ef12bda25024eb1d1a755",
+      "libfedlearn_core.a": "4cc1c7bdc054fcc55f76936a1f2ebb2cf6f4a0233c11a33a141df580a9baff2a"
+    }
+  },
+  "contract_sha256": "076980887ed976a6ecf0239da52968d72c918f3b971d311e9dfcf60c9fa60dba",
+  "initial_npz_sha256": "611af86142a4af2c73e7665c708b646222dccc53535e1aad9f3202e8f789454c",
+  "desktop_package_sha256": "0b78ede069b937df804686c86b01d8dd9585561710c0e452b794d7d6754c4d64",
+  "events": [
+    {
+      "at_utc": "2026-10-12T01:27:34.917097+00:00",
+      "name": "before_training",
+      "battery_temperature_c": 27.0
+    },
+    {
+      "at_utc": "2026-10-12T01:27:35.440251+00:00",
+      "name": "idle_heartbeat",
+      "observation": {
+        "at_utc": "2026-10-12T01:27:32.817566+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 3,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "6ef5c49e-9d3c-4431-ad44-2734aef535a8",
+        "current_round": 1,
+        "status": "IDLE",
+        "current_step": 0,
+        "total_steps": 0,
+        "acknowledged": true,
+        "should_stop": false
+      }
+    },
+    {
+      "at_utc": "2026-10-12T01:28:19.649643+00:00",
+      "name": "training_heartbeat",
+      "round": 1,
+      "observation": {
+        "at_utc": "2026-10-12T01:28:19.119773+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 31,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "6ef5c49e-9d3c-4431-ad44-2734aef535a8",
+        "current_round": 1,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      }
+    },
+    {
+      "at_utc": "2026-10-12T01:31:16.279206+00:00",
+      "name": "waiting_heartbeat",
+      "round": 1,
+      "observation": {
+        "at_utc": "2026-10-12T01:30:30.612890+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 85,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "6ef5c49e-9d3c-4431-ad44-2734aef535a8",
+        "current_round": 1,
+        "status": "WAITING",
+        "current_step": 1,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      }
+    },
+    {
+      "at_utc": "2026-10-12T01:31:16.457561+00:00",
+      "name": "after_round1",
+      "battery_temperature_c": 27.0
+    },
+    {
+      "at_utc": "2026-10-12T01:31:16.584222+00:00",
+      "name": "desktop_round_released",
+      "round": 1
+    },
+    {
+      "at_utc": "2026-10-12T01:31:48.930332+00:00",
+      "name": "training_heartbeat",
+      "round": 2,
+      "observation": {
+        "at_utc": "2026-10-12T01:31:47.406097+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 151,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "6ef5c49e-9d3c-4431-ad44-2734aef535a8",
+        "current_round": 2,
+        "status": "TRAINING",
+        "current_step": 0,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      }
+    },
+    {
+      "at_utc": "2026-10-12T01:34:49.237240+00:00",
+      "name": "waiting_heartbeat",
+      "round": 2,
+      "observation": {
+        "at_utc": "2026-10-12T01:33:59.038370+00:00",
+        "name": "rpc_completed",
+        "connection": 1,
+        "stream": 205,
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "run_id": "6ef5c49e-9d3c-4431-ad44-2734aef535a8",
+        "current_round": 2,
+        "status": "WAITING",
+        "current_step": 1,
+        "total_steps": 1,
+        "acknowledged": true,
+        "should_stop": false
+      }
+    },
+    {
+      "at_utc": "2026-10-12T01:34:49.399114+00:00",
+      "name": "after_round2",
+      "battery_temperature_c": 28.0
+    },
+    {
+      "at_utc": "2026-10-12T01:34:49.528141+00:00",
+      "name": "desktop_round_released",
+      "round": 2
+    },
+    {
+      "at_utc": "2026-10-12T01:35:10.745916+00:00",
+      "name": "completed",
+      "unique_updates": 4,
+      "checkpoint": 2,
+      "foreground_service_absent": true
+    },
+    {
+      "name": "owned_device_route_restored",
+      "at_utc": "2026-10-12T01:36:00.866429+00:00",
+      "success": true,
+      "collector_verified": true,
+      "after_running_driver_cleanup_string_failure": true
+    }
+  ],
+  "semantics": {
+    "round": "Current trained round, or latest server-confirmed round during download/idle; never guessed from a local counter.",
+    "steps": "Completed local optimizer updates, including all minibatches and the final partial batch; DeComFL counts completed local updates, not perturbations. Resets every round attempt/retry.",
+    "phase": "IDLE at registration; DOWNLOADING through initialization; REBUILDING for missed DeComFL history; TRAINING during local updates; UPLOADING until RPC completion; WAITING after success; ERROR on exception; STOPPED on clean abort.",
+    "wire_limit": "Existing int32 step fields represent unencodable or unknown totals as 0/0 rather than wrap or clamp.",
+    "scope": "Federated-round progress only; provisioning/self-tests, post-round evaluation, UI rendering and total failed-attempt compute/traffic accounting are not expanded by this change."
+  },
+  "accepted_updates": [
+    {
+      "client": "phone",
+      "round": 1,
+      "examples": 16,
+      "state_sha256": "6063378114dedf5a26a4a8b1b33e221056bdb6ac277657559a71a824d9b53acb"
+    },
+    {
+      "client": "linux",
+      "round": 1,
+      "examples": 16,
+      "state_sha256": "5812324c5e217c683ab7232a70d9955b4a0314fd8884b60ccfcaf350ea06fc5f"
+    },
+    {
+      "client": "phone",
+      "round": 2,
+      "examples": 16,
+      "state_sha256": "ee2f79af73dbc85b7f09c0d09deb710669aac6dc83f41419319e393a9507f076"
+    },
+    {
+      "client": "linux",
+      "round": 2,
+      "examples": 16,
+      "state_sha256": "25faaa88fd1d7f7046f95f9fcc0f0d8a6d8b645170b6a98ebfd10d180ea47d3b"
+    }
+  ],
+  "aggregate_verification": {
+    "accepted_rows_in_unfiltered_recorder_window": 4,
+    "aggregate_bitwise_equal": true,
+    "finite_state": true,
+    "initial_state_matches_contract": true,
+    "reconstructed_parent_sha256": {
+      "1": "bb9f898780c3b53aa5a870d9d958376c4a230f82f29fe738e1f10800b469e166",
+      "2": "9b0b210ecaaf25e679c1b1b21b4326c3e9d69928c999a7107a7b66540f1fd365"
+    },
+    "registered_npz_sha256": "bb80abbd3978eb773a6c9dcf393a5db7ed7581269d9031f12d96feaf3919eae6",
+    "integer_tensor_count": 0,
+    "batchnorm_variance_tensor_count": 0,
+    "physical_client_replay_repeated": false
+  },
+  "preservation": {
+    "files": 33,
+    "all_sha256_unchanged": true,
+    "foreground_service_absent": true
+  },
+  "owned_helpers": {
+    "proxy_absent": true,
+    "desktop_absent": true,
+    "owned_proxy_route_absent": true,
+    "normal_run_route_restored": true
+  },
+  "checks": {
+    "initial_regressions_red": 5,
+    "initial_regressions_green": 5,
+    "review_regressions_red": 2,
+    "final_focused_checks": 7,
+    "native_checks": 154,
+    "mobile_checks": 681,
+    "android_unit_checks": 61,
+    "debug_build": true
+  },
+  "code_review": {
+    "range": "c05da15e348e3decab892b2492d489a01f38d93c..c331e5948e87bdb57eead91633f308168e0dad1c",
+    "unresolved_blocking_findings": 0,
+    "corrected_findings": [
+      "Retain latest confirmed round during download/early failure while resetting counters.",
+      "Do not label DeComFL initial-model download as training."
+    ],
+    "strengthened_test": "DeComFL uses K=2/P=3 to distinguish step count from perturbations.",
+    "focused_checks_rerun": 7,
+    "native_checks_rerun": 154,
+    "physical_repetition": false,
+    "wire_scope": "Native heartbeat encoding inspected during code review; physical wire evidence is collected separately in this receipt."
+  },
+  "retained_harness_failures": [
+    "Initial CDP attachment failed before phone login/join/training. A bounded mounted-provider readiness check allowed the same run/peer to continue.",
+    "Original live driver completed training and recorded four accepted updates/checkpoint2, then its copied proxy-cleanup shell string raised embedded-NUL ValueError. Exact running driver/log retained; independent collector removed owned proxy and verified restored routes, absent helpers and unchanged datasets."
+  ],
+  "limitations": [
+    "Two foreground USB image rounds, one optimizer update per round. Multiple steps/minibatch tails/DeComFL semantics and error/retry snapshots are verified by host regressions, not fresh physical runs.",
+    "Five-second heartbeat sampling can skip short phases or intermediate steps; no per-step delivery guarantee.",
+    "No independent physical numerical replay repeated for this progress-only change. Host numerical goldens pass and accepted states reconstruct the final registered aggregate exactly.",
+    "No new dashboard/phone progress UI or server API exposure. This fixes native heartbeat fields.",
+    "Natural wireless Doze, long suspension, graph-boundary Stop, server restart, client death, prolonged partitions, thermal endurance, physical Release training and deployed TLS remain unqualified.",
+    "Boundary temperatures are not peak measurements; existing successful-round counters omit failed-attempt traffic and compute."
+  ],
+  "private_evidence_sha256": {
+    "events.json": "193eecc4cd91e285dcfa7998be01f3d17ff5e574c211b17e685c0deab3114a7e",
+    "proxy-events.jsonl": "c86a0f972f1be373009e98403d2caf2db5d8573c95344d8f1c61cf1bace8428d",
+    "exercise.log": "fda09432e512b74089bdb9122db9894801ef0be92f1a7c5d6b83f368aa0366db",
+    "exercise-initial-debugger-unavailable.log": "8ca6a2e0f76b3d050e1fb43b5558092853aae2ee300d162bd06a16ef3d88f017",
+    "events-initial-debugger-unavailable.json": "c497ed02396f8aaee1ba69569ce363674e412b79123baa968db6be14b3e902bb",
+    "provider-final.json": "8060bf4df08d5add6244ba19ecf1c3349aea11463925a980ed474fe271ccc1b1",
+    "installed-apk.json": "a2dd671877965f377d2c56cce64b29945e181ac9cbc037f201c7e76f14daf9a7",
+    "phone-preservation-before.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+    "phone-preservation.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+    "helper-absence.json": "ef9d78a12312ba512b719634a68855459bb1296de4f2ed2bd72f09e711380119",
+    "aggregate-verification.json": "77519ecc917e04bba8bed5204acedb6da1057f4b948db5bdff820d977faf87f8",
+    "native-tests.log": "e2a4b4449e70006426f31fa06183e97a834c9868f3ad951579af370437d477b8",
+    "mobile-tests.log": "068a8c5f79ff29b675dd2c360dc6df0119e201edde298a0146d3ccaf40692c1f",
+    "android-build.log": "5126f0f0eb68ccf840c7d476cbf61574b2ea4170e470e337ac6dd2c287f72617",
+    "progress-red.log": "05b4d7526235327d601b848ccd13939c8aad2cd35dd33991792d4a892187a844",
+    "progress-green.log": "e8bf13f0d5575007766ff8905ecca911664e075bc67a33c89475004390a2473c",
+    "review-red.log": "177bebf70a31842f8f95df19e00e738bd9125fcf0ae17b3c6f3b664bce89c611",
+    "review-green.log": "980b628dbc7867aba4e73e809f9e91a5efd769ce6d8fa9fb2dd795e25c55a75d",
+    "previous-runtime.json": "ae855da08f8faa68ef7e99b12b83306c81d82e91fb81c7aed2cb47daedd5cb2e",
+    "collect.log": "5963d87660135c560c78ed5564b73877132932b0b2cd98dea0e3f6e5bad65f62",
+    "verification.log": "cfb31f608595b33ddac5d975216b5af0ad4eb4bb0e468aeab364a6eaa82600c5"
+  },
+  "private_driver_sha256": {
+    "heartbeat_progress_setup.py": "416d74e5c6e1da170002b71b0399e38df84783d042b1cb58eb2dfb07c4b8e7e8",
+    "heartbeat_progress_desktop.py": "6074c39b8a4a103ffd893114b6465a9417ed35327eef6eaea3f88520699dcb06",
+    "heartbeat_progress_proxy.py": "09440763c51c224e1b20f80bd0d78f25d5c78831ac06e0627eb27443c2b4fab2",
+    "heartbeat_progress_preservation.py": "8b5f7ae9646118eeb3a6c8930997fd510b2779d17c2b7f262345847f95853338",
+    "heartbeat_progress_exercise_initial.py": "f792cf5795127670fcde8667510bca1c951549b00dc78f88e3434605189a7ed7",
+    "heartbeat_progress_exercise_running.py": "59c7cb3a07a2a00ec18f6136a134e8b3bcc934851b72ebe950f0995d6c5f92cb",
+    "heartbeat_progress_exercise.py": "b5ac42e33efdf68a40930ae3d1da435a4651279cd7ec789506221ec0dda0ca39",
+    "heartbeat_progress_collect.py": "961a34532121e6a4cdb723ed7f2d61830267326d39063ea7345df68a80042039",
+    "heartbeat_progress_aggregate.py": "f48a2403a2fb6a4af06665ba0f84dd1798dd041eb638b03115885964db6559bf",
+    "verify_heartbeat_progress.py": "bddb781989eade5aa6763060f196ef337b5d160d60f8ad237afd75e2fa64ea67",
+    "curate_heartbeat_progress.py": "f482da393b79dfc1be649baf9d67f2147ad48a441dd713d3f0e6d4bdbd6a4f61",
+    "build_heartbeat_progress_android.py": "04e76190a349670ef5dbff2ca0a68cecdbecdd6b98740ca70d5c9d9005d60c2b"
+  },
+  "physical_driver": "heartbeat_progress_exercise_running.py",
+  "shared_driver_sha256": {
+    "image_upload_observer.py": "531f543781613b126b2ed4f9eac24bd2924377ad39fe18f3af85565275d87423",
+    "cdp.cjs": "76ed4346e2594a57312bbb6fd1c43c82825ac7b2de78eee5f6801c7ebd28b87a",
+    "mounted-auth-driver.js": "01c2269595279917840d3099d55b9c1b2159548285c63f3123154466f8052897",
+    "lifecycle-network/provider-driver.js": "fbce02b7e93178afc038e184359d4fae554f6abea8396efe4b39732ddad966aa",
+    "lifecycle/provider-state.js": "371099fcf1a175feb3afe268e7dfaf27bb33fef66a372dc2a1460ef628f1784c"
+  }
+}

@@ -88,8 +88,8 @@ JavaScript/Linux `50a01ca`: after a failed rejoin, the real upstream server acce
 registration and acknowledges a heartbeat before the held peer is released.
 Continued liveness during pending native work, six unique contributions, exact
 original phone/Linux/aggregate replay and preserved datasets are separately bound
-in the new receipt. This supplements the earlier source-bound run. Heartbeat
-round/step telemetry remains fixed at registration; pending native work does not
+in the new receipt. This supplements the earlier source-bound run. That run used heartbeat
+round/step telemetry fixed at registration; pending native work does not
 identify graph computation. That run left natural wireless Doze, graph-boundary
 Stop, upload interruption and production release/security qualification open.
 
@@ -109,6 +109,18 @@ The real provider reconnects and resubmits, the coordinator counts its contribut
 once, and the phone checkpoints before the held Linux peer proceeds. All six
 accepted outputs and their aggregate replay exactly; datasets and helper cleanup
 are verified. The scope is one eight-second foreground USB response outage,
-with unchanged application source. Accurate heartbeat progress, natural wireless
+with unchanged application source. That run left accurate heartbeat progress, natural wireless
 Doze, long suspension, server restart, client process death, thermal endurance
 and production release/security qualification remain open.
+
+
+The [native heartbeat progress follow-up](2026-10-11-heartbeat-progress.md) now
+fixes round/phase/step reporting in native source `c331e59`, using the existing
+wire and heartbeat cadence. Seven regression tests and two real vivo/Linux
+image rounds verify completed-step reporting, post-upload waiting and round-two
+reset. Four accepted updates reconstruct the final aggregate exactly; the app's
+33 dataset files are preserved. Code review corrected two phase/round defects
+before qualification. No new progress UI or physical numerical replay was added.
+Earlier physical receipts remain bound to their original runtime, which was
+preserved before rebuilding. Longer background behavior and production
+Release/TLS training remain unqualified.

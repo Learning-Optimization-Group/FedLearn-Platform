@@ -60,8 +60,8 @@ the [fresh final-source image run](../../research/results/on-device/android-imag
 now separately observes accepted re-registration and an acknowledged upstream
 heartbeat after a failed rejoin, before releasing the held peer. Another heartbeat
 is acknowledged while resumed native work is pending. The new run also repeats
-forced idle and Stop/rejoin, without relabeling the older receipt. Native heartbeat
-round/step fields remain fixed at registration; this proves liveness rather than
+forced idle and Stop/rejoin, without relabeling the older receipt. Those retained runs used native heartbeat
+round/step fields fixed at registration, establishing liveness rather than
 accurate per-round telemetry. Pending native work does not distinguish graph
 computation from a model RPC.
 
@@ -135,3 +135,15 @@ or reliable longer ResNet convergence.
 The [learning follow-up](../../research/notes/on-device/2026-10-11-learning-followup.md)
 records an improved offline ResNet server-step candidate and a failed NIH
 threshold adjustment, without changing platform defaults or claiming deployment.
+
+
+The [native heartbeat progress qualification](../../research/results/on-device/android-heartbeat-progress-2026-10-11.json)
+uses updated native source `c331e59`. Two real foreground USB vivo/Linux
+pneumonia rounds acknowledge actual round advancement and `TRAINING 0/1` to
+`WAITING 1/1` after upload completion, with fresh counts in round two. Four
+accepted updates reconstruct the final aggregate exactly and all 33 datasets
+remain unchanged. Seven host regressions cover step/phase/error semantics;
+all 154 native, 681 mobile and 61 Android checks pass. This changes heartbeat
+fields, without adding a progress UI or extending earlier physical receipts to
+the new APK. Multiple steps/DeComFL are host-verified; fresh physical numerical
+replay, long background runs and Release/TLS qualification remain open.
