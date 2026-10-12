@@ -631,5 +631,20 @@
     "lifecycle-network/provider-driver.js": "fbce02b7e93178afc038e184359d4fae554f6abea8396efe4b39732ddad966aa",
     "lifecycle/provider-state.js": "371099fcf1a175feb3afe268e7dfaf27bb33fef66a372dc2a1460ef628f1784c"
   },
-  "physical_driver": "screenoff_longrun_exercise.py"
+  "physical_driver": "screenoff_longrun_exercise.py",
+  "evidence_review": {
+    "range": "a02e0ef6003a32f2d7c31c2c3f6fbd93db1d4c90..38c076bbe88f3db08483b51c68660a9b9650fd46",
+    "material_findings": 0,
+    "private_bindings_verified": 42,
+    "historical_bindings_verified": 151,
+    "all_ten_upload_sequences_checked": true,
+    "sealed_recorder_window_checked_without_filtering": true,
+    "all_ten_parents_reconstructed_independently": true,
+    "final_aggregate_bitwise_equal": true,
+    "evidence_verifier_rerun": true,
+    "physical_repetition": false,
+    "network_access": false,
+    "fresh_process_inspection": false,
+    "physical_client_replay_repeated": false
+  }
 }

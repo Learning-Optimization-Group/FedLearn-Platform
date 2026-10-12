@@ -47,3 +47,10 @@ reconstruction checks accepted states rather than independently reproducing
 local training. Graph-boundary Stop, server restart, client death and prolonged
 partitions remain separate cases. No application change or new progress UI
 was added, and earlier physical receipts retain their original runtime scope.
+
+Read-only evidence review of `a02e0ef..38c076b` verified all 42 new and 151
+historical bindings, each complete upload/waiting sequence and the unfiltered
+20-row recorder interval. Independent float32 arithmetic reconstructs all ten
+parent hashes and the registered final tensors bit-for-bit; the deterministic
+verifier passes. No material findings remain. The review did not repeat network
+or physical actions, current process inspection or local numerical client replay.
