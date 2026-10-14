@@ -162,5 +162,15 @@ if(FEDLEARN_BUILD_GRPC)
     target_link_libraries(fedlearn_grpc_tests PRIVATE fedlearn_grpc GTest::gtest_main)
     include(GoogleTest)
     gtest_discover_tests(fedlearn_grpc_tests)
+
+    # Compile the same transport for a plaintext loopback fixture independently
+    # of the production library's Debug-only insecure-transport permission.
+    add_executable(fedlearn_grpc_recovery_tests
+      tests/grpc_recovery_test.cpp src/FedLearnClient.cpp ${FEDLEARN_GENERATED_SRCS})
+    target_include_directories(fedlearn_grpc_recovery_tests PRIVATE ${GENERATED_PROTO_DIR})
+    target_link_libraries(fedlearn_grpc_recovery_tests PRIVATE
+      fedlearn_core gRPC::grpc++ protobuf::libprotobuf GTest::gtest_main)
+    target_compile_definitions(fedlearn_grpc_recovery_tests PRIVATE FEDLEARN_ALLOW_INSECURE_GRPC=1)
+    gtest_discover_tests(fedlearn_grpc_recovery_tests)
   endif()
 endif()

@@ -90,6 +90,111 @@ function baseOps(over: Partial<RoundOps> = {}): RoundOps {
 }
 
 describe('runResilientRoundLoop (MO-8)', () => {
+  it.each(['runFedAvgRound', 'runDeComFLRound'] as const)(
+    'routes native heartbeat loss to re-registration before another round call (%s)', async (op) => {
+      const h = hooks();
+      let registered = false;
+      let callsBeforeRegistration = 0;
+      let checkpoint: number | null = 7;
+      const ops = baseOps({
+        getServerStatus: async () => ({serverState: h.rounds.length ? 'COMPLETED' : 'TRAINING', currentRound: 8}),
+        [op]: async () => {
+          if (!registered) {
+            callsBeforeRegistration += 1;
+            throw {message: 'RECONNECT_REQUIRED: Heartbeat connection lost'};
+          }
+          return round(8);
+        },
+        rejoin: async () => { registered = true; return {runId: 'r'}; },
+        loadSubmittedRound: async () => checkpoint,
+        saveSubmittedRound: async (_id, value) => { checkpoint = value; },
+      });
+      await runResilientRoundLoop({runId: 'r', isFedAvg: op === 'runFedAvgRound', cfg: CFG}, ops, POLICY, h);
+      expect(callsBeforeRegistration).toBe(1);
+      expect(h.rounds.map(r => r.round)).toEqual([8]);
+      expect(checkpoint).toBe(8);
+    });
+
+  it('retains the accepted-round checkpoint across heartbeat-loss re-registration', async () => {
+    const h = hooks();
+    let registered = false;
+    let submittedRoundObserved = false;
+    let serverRound = 7;
+    let checkpoint: number | null = 7;
+    const trained: number[] = [];
+    const ops = baseOps({
+      getServerStatus: async () => {
+        if (!registered) throw new Error('RECONNECT_REQUIRED: Heartbeat connection lost');
+        if (serverRound === 7) submittedRoundObserved = true;
+        return {serverState: h.rounds.length ? 'COMPLETED' : 'TRAINING', currentRound: serverRound};
+      },
+      runFedAvgRound: async () => { trained.push(serverRound); return round(serverRound); },
+      rejoin: async () => { registered = true; return {runId: 'r'}; },
+      delay: async () => { if (registered && submittedRoundObserved) serverRound = 8; },
+      loadSubmittedRound: async () => checkpoint,
+      saveSubmittedRound: async (_id, value) => { checkpoint = value; },
+    });
+    await runResilientRoundLoop({runId: 'r', isFedAvg: true, cfg: CFG}, ops, POLICY, h);
+    expect(trained).toEqual([8]);
+    expect(checkpoint).toBe(8);
+  });
+
+  it('bounds repeated heartbeat-loss recovery even when every re-registration succeeds', async () => {
+    let registrations = 0;
+    const h = hooks();
+    const ops = baseOps({
+      runFedAvgRound: async () => { throw new Error('RECONNECT_REQUIRED: Heartbeat connection lost'); },
+      rejoin: async () => { registrations += 1; return {runId: 'r'}; },
+    });
+    await expect(runResilientRoundLoop({runId: 'r', isFedAvg: true, cfg: CFG}, ops, POLICY, h))
+      .rejects.toThrow(/RECONNECT_REQUIRED/);
+    expect(registrations).toBe(2);
+    expect(h.rounds).toEqual([]);
+  });
+
+  it('honors user Stop while waiting to re-register a lost heartbeat connection', async () => {
+    let stop = false;
+    let registrations = 0;
+    const h = {...hooks(), shouldStop: () => stop};
+    const ops = baseOps({
+      runFedAvgRound: async () => { throw new Error('RECONNECT_REQUIRED: Heartbeat connection lost'); },
+      delay: async () => { stop = true; },
+      rejoin: async () => { registrations += 1; return {runId: 'r'}; },
+    });
+    await runResilientRoundLoop({runId: 'r', isFedAvg: true, cfg: CFG}, ops, POLICY, h);
+    expect(registrations).toBe(0);
+    expect(h.rounds).toEqual([]);
+  });
+
+  it('keeps a partial upload uncheckpointed and re-registers after its heartbeat dies', async () => {
+    const h = hooks();
+    let checkpoint: number | null = 7;
+    let calls = 0;
+    let registered = false;
+    const checkpointsAtRegistration: (number | null)[] = [];
+    const ops = baseOps({
+      getServerStatus: async () => ({serverState: h.rounds.length ? 'COMPLETED' : 'TRAINING', currentRound: 8}),
+      runFedAvgRound: async () => {
+        calls += 1;
+        if (calls === 1) throw new Error('SubmitModelUpdateStream failed: gRPC code 4: Deadline Exceeded');
+        if (!registered) throw new Error('RECONNECT_REQUIRED: Heartbeat connection lost');
+        return round(8);
+      },
+      rejoin: async () => {
+        checkpointsAtRegistration.push(checkpoint);
+        registered = true;
+        return {runId: 'r'};
+      },
+      loadSubmittedRound: async () => checkpoint,
+      saveSubmittedRound: async (_id, value) => { checkpoint = value; },
+    });
+    await runResilientRoundLoop({runId: 'r', isFedAvg: true, cfg: CFG}, ops, POLICY, h);
+    expect(calls).toBe(3); // deadline, heartbeat-loss rejection, successful post-registration round
+    expect(checkpointsAtRegistration).toEqual([7]);
+    expect(h.rounds.map(r => r.round)).toEqual([8]);
+    expect(checkpoint).toBe(8);
+  });
+
   it('retires stale training telemetry after the actual terminal server report', async () => {
     const terminal = {serverState: 'TRAINING_COMPLETE', currentRound: 3,
       requiredClientsForRound: 2, receivedUpdatesThisRound: 2, activeClients: 2,

@@ -118,10 +118,18 @@ void FedLearnClient::prepareRpc(grpc::ClientContext& ctx) const {
                    std::chrono::milliseconds(cfg_.rpcDeadlineMs));
 }
 
-// MO-2: trip the cooperative abort flag (broken out of the round loop at the next shouldStop() poll)
-// AND cancel the in-flight training RPC so a call blocked on a slow/hung server returns immediately.
+bool FedLearnClient::shouldStop() const {
+  const auto state = participationState_.load();
+  if (state == ParticipationState::ReconnectRequired) {
+    throw std::runtime_error("RECONNECT_REQUIRED: Heartbeat connection lost; re-register before training");
+  }
+  return state == ParticipationState::Stopped;
+}
+
+// Mark a terminal Stop and cancel the in-flight training RPC so a call blocked
+// on a slow/hung server returns immediately.
 void FedLearnClient::requestAbort() {
-  abortFlag_.store(true);
+  participationState_.store(ParticipationState::Stopped);
   std::lock_guard<std::mutex> lk(trainCtxMutex_);
   if (trainCtx_) trainCtx_->TryCancel();
 }
@@ -156,6 +164,9 @@ v2::RegisterClientResponse FedLearnClient::registerClient(const std::string& run
 }
 
 v2::GetServerStatusResponse FedLearnClient::getServerStatus(const std::string& runId) {
+  // Status polling must also surface heartbeat loss while waiting for peers or
+  // a previously submitted round, when no native round would otherwise run.
+  if (shouldStop()) throw std::runtime_error("STOP: Client participation ended");
   v2::GetServerStatusRequest req;
   req.set_run_id(runId);
   v2::GetServerStatusResponse resp;
@@ -187,7 +198,7 @@ DeComFLConfig FedLearnClient::getDeComFLConfig(const std::string& runId,
 
   DeComFLConfig out;
   // should_stop lives on HeartbeatResponse, NOT on GetDeComFLConfigResponse — the stop signal already
-  // flows via the heartbeat (HeartbeatResponse.should_stop -> abortFlag_ -> shouldStop()), so the config
+  // flows via the heartbeat (HeartbeatResponse.should_stop -> participationState_ -> shouldStop()), so the config
   // path leaves out.shouldStop at its default false. Server-authoritative completion is signalled as
   // current_round == -1 (handled in FederatedLoop::deComFLRound).
   out.currentRound = resp.current_round();
@@ -352,8 +363,8 @@ void FedLearnClient::reportClientMetrics(const v2::ReportClientMetricsRequest& m
 void FedLearnClient::startHeartbeat(const std::string& runId, const std::string& clientId,
                                     int currentRound) {
   stopHeartbeat();  // ensure no prior thread
+  if (shouldStop()) return;  // Only a replacement registration may revive a dead heartbeat.
   heartbeatStop_.store(false);
-  abortFlag_.store(false);
   updateProgress("IDLE", currentRound, 0, 0);
 
   heartbeatThread_ = std::thread([this, runId, clientId]() {
@@ -384,15 +395,18 @@ void FedLearnClient::startHeartbeat(const std::string& runId, const std::string&
       grpc::Status s = heartbeatStub_->Heartbeat(&ctx, req, &resp);
       { std::lock_guard<std::mutex> lk(hbCtxMutex_); hbCtx_ = nullptr; }
 
+      if (heartbeatStop_.load()) break;  // Lifecycle cancellation is not a connection failure.
       if (!s.ok()) {
         if (++consecutiveFailures >= cfg_.heartbeatFailureLimit) {
-          abortFlag_.store(true);  // M-H3: heartbeat death is now VISIBLE to the training loop
+          // Never overwrite a concurrent explicit Stop with a recoverable loss.
+          auto active = ParticipationState::Active;
+          participationState_.compare_exchange_strong(active, ParticipationState::ReconnectRequired);
           break;
         }
       } else {
         consecutiveFailures = 0;
         if (resp.should_stop()) {  // server told us to abort (deadline / quorum-lost / stopped)
-          abortFlag_.store(true);
+          participationState_.store(ParticipationState::Stopped);
           break;
         }
       }

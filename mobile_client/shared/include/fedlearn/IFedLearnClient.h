@@ -54,6 +54,8 @@ class IFedLearnClient {
     return progress_;
   }
 
+  // Terminal user/server Stop returns true. A transport that needs a fresh
+  // registration may throw a recoverable error instead of reporting clean Stop.
   virtual bool shouldStop() const = 0;
   virtual DeComFLConfig getDeComFLConfig(const std::string& runId, const std::string& clientId) = 0;
   // Unified scalar upload (Constraint 7): seeds + g-scalars + num_examples. For DeComFL the server

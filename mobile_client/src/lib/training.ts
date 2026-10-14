@@ -210,6 +210,7 @@ export const DEFAULT_RESILIENCE: ResiliencePolicy = {
 };
 
 const isStopSignal = (e: unknown): boolean => readError(e).includes('STOP:');
+const isReconnectRequired = (e: unknown): boolean => readError(e).includes('RECONNECT_REQUIRED: ');
 
 // The native bridge prefixes a model-execution failure (fedlearn::ModelExecutionError: ExecuTorch refused to load or
 // run a program on this device's data) so the loop can tell it from a network blip.
@@ -387,6 +388,13 @@ export async function runResilientRoundLoop(
       }
 
       consecutiveSuccesses = 0; // a failure breaks the stability streak
+      // The native heartbeat has exited. Retrying rounds on this registration
+      // cannot restore it; re-enroll and register before doing any more training.
+      if (isReconnectRequired(e)) {
+        registrationRequired = true;
+        reconnectError = e;
+        continue;
+      }
       consecutiveFailures += 1;
       if (consecutiveFailures <= policy.maxRoundRetries) {
         const backoffMs = policy.baseBackoffMs * 2 ** (consecutiveFailures - 1);
