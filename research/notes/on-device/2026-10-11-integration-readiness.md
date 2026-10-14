@@ -157,3 +157,19 @@ therefore incomplete under this vivo policy even though the earlier USB
 screen-off case passed. Next is an explicit app-specific background-policy
 check and controlled retest; a power-management setting or code fix is not yet
 proven.
+
+The [charger-powered Wi-Fi attempts](2026-10-14-wireless-powered-attempts.md)
+did not complete the planned ten rounds after a FedLearn-only OEM background
+opt-in. The first completed one round with two accepted updates and checkpoint
+one before an ADB monitoring timeout; the fresh retry lost training heartbeat
+acknowledgments during model download and accepted no update. The same app PID was observed
+after both failures, with unchanged saved data. The current shared connection
+also failed a bounded 10 MiB upload check; the original pneumonia model streams
+about 98 MiB. This is separate transport-failure evidence, not a successful
+background qualification or proof that the policy prevents OS kills. Charger
+power, diagnostic Wi-Fi ADB and the opt-in are recorded conditions. Battery-only
+survival and natural deep Doze remain open.
+
+A fresh SSH comparison completed the same 10 MiB operation in 1.75 seconds.
+The owned development tunnel was refreshed and API/Metro responses verified;
+training over the refreshed connection still needs a separate qualification.
