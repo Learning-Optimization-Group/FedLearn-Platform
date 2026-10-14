@@ -203,3 +203,22 @@ survival and natural deep Doze remain open.
 A fresh SSH comparison completed the same 10 MiB operation in 1.75 seconds.
 The owned development tunnel was refreshed and API/Metro responses verified;
 training over the refreshed connection still needs a separate qualification.
+
+The [seven-round timeout follow-up](../../research/notes/on-device/2026-10-14-wireless-powered-refreshed-failure.md)
+also failed the ten-round target after reopening the persistent connection.
+Fourteen updates and checkpoint seven are retained. Round eight's upload was
+partial: 62 chunks were observed, the server logged 61 of 99, and none was
+accepted. The phone journal confirms a native upload deadline followed by a
+clean-stop message; the app process survived. Code inspection finds heartbeat
+failure and genuine Stop share the same abort flag, allowing retry to exit
+without rejoining. This recovery defect needs a scoped fix and regression tests.
+The internal flag reason was not directly sampled, and the underlying network
+stall remains unexplained. No successful final aggregate, new app build or
+ten-round qualification is claimed.
+
+After stopping the owned test, temporary Wi-Fi ADB was disabled over its existing
+connection. The original empty reverse/forward routes were verified before
+shutdown; the USB-mode command was acknowledged and three connections to the
+old port were refused. Saved files and APK matched before shutdown. Physical USB
+identity, TCP-property and route postchecks remain pending. This cleanup does
+not change the failed training verdict.
