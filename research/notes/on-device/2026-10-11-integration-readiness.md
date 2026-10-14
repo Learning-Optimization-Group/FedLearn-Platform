@@ -192,3 +192,11 @@ shutdown; the USB-mode command was acknowledged and three connections to the
 old port were refused. Saved files and APK matched before shutdown. Physical USB
 identity, TCP-property and route postchecks remain pending. This cleanup does
 not change the failed training verdict.
+
+The [heartbeat recovery correction](2026-10-14-heartbeat-recovery.md) separates transient heartbeat loss
+from terminal Stop and routes it through bounded re-registration. Local mobile,
+native transport/core and server-boundary checks plus the Android Debug build
+pass. The candidate is not installed; powered physical requalification remains
+pending. Review also found that the pre-existing DeComFL rejoin path discards its
+trajectory state, so native continuation after round one remains OPEN. This does
+not turn any failed physical qualification into a pass.
