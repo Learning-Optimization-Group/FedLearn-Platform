@@ -171,3 +171,19 @@ Same-run rejoin then completes two phone/Linux rounds with four unique updates,
 an exact reconstructed aggregate and unchanged saved data. This verifies Stop
 in the reported local-training phase, without identifying exact kernel entry,
 proving mid-operator preemption or establishing a worst-case latency bound.
+
+
+The [battery-powered Wi-Fi attempt](../../research/results/on-device/android-wireless-background-2026-10-13.json)
+**failed before the first completed round**. Android records the active FedLearn
+process being killed by `com.vivo.abe` at 20:05:43 UTC, before the harness stopped
+the project. Across the 8.2-minute interval before failure detection, all retained samples
+showed the display asleep and external power absent; light idle was sampled,
+deep idle was not.
+Acknowledged training heartbeats preceded the kill, but no accepted update or
+durable checkpoint exists. The APK and all 33 saved files are unchanged.
+Temporary Wi-Fi debugging and test helpers are removed; the original USB route
+state is restored. This leaves unplugged background training unqualified under
+the tested vivo policy. Inspect the app-specific background-power policy and
+repeat the same contract with any changed setting explicitly recorded. A wake
+lock or allowlist fix has not been validated; earlier successful USB receipts
+retain their narrower scope.

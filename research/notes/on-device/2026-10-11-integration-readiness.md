@@ -146,3 +146,14 @@ is recorded; resumed training produces four unique updates and an exact final
 aggregate. All saved data/runtime and earlier evidence are preserved. This
 qualifies cooperative Stop in the local-training phase, not exact operator
 entry, immediate preemption or a worst-case latency bound.
+
+
+The [wireless battery follow-up](2026-10-13-wireless-background.md) failed during
+the first local image update. Android's event log attributes the process kill
+to `com.vivo.abe`, preceding harness cleanup. There are no accepted updates or
+checkpoint. All 33 saved files, installed runtime and earlier evidence remain
+unchanged, and USB-only debugging is restored. Mobile background support is
+therefore incomplete under this vivo policy even though the earlier USB
+screen-off case passed. Next is an explicit app-specific background-policy
+check and controlled retest; a power-management setting or code fix is not yet
+proven.
