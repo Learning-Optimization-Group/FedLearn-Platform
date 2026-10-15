@@ -223,6 +223,14 @@ def _decomfl(doc, **overrides):
     _zeroth_order(doc, **overrides)
 
 
+def _cnn_decomfl(doc):
+    _image(doc, [3, 32, 32], [RGB_32, NORM_HALF])
+    _decomfl(doc)
+    doc['recipe'] = 'RECIPE_CNN'
+    doc[MT]['data']['source'] = 'DATA_SOURCE_LOCAL_SNAPSHOT'
+    doc[MT]['localTraining'].update(batchSize=32, batchOrder='BATCH_ORDER_SEQUENTIAL')
+
+
 def _decomfl_secagg(doc, threshold=2):
     _decomfl(doc)
     doc["security"]["secureAggregation"] = "SECAGG_LIGHTSECAGG_SCALAR"
@@ -783,6 +791,10 @@ def build_conformance() -> dict:
                                                                            "channels": 1}}]), UNAPPROVED),
         _json("cnn_image_contract", "The CNN on normalised 32x32 RGB images is in the v1 matrix.",
               lambda d: (_image(d, [3, 32, 32], [RGB_32, NORM_HALF]), d.update({"recipe": "RECIPE_CNN"}))),
+        _json('cnn_decomfl_local_images', 'CNN DeComFL uses a sequential batch of local images.', _cnn_decomfl),
+        _json('cnn_decomfl_fixture_refused', 'CNN DeComFL requires explicit local images.',
+              lambda d: (_cnn_decomfl(d), d[MT]['data'].update(source='DATA_SOURCE_FIXTURE')),
+              ('UNSUPPORTED_COMBINATION', DATA + '.source')),
         _json("cnn_robust_image_contract", "Robust aggregation of the CNN trains as FedAvg's clients do.",
               lambda d: (_image(d, [3, 32, 32], [RGB_32, NORM_HALF]),
                          d.update({"recipe": "RECIPE_CNN", "strategy": "STRATEGY_ROBUST"}))),

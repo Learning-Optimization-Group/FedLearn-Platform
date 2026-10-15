@@ -499,6 +499,27 @@ def test_the_cnn_strategies_without_a_plan_say_why(strategy, reason):
         execution_plan.resolve_model_training("CNN", strategy, "FULL")
 
 
+def test_cnn_decomfl_local_plan_matches_the_real_server_settings():
+    plan = execution_plan.resolve_model_training("CNN", "DeComFL", "FULL", data_source="LOCAL_SNAPSHOT")
+    response = _decomfl_round_the_server_sends()
+    zo = plan.local_training.zeroth_order_sgd
+    assert plan.update_protocol == pb.UPDATE_DECOMFL_SCALAR
+    assert plan.local_training.WhichOneof("optimizer") == "zeroth_order_sgd"
+    assert zo.learning_rate == float(response.config["learning_rate"])
+    assert zo.smoothing == float(response.config["smoothing_param"])
+    assert zo.num_local_steps == len(response.current_seeds.local_steps) == 1
+    assert zo.num_perturbations == len(response.current_seeds.local_steps[0].seeds) == 10
+    assert plan.local_training.batch_size == 32
+    assert plan.local_training.batch_order == pb.BATCH_ORDER_SEQUENTIAL
+    assert plan.local_training.drop_last is False
+    assert list(plan.data.input_shape) == [3, 32, 32]
+    assert plan.data.class_count == 10 and plan.data.source == pb.DATA_SOURCE_LOCAL_SNAPSHOT
+    assert not plan.dropout and not plan.batch_norm
+    model = recipes.get_recipe("CNN").build_model("cpu")
+    assert [(p.name, list(p.shape)) for p in plan.trainable] == [
+        (name, list(p.shape)) for name, p in model.named_parameters() if p.requires_grad]
+
+
 # Stage 4 S7: CIFAR_RESNET18, the whole model, BatchNorm in training mode as laptops train it.
 
 def _resnet_bn_input_sizes():

@@ -371,6 +371,18 @@ def _cnn_first_order_full(initial_state_path=None) -> pb.ModelTraining:
     return plan
 
 
+def _cnn_decomfl_full(initial_state_path=None) -> pb.ModelTraining:
+    """CNN zeroth-order training on one sequential local image batch, keeping every image."""
+    plan = _cnn_first_order_full(initial_state_path)
+    local = pb.LocalTraining()
+    local.CopyFrom(_tinynet_decomfl_full().local_training)
+    local.batch_size = recipes.CNN_BATCH_SIZE
+    local.batch_order = pb.BATCH_ORDER_SEQUENTIAL
+    plan.local_training.CopyFrom(local)
+    plan.update_protocol = pb.UPDATE_DECOMFL_SCALAR
+    return plan
+
+
 def _resnet18_image_transforms() -> list:
     """CIFAR_RESNET18's preparation from its 112 x 112 pixels: ToTensor, then ImageNet's Normalize.
 
@@ -518,6 +530,7 @@ _PLANS = {
     # CNN (Stage 4): Adam on images prepared exactly as torchvision prepares them.
     ("CNN", "FedAvg", "FULL"): _cnn_first_order_full,
     ("CNN", "Robust", "FULL"): _cnn_first_order_full,
+    ("CNN", "DeComFL", "FULL"): _cnn_decomfl_full,
     # CIFAR_RESNET18 (Stage 4): the whole model, BatchNorm in training mode with its running statistics federated.
     ("CIFAR_RESNET18", "FedAvg", "FULL"): _resnet18_first_order_full,
     ("CIFAR_RESNET18", "Robust", "FULL"): _resnet18_first_order_full,
@@ -561,8 +574,6 @@ _REFUSALS = {
     ("PNEUMONIA_CNN", "DeComFL", "FULL"): (
         "PNEUMONIA_CNN under DeComFL has no v1 plan: zeroth-order training of 26 million parameters through dropout is "
         "not offered"),
-    ("CNN", "DeComFL", "FULL"): (
-        "CNN under DeComFL has no v1 plan yet: its zeroth-order settings have not been resolved from its server"),
     ("MLP", "DeComFL", "FULL"): (
         "MLP under DeComFL has no v1 plan: its zeroth-order forward passes would meet dropout, whose masks no "
         "zeroth-order plan states yet"),
@@ -582,6 +593,8 @@ def resolve_model_training(recipe_key: str, strategy: str, training_arm: str,
         raise ValueError(f"unknown data source {data_source!r}")
     if recipe_key == "NIH_PNEUMONIA_CNN" and data_source != "LOCAL_SNAPSHOT":
         raise NotRepresentable("NIH participants require explicit LOCAL_SNAPSHOT data")
+    if recipe_key == "CNN" and strategy == "DeComFL" and data_source != "LOCAL_SNAPSHOT":
+        raise NotRepresentable("CNN zeroth-order training requires explicit LOCAL_SNAPSHOT data in one batch")
     refusal = _REFUSALS.get((recipe_key, strategy, training_arm))
     if refusal is not None:
         raise NotRepresentable(refusal)

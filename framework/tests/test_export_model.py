@@ -230,13 +230,37 @@ def _input_bound(path, index):
 
 
 def test_max_batch_is_the_trainable_programs_real_bound(cnn_bundle, mlp_bundle):
-    """maxBatch is what the backend checks a contract's batch against: the training program's bound, as ExecuTorch
-    planned it. (The CNN's loss and infer programs are planned for fewer, 15; evaluation reads each program's own.)"""
+    """maxBatch is what the backend checks a contract's batch against: the training program's real bound."""
     for dest, manifest in (cnn_bundle, mlp_bundle):
         assert _input_bound(dest / "trainable.pte", 0) == manifest["maxBatch"]
     cnn_dest, cnn_manifest = cnn_bundle
     assert _input_bound(cnn_dest / "loss.pte", 1) <= cnn_manifest["maxBatch"]
     assert _input_bound(cnn_dest / "infer.pte", 1) <= cnn_manifest["maxBatch"]
+
+
+@pytest.mark.parametrize('n', [1, 16, 32])
+def test_cnn_functional_programs_execute_the_whole_decomfl_batch(cnn_bundle, n):
+    from executorch.runtime import Runtime
+    import recipes
+    from pte_export import trainable_flat
+
+    dest, manifest = cnn_bundle
+    torch.manual_seed(0)
+    model = recipes.get_recipe('CNN').build_model('cpu').eval()
+    flat = trainable_flat(model)
+    generator = torch.Generator().manual_seed(314)
+    x = torch.randn(n, 3, 32, 32, generator=generator)
+    y = torch.randint(0, 10, (n,), generator=generator)
+    runtime = Runtime.get()
+    loss = runtime.load_program(str(dest / 'loss.pte')).load_method('forward')
+    infer = runtime.load_program(str(dest / 'infer.pte')).load_method('forward')
+    assert _input_bound(dest / 'loss.pte', 1) == manifest['maxBatch'] == 32
+    assert _input_bound(dest / 'infer.pte', 1) == 32
+    actual_loss = loss.execute([flat, x, y])[0]
+    actual_logits = infer.execute([flat, x])[0]
+    expected = model(x)
+    assert torch.allclose(actual_logits, expected, atol=1e-6)
+    assert torch.allclose(actual_loss, torch.nn.functional.cross_entropy(expected, y), atol=1e-6)
 
 
 # Stage 4 S7: CIFAR_RESNET18, the whole model with training-mode BatchNorm. Slow: three 45 MB programs and the

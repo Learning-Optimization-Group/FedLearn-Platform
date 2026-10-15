@@ -125,6 +125,9 @@ public final class ExecutionContractValidator {
             List.of(Recipe.RECIPE_TINYNET_GOLDEN_VALUE, Strategy.STRATEGY_DECOMFL_VALUE,
                     Arm.ARM_FULL_VALUE, Task.TASK_VECTOR_CLASSIFICATION_VALUE,
                     Objective.OBJECTIVE_CROSS_ENTROPY_VALUE, UpdateProtocol.UPDATE_DECOMFL_SCALAR_VALUE),
+            List.of(Recipe.RECIPE_CNN_VALUE, Strategy.STRATEGY_DECOMFL_VALUE,
+                    Arm.ARM_FULL_VALUE, Task.TASK_IMAGE_CLASSIFICATION_VALUE,
+                    Objective.OBJECTIVE_CROSS_ENTROPY_VALUE, UpdateProtocol.UPDATE_DECOMFL_SCALAR_VALUE),
             // MLP: first-order Adam with strategy settings cross-checked by clients.
             mlpFirstOrder(Strategy.STRATEGY_FEDAVG_VALUE),
             mlpFirstOrder(Strategy.STRATEGY_FEDOPT_VALUE),
@@ -337,6 +340,10 @@ public final class ExecutionContractValidator {
     private void matrix(ModelTraining mt) {
         ExecutionContract c = contract;
         if (c.getRecipe() == Recipe.RECIPE_NIH_PNEUMONIA_CNN
+                && mt.getData().getSource() != DataSource.DATA_SOURCE_LOCAL_SNAPSHOT) {
+            add(ISSUE_UNSUPPORTED_COMBINATION, "modelTraining.data.source");
+        }
+        if (c.getRecipe() == Recipe.RECIPE_CNN && c.getStrategy() == Strategy.STRATEGY_DECOMFL
                 && mt.getData().getSource() != DataSource.DATA_SOURCE_LOCAL_SNAPSHOT) {
             add(ISSUE_UNSUPPORTED_COMBINATION, "modelTraining.data.source");
         }

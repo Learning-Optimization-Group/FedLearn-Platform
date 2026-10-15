@@ -1291,9 +1291,12 @@ def enforce_execution_contract(args, model_type, training_arm):
         from local_snapshot import load_local_snapshot, SeededSnapshotLoader
         from fedlearn.communication.generated import execution_contract_pb2 as pb
         training = contract.model_training
-        if (training.update_protocol != pb.UPDATE_TRAINABLE_STATE_F32
+        cnn_decomfl = (model_type == "CNN" and args.strategy == "DeComFL"
+            and training.update_protocol == pb.UPDATE_DECOMFL_SCALAR
+            and training.local_training.batch_order == pb.BATCH_ORDER_SEQUENTIAL)
+        if not cnn_decomfl and (training.update_protocol != pb.UPDATE_TRAINABLE_STATE_F32
                 or training.local_training.batch_order != pb.BATCH_ORDER_SEEDED_PERMUTATION_V1):
-            raise SystemExit("Refusing to train: local snapshots require supported first-order seeded batching")
+            raise SystemExit("Refusing to train: local snapshots require supported contract batching")
         try:
             import recipes
             if model_type == "NIH_PNEUMONIA_CNN" and Path(local_path).suffix.lower() == ".csv":
@@ -1302,8 +1305,14 @@ def enforce_execution_contract(args, model_type, training_arm):
                                                  args.partition_id, training.data)
             else:
                 local = load_local_snapshot(local_path, training.data, recipes.get_recipe(model_type).classes)
-            LOCAL_DATASET = SeededSnapshotLoader(local.dataset, batch_size=training.local_training.batch_size,
-                seed=int(contract.seed), drop_last=training.local_training.drop_last)
+            if cnn_decomfl:
+                if not 1 <= len(local.dataset) <= training.local_training.batch_size:
+                    raise ValueError("CNN DeComFL requires one batch of 1–32 images")
+                LOCAL_DATASET = DataLoader(local.dataset, batch_size=training.local_training.batch_size,
+                    shuffle=False, drop_last=False)
+            else:
+                LOCAL_DATASET = SeededSnapshotLoader(local.dataset, batch_size=training.local_training.batch_size,
+                    seed=int(contract.seed), drop_last=training.local_training.drop_last)
         except (OSError, ValueError, TypeError, KeyError) as exc:
             raise SystemExit(f"Refusing to train: the local dataset is invalid ({exc})")
         print(f"[data] local snapshot {local.snapshot_id}: {len(local.dataset)} examples")

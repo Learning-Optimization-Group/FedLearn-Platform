@@ -67,6 +67,8 @@ APPROVED_MATRIX = frozenset({
     # DeComFL: zeroth-order training, gradient scalars instead of weights.
     (pb.RECIPE_TINYNET_GOLDEN, pb.STRATEGY_DECOMFL, pb.ARM_FULL, pb.TASK_VECTOR_CLASSIFICATION,
      pb.OBJECTIVE_CROSS_ENTROPY, pb.UPDATE_DECOMFL_SCALAR),
+    (pb.RECIPE_CNN, pb.STRATEGY_DECOMFL, pb.ARM_FULL, pb.TASK_IMAGE_CLASSIFICATION,
+     pb.OBJECTIVE_CROSS_ENTROPY, pb.UPDATE_DECOMFL_SCALAR),
 } | {
     # MLP: first-order Adam, with strategy settings cross-checked by clients.
     (pb.RECIPE_MLP, strategy, pb.ARM_FULL, pb.TASK_VECTOR_CLASSIFICATION, pb.OBJECTIVE_CROSS_ENTROPY,
@@ -244,6 +246,9 @@ class _Validator:
     def matrix(self, mt) -> None:
         c = self.c
         if c.recipe == pb.RECIPE_NIH_PNEUMONIA_CNN and mt.data.source != pb.DATA_SOURCE_LOCAL_SNAPSHOT:
+            self.add(pb.ISSUE_UNSUPPORTED_COMBINATION, "modelTraining.data.source")
+        if (c.recipe == pb.RECIPE_CNN and c.strategy == pb.STRATEGY_DECOMFL
+                and mt.data.source != pb.DATA_SOURCE_LOCAL_SNAPSHOT):
             self.add(pb.ISSUE_UNSUPPORTED_COMBINATION, "modelTraining.data.source")
         fields = ((pb.Recipe.DESCRIPTOR, c.recipe), (pb.Strategy.DESCRIPTOR, c.strategy),
                   (pb.Arm.DESCRIPTOR, mt.arm), (pb.Task.DESCRIPTOR, mt.task),

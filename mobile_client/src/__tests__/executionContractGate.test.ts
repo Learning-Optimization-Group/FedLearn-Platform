@@ -565,6 +565,34 @@ describe('the phone trains the CNN on images', () => {
     const decision = decide(cnnContract());
     expect(decision.kind === 'train' && decision.projection.dropout).toBeUndefined();
   });
+
+  function cnnDeComFL(): ExecutionContract {
+    const contract = cnnContract();
+    contract.strategy = Strategy.DECOMFL;
+    if (contract.workload.case !== 'modelTraining') throw new Error('expected model training');
+    contract.workload.value.updateProtocol = UpdateProtocol.UPDATE_DECOMFL_SCALAR;
+    local(contract).optimizer = local(decomfl()).optimizer;
+    local(contract).localEpochs = 0;
+    local(contract).batchSize = 32;
+    local(contract).batchOrder = BatchOrder.SEQUENTIAL;
+    return contract;
+  }
+
+  it('projects CNN DeComFL as one sequential local image batch', () => {
+    expect(decide(cnnDeComFL())).toMatchObject({kind: 'train', projection: {
+      strategy: 'DeComFL', dataSource: 'LOCAL_SNAPSHOT', batchSize: 32, numLocalSteps: 1,
+      zerothOrder: { smoothing: 0.002, numPerturbations: 10 },
+    }});
+    const decision = decide(cnnDeComFL());
+    expect(decision.kind === 'train' && decision.projection.minibatch).toBeUndefined();
+  });
+
+  it.each(['shuffled', 'oversized'] as const)('refuses CNN DeComFL batching it cannot execute: %s', change => {
+    const contract = cnnDeComFL();
+    if (change === 'shuffled') local(contract).batchOrder = BatchOrder.SHUFFLED_EACH_EPOCH;
+    else local(contract).batchSize = 64;
+    expect(decide(contract)).toMatchObject({kind: 'refuse', code: 'UNSUPPORTED_BATCHING'});
+  });
 });
 
 describe('a contract with training-mode BatchNorm', () => {

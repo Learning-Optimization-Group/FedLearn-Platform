@@ -96,6 +96,10 @@ Only these combinations of (recipe, strategy, arm, task, objective, update proto
 | `RECIPE_TINYNET_GOLDEN` | `STRATEGY_ROBUST` | `ARM_FULL` | `TASK_VECTOR_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_TRAINABLE_STATE_F32` |
 | `RECIPE_TINYNET_GOLDEN` | `STRATEGY_FEDPROX` | `ARM_FULL` | `TASK_VECTOR_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_TRAINABLE_STATE_F32` |
 | `RECIPE_TINYNET_GOLDEN` | `STRATEGY_DECOMFL` | `ARM_FULL` | `TASK_VECTOR_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_DECOMFL_SCALAR` |
+| `RECIPE_CNN` | `STRATEGY_DECOMFL` | `ARM_FULL` | `TASK_IMAGE_CLASSIFICATION` | `OBJECTIVE_CROSS_ENTROPY` | `UPDATE_DECOMFL_SCALAR` |
+
+CNN DeComFL requires `DATA_SOURCE_LOCAL_SNAPSHOT`. Its published plan uses one sequential batch of at most
+32 images per client; clients refuse larger snapshots. Fixture data is not supported for this combination.
 
 FedOpt and Robust are first-order client training: server-side adaptation and robust aggregation are not
 client behavior, so their rows add no fields. A FedOpt contract's `localTraining` states the client rate and

@@ -31,6 +31,83 @@ def package(tmp_path, n=3):
     return path, pixels
 
 
+def cnn_decomfl_contract(tmp_path):
+    c = parse_contract_binary((Path(__file__).resolve().parents[2] /
+        'framework/tests/fixtures/execution_contract_v1/golden_tinynet_fedavg.binpb').read_bytes())
+    plan = execution_plan.resolve_model_training("CNN", "DeComFL", "FULL", data_source="LOCAL_SNAPSHOT")
+    plan.model_revision = c.model_training.model_revision
+    plan.initial_state_sha256 = 'a' * 64
+    plan.artifacts.extend(c.model_training.artifacts)
+    c.recipe = pb.RECIPE_CNN
+    c.strategy = pb.STRATEGY_DECOMFL
+    c.model_training.CopyFrom(plan)
+    path = tmp_path / 'cnn-contract.json'
+    path.write_text(json_format.MessageToJson(c))
+    return c, path
+
+
+@pytest.mark.parametrize('n', [1, 16, 32])
+def test_cnn_decomfl_uses_all_local_images_in_identical_sequential_batches(tmp_path, monkeypatch, n):
+    c, contract = cnn_decomfl_contract(tmp_path)
+    path, pixels = package(tmp_path, n=n)
+    monkeypatch.setattr(client, 'LOCAL_DATASET', None)
+    monkeypatch.setattr(client, 'EXECUTION_CONTRACT', None)
+    args = client.parse_args(['--project-id', c.project_id, '--server-address', 'localhost:50000',
+        '--partition-id', '0', '--model-type', 'CNN', '--strategy', 'DeComFL',
+        '--execution-contract', str(contract), '--run-id', c.run_id, '--dataset-path', str(path)])
+    client.enforce_execution_contract(args, 'CNN', 'FULL')
+    loader, _ = client.load_data(0, 'cb', None, 2)
+    expected = torch.stack([recipes._cnn_transform()(Image.fromarray(p)) for p in pixels])
+    first = list(loader)
+    second = list(loader)
+    assert len(first) == len(second) == 1
+    assert torch.equal(first[0][0], expected) and torch.equal(second[0][0], expected)
+    assert first[0][1].tolist() == [i % 10 for i in range(n)]
+    assert len(loader.dataset) == n
+
+
+def test_cnn_decomfl_refuses_an_oversized_local_batch(tmp_path, monkeypatch):
+    c, contract = cnn_decomfl_contract(tmp_path)
+    path, _ = package(tmp_path, n=33)
+    monkeypatch.setattr(client, 'LOCAL_DATASET', None)
+    monkeypatch.setattr(client, 'EXECUTION_CONTRACT', None)
+    args = client.parse_args(['--project-id', c.project_id, '--server-address', 'localhost:50000',
+        '--partition-id', '0', '--model-type', 'CNN', '--strategy', 'DeComFL',
+        '--execution-contract', str(contract), '--run-id', c.run_id, '--dataset-path', str(path)])
+    with pytest.raises(SystemExit, match='32|one batch'):
+        client.enforce_execution_contract(args, 'CNN', 'FULL')
+    assert client.LOCAL_DATASET is None
+
+
+def test_cnn_decomfl_fit_repeats_scalars_and_counts_every_local_image(tmp_path, monkeypatch):
+    from fedlearn.client import DeComFLClient
+
+    c, contract = cnn_decomfl_contract(tmp_path)
+    path, _ = package(tmp_path, n=16)
+    monkeypatch.setattr(client, 'LOCAL_DATASET', None)
+    monkeypatch.setattr(client, 'EXECUTION_CONTRACT', None)
+    args = client.parse_args(['--project-id', c.project_id, '--server-address', 'localhost:50000',
+        '--partition-id', '0', '--model-type', 'CNN', '--strategy', 'DeComFL',
+        '--execution-contract', str(contract), '--run-id', c.run_id, '--dataset-path', str(path)])
+    client.enforce_execution_contract(args, 'CNN', 'FULL')
+    loader, _ = client.load_data(0, 'cb', None, 2)
+    torch.manual_seed(42)
+    model = recipes.get_recipe('CNN').build_model('cpu')
+    import copy
+    first = DeComFLClient(copy.deepcopy(model), loader, device='cpu')
+    second = DeComFLClient(copy.deepcopy(model), loader, device='cpu')
+    settings = c.model_training.local_training.zeroth_order_sgd
+    config = dict(seeds=[list(range(settings.num_perturbations))],
+        learning_rate=settings.learning_rate, smoothing_param=settings.smoothing)
+    scalars, count = first.fit(model.state_dict(), config)
+    repeated, repeated_count = second.fit(model.state_dict(), config)
+    assert count == repeated_count == 16
+    assert np.asarray(scalars).shape == (1, 10)
+    assert np.isfinite(scalars).all() and np.any(np.asarray(scalars) != 0)
+    assert scalars == repeated
+    assert torch.equal(first.x_current, second.x_current)
+
+
 def android_snapshot(tmp_path):
     path = tmp_path / "snapshot"; path.mkdir()
     # Literal normalization fingerprint matches Kotlin Float bits for 0.5.

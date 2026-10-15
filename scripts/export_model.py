@@ -209,8 +209,17 @@ def export_recipe_bundle(
     has_batch_norm = bool(pte_export.batch_norm_layers(model))
 
     # Weight-free graphs. pte_export bakes frozen params as constants; trainable params are the flat input.
-    loss_pte = pte_export.export_functional_pte(model, (x, y), max_batch=max_batch, include_buffers=has_batch_norm)
-    infer_pte = pte_export.export_functional_infer_pte(model, x, max_batch=max_batch, include_buffers=has_batch_norm)
+    functional_x, functional_y = x, y
+    if key == "CNN":
+        # Edge conversion narrows this CNN's symbolic batch range around the example count: tracing eight rows
+        # plans only fifteen. Trace at the requested upper bound so DeComFL can evaluate its entire local batch.
+        # These are shape examples only; the original x/y below still define the unchanged qualification probe.
+        functional_x = x[:1].expand(max_batch, *feat).contiguous()
+        functional_y = y[:1].expand(max_batch).contiguous()
+    loss_pte = pte_export.export_functional_pte(model, (functional_x, functional_y), max_batch=max_batch,
+                                              include_buffers=has_batch_norm)
+    infer_pte = pte_export.export_functional_infer_pte(model, functional_x, max_batch=max_batch,
+                                                    include_buffers=has_batch_norm)
 
     # First-order (FedAvg) trainable graph: forward(x, y) -> (cross_entropy, prediction) with a CAPTURED
     # backward pass, loadable by ET's TrainingModule on the phone (execute_forward_backward + SGD). This is

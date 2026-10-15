@@ -2,7 +2,7 @@
 // run's published contract whether it may train at all, and projects the contract into the settings the native
 // trainer runs with. Android is v1-dependent: a run without a READY contract it can execute exactly is refused
 // with a precise reason, never approximated.
-import { ArtifactBackend, BatchNormStats, BatchOrder, ContractIssueCodeSchema, DataSource, DropoutMasks, GradientEstimator, PerturbationRng, SecureAggregation, Strategy,
+import { ArtifactBackend, BatchNormStats, BatchOrder, ContractIssueCodeSchema, DataSource, DropoutMasks, GradientEstimator, PerturbationRng, Recipe, SecureAggregation, Strategy,
   UpdateProtocol, type ArtifactVariant, type ExecutionContract, type LocalTraining, type ModelTraining,
 } from '../gen/fedlearn/contract/v1/execution_contract_pb';
 import { MalformedContractError, parseContractJson, validateContract } from './executionContract';
@@ -300,6 +300,9 @@ function projectDeComFL(contract: ExecutionContract, contractId: string, trainin
   if (local.dropLast !== false) {
     return refuse('UNSUPPORTED_BATCHING',
       'This run batches its local training in a way this app\'s trainer cannot reproduce.');
+  }
+  if (contract.recipe === Recipe.CNN && (local.batchSize !== 32 || local.batchOrder !== BatchOrder.SEQUENTIAL)) {
+    return refuse('UNSUPPORTED_BATCHING', 'CNN DeComFL requires one sequential batch of at most 32 local images.');
   }
   if (!portableCpuVariant(training.artifacts)) {
     return refuse('MISSING_CPU_ARTIFACT', `This run has no portable CPU model for ${DEVICE_ABI} devices.`);

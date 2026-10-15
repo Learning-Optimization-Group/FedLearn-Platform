@@ -112,6 +112,8 @@ const APPROVED_MATRIX: ReadonlySet<string> = new Set([
     UpdateProtocol.UPDATE_DECOMFL_SCALAR,
   ].join(','),
   // MLP: first-order Adam with the strategy settings cross-checked by clients.
+  [Recipe.CNN, Strategy.DECOMFL, Arm.FULL, Task.IMAGE_CLASSIFICATION,
+    Objective.CROSS_ENTROPY, UpdateProtocol.UPDATE_DECOMFL_SCALAR].join(','),
   ...[Strategy.FEDAVG, Strategy.FEDOPT, Strategy.ROBUST, Strategy.FEDPROX].map((strategy) =>
     [
       Recipe.MLP,
@@ -345,6 +347,10 @@ class Validator {
 
   private matrix(mt: ModelTraining): void {
     if (this.c.recipe === Recipe.NIH_PNEUMONIA_CNN && mt.data?.source !== DataSource.LOCAL_SNAPSHOT) {
+      this.add(ContractIssueCode.ISSUE_UNSUPPORTED_COMBINATION, 'modelTraining.data.source');
+    }
+    if (this.c.recipe === Recipe.CNN && this.c.strategy === Strategy.DECOMFL
+      && mt.data?.source !== DataSource.LOCAL_SNAPSHOT) {
       this.add(ContractIssueCode.ISSUE_UNSUPPORTED_COMBINATION, 'modelTraining.data.source');
     }
     const fields: [DescEnum, number][] = [
