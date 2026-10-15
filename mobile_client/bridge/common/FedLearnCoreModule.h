@@ -156,6 +156,7 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
   fedlearn::RoundFlight roundFlight_;
   fedlearn::ModelManager mm_;
   fedlearn::TransportLifecycle<fedlearn::FedLearnClient> net_;
+  fedlearn::DeComFLState deComFLState_;
   std::unique_ptr<fedlearn::FederatedLoop> loop_;
   std::unique_ptr<fedlearn::ExecutorchModel> model_;       // loss graph: forward(flat,x,y)->loss
   std::unique_ptr<fedlearn::ExecutorchModel> inferModel_;  // infer graph: forward(flat,x)->logits

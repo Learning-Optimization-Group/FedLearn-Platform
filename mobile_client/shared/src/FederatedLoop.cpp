@@ -6,6 +6,7 @@
 #include <cstring>
 #include <limits>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include "fedlearn/BatchOrder.h"
@@ -83,7 +84,11 @@ int parseLocalEpochs(const std::string& raw) {
 
 }  // namespace
 
-FederatedLoop::FederatedLoop(IFedLearnClient& net, ModelManager& mm) : net_(net), mm_(mm) {}
+FederatedLoop::FederatedLoop(IFedLearnClient& net, ModelManager& mm)
+    : net_(net), mm_(mm), deComFLState_(ownedDeComFLState_) {}
+
+FederatedLoop::FederatedLoop(IFedLearnClient& net, ModelManager& mm, DeComFLState& state)
+    : net_(net), mm_(mm), deComFLState_(state) {}
 
 RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::string& runId,
                                          const std::string& clientId, const DataBatch& batch,
@@ -151,7 +156,19 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
   out.scalarsK = K;  // server-authoritative K/P actually used (for accurate comm-cost reporting)
   out.scalarsP = P;
 
-  if (contract != nullptr && flatState_.empty()) {
+  auto& trajectory = deComFLState_;
+  if (contract != nullptr && trajectory.bound) {
+    const auto& previous = trajectory.contract;
+    if (trajectory.runId != runId || trajectory.clientId != clientId ||
+        previous.initialStateSha256 != contract->initialStateSha256 ||
+        previous.learningRate != contract->learningRate || previous.smoothing != contract->smoothing ||
+        previous.numLocalSteps != contract->numLocalSteps ||
+        previous.numPerturbations != contract->numPerturbations || previous.method != contract->method) {
+      trajectory.reset();
+    }
+  }
+  auto& flat = contract != nullptr ? trajectory.flat : flatState_;
+  if (contract != nullptr && !trajectory.bound) {
     // The DeComFL path never downloads the global model: it starts from a state and follows the aggregates from
     // there. That state used to be the ModelManager's zero-initialised params, so every scalar was a derivative at
     // the wrong point. Start from the server's model instead -- the run's initial model, which only round 1 serves --
@@ -166,19 +183,75 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
     if (mm_.canonicalStateSha256() != contract->initialStateSha256) {
       throw std::runtime_error("the server's initial model is not the one the execution contract binds");
     }
-    flatState_ = mm_.getFlatParams();
+    flat = mm_.getFlatParams();
+    trajectory.syncedThrough = 0;
+    trajectory.runId = runId;
+    trajectory.clientId = clientId;
+    trajectory.contract = *contract;
+    trajectory.bound = true;
   }
   // Lazily snapshot the global params into the loop's owned working state (a round held to no contract).
-  if (flatState_.empty()) flatState_ = mm_.getFlatParams();
+  if (flat.empty()) flat = mm_.getFlatParams();
 
   DeComFLClient client(cfg.config.learningRate, P, K);
 
   // Replay any rounds this client missed (Algorithm 2), using config lr for each round.
-  if (!cfg.rebuildHistory.empty()) {
+  if (contract != nullptr) {
+    // The server's last-client-round advances on aggregation, whereas this state
+    // advances before submission. A retry can therefore repeat an applied prefix.
+    // Validate the full chain first and build on a copy, so a torn or malformed
+    // response cannot partially commit either the weights or the round cursor.
+    if (cfg.currentRound <= trajectory.syncedThrough) {
+      throw std::runtime_error("DeComFL server round precedes the retained trajectory");
+    }
+    RebuildHistory pending;
+    int previousRound = 0;
+    int next = trajectory.syncedThrough + 1;
+    for (const auto& round : cfg.rebuildHistory) {
+      if (round.roundNumber <= previousRound || round.roundNumber >= cfg.currentRound) {
+        throw std::runtime_error("DeComFL rebuild history has unordered or invalid round numbers");
+      }
+      previousRound = round.roundNumber;
+      if (round.roundNumber <= trajectory.syncedThrough) continue;
+      if (round.roundNumber != next || static_cast<int>(round.seeds.size()) != K ||
+          static_cast<int>(round.gradients.size()) != K) {
+        throw std::runtime_error("DeComFL rebuild history is incomplete or has invalid local steps");
+      }
+      for (int k = 0; k < K; ++k) {
+        if (static_cast<int>(round.seeds[k].size()) != P ||
+            static_cast<int>(round.gradients[k].size()) != P) {
+          throw std::runtime_error("DeComFL rebuild history has invalid perturbations");
+        }
+        for (double value : round.gradients[k]) {
+          if (!std::isfinite(value) || !std::isfinite(static_cast<float>(value))) {
+            throw std::runtime_error("DeComFL rebuild history has non-finite gradients");
+          }
+        }
+      }
+      pending.push_back(round);
+      pending.back().learningRate = cfg.config.learningRate;
+      ++next;
+    }
+    if (next != cfg.currentRound) {
+      throw std::runtime_error("DeComFL rebuild history is missing a completed round");
+    }
+    if (!pending.empty()) {
+      progress.phase("REBUILDING");
+      auto rebuilt = flat;
+      client.rebuildModel(rebuilt, pending);
+      for (float value : rebuilt) {
+        if (!std::isfinite(value)) throw std::runtime_error("DeComFL rebuilt model is non-finite");
+      }
+      flat = std::move(rebuilt);
+      trajectory.syncedThrough = cfg.currentRound - 1;
+    }
+  } else if (!cfg.rebuildHistory.empty()) {
     RebuildHistory hist = cfg.rebuildHistory;
     for (auto& r : hist) r.learningRate = cfg.config.learningRate;
     progress.phase("REBUILDING");
-    client.rebuildModel(flatState_, hist);
+    client.rebuildModel(flat, hist);
+  }
+  if (!cfg.rebuildHistory.empty()) {
     if (net_.shouldStop()) {
       progress.finish("STOPPED");
       out.shouldStop = true;
@@ -188,11 +261,11 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
   }
 
   // Evaluation reports the model this round trains from, not a state the DeComFL path never updates.
-  mm_.setFlatParams(flatState_);
+  mm_.setFlatParams(flat);
 
   progress.phase("TRAINING");
   // fit() works on a copy and reverts flatState_ (the server owns the true global trajectory).
-  GradientScalars2D scalars = client.fit(model, flatState_, seeds, batch, cfg.config.mu,
+  GradientScalars2D scalars = client.fit(model, flat, seeds, batch, cfg.config.mu,
       [&](int completed) { progress.advance(completed); });
 
   if (net_.shouldStop()) {  // check between the (blocking) fit and the upload

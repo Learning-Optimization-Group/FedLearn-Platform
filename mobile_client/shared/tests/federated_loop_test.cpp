@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -43,6 +44,7 @@ class MockFedLearnClient : public fedlearn::IFedLearnClient {
 
   // recorders
   bool submitCalled = false;
+  bool failScalarSubmission = false;
   fedlearn::Seeds2D lastSeeds;
   fedlearn::GradientScalars2D lastGradients;
   int64_t lastNumExamples = -1;
@@ -68,6 +70,7 @@ class MockFedLearnClient : public fedlearn::IFedLearnClient {
     lastSeeds = seeds;
     lastGradients = gradients;
     lastNumExamples = numExamples;
+    if (failScalarSubmission) throw std::runtime_error("SubmitGradientScalars unavailable");
   }
 
   // recorder for the first-order weight-blob upload (M2)
@@ -338,4 +341,240 @@ TEST(FederatedLoop, DeComFLInitialDownloadDoesNotClaimTrainingHasStarted) {
   loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
   ASSERT_EQ(net.downloadProgress.size(), 1u);
   EXPECT_EQ(net.downloadProgress[0], (fedtest::Progress{"DOWNLOADING", 1, 0, 2}));
+}
+
+namespace {
+fedlearn::RebuildRound rebuildRound(int round) {
+  return {round, {{11, 22}, {33, 4242}}, {{0.1 * round, -0.2}, {0.3, 0.05 * round}}, 0.01};
+}
+}  // namespace
+
+TEST(FederatedLoop, DeComFLRetryDoesNotApplyTheSameHistoryTwice) {
+  LoopFixture f;
+  MockFedLearnClient net;
+  net.cfg = contractedConfig();
+  net.globalBlob = globalBlobFrom(initialState());
+  const auto contract = contractFor(net.cfg);
+  fedlearn::FederatedLoop loop(net, f.mm);
+  loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
+
+  net.cfg.currentRound = 2;
+  net.cfg.rebuildHistory = {rebuildRound(1)};
+  net.failScalarSubmission = true;
+  EXPECT_THROW(loop.deComFLRound(f.model, "run", "client", f.batch, &contract), std::runtime_error);
+  const auto beforeRetry = f.mm.getFlatParams();
+  const auto scalars = net.lastGradients;
+  net.failScalarSubmission = false;
+  loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
+  EXPECT_EQ(f.mm.getFlatParams(), beforeRetry);
+  EXPECT_EQ(net.lastGradients, scalars);
+}
+
+TEST(FederatedLoop, DeComFLRefusesMissingRebuildRoundsBeforeChangingTheModel) {
+  LoopFixture f;
+  MockFedLearnClient net;
+  net.cfg = contractedConfig();
+  net.globalBlob = globalBlobFrom(initialState());
+  const auto contract = contractFor(net.cfg);
+  fedlearn::FederatedLoop loop(net, f.mm);
+  loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
+
+  net.cfg.currentRound = 3;
+  net.cfg.rebuildHistory = {rebuildRound(2)};  // round one is missing
+  net.submitCalled = false;
+  EXPECT_THROW(loop.deComFLRound(f.model, "run", "client", f.batch, &contract), std::runtime_error);
+  EXPECT_FALSE(net.submitCalled);
+  EXPECT_EQ(f.mm.getFlatParams(), initialState());
+}
+
+TEST(FederatedLoop, DeComFLRefusesNonFiniteHistoryWithoutCommittingItsValidPrefix) {
+  LoopFixture f;
+  MockFedLearnClient net;
+  net.cfg = contractedConfig();
+  net.globalBlob = globalBlobFrom(initialState());
+  const auto contract = contractFor(net.cfg);
+  fedlearn::DeComFLState state;
+  fedlearn::FederatedLoop loop(net, f.mm, state);
+  loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
+
+  net.cfg.currentRound = 3;
+  net.cfg.rebuildHistory = {rebuildRound(1), rebuildRound(2)};
+  net.cfg.rebuildHistory[1].gradients[0][0] = std::numeric_limits<double>::infinity();
+  net.submitCalled = false;
+  EXPECT_THROW(loop.deComFLRound(f.model, "run", "client", f.batch, &contract), std::runtime_error);
+  EXPECT_FALSE(net.submitCalled);
+  EXPECT_EQ(f.mm.getFlatParams(), initialState());
+
+  net.cfg.rebuildHistory = {rebuildRound(1), rebuildRound(2)};
+  fedlearn::FederatedLoop replacement(net, f.mm, state);
+  replacement.deComFLRound(f.model, "run", "client", f.batch, &contract);
+  LoopFixture clean;
+  MockFedLearnClient reference;
+  reference.cfg = contractedConfig();
+  reference.globalBlob = globalBlobFrom(initialState());
+  fedlearn::FederatedLoop cleanLoop(reference, clean.mm);
+  cleanLoop.deComFLRound(clean.model, "run", "client", clean.batch, &contract);
+  reference.cfg = net.cfg;
+  cleanLoop.deComFLRound(clean.model, "run", "client", clean.batch, &contract);
+  EXPECT_EQ(f.mm.getFlatParams(), clean.mm.getFlatParams());
+  EXPECT_EQ(net.lastGradients, reference.lastGradients);
+}
+
+TEST(FederatedLoop, DeComFLReconnectKeepsTheAppliedHistoryAfterAFailedSubmission) {
+  LoopFixture f;
+  fedlearn::DeComFLState state;
+  MockFedLearnClient first;
+  first.cfg = contractedConfig();
+  first.globalBlob = globalBlobFrom(initialState());
+  const auto contract = contractFor(first.cfg);
+  {
+    fedlearn::FederatedLoop loop(first, f.mm, state);
+    loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
+    first.cfg.currentRound = 2;
+    first.cfg.rebuildHistory = {rebuildRound(1)};
+    first.failScalarSubmission = true;
+    EXPECT_THROW(loop.deComFLRound(f.model, "run", "client", f.batch, &contract), std::runtime_error);
+  }
+  const auto expected = f.mm.getFlatParams();
+  MockFedLearnClient reconnected;
+  reconnected.cfg = first.cfg;
+  fedlearn::FederatedLoop resumed(reconnected, f.mm, state);
+  EXPECT_TRUE(resumed.deComFLRound(f.model, "run", "client", f.batch, &contract).ranTraining);
+  EXPECT_EQ(f.mm.getFlatParams(), expected);
+  EXPECT_EQ(reconnected.lastGradients, first.lastGradients);
+  EXPECT_TRUE(reconnected.downloadProgress.empty());
+}
+
+TEST(FederatedLoop, DeComFLOverlappingHistoryMatchesACleanSingleApplication) {
+  LoopFixture resumed;
+  MockFedLearnClient net;
+  net.cfg = contractedConfig();
+  net.globalBlob = globalBlobFrom(initialState());
+  const auto contract = contractFor(net.cfg);
+  fedlearn::DeComFLState state;
+  {
+    fedlearn::FederatedLoop loop(net, resumed.mm, state);
+    loop.deComFLRound(resumed.model, "run", "client", resumed.batch, &contract);
+    net.cfg.currentRound = 2;
+    net.cfg.rebuildHistory = {rebuildRound(1)};
+    net.failScalarSubmission = true;
+    EXPECT_THROW(loop.deComFLRound(resumed.model, "run", "client", resumed.batch, &contract), std::runtime_error);
+  }
+  net.failScalarSubmission = false;
+  net.cfg.currentRound = 3;
+  net.cfg.rebuildHistory = {rebuildRound(1), rebuildRound(2)};
+  fedlearn::FederatedLoop reconnected(net, resumed.mm, state);
+  reconnected.deComFLRound(resumed.model, "run", "client", resumed.batch, &contract);
+
+  LoopFixture clean;
+  MockFedLearnClient reference;
+  reference.cfg = contractedConfig();
+  reference.globalBlob = globalBlobFrom(initialState());
+  fedlearn::FederatedLoop cleanLoop(reference, clean.mm);
+  cleanLoop.deComFLRound(clean.model, "run", "client", clean.batch, &contract);
+  reference.cfg = net.cfg;
+  cleanLoop.deComFLRound(clean.model, "run", "client", clean.batch, &contract);
+  EXPECT_EQ(resumed.mm.getFlatParams(), clean.mm.getFlatParams());
+  EXPECT_EQ(net.lastGradients, reference.lastGradients);
+}
+
+TEST(FederatedLoop, DeComFLModelReloadDiscardsTheReconnectState) {
+  LoopFixture f;
+  MockFedLearnClient net;
+  net.cfg = contractedConfig();
+  net.globalBlob = globalBlobFrom(initialState());
+  const auto contract = contractFor(net.cfg);
+  fedlearn::DeComFLState state;
+  fedlearn::FederatedLoop loop(net, f.mm, state);
+  loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
+  state.reset();
+  net.cfg.currentRound = 2;
+  net.cfg.rebuildHistory = {rebuildRound(1)};
+  net.submitCalled = false;
+  EXPECT_THROW(loop.deComFLRound(f.model, "run", "client", f.batch, &contract), std::runtime_error);
+  EXPECT_FALSE(net.submitCalled);
+}
+
+TEST(FederatedLoop, DeComFLDoesNotReuseStateAcrossRunsClientsOrContracts) {
+  for (int change = 0; change < 4; ++change) {
+    SCOPED_TRACE(change);
+    LoopFixture f;
+    MockFedLearnClient net;
+    net.cfg = contractedConfig();
+    net.globalBlob = globalBlobFrom(initialState());
+    auto contract = contractFor(net.cfg);
+    fedlearn::DeComFLState state;
+    fedlearn::FederatedLoop loop(net, f.mm, state);
+    loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
+    net.cfg.currentRound = 2;
+    net.cfg.rebuildHistory = {rebuildRound(1)};
+    if (change == 2) { contract.learningRate = 0.02; net.cfg.config.learningRate = 0.02; }
+    if (change == 3) contract.initialStateSha256 = std::string(64, '0');
+    net.submitCalled = false;
+    EXPECT_THROW(loop.deComFLRound(f.model, change == 0 ? "other-run" : "run",
+                                 change == 1 ? "other-client" : "client", f.batch, &contract), std::runtime_error);
+    EXPECT_FALSE(net.submitCalled);
+  }
+}
+
+TEST(FederatedLoop, DeComFLRejectsMalformedHistoryBeforeAnyModelChange) {
+  for (int change = 0; change < 8; ++change) {
+    SCOPED_TRACE(change);
+    LoopFixture f;
+    MockFedLearnClient net;
+    net.cfg = contractedConfig();
+    net.globalBlob = globalBlobFrom(initialState());
+    const auto contract = contractFor(net.cfg);
+    fedlearn::FederatedLoop loop(net, f.mm);
+    loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
+    net.cfg.currentRound = 3;
+    net.cfg.rebuildHistory = {rebuildRound(1), rebuildRound(2)};
+    auto& history = net.cfg.rebuildHistory;
+    switch (change) {
+      case 0: history.pop_back(); break;
+      case 1: history[1].roundNumber = 1; break;
+      case 2: history[0].roundNumber = 2; history[1].roundNumber = 1; break;
+      case 3: history[1].roundNumber = 3; break;
+      case 4: history[1].seeds[0].clear(); break;
+      case 5: history[1].gradients.pop_back(); break;
+      case 6: history[1].gradients[0].pop_back(); break;
+      case 7: history[0].roundNumber = 0; break;
+    }
+    net.submitCalled = false;
+    EXPECT_THROW(loop.deComFLRound(f.model, "run", "client", f.batch, &contract), std::runtime_error);
+    EXPECT_FALSE(net.submitCalled);
+    EXPECT_EQ(f.mm.getFlatParams(), initialState());
+  }
+}
+
+TEST(FederatedLoop, DeComFLReconnectRebuildsTheFrozenPythonTrajectory) {
+  LoopFixture f;
+  fedlearn::DeComFLState state;
+  MockFedLearnClient net;
+  net.cfg = contractedConfig();
+  net.cfg.config.learningRate = 0.02;
+  net.cfg.seeds = {{191664963, 1662057957, 1405681631, 942484272}};
+  net.globalBlob = globalBlobFrom(initialState());
+  fedlearn::ZerothOrderContract contract{0.02, 0.001, 1, 4,
+      fedlearn::GradEstimateMethod::Forward, kInitialStateSha256};
+  {
+    fedlearn::FederatedLoop loop(net, f.mm, state);
+    loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
+  }
+  const auto seeds = fedtest::readI64(fedtest::goldenPath("zo_multiround_seeds.i64"));
+  const auto gradients = fedtest::readF64(fedtest::goldenPath("zo_multiround_g.f64"));
+  ASSERT_EQ(seeds.size(), 12u);
+  ASSERT_EQ(gradients.size(), 12u);
+  net.cfg.currentRound = 4;
+  for (int r = 0; r < 3; ++r) {
+    net.cfg.rebuildHistory.push_back({r + 1,
+        {{seeds[r * 4], seeds[r * 4 + 1], seeds[r * 4 + 2], seeds[r * 4 + 3]}},
+        {{gradients[r * 4], gradients[r * 4 + 1], gradients[r * 4 + 2], gradients[r * 4 + 3]}}, 0.02});
+  }
+  fedlearn::FederatedLoop reconnected(net, f.mm, state);
+  reconnected.deComFLRound(f.model, "run", "client", f.batch, &contract);
+  const auto expected = fedtest::readF32(fedtest::goldenPath("zo_multiround_final.f32"));
+  const auto actual = f.mm.getFlatParams();
+  ASSERT_EQ(actual.size(), expected.size());
+  for (size_t i = 0; i < expected.size(); ++i) EXPECT_NEAR(actual[i], expected[i], 2e-6f) << i;
 }

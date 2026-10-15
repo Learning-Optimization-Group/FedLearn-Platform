@@ -249,6 +249,7 @@ void FedLearnCoreModule::applyTrainingDataFromFiles(const std::string& inputsF32
 
 void FedLearnCoreModule::applyModelManifest(const ModelManifest& manifest) {
   std::lock_guard<std::mutex> lk(stateMutex_);
+  deComFLState_.reset();
   manifest_ = manifest;
   manifestSet_ = true;
 }
@@ -296,7 +297,7 @@ RegisterResult FedLearnCoreModule::doRegister(const std::string& serverAddress,
   auto* client = net_.get();
   clientId_ = clientId;
   // No torch_version gate: RandnEngine makes the perturbation RNG version-independent (T9).
-  loop_ = std::make_unique<fedlearn::FederatedLoop>(*client, mm_);
+  loop_ = std::make_unique<fedlearn::FederatedLoop>(*client, mm_, deComFLState_);
 
   v2::RegisterClientResponse resp =
       client->registerClient(runId, clientId, enrollmentToken, kProtocolVersion);
@@ -337,6 +338,7 @@ void FedLearnCoreModule::doStop() {
 ModelInfo FedLearnCoreModule::doLoadModel(const std::string& modelPath,
                                           const std::string& expectedSha256) {
   std::lock_guard<std::mutex> lk(stateMutex_);
+  deComFLState_.reset();
   if (!manifestSet_) {
     throw std::runtime_error(
         "setModelManifest must be called before loadModel (ExecuTorch weights-as-inputs needs the "

@@ -86,9 +86,30 @@ struct RoundOutcome {
   std::string note;           // human-readable reason when shouldStop / skipped
 };
 
+// In-memory trajectory for one contracted DeComFL participant. The bridge owns it
+// across transport replacement and resets it when loading another model. Access
+// must be serialized with rounds; this is not a process-restart checkpoint.
+class DeComFLState {
+ public:
+  void reset() { *this = DeComFLState{}; }
+
+ private:
+  friend class FederatedLoop;
+  std::vector<float> flat;
+  int syncedThrough = 0;
+  std::string runId;
+  std::string clientId;
+  ZerothOrderContract contract;
+  bool bound = false;
+};
+
 class FederatedLoop {
  public:
   FederatedLoop(IFedLearnClient& net, ModelManager& mm);
+  // state must outlive this loop and every replacement loop using it.
+  FederatedLoop(IFedLearnClient& net, ModelManager& mm, DeComFLState& state);
+  FederatedLoop(const FederatedLoop&) = delete;
+  FederatedLoop& operator=(const FederatedLoop&) = delete;
 
   // One DeComFL round (§6.2): GetDeComFLConfig -> (rebuild if missed) -> fit -> SubmitGradientScalars.
   // The K/P/eta/mu come from the per-round server config (the server is authoritative).
@@ -125,6 +146,8 @@ class FederatedLoop {
   IFedLearnClient& net_;
   ModelManager& mm_;
   std::vector<float> flatState_;
+  DeComFLState ownedDeComFLState_;
+  DeComFLState& deComFLState_;
 };
 
 }  // namespace fedlearn
