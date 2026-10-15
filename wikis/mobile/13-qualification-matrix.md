@@ -1,18 +1,18 @@
-# Android qualification matrix — 11 October 2026
+# Android qualification matrix — 15 October 2026
 
-Android portable CPU training is implemented for the 23 FULL-arm plans below.
+Android portable CPU training is implemented for the 24 FULL-arm plans below.
 Declared plans and live qualification are separate facts. The
-[machine-readable matrix](../../research/results/on-device/mobile-qualification-matrix-2026-10-10.json)
+[machine-readable matrix](../../research/results/on-device/mobile-qualification-matrix-2026-10-15.json)
 enumerates all 90 combinations of six recipes, five strategies and three arms.
 Every unavailable plan is checked against the actual resolver and retains its
-refusal and required work. Nineteen plans have retained live receipts; four TinyNet plans retain September
-live reports without a fresh rerun. The other 67 combinations are refused.
+refusal and required work, with an explicit data source. Twenty-one plans have retained live receipts; three
+TinyNet plans retain September live reports without a fresh rerun. The other 66 combinations are refused.
 
 | Recipe | Declared FULL-arm strategies | Evidence scope |
 | --- | --- | --- |
 | TinyNet | FedAvg, FedOpt, Robust, FedProx, DeComFL | September live reports for all five; fresh FedAvg interruption checks. One-step FedProx does not discriminate its proximal term. |
 | ECG MLP | FedAvg, FedOpt, Robust, FedProx | Own-data phone/Linux runs and original-runtime replays; 300 examples per client. |
-| CIFAR CNN | FedAvg, FedOpt, Robust, FedProx | Own-data phone/Linux runs and original-runtime replays; 320 images per client. |
+| CIFAR CNN | FedAvg, FedOpt, Robust, FedProx, DeComFL | First-order phone/Linux runs and original-runtime replays use 320 images per client. DeComFL is separately qualified with 32 local images per client, one sequential batch and same-process recovery. |
 | CIFAR ResNet18 | FedAvg, FedOpt, Robust, FedProx | Own-data phone/Linux runs and original-runtime replays; corrected adaptive client rate 0.001, 64 images per client. |
 | Original pneumonia CNN | FedAvg, FedOpt, Robust, FedProx | Current mixed-device cases use 16 balanced images per client; all listed strategies have original phone/Linux replay and aggregate proofs. |
 | NIH pneumonia finding CNN | FedAvg, Robust | Separate NIH class schema and patient/content-disjoint client packages, 32 images per client; all listed strategies have original phone/Linux replay and aggregate proofs. |
@@ -111,9 +111,9 @@ before the server polling loop, which previously left a failed run waiting.
 
 - FROZEN_HEAD and OVA_LP need subset/frozen-state and objective bindings,
   exported programs, native projection and original-runtime checks.
-- Real-model DeComFL needs recipe-specific zeroth-order settings, appropriate
-  dropout/BatchNorm semantics and a practical compute budget. TinyNet support
-  does not enable image DeComFL.
+- DeComFL beyond the small CIFAR CNN needs recipe-specific zeroth-order settings,
+  appropriate dropout/BatchNorm semantics and a practical compute budget. CNN
+  DeComFL currently accepts only 1–32 local images per client in one sequential batch.
 - Text and LoRA need on-device tokenization, sequence contracts, exported
   programs and memory-bounded device training.
 - iOS needs a native training bridge and physical-device qualification.
@@ -265,3 +265,22 @@ This short powered, awake Debug fixture test does not qualify real-model DeComFL
 recovery, app process restart, fresh late joining, response loss after server
 acceptance, background endurance or production Release/deployed TLS. Previous
 receipts retain their original APK bindings.
+
+## CIFAR CNN DeComFL — 15 October
+
+The [CNN DeComFL receipt](../../research/results/on-device/android-cnn-decomfl-2026-10-15.json)
+and [qualification note](../../research/notes/on-device/2026-10-15-cnn-decomfl.md)
+add one bounded image plan: FULL arm, LOCAL_SNAPSHOT, one sequential batch of
+1–32 images per participant. Fixture runs and larger snapshots are refused.
+Fresh functional exports correct the old loss-program bound of 15 despite a
+nominal maxBatch of 32; older staged programs must be replaced before reuse.
+
+A fresh three-round vivo/Linux run used 32 disjoint CIFAR training images per
+client. Three failed heartbeat calls triggered accepted re-registration, then
+four rejected round-two scalar uploads exhausted retries and triggered another
+rejoin. All five round-two payloads were identical. Six accepted updates
+reconstructed the registered final model exactly. Sampled screen-off recovery
+retained one phone process, USB power and 26°C battery temperature. This was a
+98.93-second Debug exercise, not battery-only endurance or natural deep Doze.
+All 33 original dataset files remained unchanged; the new dataset added three
+files. The original empty ADB routes and stopped helpers/guards were verified.

@@ -61,3 +61,9 @@ Production release work still needs a persistent backed-up signing key, an
 HTTPS API endpoint and reachable TLS gRPC service, followed by full authenticated
 training and a same-release-key install/update check. The local qualification
 certificate cannot serve as the future update identity.
+
+The [bounded CNN DeComFL qualification](../../research/notes/on-device/2026-10-15-cnn-decomfl.md)
+adds local-image training and short powered screen-off recovery with the existing
+Debug native APK and updated Metro JavaScript. It changes neither release signing
+nor the production TLS status above. CNN DeComFL requires fresh functional model
+exports and one sequential batch of at most 32 images per client.

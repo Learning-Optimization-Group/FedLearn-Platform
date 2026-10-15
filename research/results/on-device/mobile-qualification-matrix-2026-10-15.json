@@ -1,0 +1,948 @@
+{
+  "date": "2026-10-15",
+  "scope": "Android portable CPU; debug APK execution, not a release certification or model-quality endorsement",
+  "cells": [
+    {
+      "recipe": "TINYNET_GOLDEN",
+      "strategy": "FedAvg",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/android-lifecycle-2026-10-10.json",
+      "evidence_sha256": "daf2f35c78801597d92078a0ca1e11a021f438274e106302a4c3c71e1dd65c23",
+      "data_source": "FIXTURE"
+    },
+    {
+      "recipe": "TINYNET_GOLDEN",
+      "strategy": "FedAvg",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe TINYNET_GOLDEN with strategy FedAvg on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "FIXTURE"
+    },
+    {
+      "recipe": "TINYNET_GOLDEN",
+      "strategy": "FedAvg",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe TINYNET_GOLDEN with strategy FedAvg on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "FIXTURE"
+    },
+    {
+      "recipe": "TINYNET_GOLDEN",
+      "strategy": "FedOpt",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "historical_live_documented",
+      "evidence": "wikis/mobile/07-fedopt-robust-contract-plan.md",
+      "evidence_sha256": "38c31e2e0ef23f8a289dae6a808851d9aeda346e35aae22289c651792917d0c5",
+      "limits": "September live reports retained in design documents; not rerun in this qualification. TinyNet FedProx one-step data does not discriminate its proximal term.",
+      "data_source": "FIXTURE"
+    },
+    {
+      "recipe": "TINYNET_GOLDEN",
+      "strategy": "FedOpt",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe TINYNET_GOLDEN with strategy FedOpt on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "FIXTURE"
+    },
+    {
+      "recipe": "TINYNET_GOLDEN",
+      "strategy": "FedOpt",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe TINYNET_GOLDEN with strategy FedOpt on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "FIXTURE"
+    },
+    {
+      "recipe": "TINYNET_GOLDEN",
+      "strategy": "Robust",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "historical_live_documented",
+      "evidence": "wikis/mobile/07-fedopt-robust-contract-plan.md",
+      "evidence_sha256": "38c31e2e0ef23f8a289dae6a808851d9aeda346e35aae22289c651792917d0c5",
+      "limits": "September live reports retained in design documents; not rerun in this qualification. TinyNet FedProx one-step data does not discriminate its proximal term.",
+      "data_source": "FIXTURE"
+    },
+    {
+      "recipe": "TINYNET_GOLDEN",
+      "strategy": "Robust",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe TINYNET_GOLDEN with strategy Robust on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "FIXTURE"
+    },
+    {
+      "recipe": "TINYNET_GOLDEN",
+      "strategy": "Robust",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe TINYNET_GOLDEN with strategy Robust on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "FIXTURE"
+    },
+    {
+      "recipe": "TINYNET_GOLDEN",
+      "strategy": "FedProx",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "historical_live_documented",
+      "evidence": "wikis/mobile/09-fedprox-contract-plan.md",
+      "evidence_sha256": "512ebd730785b51a75cc969ef73df7708e7438c744e520d2b30af45cd2676ea2",
+      "limits": "September live reports retained in design documents; not rerun in this qualification. TinyNet FedProx one-step data does not discriminate its proximal term.",
+      "data_source": "FIXTURE"
+    },
+    {
+      "recipe": "TINYNET_GOLDEN",
+      "strategy": "FedProx",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe TINYNET_GOLDEN with strategy FedProx on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "FIXTURE"
+    },
+    {
+      "recipe": "TINYNET_GOLDEN",
+      "strategy": "FedProx",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe TINYNET_GOLDEN with strategy FedProx on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "FIXTURE"
+    },
+    {
+      "recipe": "TINYNET_GOLDEN",
+      "strategy": "DeComFL",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/android-decomfl-recovery-2026-10-15.json",
+      "evidence_sha256": "4e1e26ffc5e22e12c566e80601a85a59a98cd12ae20c180a300249a943e5118b",
+      "limits": "Three-round powered Debug same-process recovery; not process-death recovery or model-quality validation.",
+      "data_source": "FIXTURE"
+    },
+    {
+      "recipe": "TINYNET_GOLDEN",
+      "strategy": "DeComFL",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe TINYNET_GOLDEN with strategy DeComFL on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "FIXTURE"
+    },
+    {
+      "recipe": "TINYNET_GOLDEN",
+      "strategy": "DeComFL",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe TINYNET_GOLDEN with strategy DeComFL on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "FIXTURE"
+    },
+    {
+      "recipe": "MLP",
+      "strategy": "FedAvg",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/ecg-cnn-fedavg-retained-2026-10-10.json",
+      "evidence_sha256": "452725431fc5c52e4757951fe0a4f2ebdb02b9238d37421887a6846f5bc9eab3",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "MLP",
+      "strategy": "FedAvg",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe MLP with strategy FedAvg on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "MLP",
+      "strategy": "FedAvg",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe MLP with strategy FedAvg on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "MLP",
+      "strategy": "FedOpt",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/ecg-adaptive-strategies-2026-10-09.json",
+      "evidence_sha256": "da6ebcf87826c81a9d44a4885c5e43a6a2e949d56ec92320f658ff389ddd9029",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "MLP",
+      "strategy": "FedOpt",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe MLP with strategy FedOpt on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "MLP",
+      "strategy": "FedOpt",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe MLP with strategy FedOpt on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "MLP",
+      "strategy": "Robust",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/mobile-robust-real-models-2026-10-10.json",
+      "evidence_sha256": "4ec243ae9a84731b7fd38d1b60aab9410dfd7afed1fccc21e9d8a2db93828de6",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "MLP",
+      "strategy": "Robust",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe MLP with strategy Robust on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "MLP",
+      "strategy": "Robust",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe MLP with strategy Robust on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "MLP",
+      "strategy": "FedProx",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/ecg-adaptive-strategies-2026-10-09.json",
+      "evidence_sha256": "da6ebcf87826c81a9d44a4885c5e43a6a2e949d56ec92320f658ff389ddd9029",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "MLP",
+      "strategy": "FedProx",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe MLP with strategy FedProx on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "MLP",
+      "strategy": "FedProx",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe MLP with strategy FedProx on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "MLP",
+      "strategy": "DeComFL",
+      "training_arm": "FULL",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "MLP under DeComFL has no v1 plan: its zeroth-order forward passes would meet dropout, whose masks no zeroth-order plan states yet",
+      "remaining_prerequisite": "Resolve a model-specific zeroth-order plan, dropout or BatchNorm semantics where applicable, acceptable compute budget and live original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "MLP",
+      "strategy": "DeComFL",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe MLP with strategy DeComFL on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "MLP",
+      "strategy": "DeComFL",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe MLP with strategy DeComFL on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CNN",
+      "strategy": "FedAvg",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/ecg-cnn-fedavg-retained-2026-10-10.json",
+      "evidence_sha256": "452725431fc5c52e4757951fe0a4f2ebdb02b9238d37421887a6846f5bc9eab3",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CNN",
+      "strategy": "FedAvg",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CNN with strategy FedAvg on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CNN",
+      "strategy": "FedAvg",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CNN with strategy FedAvg on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CNN",
+      "strategy": "FedOpt",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/cnn-adaptive-2026-10-09.json",
+      "evidence_sha256": "73459e3aab0c33097c8012795b1706726371a6e208b4ac1e6d7a512aba1c89d8",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CNN",
+      "strategy": "FedOpt",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CNN with strategy FedOpt on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CNN",
+      "strategy": "FedOpt",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CNN with strategy FedOpt on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CNN",
+      "strategy": "Robust",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/mobile-robust-real-models-2026-10-10.json",
+      "evidence_sha256": "4ec243ae9a84731b7fd38d1b60aab9410dfd7afed1fccc21e9d8a2db93828de6",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CNN",
+      "strategy": "Robust",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CNN with strategy Robust on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CNN",
+      "strategy": "Robust",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CNN with strategy Robust on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CNN",
+      "strategy": "FedProx",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/cnn-adaptive-2026-10-09.json",
+      "evidence_sha256": "73459e3aab0c33097c8012795b1706726371a6e208b4ac1e6d7a512aba1c89d8",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CNN",
+      "strategy": "FedProx",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CNN with strategy FedProx on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CNN",
+      "strategy": "FedProx",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CNN with strategy FedProx on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CNN",
+      "strategy": "DeComFL",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "data_source": "LOCAL_SNAPSHOT",
+      "evidence": "research/results/on-device/android-cnn-decomfl-2026-10-15.json",
+      "evidence_sha256": "84ae8105b0af7938dd74e963bbf9e5adaddec88a8737b70ddebc040c48d9e7bd",
+      "limits": "Three-round powered Debug same-process recovery; not process-death recovery or model-quality validation. 1\u201332 local images in one sequential batch; fresh functional exports required."
+    },
+    {
+      "recipe": "CNN",
+      "strategy": "DeComFL",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CNN with strategy DeComFL on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CNN",
+      "strategy": "DeComFL",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CNN with strategy DeComFL on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "FedAvg",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/resnet-mixed-2026-10-09.json",
+      "evidence_sha256": "b0cc684c03d406ae3e1a9f735edbbd029ffb8d6fb73ff300fa5d52d54eb64d18",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "FedAvg",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CIFAR_RESNET18 with strategy FedAvg on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "FedAvg",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CIFAR_RESNET18 with strategy FedAvg on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "FedOpt",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/resnet-fedopt-client-rate-2026-10-10.json",
+      "evidence_sha256": "fd93c3bf8dbec38b39c106c615c1b59139678d56dba3776918a2c4ba7ea5d599",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "FedOpt",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CIFAR_RESNET18 with strategy FedOpt on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "FedOpt",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CIFAR_RESNET18 with strategy FedOpt on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "Robust",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/mobile-robust-real-models-2026-10-10.json",
+      "evidence_sha256": "4ec243ae9a84731b7fd38d1b60aab9410dfd7afed1fccc21e9d8a2db93828de6",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "Robust",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CIFAR_RESNET18 with strategy Robust on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "Robust",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CIFAR_RESNET18 with strategy Robust on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "FedProx",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/resnet-fedprox-client-rate-2026-10-10.json",
+      "evidence_sha256": "58d3600220429923eb88026db8ee933b783ea68892a1ffac8102a7d07768fa8f",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "FedProx",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CIFAR_RESNET18 with strategy FedProx on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "FedProx",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CIFAR_RESNET18 with strategy FedProx on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "DeComFL",
+      "training_arm": "FULL",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "CIFAR_RESNET18 under DeComFL has no v1 plan: zeroth-order training of 11 million parameters is not offered",
+      "remaining_prerequisite": "Resolve a model-specific zeroth-order plan, dropout or BatchNorm semantics where applicable, acceptable compute budget and live original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "DeComFL",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CIFAR_RESNET18 with strategy DeComFL on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "CIFAR_RESNET18",
+      "strategy": "DeComFL",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe CIFAR_RESNET18 with strategy DeComFL on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "FedAvg",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/pneumonia-strategies-and-nih-robust-2026-10-10.json",
+      "run_id": "4c33b5b3-a1b0-4539-9680-225c785af754",
+      "evidence_sha256": "76f9816b99d9c5bf1880b77c18ac7c62b78faa12039f0619ecb6f84531426f4c",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "FedAvg",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe PNEUMONIA_CNN with strategy FedAvg on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "FedAvg",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe PNEUMONIA_CNN with strategy FedAvg on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "FedOpt",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/pneumonia-strategies-and-nih-robust-2026-10-10.json",
+      "run_id": "4b0bffba-5157-48b8-b5ac-27af1c999321",
+      "evidence_sha256": "76f9816b99d9c5bf1880b77c18ac7c62b78faa12039f0619ecb6f84531426f4c",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "FedOpt",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe PNEUMONIA_CNN with strategy FedOpt on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "FedOpt",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe PNEUMONIA_CNN with strategy FedOpt on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "Robust",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/pneumonia-strategies-and-nih-robust-2026-10-10.json",
+      "run_id": "2ada9d28-5ced-4788-ae24-dd1634ee1c9e",
+      "evidence_sha256": "76f9816b99d9c5bf1880b77c18ac7c62b78faa12039f0619ecb6f84531426f4c",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "Robust",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe PNEUMONIA_CNN with strategy Robust on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "Robust",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe PNEUMONIA_CNN with strategy Robust on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "FedProx",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/pneumonia-strategies-and-nih-robust-2026-10-10.json",
+      "run_id": "b9d72847-b303-4f84-9ed6-9f082d4ac755",
+      "evidence_sha256": "76f9816b99d9c5bf1880b77c18ac7c62b78faa12039f0619ecb6f84531426f4c",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "FedProx",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe PNEUMONIA_CNN with strategy FedProx on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "FedProx",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe PNEUMONIA_CNN with strategy FedProx on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "DeComFL",
+      "training_arm": "FULL",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "PNEUMONIA_CNN under DeComFL has no v1 plan: zeroth-order training of 26 million parameters through dropout is not offered",
+      "remaining_prerequisite": "Resolve a model-specific zeroth-order plan, dropout or BatchNorm semantics where applicable, acceptable compute budget and live original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "DeComFL",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe PNEUMONIA_CNN with strategy DeComFL on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "DeComFL",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe PNEUMONIA_CNN with strategy DeComFL on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "FedAvg",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/nih-pneumonia-mixed-2026-10-09.json",
+      "evidence_sha256": "09632b027f0663d3ce61d35d9a0d142a619386b67f93f7ee54f1417c192d71c8",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "FedAvg",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe NIH_PNEUMONIA_CNN with strategy FedAvg on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "FedAvg",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe NIH_PNEUMONIA_CNN with strategy FedAvg on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "FedOpt",
+      "training_arm": "FULL",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe NIH_PNEUMONIA_CNN with strategy FedOpt on arm FULL",
+      "remaining_prerequisite": "Implement and publish the recipe-specific strategy plan, then qualify both participants and aggregation.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "FedOpt",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe NIH_PNEUMONIA_CNN with strategy FedOpt on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "FedOpt",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe NIH_PNEUMONIA_CNN with strategy FedOpt on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "Robust",
+      "training_arm": "FULL",
+      "execution_plan_available": true,
+      "qualification": "retained_live_receipt",
+      "evidence": "research/results/on-device/pneumonia-strategies-and-nih-robust-2026-10-10.json",
+      "run_id": "dc5bfc16-cf2a-430f-ae06-a870af94703a",
+      "evidence_sha256": "76f9816b99d9c5bf1880b77c18ac7c62b78faa12039f0619ecb6f84531426f4c",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "Robust",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe NIH_PNEUMONIA_CNN with strategy Robust on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "Robust",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe NIH_PNEUMONIA_CNN with strategy Robust on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "FedProx",
+      "training_arm": "FULL",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe NIH_PNEUMONIA_CNN with strategy FedProx on arm FULL",
+      "remaining_prerequisite": "Implement and publish the recipe-specific strategy plan, then qualify both participants and aggregation.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "FedProx",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe NIH_PNEUMONIA_CNN with strategy FedProx on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "FedProx",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe NIH_PNEUMONIA_CNN with strategy FedProx on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "DeComFL",
+      "training_arm": "FULL",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe NIH_PNEUMONIA_CNN with strategy DeComFL on arm FULL",
+      "remaining_prerequisite": "Resolve a model-specific zeroth-order plan, dropout or BatchNorm semantics where applicable, acceptable compute budget and live original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "DeComFL",
+      "training_arm": "FROZEN_HEAD",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe NIH_PNEUMONIA_CNN with strategy DeComFL on arm FROZEN_HEAD",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "DeComFL",
+      "training_arm": "OVA_LP",
+      "execution_plan_available": false,
+      "qualification": "refused",
+      "reason": "no execution contract v1 plan for recipe NIH_PNEUMONIA_CNN with strategy DeComFL on arm OVA_LP",
+      "remaining_prerequisite": "Publish subset-specific trainable and frozen state, objective and artifact bindings; implement native projection and original-runtime qualification.",
+      "data_source": "LOCAL_SNAPSHOT"
+    }
+  ],
+  "global_remaining": [
+    {
+      "area": "iOS",
+      "prerequisite": "Build and qualify a native training bridge, transport, model runtime and own-data import on physical iOS hardware."
+    },
+    {
+      "area": "Text and LoRA",
+      "prerequisite": "Implement tokenization, contracted sequence data/model artifacts and memory-bounded training before device qualification."
+    },
+    {
+      "area": "Accelerators",
+      "prerequisite": "Publish GPU/XNNPACK variants with probe/fallback/quarantine and replay qualification."
+    },
+    {
+      "area": "Secure aggregation",
+      "prerequisite": "Implement and qualify Android secure-aggregation protocol; existing phone refuses secure runs."
+    },
+    {
+      "area": "Operational release",
+      "prerequisite": "Signed release package, deployed TLS, long suspend/forced Doze/thermal and image-duration interruption checks remain unqualified."
+    }
+  ],
+  "packaged_mac_tree_evidence": "research/results/xgboost/breast-cancer-mixed-cpu-2026-10-10.json",
+  "source_commit": "63b2f45f2ad9a4eeede774de1936049d6e61fa00",
+  "previous_matrix_sha256": "147872dbb83ee8eb9a8ca2a207b9786a7261424137546e3853b318267a9d7d93",
+  "summary": {
+    "combinations": 90,
+    "plans_available": 24,
+    "retained_live_receipt": 21,
+    "refused": 66,
+    "historical_live_documented": 3
+  }
+}
