@@ -250,3 +250,18 @@ over Wi-Fi with diagnostic ADB active; battery-only survival, natural deep Doze,
 production Release/TLS and DeComFL native continuation after round one remain
 open. Earlier failed cases retain their verdicts; this is not a controlled
 causal comparison of the fix alone.
+
+The [DeComFL reconnection correction and physical qualification](../../research/notes/on-device/2026-10-15-decomfl-recovery.md)
+now closes the previously open continuation defect for an app process that stays
+alive. The bridge retains the trajectory across network-client replacement, and
+the loop applies each completed aggregate once, rejecting incomplete history
+before committing it. Nine new native cases cover retention, repeated history,
+contract isolation, malformed responses and frozen Python trajectory parity.
+Three real vivo/Linux TinyNet rounds survive both a three-heartbeat failure and
+four rejected round-two scalar uploads. Five identical round-two payloads,
+six unique accepted contributions, checkpoint three and an exact reconstructed
+final model are verified. Saved data and USB-only debugging are preserved.
+This short powered, awake Debug fixture test does not qualify real-model DeComFL
+recovery, app process restart, fresh late joining, response loss after server
+acceptance, background endurance or production Release/deployed TLS. Previous
+receipts retain their original APK bindings.

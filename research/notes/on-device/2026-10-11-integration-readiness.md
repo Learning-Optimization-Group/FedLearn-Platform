@@ -218,3 +218,18 @@ externally powered Debug Wi-Fi qualification with active diagnostic ADB. It
 does not establish battery-only survival, natural deep Doze, clinical model
 quality or a causal explanation of the earlier failed runs. DeComFL native
 continuation after round one and production Release/deployed TLS remain open.
+
+The [DeComFL follow-up](2026-10-15-decomfl-recovery.md) now fixes continuation
+after round one within a surviving app process. A retained trajectory and applied
+round cursor prevent state loss on transport replacement and repeated replay on
+submission retries. A real three-round vivo/Linux TinyNet run survives heartbeat
+loss and four rejected scalar uploads, then produces six unique accepted
+contributions, checkpoint three and the exact registered final aggregate. All
+five round-two attempts have identical scalar payloads despite repeated history
+and a second registration. The updated Debug app, all 33 saved files, original
+empty USB routes, owned helper cleanup and 679 previous evidence bindings are
+verified. The full native suite has 163 passes; mobile tests, lint, types and
+Android Debug assembly pass. This closes the same-process native continuation
+gap, while process-death recovery, fresh late joins, real-model DeComFL recovery,
+longer partitions, response loss after acceptance, background endurance and
+production Release/deployed TLS remain open.
