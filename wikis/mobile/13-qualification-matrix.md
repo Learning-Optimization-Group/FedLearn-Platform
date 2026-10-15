@@ -230,3 +230,23 @@ pass. The candidate is not installed; powered physical requalification remains
 pending. Review also found that the pre-existing DeComFL rejoin path discards its
 trajectory state, so native continuation after round one remains OPEN. This does
 not turn any failed physical qualification into a pass.
+
+The [physical heartbeat recovery test](../../research/notes/on-device/2026-10-15-heartbeat-recovery-physical.md)
+now qualifies the installed correction on vivo: three deliberately failed
+heartbeat calls are followed by actual server re-registration and continuation
+to round two, preserving checkpoint one without a duplicate contribution. Four
+accepted states reconstruct the registered final model exactly. All 33 saved
+files survive the app update and test. This is a controlled, USB-powered recovery
+case; the internal native flag was not directly sampled.
+
+The subsequent [powered Wi-Fi screen-off test](../../research/notes/on-device/2026-10-15-heartbeat-recovery-longrun.md)
+completes ten rounds with twenty unique accepted updates, checkpoint ten and an
+exact reconstructed final aggregate. Over 36.6 minutes, retained samples show
+the same app process, asleep display, USB charging and battery temperature of
+24–26°C. No debugger evaluation occurs during that window. Temporary Wi-Fi
+debugging is disabled afterward and the original empty USB routes and all 33
+saved files are verified. This qualifies externally powered Debug operation
+over Wi-Fi with diagnostic ADB active; battery-only survival, natural deep Doze,
+production Release/TLS and DeComFL native continuation after round one remain
+open. Earlier failed cases retain their verdicts; this is not a controlled
+causal comparison of the fix alone.

@@ -200,3 +200,21 @@ pass. The candidate is not installed; powered physical requalification remains
 pending. Review also found that the pre-existing DeComFL rejoin path discards its
 trajectory state, so native continuation after round one remains OPEN. This does
 not turn any failed physical qualification into a pass.
+
+The [physical recovery follow-up](2026-10-15-heartbeat-recovery-physical.md) now
+qualifies the installed heartbeat correction: three controlled failures lead
+to actual re-registration and continued phone/Linux training without duplicating
+the checkpointed contribution. Two rounds, four accepted states and the exact
+final aggregate pass; all 33 saved files are preserved.
+
+The subsequent [powered Wi-Fi screen-off follow-up](2026-10-15-heartbeat-recovery-longrun.md)
+completes all ten rounds, with twenty unique contributions, checkpoint ten and
+an exact reconstructed registered model. The 36.6-minute background window has
+no debugger evaluations; samples retain the same app process, asleep display,
+USB charging and battery temperature of 24–26°C. Saved data, historical evidence
+and runtime artifacts are preserved. Owned test helpers are absent, temporary
+Wi-Fi ADB is disabled and original empty USB routes are verified. This is an
+externally powered Debug Wi-Fi qualification with active diagnostic ADB. It
+does not establish battery-only survival, natural deep Doze, clinical model
+quality or a causal explanation of the earlier failed runs. DeComFL native
+continuation after round one and production Release/deployed TLS remain open.
