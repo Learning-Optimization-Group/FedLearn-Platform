@@ -9,11 +9,32 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+def standaloneValue = providers.gradleProperty('fedlearnStandalone').getOrElse('false')
+if (!(standaloneValue in ['true', 'false'])) {
+  throw new GradleException('fedlearnStandalone must be true or false')
+}
+def standaloneDebug = standaloneValue == 'true'
+
 react {
   autolinkLibrariesWithApp()
   // Autolinking + codegen for the New Architecture; the NativeFedLearnCore spec is in bridge/specs.
   jsRootDir = file("../../")
   codegenDir = file("../../node_modules/@react-native/codegen")
+  if (standaloneDebug) {
+    debuggableVariants = []
+  }
+}
+
+// Bundle an internal Debug app with its existing development policy, independently of Metro.
+// Release bundles keep the plugin's devEnabled=false and the production transport restrictions.
+if (standaloneDebug) {
+  afterEvaluate {
+    tasks.withType(com.facebook.react.tasks.BundleHermesCTask).configureEach {
+      if (name == 'createBundleDebugJsAndAssets') {
+        devEnabled.set(true)
+      }
+    }
+  }
 }
 
 android {
@@ -27,6 +48,7 @@ android {
     targetSdk rootProject.ext.targetSdkVersion
     versionCode 1
     versionName "2.0.0"
+    buildConfigField 'boolean', 'FEDLEARN_METRO_ENABLED', 'false'
     ndk { abiFilters "arm64-v8a" }   // the only shipped ABI
     externalNativeBuild {
       cmake {
@@ -47,6 +69,9 @@ android {
   }
 
   buildTypes {
+    debug {
+      buildConfigField 'boolean', 'FEDLEARN_METRO_ENABLED', (!standaloneDebug).toString()
+    }
     release {
       // Minification is OFF (RN's own template default: `enableProguardInReleaseBuilds = false`). With it
       // ON, R8 obfuscated React Native's own ViewManager/component classes (logcat showed renamed classes
