@@ -114,3 +114,13 @@ the same run after explicit rejoin and dataset selection. The foreground-service
 fix is covered by seven JVM regressions and a powered-vivo crash test. Automatic
 resume, low-memory termination, interruption during compute/upload, DeComFL durable
 state, production signing and deployed TLS remain separate requirements.
+
+The [lost-completion crash test](../../research/notes/on-device/2026-10-16-acknowledgement-crash.md)
+also qualifies manual same-round CNN FedAvg rejoin when the server accepts an update
+but the app dies before receiving its completion. Existing server deduplication
+counts the repeated upload once; all three rounds finish with an exact reconstructed
+aggregate. No product changes or new checkpoint storage were required. The test
+does not inspect encrypted storage or qualify durability after saving, interruption
+during computation/partial upload, automatic resume or DeComFL process recovery.
+The same internal Debug package and development USB/loopback transport are used;
+production signing and deployed TLS requirements remain unchanged.

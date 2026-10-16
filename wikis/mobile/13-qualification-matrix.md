@@ -314,3 +314,16 @@ launch, rejoin, dataset selection and Start complete the same three-round run.
 All six accepted updates reconstruct the final model exactly. Seven Android service
 regressions pass within the 68-test JVM suite. This adds no support cells, automatic
 resume, low-memory/in-flight-compute qualification or DeComFL process recovery.
+
+## Lost completion before process death — 16 October
+
+The [lost-completion qualification](../../research/notes/on-device/2026-10-16-acknowledgement-crash.md)
+holds the successful upload response after the server accepts the phone's complete
+round-one update, then crashes the app before the native call returns. Explicit
+cold launch and same-round rejoin produce an identical second upload; only the
+first is counted. No third upload occurs during a 10.38-second observation. All
+six unique updates reconstruct the completed three-round CNN FedAvg model exactly.
+The installed standalone Debug APK and product source are unchanged. Checkpoint
+absence follows source ordering; encrypted storage was not inspected and write
+durability was not tested. No automatic resume, interrupted computation/partial
+upload, DeComFL process recovery or new support cells are qualified.
