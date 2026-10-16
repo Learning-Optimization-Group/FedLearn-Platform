@@ -304,3 +304,13 @@ Seven regression cases pass. A powered vivo/Linux CNN FedAvg run verifies no
 phone round-two update while signed out, followed by explicit rejoin and exact
 six-update final aggregate reconstruction. This is same-process cancellation and
 manual rejoin, not active process-death recovery; no support cells are added.
+
+## Manual recovery after process death — 16 October
+
+The [process-death qualification](../../research/notes/on-device/2026-10-16-process-death.md)
+covers a forced VM crash after an accepted round in CNN/FULL/LOCAL_SNAPSHOT/FedAvg.
+The corrected standalone app leaves no orphan foreground service; explicit cold
+launch, rejoin, dataset selection and Start complete the same three-round run.
+All six accepted updates reconstruct the final model exactly. Seven Android service
+regressions pass within the 68-test JVM suite. This adds no support cells, automatic
+resume, low-memory/in-flight-compute qualification or DeComFL process recovery.

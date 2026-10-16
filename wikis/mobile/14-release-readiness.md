@@ -103,3 +103,14 @@ authentication unmounts the training provider and prevents a new provider from
 racing unfinished cleanup. The powered-phone qualification covers sign-out and
 explicit same-process rejoin. Process-death recovery and production release
 requirements remain open.
+
+## Process-death recovery boundary — 16 October
+
+The [forced-crash qualification](../../research/notes/on-device/2026-10-16-process-death.md)
+adds bounded manual recovery evidence for CNN FedAvg after an accepted upload.
+The training service no longer restarts without its training loop; null and
+retry/redelivery requests stop safely. The corrected standalone Debug app completes
+the same run after explicit rejoin and dataset selection. The foreground-service
+fix is covered by seven JVM regressions and a powered-vivo crash test. Automatic
+resume, low-memory termination, interruption during compute/upload, DeComFL durable
+state, production signing and deployed TLS remain separate requirements.
