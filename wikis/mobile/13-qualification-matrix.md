@@ -284,3 +284,12 @@ retained one phone process, USB power and 26°C battery temperature. This was a
 98.93-second Debug exercise, not battery-only endurance or natural deep Doze.
 All 33 original dataset files remained unchanged; the new dataset added three
 files. The original empty ADB routes and stopped helpers/guards were verified.
+
+## Standalone internal Android package — 16 October
+
+The [standalone qualification](../../research/notes/on-device/2026-10-16-standalone-debug.md)
+adds packaging evidence for two existing cells, CNN/FULL/LOCAL_SNAPSHOT with
+FedAvg and DeComFL. Both completed ten real vivo/Linux rounds with Metro stopped,
+normal UI enrollment/import/Start, and exact final aggregate reconstruction.
+The opt-in Debug APK embeds Hermes JavaScript; ordinary Debug retains Metro.
+No support-matrix cells or production Release/TLS qualifications are added.

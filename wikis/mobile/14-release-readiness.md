@@ -88,3 +88,11 @@ The check covers standalone Debug, ordinary Debug, explicit `false`, rejection o
 an invalid value, and Release's production JavaScript mode. It does not prove a
 physical training run. Qualification also needs a cold launch with Metro stopped,
 normal UI login/import/Start, and completed training with the packaged bundle.
+
+The [16 October standalone qualification](../../research/notes/on-device/2026-10-16-standalone-debug.md)
+completed two Metro-off, normal-UI runs on vivo and Linux: CNN FedAvg and CNN
+DeComFL, ten rounds each, with 32 local images per client. Each run's twenty
+accepted updates reconstructed its registered final model bit-for-bit. All 36
+saved dataset files remained unchanged. This qualifies the internal package and
+short foreground execution over development Wi-Fi routes; production signing,
+deployed TLS and process-death recovery remain open.
