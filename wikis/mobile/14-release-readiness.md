@@ -96,3 +96,10 @@ accepted updates reconstructed its registered final model bit-for-bit. All 36
 saved dataset files remained unchanged. This qualifies the internal package and
 short foreground execution over development Wi-Fi routes; production signing,
 deployed TLS and process-death recovery remain open.
+
+The [sign-out lifecycle correction](../../research/notes/on-device/2026-10-16-signout-lifecycle.md)
+is packaged in a new standalone internal Debug APK. It stops participation when
+authentication unmounts the training provider and prevents a new provider from
+racing unfinished cleanup. The powered-phone qualification covers sign-out and
+explicit same-process rejoin. Process-death recovery and production release
+requirements remain open.

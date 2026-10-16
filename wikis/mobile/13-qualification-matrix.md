@@ -293,3 +293,14 @@ FedAvg and DeComFL. Both completed ten real vivo/Linux rounds with Metro stopped
 normal UI enrollment/import/Start, and exact final aggregate reconstruction.
 The opt-in Debug APK embeds Hermes JavaScript; ordinary Debug retains Metro.
 No support-matrix cells or production Release/TLS qualifications are added.
+
+## Authentication lifecycle — 16 October
+
+The [sign-out qualification](../../research/notes/on-device/2026-10-16-signout-lifecycle.md)
+fixes local participation outliving its authenticated provider. Unmount now
+cancels native work and the foreground service, with a shared guard preventing
+new-provider overlap until old enrollment/training and final abort have drained.
+Seven regression cases pass. A powered vivo/Linux CNN FedAvg run verifies no
+phone round-two update while signed out, followed by explicit rejoin and exact
+six-update final aggregate reconstruction. This is same-process cancellation and
+manual rejoin, not active process-death recovery; no support cells are added.
