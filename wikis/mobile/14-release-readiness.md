@@ -124,3 +124,12 @@ does not inspect encrypted storage or qualify durability after saving, interrupt
 during computation/partial upload, automatic resume or DeComFL process recovery.
 The same internal Debug package and development USB/loopback transport are used;
 production signing and deployed TLS requirements remain unchanged.
+
+The [incomplete-transport crash qualification](../../research/notes/on-device/2026-10-16-partial-upload-crash.md)
+adds manual CNN FedAvg recovery before the first complete application upload chunk
+reaches the server. Zero updates are counted before death; explicit rejoin completes
+the run with six unique updates and an exact final aggregate. The old connection's
+tail is discarded permanently. This does not qualify cleanup of an application
+buffer containing chunks, interrupted computation, checkpoint-write durability,
+automatic resume or DeComFL process recovery. The unchanged internal Debug package
+and development routes add no production signing or deployed TLS evidence.

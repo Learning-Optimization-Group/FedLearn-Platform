@@ -327,3 +327,15 @@ The installed standalone Debug APK and product source are unchanged. Checkpoint
 absence follows source ordering; encrypted storage was not inspected and write
 durability was not tested. No automatic resume, interrupted computation/partial
 upload, DeComFL process recovery or new support cells are qualified.
+
+## Incomplete transport upload before process death — 16 October
+
+The [partial-upload qualification](../../research/notes/on-device/2026-10-16-partial-upload-crash.md)
+forwards only the start of the first HTTP/2 upload frame, then crashes the phone
+with zero server-counted updates. Manual cold launch, same-run rejoin and dataset
+selection complete three CNN FedAvg rounds with six unique updates and an exact
+reconstructed final model. The original and recomputed complete phone-side payloads
+match, while the original upstream request remains incomplete and is discarded.
+This tests transport before the first application chunk, not a partly populated
+server upload buffer, interrupted computation or checkpoint-write durability.
+Product source and APK are unchanged; no support cells or automatic recovery are added.
