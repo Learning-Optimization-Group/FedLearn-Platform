@@ -339,3 +339,14 @@ match, while the original upstream request remains incomplete and is discarded.
 This tests transport before the first application chunk, not a partly populated
 server upload buffer, interrupted computation or checkpoint-write durability.
 Product source and APK are unchanged; no support cells or automatic recovery are added.
+
+## Forced exit during native backward computation — 16 October
+
+The [native-computation qualification](../../research/notes/on-device/2026-10-16-native-compute-exit.md)
+verifies a round-one federated backward stack, then exits the unchanged app through
+its mapped libc while the debugger holds it stopped. Android confirms actual
+process disappearance and no orphan training service. Manual cold launch and rejoin
+finish three CNN FedAvg rounds; all six accepted updates and actual desktop parents
+reconstruct the final artifact bitwise. Each completed phone payload is bound to
+its run, round, client and counted tensor state. This adds no support cells,
+automatic resume, natural low-memory/SIGKILL qualification or DeComFL process recovery.

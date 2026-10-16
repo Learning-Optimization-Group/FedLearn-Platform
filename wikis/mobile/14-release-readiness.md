@@ -133,3 +133,12 @@ tail is discarded permanently. This does not qualify cleanup of an application
 buffer containing chunks, interrupted computation, checkpoint-write durability,
 automatic resume or DeComFL process recovery. The unchanged internal Debug package
 and development routes add no production signing or deployed TLS evidence.
+
+The [native backward forced-exit test](../../research/notes/on-device/2026-10-16-native-compute-exit.md)
+adds bounded manual CNN FedAvg recovery after actual process disappearance during
+a debugger-paused first-round backward kernel, before any upload. Explicit rejoin
+completes all three rounds with six unique accepted updates and an exact final
+aggregate. No product change or new checkpoint storage was needed. This does not
+qualify natural Android low-memory kills, SIGKILL, arbitrary instruction interruption,
+automatic resume, storage durability or DeComFL recovery. The internal Debug package
+and development transport add no production signing or deployed TLS evidence.
