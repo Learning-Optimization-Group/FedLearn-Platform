@@ -26,13 +26,17 @@ class FlForegroundService : Service() {
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    if (intent?.action == ACTION_STOP) {
-      stop()
+    // The training loop lives in this process and cannot survive its death. A
+    // system restart must not advertise training or restart the sampler, including
+    // a start delivery interrupted before onStartCommand returned.
+    val systemRestart = flags and (START_FLAG_RETRY or START_FLAG_REDELIVERY) != 0
+    if (intent == null || systemRestart || intent.action == ACTION_STOP) {
+      stop(startId)
       return START_NOT_STICKY
     }
     startForeground(NOTIFICATION_ID, buildNotification())
     handler.post(sampler)
-    return START_STICKY
+    return START_NOT_STICKY
   }
 
   override fun onDestroy() {
@@ -40,10 +44,10 @@ class FlForegroundService : Service() {
     super.onDestroy()
   }
 
-  private fun stop() {
+  private fun stop(startId: Int) {
     handler.removeCallbacks(sampler)
     stopForeground(STOP_FOREGROUND_REMOVE)
-    stopSelf()
+    stopSelf(startId)
   }
 
   private fun buildNotification(): Notification {
