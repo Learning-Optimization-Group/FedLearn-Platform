@@ -67,3 +67,24 @@ adds local-image training and short powered screen-off recovery with the existin
 Debug native APK and updated Metro JavaScript. It changes neither release signing
 nor the production TLS status above. CNN DeComFL requires fresh functional model
 exports and one sequential batch of at most 32 images per client.
+
+## Internal standalone Debug build
+
+Use `./gradlew :app:assembleDebug -PfedlearnStandalone=true` from
+`mobile_client/android`, with the same SDK and native-artifact arguments used for
+an ordinary Debug build. This embeds the Hermes JavaScript bundle and disables
+React Native developer support, so the installed app can launch without Metro.
+The property accepts only `true` or `false`; ordinary Debug builds continue to
+use Metro when the property is absent or explicitly `false`.
+
+This is an internal Debug package. Its embedded JavaScript retains `__DEV__=true`
+and the existing development transport policy. It uses the Debug signing identity
+and does not satisfy the production signing or deployed TLS requirements above.
+Release bundling and transport restrictions remain unchanged.
+
+Run `python ../scripts/check_standalone_build.py` from `mobile_client/android`
+with the normal build environment to check the configured Gradle tasks and flags.
+The check covers standalone Debug, ordinary Debug, explicit `false`, rejection of
+an invalid value, and Release's production JavaScript mode. It does not prove a
+physical training run. Qualification also needs a cold launch with Metro stopped,
+normal UI login/import/Start, and completed training with the packaged bundle.
