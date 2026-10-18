@@ -152,3 +152,15 @@ bootstrap/replay position and explicit error handling; it is not solved by stori
 only a submitted-round number. No successful cold recovery, automatic resume or
 checkpoint durability is qualified. Final cleanup was verified on 18 October after
 an interrupted continuation; product source and the installed APK remain unchanged.
+
+The [current-snapshot recovery fix and qualification](../../research/notes/on-device/2026-10-18-decomfl-cold-restart-recovery.md)
+supersede the preceding DeComFL first-round-only gap for the tested manual rejoin
+path. A rebuilt standalone internal Debug app completes all three rounds after
+verified process death and explicit round-two rejoin. Snapshot integrity, exact
+native scalar replay, six unique contributions and the registered final model are
+checked. Permanent state errors now stop clearly; snapshot/config round races retry.
+The original account/settings and all saved data are preserved, and temporary test
+processes, routes and helper are removed. This does not qualify automatic resume,
+natural Android eviction, interrupted DeComFL compute/upload, durable local state,
+other model contracts, production signing or deployed TLS. No checkpoint storage
+was needed for this bounded recovery case.

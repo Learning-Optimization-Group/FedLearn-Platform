@@ -362,3 +362,17 @@ Both accepted round-one grids reconstruct the captured server model bitwise, and
 complete rebuild history is available. This adds no recovery support cell. Current
 server-snapshot bootstrap and permanent-error handling need work before claiming
 DeComFL cold recovery; checkpoint storage alone is not established as the solution.
+
+## DeComFL current-snapshot cold recovery — 18 October
+
+The [corrected cold-recovery qualification](../../research/notes/on-device/2026-10-18-decomfl-cold-restart-recovery.md)
+closes the preceding first-round-only gap for CNN/FULL/LOCAL_SNAPSHOT. After a
+powered-phone app crash and server advancement while the phone is absent, manual
+launch/rejoin at round two downloads the current validated snapshot and completes
+three rounds with six unique updates. The round-two phone snapshot matches the
+independent server capture byte for byte; native replay exactly reproduces the ten
+phone scalars. Incorrect initial-state and double-replay controls differ. Round three
+needs no additional global download. The final model matches production reconstruction
+and independent aggregation arithmetic bitwise. This adds bounded manual DeComFL
+recovery evidence, not model support cells, automatic resume, natural-kill coverage,
+checkpoint durability or production release qualification.
