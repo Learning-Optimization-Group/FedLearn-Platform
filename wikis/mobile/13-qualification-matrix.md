@@ -388,3 +388,14 @@ All three rounds finish with six unique updates and an exact reconstructed final
 model. The unchanged internal Debug app and development routes add bounded manual
 DeComFL recovery evidence, not new support cells, automatic resume, natural-kill
 coverage, computation/request-interruption coverage or checkpoint durability.
+
+## DeComFL native forward-computation exit — 18 October
+
+The [native computation-exit qualification](../../research/notes/on-device/2026-10-18-decomfl-native-compute-exit.md)
+verifies a forward-convolution stop in the actual round-one DeComFL base-loss stack,
+then exits the unchanged app through verified mapped libc instructions. Zero scalar
+requests or updates are accepted through death. Manual cold rejoin recomputes round
+one once and completes three rounds with six unique contributions and an exact
+reconstructed final model. This adds bounded manual recovery evidence, not new
+support cells, arbitrary instruction/completed-step coverage, natural Android kills,
+automatic resume, checkpoint durability or production release qualification.

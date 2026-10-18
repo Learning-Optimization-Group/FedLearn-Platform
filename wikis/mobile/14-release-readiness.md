@@ -174,3 +174,14 @@ completed three-round model exactly. No product or APK change was needed. Accoun
 settings and data are preserved and temporary test resources removed. This adds no
 automatic resume, natural Android kill, interrupted computation/request transport,
 checkpoint durability, production signing or deployed TLS qualification.
+
+The [DeComFL native-computation test](../../research/notes/on-device/2026-10-18-decomfl-native-compute-exit.md)
+adds manual cold recovery after a controlled exit inside the initial base-loss
+forward path, before any scalar request is accepted. Verified native stack/round,
+exit registers and independent Android disappearance bind the boundary. Rejoin
+finishes all three rounds; six unique updates reconstruct the final model exactly.
+Product source and the installed internal Debug APK are unchanged. Both debugger
+files/processes and all temporary routes/helpers are removed, and account/settings
+and saved data are preserved. This adds no natural-kill, arbitrary instruction or
+completed-step guarantee, automatic resume, storage durability, production signing
+or deployed TLS evidence.
