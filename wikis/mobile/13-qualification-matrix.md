@@ -350,3 +350,15 @@ finish three CNN FedAvg rounds; all six accepted updates and actual desktop pare
 reconstruct the final artifact bitwise. Each completed phone payload is bound to
 its run, round, client and counted tensor state. This adds no support cells,
 automatic resume, natural low-memory/SIGKILL qualification or DeComFL process recovery.
+
+## DeComFL cold process restart — test 16 October, verified 18 October
+
+The [DeComFL process-death test](../../research/notes/on-device/2026-10-18-decomfl-process-death.md)
+confirms a recovery gap: after round one and actual process death, explicit cold
+rejoin at round two refuses initialization. The mobile trajectory is held only in
+memory and its initial bootstrap requires round one. No round-two scalar request
+or counted update is observed in the bounded window; the isolated run is stopped.
+Both accepted round-one grids reconstruct the captured server model bitwise, and
+complete rebuild history is available. This adds no recovery support cell. Current
+server-snapshot bootstrap and permanent-error handling need work before claiming
+DeComFL cold recovery; checkpoint storage alone is not established as the solution.

@@ -142,3 +142,13 @@ aggregate. No product change or new checkpoint storage was needed. This does not
 qualify natural Android low-memory kills, SIGKILL, arbitrary instruction interruption,
 automatic resume, storage durability or DeComFL recovery. The internal Debug package
 and development transport add no production signing or deployed TLS evidence.
+
+The [DeComFL cold-restart qualification](../../research/notes/on-device/2026-10-18-decomfl-process-death.md)
+is negative: an app crash loses the in-memory trajectory, and rejoin after round one
+refuses to train despite an available current server model and rebuild history.
+No stale round-two scalars are observed in the bounded test. The UI retries this
+permanent state refusal as a transient error. Recovery requires a validated model
+bootstrap/replay position and explicit error handling; it is not solved by storing
+only a submitted-round number. No successful cold recovery, automatic resume or
+checkpoint durability is qualified. Final cleanup was verified on 18 October after
+an interrupted continuation; product source and the installed APK remain unchanged.
