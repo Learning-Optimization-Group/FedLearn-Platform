@@ -1,5 +1,6 @@
 #include "fedlearn/ModelManager.h"
 
+#include <cmath>
 #include <stdexcept>
 #include <unordered_map>
 
@@ -81,7 +82,14 @@ std::vector<NamedTensor> namedTensors(const std::vector<ParamSpec>& layout, cons
 }  // namespace
 
 std::string ModelManager::canonicalStateSha256() const {
-  return Sha256::hexDigest(saveSafetensors(namedTensors(layout_, params_), {}));
+  return canonicalStateSha256(params_);
+}
+
+std::string ModelManager::canonicalStateSha256(const std::vector<float>& flat) const {
+  if (flat.size() != params_.size()) {
+    throw std::runtime_error("ModelManager: canonical state size mismatch");
+  }
+  return Sha256::hexDigest(saveSafetensors(namedTensors(layout_, flat), {}));
 }
 
 std::string ModelManager::serializeStateDict(int64_t numExamples) const {
@@ -105,6 +113,10 @@ std::string ModelManager::serializeStateDict(int64_t numExamples) const {
 }
 
 void ModelManager::loadStateDict(const std::string& blob) {
+  params_ = decodeStateDict(blob);
+}
+
+std::vector<float> ModelManager::decodeStateDict(const std::string& blob) const {
   const std::vector<NamedTensor> tensors = loadSafetensors(blob);
   if (tensors.size() != layout_.size()) {
     throw std::runtime_error("ModelManager::loadStateDict: tensor count != layout size");
@@ -124,16 +136,24 @@ void ModelManager::loadStateDict(const std::string& blob) {
       throw std::runtime_error("ModelManager::loadStateDict: missing tensor '" + spec.name + "'");
     }
     const auto& tensor = *it->second;
+    if (tensor.shape != spec.shape) {
+      throw std::runtime_error("ModelManager::loadStateDict: shape mismatch for '" + spec.name + "'");
+    }
     if (tensor.data.size() != static_cast<size_t>(numelOf(spec))) {
       throw std::runtime_error("ModelManager::loadStateDict: size mismatch for '" +
                                spec.name + "'");
+    }
+    for (float value : tensor.data) {
+      if (!std::isfinite(value)) {
+        throw std::runtime_error("ModelManager::loadStateDict: non-finite value for '" + spec.name + "'");
+      }
     }
     next.insert(next.end(), tensor.data.begin(), tensor.data.end());
   }
   if (next.size() != params_.size()) {
     throw std::runtime_error("ModelManager::loadStateDict: total size mismatch");
   }
-  params_ = std::move(next);
+  return next;
 }
 
 float ModelManager::loss(const std::vector<float>& flat, const float* x,

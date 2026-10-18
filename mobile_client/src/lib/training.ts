@@ -235,6 +235,13 @@ function modelExecutionDetail(e: unknown): string | undefined {
   return at < 0 ? undefined : message.slice(at + MODEL_EXECUTION_PREFIX.length);
 }
 
+export class TrainingStateFailedError extends Error {
+  constructor(readonly detail: string) {
+    super(`Training stopped because the model state could not be restored safely: ${detail}`);
+    this.name = 'TrainingStateFailedError';
+  }
+}
+
 class RoundCheckpointError extends Error {
   constructor(cause: unknown) {
     super(`Could not save the round checkpoint; training stopped to avoid a duplicate upload: ${String(cause)}`);
@@ -371,6 +378,10 @@ export async function runResilientRoundLoop(
       if (policy.pacingMs > 0) await ops.delay(policy.pacingMs);
     } catch (e) {
       if (e instanceof RoundCheckpointError || e instanceof InvalidServerStatusError) throw e;
+      const statePrefix = 'TRAINING_STATE: ';
+      const stateMessage = readError(e);
+      const stateAt = stateMessage.indexOf(statePrefix);
+      if (stateAt >= 0) throw new TrainingStateFailedError(stateMessage.slice(stateAt + statePrefix.length));
       // The native layer rejects a clean stop with a "STOP:"-prefixed message (abort / server ended).
       if (isStopSignal(e)) {
         hooks.onRunEnded?.();

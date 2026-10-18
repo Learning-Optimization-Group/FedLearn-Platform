@@ -694,3 +694,37 @@ describe('runResilientRoundLoop (MO-8)', () => {
     });
   });
 });
+
+// A malformed snapshot or torn replay chain cannot be repaired by network retries.
+it.each([new Error('TRAINING_STATE: snapshot is non-finite'), {message: 'TRAINING_STATE: missing replay round'}])(
+  'stops a permanent native training-state failure without retrying or re-enrolling (%p)', async (cause) => {
+    const h = hooks();
+    const ops = baseOps({runDeComFLRound: jest.fn().mockRejectedValue(cause)});
+    await expect(runResilientRoundLoop(
+      {runId: 'r', isFedAvg: false, cfg: {...CFG, strategy: 'DeComFL'}}, ops, POLICY, h,
+    )).rejects.toMatchObject({name: 'TrainingStateFailedError'});
+    expect(ops.runDeComFLRound).toHaveBeenCalledTimes(1);
+    expect(ops.rejoin).not.toHaveBeenCalled();
+    expect(ops.runEnded).not.toHaveBeenCalled();
+    expect(ops.saveSubmittedRound).not.toHaveBeenCalled();
+    expect(h.logs.some(log => log.startsWith('Transient error'))).toBe(false);
+  },
+);
+
+it('retries a snapshot round race and submits only the matching current round', async () => {
+  const h = hooks();
+  const ops = baseOps({
+    getServerStatus: jest.fn()
+      .mockResolvedValueOnce({serverState: 'TRAINING', currentRound: 2})
+      .mockResolvedValueOnce({serverState: 'TRAINING', currentRound: 3})
+      .mockResolvedValue({serverState: 'COMPLETED', currentRound: 4}),
+    runDeComFLRound: jest.fn()
+      .mockRejectedValueOnce(new Error('DeComFL round changed during snapshot download; retry configuration'))
+      .mockResolvedValueOnce(round(3)),
+  });
+  await runResilientRoundLoop({runId: 'r', isFedAvg: false, cfg: CFG}, ops, POLICY, h);
+  expect(h.rounds.map(value => value.round)).toEqual([3]);
+  expect(ops.saveSubmittedRound).toHaveBeenCalledTimes(1);
+  expect(ops.saveSubmittedRound).toHaveBeenCalledWith('r', 3);
+  expect(ops.rejoin).not.toHaveBeenCalled();
+});

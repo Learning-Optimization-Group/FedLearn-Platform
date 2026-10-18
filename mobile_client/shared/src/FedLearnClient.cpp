@@ -1,5 +1,6 @@
 #include "fedlearn/FedLearnClient.h"
 #include "fedlearn/DeComFLServerConfig.h"
+#include "fedlearn/ModelStream.h"
 
 #include <algorithm>
 #include <chrono>
@@ -263,38 +264,23 @@ std::string FedLearnClient::getGlobalModelStream(const std::string& runId,
   std::unique_ptr<grpc::ClientReader<v2::ModelChunk>> reader(
       trainingStub_->GetGlobalModelStream(&ctx, req));
 
-  std::string blob;
+  ModelStream stream(cfg_.maxMessageBytes * static_cast<int64_t>(4096));
   v2::ModelChunk chunk;
-  int64_t declaredTotal = -1;
-  std::string declaredSha;
-  int currentRound = 0;
   std::map<std::string, std::string> firstConfig;
   bool first = true;
   while (reader->Read(&chunk)) {
+    stream.append({chunk.chunk_index(), chunk.total_chunks(), chunk.is_final_chunk(),
+                   chunk.current_round(), chunk.codec(), chunk.compressed(), chunk.total_bytes(),
+                   chunk.sha256(), chunk.chunk_data()});
     if (first) {
-      validateCodec(chunk.codec());            // E7-style: reject unknown codec
-      declaredTotal = chunk.total_bytes();
-      declaredSha = chunk.sha256();
-      currentRound = chunk.current_round();
       firstConfig.insert(chunk.config().begin(), chunk.config().end());
-      if (declaredTotal > cfg_.maxMessageBytes * static_cast<int64_t>(4096)) {
-        throw std::runtime_error("getGlobalModelStream: declared total_bytes exceeds sane cap");
-      }
       first = false;
-    }
-    blob.append(chunk.chunk_data());
-    if (declaredTotal >= 0 && static_cast<int64_t>(blob.size()) > declaredTotal) {
-      throw std::runtime_error("getGlobalModelStream: reassembled size exceeds declared total_bytes");
     }
   }
   grpc::Status s = reader->Finish();
   if (!s.ok()) throw std::runtime_error("GetGlobalModelStream failed: " + statusStr(s));
-  if (first) throw std::runtime_error("getGlobalModelStream: empty model stream");
-
-  if (!declaredSha.empty() && Sha256::hexDigest(blob) != declaredSha) {
-    throw std::runtime_error("getGlobalModelStream: sha256 mismatch on reassembled model blob");
-  }
-  if (outCurrentRound) *outCurrentRound = currentRound;
+  std::string blob = stream.finish();
+  if (outCurrentRound) *outCurrentRound = stream.currentRound();
   if (outConfig) *outConfig = std::move(firstConfig);
   return blob;
 }

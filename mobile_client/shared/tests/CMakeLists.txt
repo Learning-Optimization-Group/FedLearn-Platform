@@ -25,6 +25,7 @@ add_executable(fedlearn_core_tests
   dtype_map_test.cpp
   sha256_test.cpp
   model_manager_test.cpp
+  model_stream_test.cpp
   flatparam_filter_test.cpp
   serialize_roundtrip_test.cpp
   decomfl_equivalence_test.cpp

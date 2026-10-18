@@ -14,6 +14,7 @@
 #include "fedlearn/DropoutMasks.h"
 #include "fedlearn/EtZeroOrder.h"
 #include "fedlearn/RandnEngine.h"
+#include "fedlearn/TrainingStateError.h"
 
 namespace fedlearn {
 namespace {
@@ -135,21 +136,21 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
     // The run's execution contract states the zeroth-order training; the server's round config is a cross-check.
     // Anything it asks for that the contract does not state -- or leaves out -- refuses the round before upload.
     if (!cfg.learningRateSent || cfg.config.learningRate != contract->learningRate) {
-      throw std::runtime_error("the server's learning_rate disagrees with the execution contract");
+      throw TrainingStateError("the server's learning_rate disagrees with the execution contract");
     }
     if (!cfg.muSent || cfg.config.mu != contract->smoothing) {
-      throw std::runtime_error("the server's smoothing_param disagrees with the execution contract");
+      throw TrainingStateError("the server's smoothing_param disagrees with the execution contract");
     }
     if (K != contract->numLocalSteps) {
-      throw std::runtime_error("the server's local steps disagree with the execution contract");
+      throw TrainingStateError("the server's local steps disagree with the execution contract");
     }
     for (const auto& step : seeds) {
       if (static_cast<int>(step.size()) != contract->numPerturbations) {
-        throw std::runtime_error("the server's perturbations disagree with the execution contract");
+        throw TrainingStateError("the server's perturbations disagree with the execution contract");
       }
     }
     if (cfg.config.method != contract->method) {
-      throw std::runtime_error("the server's gradient estimator disagrees with the execution contract");
+      throw TrainingStateError("the server's gradient estimator disagrees with the execution contract");
     }
   }
   progress.configure(cfg.currentRound, K, "DOWNLOADING");
@@ -169,26 +170,35 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
   }
   auto& flat = contract != nullptr ? trajectory.flat : flatState_;
   if (contract != nullptr && !trajectory.bound) {
-    // The DeComFL path never downloads the global model: it starts from a state and follows the aggregates from
-    // there. That state used to be the ModelManager's zero-initialised params, so every scalar was a derivative at
-    // the wrong point. Start from the server's model instead -- the run's initial model, which only round 1 serves --
-    // and only once it is proven to be the one the contract binds.
-    if (cfg.currentRound != 1) {
-      throw std::runtime_error("this device can join a DeComFL run only at its first round, when the server serves "
-                               "the run's initial model");
-    }
+    // A cold client adopts the server's current global state, which already
+    // contains every update before its served round. Older history must not be
+    // replayed on top of that snapshot. Retained in-process trajectories still
+    // use the history path below without another model download.
     int served = 0;
-    const std::string initial = net_.getGlobalModelStream(runId, clientId, &served, nullptr);
-    mm_.loadStateDict(initial);
-    if (mm_.canonicalStateSha256() != contract->initialStateSha256) {
-      throw std::runtime_error("the server's initial model is not the one the execution contract binds");
+    const std::string snapshot = net_.getGlobalModelStream(runId, clientId, &served, nullptr);
+    if (served < 1) {
+      throw TrainingStateError("DeComFL snapshot is missing a valid served round");
     }
-    flat = mm_.getFlatParams();
-    trajectory.syncedThrough = 0;
-    trajectory.runId = runId;
-    trajectory.clientId = clientId;
-    trajectory.contract = *contract;
-    trajectory.bound = true;
+    if (served != cfg.currentRound) {
+      // A concurrent aggregation can move the model beyond the config we fetched.
+      // Leave both model and trajectory unchanged; the outer loop retries config.
+      throw std::runtime_error("DeComFL round changed during snapshot download; retry configuration");
+    }
+    DeComFLState next;
+    try {
+      next.flat = mm_.decodeStateDict(snapshot);
+      if (served == 1 && mm_.canonicalStateSha256(next.flat) != contract->initialStateSha256) {
+        throw TrainingStateError("the server's initial model is not the one the execution contract binds");
+      }
+    } catch (const std::exception& e) {
+      throw TrainingStateError(std::string("invalid DeComFL snapshot: ") + e.what());
+    }
+    next.syncedThrough = served - 1;
+    next.runId = runId;
+    next.clientId = clientId;
+    next.contract = *contract;
+    next.bound = true;
+    trajectory = std::move(next);
   }
   // Lazily snapshot the global params into the loop's owned working state (a round held to no contract).
   if (flat.empty()) flat = mm_.getFlatParams();
@@ -202,29 +212,29 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
     // Validate the full chain first and build on a copy, so a torn or malformed
     // response cannot partially commit either the weights or the round cursor.
     if (cfg.currentRound <= trajectory.syncedThrough) {
-      throw std::runtime_error("DeComFL server round precedes the retained trajectory");
+      throw TrainingStateError("DeComFL server round precedes the retained trajectory");
     }
     RebuildHistory pending;
     int previousRound = 0;
     int next = trajectory.syncedThrough + 1;
     for (const auto& round : cfg.rebuildHistory) {
       if (round.roundNumber <= previousRound || round.roundNumber >= cfg.currentRound) {
-        throw std::runtime_error("DeComFL rebuild history has unordered or invalid round numbers");
+        throw TrainingStateError("DeComFL rebuild history has unordered or invalid round numbers");
       }
       previousRound = round.roundNumber;
       if (round.roundNumber <= trajectory.syncedThrough) continue;
       if (round.roundNumber != next || static_cast<int>(round.seeds.size()) != K ||
           static_cast<int>(round.gradients.size()) != K) {
-        throw std::runtime_error("DeComFL rebuild history is incomplete or has invalid local steps");
+        throw TrainingStateError("DeComFL rebuild history is incomplete or has invalid local steps");
       }
       for (int k = 0; k < K; ++k) {
         if (static_cast<int>(round.seeds[k].size()) != P ||
             static_cast<int>(round.gradients[k].size()) != P) {
-          throw std::runtime_error("DeComFL rebuild history has invalid perturbations");
+          throw TrainingStateError("DeComFL rebuild history has invalid perturbations");
         }
         for (double value : round.gradients[k]) {
           if (!std::isfinite(value) || !std::isfinite(static_cast<float>(value))) {
-            throw std::runtime_error("DeComFL rebuild history has non-finite gradients");
+            throw TrainingStateError("DeComFL rebuild history has non-finite gradients");
           }
         }
       }
@@ -233,14 +243,14 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
       ++next;
     }
     if (next != cfg.currentRound) {
-      throw std::runtime_error("DeComFL rebuild history is missing a completed round");
+      throw TrainingStateError("DeComFL rebuild history is missing a completed round");
     }
     if (!pending.empty()) {
       progress.phase("REBUILDING");
       auto rebuilt = flat;
       client.rebuildModel(rebuilt, pending);
       for (float value : rebuilt) {
-        if (!std::isfinite(value)) throw std::runtime_error("DeComFL rebuilt model is non-finite");
+        if (!std::isfinite(value)) throw TrainingStateError("DeComFL rebuilt model is non-finite");
       }
       flat = std::move(rebuilt);
       trajectory.syncedThrough = cfg.currentRound - 1;

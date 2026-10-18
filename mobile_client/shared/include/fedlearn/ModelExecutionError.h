@@ -8,6 +8,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "fedlearn/TrainingStateError.h"
+
 namespace fedlearn {
 
 class ModelExecutionError : public std::runtime_error {
@@ -19,6 +21,9 @@ inline constexpr const char* kModelExecutionPrefix = "MODEL_EXECUTION: ";
 
 /** The message a failed native call rejects its JS promise with. */
 inline std::string rejectionMessage(const std::exception& e) {
+  if (dynamic_cast<const TrainingStateError*>(&e) != nullptr) {
+    return std::string(kTrainingStatePrefix) + e.what();
+  }
   if (dynamic_cast<const ModelExecutionError*>(&e) != nullptr) {
     return std::string(kModelExecutionPrefix) + e.what();
   }

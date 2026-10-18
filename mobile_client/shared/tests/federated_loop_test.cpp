@@ -10,6 +10,8 @@
 #include "fedlearn/FederatedLoop.h"
 #include "fedlearn/IFedLearnClient.h"
 #include "fedlearn/ModelManager.h"
+#include "fedlearn/ModelExecutionError.h"
+#include "fedlearn/Safetensors.h"
 #include "fedlearn/Types.h"
 
 #include "fixtures.h"
@@ -40,7 +42,7 @@ class MockFedLearnClient : public fedlearn::IFedLearnClient {
   // canned FedAvg global-model blob
   std::string globalBlob;
   std::vector<fedtest::Progress> downloadProgress;
-  int globalRound = 0;
+  int globalRound = 1;
 
   // recorders
   bool submitCalled = false;
@@ -274,12 +276,13 @@ TEST(FederatedLoop, DeComFLRefusesAnInitialModelTheContractDoesNotBind) {
   EXPECT_FALSE(mock.submitCalled);
 }
 
-TEST(FederatedLoop, DeComFLRefusesToStartAfterTheFirstRound) {
-  // Only round 1 serves the initial model the contract binds; from later rounds the phone cannot know it.
+TEST(FederatedLoop, DeComFLRefusesASnapshotWithoutRoundMetadata) {
+  // A snapshot without a served-round marker cannot establish a safe replay position.
   LoopFixture f;
   MockFedLearnClient mock;
   mock.cfg = contractedConfig();
   mock.cfg.currentRound = 2;
+  mock.globalRound = 0;
   mock.globalBlob = globalBlobFrom(initialState());
   const fedlearn::ZerothOrderContract contract = contractFor(mock.cfg);
   fedlearn::FederatedLoop loop(mock, f.mm);
@@ -348,6 +351,114 @@ fedlearn::RebuildRound rebuildRound(int round) {
   return {round, {{11, 22}, {33, 4242}}, {{0.1 * round, -0.2}, {0.3, 0.05 * round}}, 0.01};
 }
 }  // namespace
+
+TEST(FederatedLoop, DeComFLColdRestartUsesTheCurrentSnapshotWithoutReplayingItsHistory) {
+  LoopFixture f;
+  MockFedLearnClient net;
+  net.cfg = contractedConfig();
+  net.cfg.currentRound = 2;
+  net.cfg.rebuildHistory = {rebuildRound(1)};
+  net.globalRound = 2;
+  const std::vector<float> snapshot(25, 0.25f);
+  net.globalBlob = globalBlobFrom(snapshot);
+  const auto contract = contractFor(net.cfg);
+  fedlearn::DeComFLState freshState;
+  fedlearn::FederatedLoop loop(net, f.mm, freshState);
+
+  EXPECT_TRUE(loop.deComFLRound(f.model, "run", "client", f.batch, &contract).ranTraining);
+  EXPECT_EQ(f.mm.getFlatParams(), snapshot);
+  EXPECT_EQ(net.lastTrainedOnRound, 2);
+  EXPECT_EQ(net.lastSeeds, net.cfg.seeds);
+}
+
+TEST(FederatedLoop, DeComFLRetriesARoundRaceWithoutBindingTheWrongSnapshot) {
+  LoopFixture f;
+  MockFedLearnClient net;
+  net.cfg = contractedConfig();
+  net.cfg.currentRound = 2;
+  net.globalRound = 3;
+  const std::vector<float> snapshot(25, 0.5f);
+  net.globalBlob = globalBlobFrom(snapshot);
+  const auto before = f.mm.getFlatParams();
+  const auto contract = contractFor(net.cfg);
+  fedlearn::DeComFLState state;
+  fedlearn::FederatedLoop loop(net, f.mm, state);
+
+  EXPECT_THROW(loop.deComFLRound(f.model, "run", "client", f.batch, &contract), std::runtime_error);
+  EXPECT_FALSE(net.submitCalled);
+  EXPECT_EQ(f.mm.getFlatParams(), before);
+  net.cfg.currentRound = 3;
+  net.cfg.rebuildHistory = {rebuildRound(1), rebuildRound(2)};
+  EXPECT_TRUE(loop.deComFLRound(f.model, "run", "client", f.batch, &contract).ranTraining);
+  EXPECT_EQ(f.mm.getFlatParams(), snapshot);
+  EXPECT_EQ(net.lastTrainedOnRound, 3);
+}
+
+TEST(FederatedLoop, DeComFLInvalidInitialSnapshotLeavesTheModelUnchanged) {
+  LoopFixture f;
+  MockFedLearnClient net;
+  net.cfg = contractedConfig();
+  net.globalBlob = globalBlobFrom(std::vector<float>(25, 0.5f));
+  const auto contract = contractFor(net.cfg);
+  const auto before = f.mm.getFlatParams();
+  fedlearn::FederatedLoop loop(net, f.mm);
+
+  EXPECT_THROW(loop.deComFLRound(f.model, "run", "client", f.batch, &contract), std::runtime_error);
+  EXPECT_EQ(f.mm.getFlatParams(), before);
+  EXPECT_FALSE(net.submitCalled);
+}
+
+TEST(FederatedLoop, DeComFLInvalidSnapshotDoesNotPoisonAColdRetry) {
+  LoopFixture f;
+  MockFedLearnClient net;
+  net.cfg = contractedConfig();
+  net.cfg.currentRound = 2;
+  net.globalRound = 2;
+  auto invalid = std::vector<float>(25, 0.25f);
+  invalid[0] = std::numeric_limits<float>::infinity();
+  net.globalBlob = globalBlobFrom(invalid);
+  const auto contract = contractFor(net.cfg);
+  const auto before = f.mm.getFlatParams();
+  fedlearn::DeComFLState state;
+  fedlearn::FederatedLoop loop(net, f.mm, state);
+  try {
+    loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
+    FAIL() << "Non-finite snapshot was trained";
+  } catch (const std::runtime_error& e) {
+    EXPECT_EQ(fedlearn::rejectionMessage(e).find("TRAINING_STATE: "), 0u);
+  }
+  EXPECT_FALSE(net.submitCalled);
+  EXPECT_EQ(f.mm.getFlatParams(), before);
+  const std::vector<float> valid(25, 0.25f);
+  net.globalBlob = globalBlobFrom(valid);
+  EXPECT_TRUE(loop.deComFLRound(f.model, "run", "client", f.batch, &contract).ranTraining);
+  EXPECT_EQ(f.mm.getFlatParams(), valid);
+}
+
+TEST(FederatedLoop, DeComFLRejectsASnapshotWithTheWrongShapeEvenWhenItsSizeMatches) {
+  LoopFixture f;
+  MockFedLearnClient net;
+  net.cfg = contractedConfig();
+  net.cfg.currentRound = 2;
+  net.globalRound = 2;
+  auto tensors = fedlearn::loadSafetensors(globalBlobFrom(initialState()));
+  ASSERT_GT(tensors[0].shape.size(), 1u);
+  tensors[0].shape = {static_cast<int64_t>(tensors[0].data.size())};
+  net.globalBlob = fedlearn::saveSafetensors(tensors, {});
+  const auto contract = contractFor(net.cfg);
+  const auto before = f.mm.getFlatParams();
+  fedlearn::FederatedLoop loop(net, f.mm);
+
+  try {
+    loop.deComFLRound(f.model, "run", "client", f.batch, &contract);
+    FAIL() << "Wrong-shaped snapshot was trained";
+  } catch (const std::runtime_error& e) {
+    EXPECT_NE(std::string(e.what()).find("shape"), std::string::npos);
+    EXPECT_EQ(fedlearn::rejectionMessage(e).find("TRAINING_STATE: "), 0u);
+  }
+  EXPECT_EQ(f.mm.getFlatParams(), before);
+  EXPECT_FALSE(net.submitCalled);
+}
 
 TEST(FederatedLoop, DeComFLRetryDoesNotApplyTheSameHistoryTwice) {
   LoopFixture f;
@@ -490,9 +601,13 @@ TEST(FederatedLoop, DeComFLModelReloadDiscardsTheReconnectState) {
   state.reset();
   net.cfg.currentRound = 2;
   net.cfg.rebuildHistory = {rebuildRound(1)};
-  net.submitCalled = false;
-  EXPECT_THROW(loop.deComFLRound(f.model, "run", "client", f.batch, &contract), std::runtime_error);
-  EXPECT_FALSE(net.submitCalled);
+  net.globalRound = 2;
+  const std::vector<float> snapshot(25, 0.25f);
+  net.globalBlob = globalBlobFrom(snapshot);
+  EXPECT_TRUE(loop.deComFLRound(f.model, "run", "client", f.batch, &contract).ranTraining);
+  EXPECT_EQ(f.mm.getFlatParams(), snapshot);
+  EXPECT_EQ(net.lastTrainedOnRound, 2);
+  EXPECT_EQ(net.downloadProgress.size(), 2u);
 }
 
 TEST(FederatedLoop, DeComFLDoesNotReuseStateAcrossRunsClientsOrContracts) {
@@ -510,10 +625,14 @@ TEST(FederatedLoop, DeComFLDoesNotReuseStateAcrossRunsClientsOrContracts) {
     net.cfg.rebuildHistory = {rebuildRound(1)};
     if (change == 2) { contract.learningRate = 0.02; net.cfg.config.learningRate = 0.02; }
     if (change == 3) contract.initialStateSha256 = std::string(64, '0');
-    net.submitCalled = false;
-    EXPECT_THROW(loop.deComFLRound(f.model, change == 0 ? "other-run" : "run",
-                                 change == 1 ? "other-client" : "client", f.batch, &contract), std::runtime_error);
-    EXPECT_FALSE(net.submitCalled);
+    net.globalRound = 2;
+    const std::vector<float> snapshot(25, 0.5f);
+    net.globalBlob = globalBlobFrom(snapshot);
+    EXPECT_TRUE(loop.deComFLRound(f.model, change == 0 ? "other-run" : "run",
+                                change == 1 ? "other-client" : "client", f.batch, &contract).ranTraining);
+    EXPECT_EQ(f.mm.getFlatParams(), snapshot);
+    EXPECT_EQ(net.lastTrainedOnRound, 2);
+    EXPECT_EQ(net.downloadProgress.size(), 2u);
   }
 }
 
