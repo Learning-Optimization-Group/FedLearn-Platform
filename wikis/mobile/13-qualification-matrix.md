@@ -376,3 +376,15 @@ needs no additional global download. The final model matches production reconstr
 and independent aggregation arithmetic bitwise. This adds bounded manual DeComFL
 recovery evidence, not model support cells, automatic resume, natural-kill coverage,
 checkpoint durability or production release qualification.
+
+## DeComFL lost completion before process death — 18 October
+
+The [scalar-acknowledgement crash qualification](../../research/notes/on-device/2026-10-18-decomfl-acknowledgement-crash.md)
+holds a real successful round-one response after the server counts the phone's
+update, then crashes the verified app process while the RPC remains pending.
+Manual same-round rejoin produces an identical protobuf request; the server counts
+that contribution once and no third attempt occurs during the 10.56-second hold.
+All three rounds finish with six unique updates and an exact reconstructed final
+model. The unchanged internal Debug app and development routes add bounded manual
+DeComFL recovery evidence, not new support cells, automatic resume, natural-kill
+coverage, computation/request-interruption coverage or checkpoint durability.

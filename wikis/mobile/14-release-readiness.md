@@ -164,3 +164,13 @@ processes, routes and helper are removed. This does not qualify automatic resume
 natural Android eviction, interrupted DeComFL compute/upload, durable local state,
 other model contracts, production signing or deployed TLS. No checkpoint storage
 was needed for this bounded recovery case.
+
+The [DeComFL lost-acknowledgement test](../../research/notes/on-device/2026-10-18-decomfl-acknowledgement-crash.md)
+qualifies manual same-round rejoin when the server counts a scalar update but the
+app dies before receiving success. A fresh deadline-margin check and shared-host
+cancellation timing establish the pending-RPC crash boundary. Two identical round-one
+requests produce one counted contribution; all six unique updates reconstruct the
+completed three-round model exactly. No product or APK change was needed. Account,
+settings and data are preserved and temporary test resources removed. This adds no
+automatic resume, natural Android kill, interrupted computation/request transport,
+checkpoint durability, production signing or deployed TLS qualification.
