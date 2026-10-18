@@ -1,5 +1,17 @@
 # Android signing and TLS qualification
 
+For the next full Release training exercise, use the
+[Release/TLS qualification procedure](16-release-tls-qualification.md).
+The measurements below remain bound to their original builds and dates.
+
+Local preparation on 18 October adds a current run guide, a private TLS-material
+generator and release-workflow signing-secret import/cleanup with a header-only
+torch include shim. Ten host preparation/workflow checks, eight real Gradle signing
+cases, 32 targeted backend checks and a generated nginx configuration check pass.
+The local environment is a TLS/token-enforced dev setup; it does not provide gRPC
+network isolation. No new APK, physical Release training, same-key Release update,
+production signer or deployed HTTPS qualification is added by this preparation.
+
 Release builds now require an explicit signing identity. They refuse missing or
 partial credentials, missing stores, invalid passwords or aliases, expired
 certificates and the Android debug identity. Debug builds remain usable.

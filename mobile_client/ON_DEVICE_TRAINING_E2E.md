@@ -1,12 +1,13 @@
 # On-device training — end-to-end spec
 
+For new experiments, use the [current Android run guide](../wikis/mobile/15-current-android-runbook.md).
 Current device evidence and remaining support are tracked in the
 [October qualification matrix](../wikis/mobile/13-qualification-matrix.md).
 The July status below is retained as the original implementation record.
 
 **Goal:** make the mobile client run a **real on-device DeComFL round against a real server**, with training data staying on the device (only perturbation seeds + gradient scalars leave).
 
-**Status today:** all six phases below have landed — the framework server speaks `fedlearn.v2`,
+**Status at the time of the original implementation:** all six phases below have landed — the framework server speaks `fedlearn.v2`,
 the bundle staging + `GET /api/runs/{runId}/model-bundle` endpoint exist, and
 `provisionTrainingBundle()` is implemented (fetch → sha256-verify → stage → local paths). What is
 left is the hands-on device-in-the-loop acceptance run: see [Status (2026-07-02)](#status-2026-07-02)
