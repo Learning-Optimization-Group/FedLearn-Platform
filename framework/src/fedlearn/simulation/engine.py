@@ -31,7 +31,7 @@ from fedlearn.simulation.federation import SimulatedFederation
 from fedlearn.simulation.metrics import (
     client_fairness, deviation_ratio, exclusion_rates, flat, mean_pairwise_cosine, state_digest,
 )
-from fedlearn.simulation.workloads import FeatureHeadWorkload
+from fedlearn.simulation.workloads import FeatureHeadWorkload, NihFeatureHeadWorkload
 
 UTILITY_KEYS = ("accuracy", "auc", "loss", "sensitivity", "specificity", "balanced_accuracy", "ece",
                 "backdoor_success")
@@ -123,7 +123,7 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
     rss_before = costs.peak_rss_bytes()
     seeds, fed, sv, pv = r["seeds"], r["federation"], r["server"], r["privacy"]
     net_cfg = fed["network"]
-    wl = FeatureHeadWorkload(r)
+    wl = (NihFeatureHeadWorkload(r) if r["workload"]["dataset"] == "nih" else FeatureHeadWorkload(r))
     plan = BehaviorPlan(r["behaviors"], int(fed["num_clients"]), int(seeds["attack"]), wl.n_classes)
     _start_checks(r, wl)
     rounds = int(fed["rounds"])

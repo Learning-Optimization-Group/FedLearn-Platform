@@ -5,6 +5,7 @@ partitioning), which is what lets the engine reproduce that harness bit for bit.
 """
 from __future__ import annotations
 
+import hashlib
 from typing import Callable, List, Optional, Tuple
 
 import numpy as np
@@ -14,7 +15,8 @@ import torch.nn as nn
 from fedlearn.server.subset_federation import apply_trainable_subset
 from fedlearn.simulation.config import ConfigError
 from fedlearn.simulation.metrics import backdoor_success, classification_metrics
-from fedlearn.simulation.partition import dirichlet_partition, iid_partition
+from fedlearn.simulation.nih_cache import json_bytes, load_nih_cache
+from fedlearn.simulation.partition import dirichlet_partition, iid_partition, patient_iid_partition
 from fedlearn.simulation.rng import torch_rng_scope
 
 
@@ -136,3 +138,49 @@ class FeatureHeadWorkload:
             correct = (model(self.train_x).argmax(1) == self.train_y).float()
         return [correct[torch.as_tensor(p, dtype=torch.long)].mean().item() if len(p) else None
                 for p in self.parts]
+
+
+class NihFeatureHeadWorkload(FeatureHeadWorkload):
+    """Verified NIH features with explicit evaluation and whole-patient clients."""
+
+    def __init__(self, resolved: dict):
+        wl, fed = resolved["workload"], resolved["federation"]
+        cache = load_nih_cache(wl["features_path"], expected_report_sha256=wl["features_report_sha256"])
+        report = cache["provenance"]
+        if not report["pretrained"] and not wl["allow_random_features"]:
+            raise ConfigError("workload.allow_random_features",
+                              "random non-pretrained features require an explicit test-control opt-in")
+        train, evaluation = cache["splits"]["train"], cache["splits"][wl["evaluation_split"]]
+        # Own CPU storage: mutations during experiments cannot modify cache mappings.
+        self.train_x = torch.from_numpy(np.array(train["x"], copy=True))
+        self.train_y = torch.from_numpy(np.array(train["y"], copy=True))
+        self.test_x = torch.from_numpy(np.array(evaluation["x"], copy=True))
+        self.test_y = torch.from_numpy(np.array(evaluation["y"], copy=True))
+        self.train_patient_ids = list(train["patient_ids"])
+        self.train_image_ids = list(train["image_ids"])
+        self.evaluation_image_ids = list(evaluation["image_ids"])
+        self.trigger_train_x = self.trigger_test_x = None
+        self.has_trigger = False
+        self.feat_dim, self.n_classes = report["feat_dim"], report["n_classes"]
+        self.head = dict(wl["head"])
+        self.parts = patient_iid_partition(self.train_patient_ids, fed["num_clients"], resolved["seeds"]["partition"])
+        assignments, clients = [], {}
+        for cid, indices in enumerate(self.parts):
+            positives = int(self.train_y[torch.as_tensor(indices)].sum())
+            clients[str(cid)] = {"images": len(indices), "patients": len({self.train_patient_ids[i] for i in indices}),
+                                 "positive_images": positives, "negative_images": len(indices) - positives}
+            assignments.append({"client_id": cid, "image_ids": [self.train_image_ids[i] for i in indices]})
+        assignment = {"algorithm": "nih-client-assignment-v1", "clients": assignments}
+        self.info = {
+            "dataset": "nih", "source_dataset": report["dataset"], "backbone": report["backbone"],
+            "pretrained": report["pretrained"], "allow_random_features": wl["allow_random_features"],
+            "evaluation_split": wl["evaluation_split"], "features_report_sha256": cache["report_sha256"],
+            "curated_cohort_sha256": report["curated_cohort_sha256"],
+            "model_state_sha256": report["model_state_sha256"], "source_hashes": report["source_hashes"],
+            "train_manifest_sha256": report["selected_manifest_hashes"]["train.csv"],
+            "evaluation_manifest_sha256": report["selected_manifest_hashes"][f"{wl['evaluation_split']}.csv"],
+            "split_counts": report["splits"], "clients": clients,
+            "partition_algorithm": "patient-iid-v1:sorted-patients-pcg64-array-split",
+            "assignment_sha256": hashlib.sha256(json_bytes(assignment)).hexdigest(),
+            "assignment_version": "nih-client-assignment-v1",
+        }

@@ -11,6 +11,7 @@ import copy
 import hashlib
 import itertools
 import json
+import re
 from typing import Any, Dict, List, Tuple
 
 SCHEMA_VERSION = 1
@@ -137,6 +138,19 @@ def _require(cond: bool, field: str, message: str) -> None:
 def _validate(r: Dict[str, Any]) -> None:
     _require(r["schema_version"] == SCHEMA_VERSION, "schema_version", f"must be {SCHEMA_VERSION}")
     wl, fed, cl, sv, pv = r["workload"], r["federation"], r["client"], r["server"], r["privacy"]
+    nih = wl["dataset"] == "nih"
+    if nih:
+        _require(wl["evaluation_split"] in ("validation", "test"), "workload.evaluation_split",
+                 "NIH requires an explicit validation or test evaluation split")
+        _require(isinstance(wl["features_report_sha256"], str)
+                 and re.fullmatch(r"[0-9a-f]{64}", wl["features_report_sha256"]) is not None,
+                 "workload.features_report_sha256", "NIH requires a trusted feature report SHA-256")
+        _require(wl["balance"] is False, "workload.balance", "NIH requires explicit false; preserve prevalence")
+        _require(type(wl["allow_random_features"]) is bool, "workload.allow_random_features", "must be boolean")
+        _require(type(fed["num_clients"]) is int and fed["num_clients"] >= 1,
+                 "federation.num_clients", "NIH client count must be a positive integer")
+        _require(not any(b["type"] == "backdoor" for b in r["behaviors"]), "behaviors",
+                 "NIH backdoor runs require separately prepared aligned triggered features")
     _require(isinstance(wl["features_path"], str) and wl["features_path"], "workload.features_path",
              "a prepared features file is required (benchmarks/prepare_features.py)")
     _require(wl["head"]["type"] in ("linear", "mlp"), "workload.head.type", "must be 'linear' or 'mlp'")
@@ -145,8 +159,8 @@ def _validate(r: Dict[str, Any]) -> None:
     _require(1 <= int(fed["clients_per_round"]) <= int(fed["num_clients"]),
              "federation.clients_per_round", "must be in [1, num_clients]")
     _require(int(fed["rounds"]) >= 1, "federation.rounds", "must be >= 1")
-    _require(fed["partition"]["type"] in ("iid", "dirichlet"), "federation.partition.type",
-             "must be 'iid' or 'dirichlet'")
+    _require(fed["partition"]["type"] in (("patient_iid",) if nih else ("iid", "dirichlet")),
+             "federation.partition.type", "NIH requires 'patient_iid'" if nih else "must be 'iid' or 'dirichlet'")
     _require(float(fed["partition"]["alpha"]) > 0, "federation.partition.alpha", "must be > 0")
     net = fed["network"]
     for key in ("uplink_mbps", "downlink_mbps", "device_gflops"):
@@ -194,7 +208,13 @@ def _validate(r: Dict[str, Any]) -> None:
 
 def resolve(cfg: Dict[str, Any]) -> Dict[str, Any]:
     """Fill defaults, reject unknown keys, validate; returns the resolved config (no ``matrix``)."""
-    out = _merge(DEFAULTS, {k: v for k, v in cfg.items() if k != "matrix"}, "")
+    defaults = DEFAULTS
+    workload = cfg.get("workload", {})
+    if isinstance(workload, dict) and workload.get("dataset") == "nih":
+        defaults = copy.deepcopy(DEFAULTS)
+        defaults["workload"].update(features_report_sha256=None, evaluation_split=None,
+                                     allow_random_features=False)
+    out = _merge(defaults, {k: v for k, v in cfg.items() if k != "matrix"}, "")
     fed = out["federation"]
     if fed["clients_per_round"] is None:
         fed["clients_per_round"] = fed["num_clients"]

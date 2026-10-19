@@ -1,7 +1,9 @@
 # Explicit NIH evaluation and patient-preserving simulation plan
 
-Status: prepared under the continuous capstone mandate. Implementation starts only
-after the frozen-feature cache slice passes its complete verification and review.
+Status: Task 1 implemented and verified (1,775 full-suite passes, 81.21% coverage;
+92 targeted passes; real constructor-only patient allocation checked through
+1,000 clients). Task 2 pilot and final whole-slice review remain outstanding.
+The preceding frozen-feature slice passed complete qualification and review.
 
 **Goal:** Run the existing simulation engine on the verified NIH cache while
 preserving patient ownership, explicit validation/test selection and exact cache

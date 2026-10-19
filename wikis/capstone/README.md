@@ -36,10 +36,10 @@ research commits and integrates this verified main baseline at `660576a`.
   with zero image-ID or patient overlap. All images decode, but the later full-content audit found exact RGB overlap
   across splits; the original cohort fails content qualification. Metadata checks
   alone do not establish content integrity.
-- The existing engine workload repartitions feature rows and lacks patient ownership.
-  Its legacy feature CLI expects ImageFolder data. A separate NIH cache command
-  is now implemented; explicit engine integration remains outstanding. Setting
-  the legacy dataset label to `nih` does not implement that integration.
+- The legacy engine workload partitions image rows. A separate NIH workload now
+  loads a pinned verified cache, requires explicit evaluation selection and
+  allocates whole patients. NIH configurations must explicitly preserve prevalence;
+  the old Kermany defaults, config hashes and reproduction anchors remain unchanged.
 
 ## Schedule and completion gates
 
@@ -55,7 +55,8 @@ research commits and integrates this verified main baseline at `660576a`.
 October 20 is a target start, not permission to call a retrospective analysis
 pre-registered. If the data/pilot/protocol gates are incomplete, move confirmatory
 runs rather than mislabeling their status. Advisor title approval remains open;
-draft the message for review, without treating a working title as approved.
+the [title/scope message](../../docs/artifacts/capstone/advisor-title-confirmation-draft.md)
+is drafted for review and has not been sent. The working title is not approved.
 
 ## Next work: NIH adapter
 
@@ -76,7 +77,7 @@ tests pass. A fresh bounded comparison reproduces all eight stored cells from
 repetition 0 of `main_n80_eps1` exactly under torch 2.12.0. The original 160-cell
 torch 2.9.1 verification remains historical evidence; this new eight-cell check
 does not replace or expand its scope. The full integrated framework suite passes:
-1,750 tests, 14 deselected, 81.09% coverage after the frozen-feature implementation, with unhandled thread exceptions
+1,775 tests, 14 deselected, 81.21% coverage after NIH engine integration, with unhandled thread exceptions
 treated as errors. These checks do not establish NIH learning or content integrity.
 
 The first useful run is a small, no-DP/no-attack validation pilot with real NIH
@@ -191,8 +192,8 @@ completed original audit. Keep `NIH_PREPARATION` pointing to the original manife
 Both commands require the full original source tree; verification rechecks the
 original audit and reconstructs the policy. There is no ignore/force flag.
 Frozen feature extraction now consumes this explicit cohort and keeps quarantined
-development rows out. Explicit engine split selection and useful learning remain
-unverified. See the [feature plan](../../docs/superpowers/plans/2026-10-19-capstone-nih-frozen-features.md)
+development rows out. Explicit engine split selection is now implemented and tested;
+useful learning remains unverified. See the [feature plan](../../docs/superpowers/plans/2026-10-19-capstone-nih-frozen-features.md)
 and the qualification below.
 
 A private second-device checkpoint through `bf1c9cc`, including the curated
@@ -232,6 +233,33 @@ Choose an explicitly available device; no silent fallback. Real caches/manifests
 stay private and ignored. The [next implementation plan](../../docs/superpowers/plans/2026-10-19-capstone-nih-engine-integration.md)
 requires an explicit evaluation split and pinned cache digest, whole-patient
 clients, unchanged legacy reproduction, and a bounded validation-only learning pilot.
+
+The private checkpoint through `98ba88a` now includes the full qualified cache and
+95 hash-verified evidence/source-metadata files, plus a verified complete Git bundle.
+The earlier 1,021-file historical evidence archive remains separately preserved.
+Raw NIH image files are not included. Later engine integration is newer than that
+checkpoint and will be included in the next one.
+
+## NIH engine adapter — 19 October
+
+The engine now selects `NihFeatureHeadWorkload` for `dataset: "nih"`. It requires
+`evaluation_split: "validation"` or `"test"`, the trusted `features_report_sha256`,
+`balance: false`, and `partition.type: "patient_iid"`. Random-weight controls require
+explicit `allow_random_features: true`; the real pilot keeps this false. Backdoor
+configurations refuse because aligned triggered NIH features do not exist.
+
+The workload copies verified read-only arrays into owned CPU tensors and records
+actual evaluation/cache/source/model/manifest identities, client counts and a
+versioned assignment digest. Patient/image lists stay out of the run record.
+Synthetic tests exercise both explicit evaluation choices; no real test performance
+has been inspected. Another 92 targeted engine/config/reproduction tests pass.
+
+A separate constructor-only real-cache audit checked complete row coverage,
+disjoint whole-patient clients and exact counts at 1, 10 and 1,000 clients. The
+ten-client allocation matches the curated client manifests at seed 42. At 1,000
+clients, each has 22–23 patients but 27–198 images. This is an allocation check,
+not a completed training/cost check or evidence of useful learning. Whole-slice
+review will follow the bounded validation pilot in the current implementation plan.
 
 ## Practical research outputs
 

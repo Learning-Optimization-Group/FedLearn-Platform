@@ -206,7 +206,7 @@ def test_start_checks_fail_before_training_naming_the_field(tmp_path):
     data["dataset"] = "kermany"
     torch.save(data, tagged)
     with pytest.raises(ConfigError) as e:
-        run(_cfg(str(tagged), workload={"dataset": "nih"}))
+        run(_cfg(str(tagged), workload={"dataset": "other"}))
     assert e.value.field == "workload.dataset"
 
 
