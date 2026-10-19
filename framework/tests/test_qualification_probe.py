@@ -65,8 +65,22 @@ def test_the_resnet_recipe_probe_is_stable_under_rounding():
 
 
 def test_a_probe_rounding_alone_can_move_is_refused():
-    """ResNet-18 on 32 x 32 inputs normalises its last stage over 8 values per channel: an unstable probe."""
-    torch.manual_seed(0)
-    model = recipes.get_recipe("CIFAR_RESNET18").build_model("cpu")
+    """Refuse real rounding drift independently of a CPU backend's convolution and BatchNorm kernels."""
+    class CancellationClassifier(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.weight = torch.nn.Parameter(torch.tensor(1.0))
+
+        def forward(self, x):
+            # At 2**26, float32 loses every probe value in [-1, 1]; float64 preserves them. IEEE-754
+            # cancellation makes the drift independent of convolution and BatchNorm kernels.
+            signal = (x[:, 0] + 2**26) - 2**26
+            logits = self.weight * signal
+            return torch.stack((logits, torch.zeros_like(logits)), dim=1)
+
+    model = CancellationClassifier()
+    f32 = pte_export.probe_losses(model, rows=2, width=1, classes=2)
+    f64 = pte_export.probe_losses(model, rows=2, width=1, classes=2, dtype=torch.float64)
+    assert max(abs(a - b) for a, b in zip(f32, f64)) > 0.1
     with pytest.raises(ValueError, match="rounding"):
-        pte_export.probe_reference(model, rows=8, width=3 * 32 * 32, classes=10, input_shape=(3, 32, 32))
+        pte_export.probe_reference(model, rows=2, width=1, classes=2)

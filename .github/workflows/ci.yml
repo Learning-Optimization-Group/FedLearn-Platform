@@ -119,8 +119,10 @@ jobs:
           python-version: '3.12'
       - name: Install the CPU tree workload without neural native libraries
         run: |
+          # The breast-cancer partition regression imports sklearn's stratified splitter.
           python -m pip install "xgboost-cpu==3.4.1" "numpy==2.1.2" \
-            "grpcio>=1.71.2,<2" "protobuf>=5.29,<6" "PyJWT>=2.8,<3" "requests>=2.32,<3" pytest
+            "grpcio>=1.71.2,<2" "protobuf>=5.29,<6" "PyJWT>=2.8,<3" "requests>=2.32,<3" \
+            scikit-learn pytest
       - name: Typed tree model, round, RPC and runtime regressions
         run: PYTHONPATH=framework/src python -m pytest -q framework/tree_tests
 
@@ -326,7 +328,7 @@ jobs:
   # (the coverage-regression gate); a finer base-vs-PR coverage delta is a follow-up (needs a coverage
   # service or a base re-run).
   ci-gate:
-    needs: [framework, backend, backend-scripts, frontend, desktop, mobile-js, client-docker]
+    needs: [framework, tree-workload, backend, backend-scripts, frontend, design-tokens, desktop, mobile-js, client-docker]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
