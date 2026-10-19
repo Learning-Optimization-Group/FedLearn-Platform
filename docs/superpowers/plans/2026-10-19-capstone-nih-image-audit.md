@@ -16,7 +16,7 @@
 - Preserve original test membership and all patient manifests, even if a collision is found. No silent exclusions, relabeling or deduplication.
 - Exact decoded RGB pixels and dimensions define content identity. Raw bytes are hashed separately so re-encoded copies can be detected.
 - Accept single-frame PNG input; refuse decode failures, non-PNG or multi-frame images. Pillow decompression warnings become audit failures. Bound input bytes to 64 MiB and decoded pixels to 16,777,216 per image before RGB allocation.
-- Process one image at a time, with no full-resolution cohort in memory. Record every source row, including failed images; failures have no pixel digest.
+- Process one image at a time per worker, with at most 16 workers and 128 queued identities; no full-resolution cohort in memory. Record every source row, including failed images; failures have no pixel digest.
 - Cross-split raw or RGB duplicates and image failures make `qualified` false. Within-split duplicates are disclosed, including cross-patient and contradictory-label cases, rather than silently removed.
 - A completed audit report states exact-identity limits: no near-duplicate or clinical-quality guarantee, no learning or DP claim. The manifest report remains unchanged with its original `image_content_verified: false` boundary.
 - A verifier must reconstruct all image fingerprints from source files and compare every output byte; rehashing a forged audit must not pass.
@@ -39,8 +39,8 @@
 Public interfaces:
 
 ```python
-def audit_images(root: Path, preparation: Path, output: Path) -> dict: ...
-def verify_image_audit(root: Path, preparation: Path, output: Path) -> dict: ...
+def audit_images(root: Path, preparation: Path, output: Path, *, workers: int = 1) -> dict: ...
+def verify_image_audit(root: Path, preparation: Path, output: Path, *, workers: int = 1) -> dict: ...
 def main(argv: list[str] | None = None) -> None: ...
 ```
 
@@ -64,7 +64,7 @@ def test_complete_audit_decodes_every_prepared_image(nih_tree, tmp_path):
 - [ ] Add corruption, PNG-format, animation, byte/pixel limit, refusal, source mutation, forged-payload and interrupted-write tests. Existing outputs contain a sentinel that must remain unchanged.
 - [ ] Run `PYTHONPATH=framework/src:framework <python> -m pytest -q -o addopts= framework/tests/test_capstone_nih_image_audit.py`. Expected RED: missing module/public functions before implementation.
 - [ ] Implement bounded PNG reading, SHA-256 over original bytes, RGB fingerprint over a versioned namespace plus dimensions and canonical RGB bytes. Use Pillow `verify` then reopen and `load`; refuse unexpected format/frames and oversized content before conversion. Build independent split identity from verified manifests. Do not scan client CSVs as independent splits.
-- [ ] Publish all deterministic payloads exclusively, then fsync/replace the report. Implement verification by recomputing fingerprints, duplicate groups and the report against current source; compare all file bytes and refuse extra/missing files. Provide `--data-root --preparation --output --verify-only`; return nonzero if audit is unqualified while preserving completed failure evidence.
+- [ ] Publish all deterministic payloads exclusively, then fsync/replace the report. Implement verification by recomputing fingerprints, duplicate groups and the report against current source; compare all file bytes and refuse extra/missing files. Provide `--data-root --preparation --output --verify-only --workers`; return nonzero if audit is unqualified while preserving completed failure evidence.
 - [ ] Run targeted NIH/partition/workload/reproduction checks and the full framework suite with coverage and unhandled thread exceptions treated as errors. Expected GREEN. Record counts and logs.
 - [ ] Run the audit on all 112,120 original NIH files into a new ignored output. Record elapsed time, counts, failures and exact duplicates. Independently inspect any groups against source files; do not change cohort policy merely to pass the audit.
 - [ ] Update the capstone plan with evidence and practical consequences. Commit as `feat(capstone): audit NIH image integrity before feature extraction`.

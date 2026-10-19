@@ -133,6 +133,8 @@ Existing outputs are never overwritten. An interrupted output without a complete
 report refuses verification; choose a fresh output path. Keep real-data manifests
 and local qualification reports outside git.
 
+The retrospective [Milestone 2 report](../../docs/artifacts/capstone/capstone-milestone-2-report.md) now records the exploratory methods, source-linked tables, anomalies, reproduction scope and practical phase-2 questions. It does not reclassify historical experiments as confirmatory.
+
 ## Practical research outputs
 
 The capstone should produce evidence for project decisions, alongside the report:
