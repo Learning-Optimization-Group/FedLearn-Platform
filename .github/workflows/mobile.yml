@@ -112,7 +112,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: "${{ runner.temp }}/executorch"
-          key: et-host-v${{ env.ET_VERSION }}-train-${{ runner.os }}
+          key: et-host-v${{ env.ET_VERSION }}-train-${{ runner.os }}-${{ hashFiles('mobile_client/scripts/patches/**') }}
       - name: Build host ExecuTorch from source if cache missed
         if: steps.et-cache.outputs.cache-hit != 'true'
         run: |
@@ -123,6 +123,8 @@ jobs:
           cd "$ET_SRC"
           git submodule sync
           git submodule update --init --recursive --depth 1
+          # The MaxPool-backward zero-init fix (mobile_client/scripts/patches): CNN gradients are wrong without it.
+          git apply "$GITHUB_WORKSPACE/mobile_client/scripts/patches/executorch-1.3.1-maxpool-backward-zero-init.patch"
           cmake -S . -B cmake-out -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DEXECUTORCH_BUILD_EXTENSION_MODULE=ON \
@@ -192,7 +194,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: mobile_client/.artifacts
-          key: native-arm64-et${{ env.ET_VERSION }}-grpcv1.67.1-ndk-r27
+          key: native-arm64-et${{ env.ET_VERSION }}-grpcv1.67.1-ndk-r27-${{ hashFiles('mobile_client/scripts/patches/**') }}
       - name: Build arm64 native deps if cache missed
         env:
           ANDROID_NDK: ${{ steps.ndk.outputs.ndk-path }}

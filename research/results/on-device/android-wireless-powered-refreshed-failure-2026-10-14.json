@@ -1,0 +1,348 @@
+{
+  "date": "2026-10-14",
+  "verdict": "FAILED_ROUND8_PARTIAL_UPLOAD_DEADLINE_THEN_CLEAN_STOP",
+  "scope": "Externally powered Wi-Fi Debug vivo/Linux original-pneumonia FedAvg screen-off attempt over a reopened persistent forwarding connection",
+  "project_id": "3dc75742-3985-43f1-9f1e-c268182a7c08",
+  "run_id": "15555e70-15bd-4f95-9ee9-449829024489",
+  "model": "PNEUMONIA_CNN",
+  "strategy": "FedAvg",
+  "examples_per_client": 16,
+  "local_optimizer": "Adam",
+  "local_updates_per_round": 1,
+  "source": {
+    "native_progress_commit": "c331e5948e87bdb57eead91633f308168e0dad1c",
+    "javascript_and_linux_commit": "50a01ca9ad80f586b7944cc8fc6ee434f31a2b82",
+    "qualification_base_commit": "95bc83cb643f5c6dc63aa28fbe22b649918051e4",
+    "application_changed": false
+  },
+  "runtime": {
+    "apk_sha256": "8f284fb4974cc926b4c4d7c7f3056770c19ce318d8d54b4f1219ef0d079cb91e",
+    "core_archive_sha256": "eda3234e16df1907e119a9c175010796901b98d2f59c80d029f589eb0ddd6f80",
+    "installed_apk_unchanged_after_run": true,
+    "g14_source_clean_and_unchanged_during_run": true
+  },
+  "contract_sha256": "4900dc012e69bfb0895840ffb4e04af5e4931620176d944b1785715e6b4547a0",
+  "initial_npz_sha256": "3a7593c17d7bc1f5f313c4ef97f46d9dbeafc9d64a7770d155904349e5ad2010",
+  "desktop_package_sha256": "0b78ede069b937df804686c86b01d8dd9585561710c0e452b794d7d6754c4d64",
+  "power_policy": {
+    "external_power_required": true,
+    "fedlearn_oem_background_allowed": true,
+    "persisted_ui_observation_utc": "2026-10-14T16:26:43.582470+00:00",
+    "fresh_android_idle_allowlist_membership_utc": "2026-10-14T20:32:56.874332+00:00",
+    "derived_android_idle_allowlist_effect": true,
+    "direct_whitelist_command_used": false
+  },
+  "failure": {
+    "verdict": "FAILED_ROUND8_PARTIAL_UPLOAD_DEADLINE_THEN_CLEAN_STOP",
+    "planned_rounds": 10,
+    "completed_federated_rounds": 7,
+    "accepted_updates": 14,
+    "completed_phone_checkpoint": 7,
+    "wire_observed_round8_chunks": 62,
+    "declared_round8_chunks": 99,
+    "server_logged_round8_chunks": 61,
+    "round8_accepted": false,
+    "native_deadline_error_utc": "2026-10-14T21:01:54.384Z",
+    "native_grpc_error_code": 4,
+    "native_clean_stop_log_utc": "2026-10-14T21:01:55.530Z",
+    "notification_cancel_epoch": 1792011715.581,
+    "first_service_absence_utc": "2026-10-14T21:02:04.676332+00:00",
+    "harness_failure_utc": "2026-10-14T21:02:08.212868+00:00",
+    "app_pid": 14514,
+    "app_kill_event_observed": false,
+    "background_until_failure_seconds": 1694.187196,
+    "screen_off_sample_count": 110,
+    "acknowledged_heartbeat_count": 314,
+    "last_acknowledged_heartbeat_utc": "2026-10-14T21:01:09.584398+00:00",
+    "sampled_temperature_min_c": 24.0,
+    "sampled_temperature_max_c": 26.0,
+    "same_pid_in_all_background_samples": true,
+    "debugger_calls_during_background": 0,
+    "abort_flag_reason_directly_sampled": false,
+    "original_network_stall_cause_established": false,
+    "final_aggregate_qualified": false,
+    "physical_numerical_client_replay_repeated": false
+  },
+  "case_provenance": {
+    "previous_attempts_preserved": true,
+    "qualification_base_commit": "95bc83cb643f5c6dc63aa28fbe22b649918051e4",
+    "application_changed": false,
+    "new_project_required": true,
+    "refreshed_development_tunnel": true,
+    "model_sized_transfer_sha256_verified": true,
+    "any_external_power_required": true,
+    "wireless_adb_transport_required": true,
+    "battery_only_qualified": false,
+    "pending_usb_cleanup_deferred_until_terminal": true
+  },
+  "initial_baseline_comparison": {
+    "comparison": "Fresh initial arrays versus prior failed battery-only case",
+    "bitwise_equal": false,
+    "tensor_count": 10
+  },
+  "model_sized_transfer_check": {
+    "at_utc": "2026-10-14T20:31:50.565381+00:00",
+    "model_sized_synthetic_transport_check": true,
+    "training_repeated": false,
+    "persistent_control_verified": true,
+    "bytes_requested": 103137134,
+    "completed": true,
+    "sha256_verified": true,
+    "seconds": 9.526119499991182,
+    "bytes": 103137134
+  },
+  "accepted_updates": [
+    {
+      "client": "phone",
+      "round": 1,
+      "examples": 16,
+      "state_sha256": "3d08ea89849e4f16948ec358c32d02fe73ddefd4e44454ed5c53ba7e087144fd"
+    },
+    {
+      "client": "linux",
+      "round": 1,
+      "examples": 16,
+      "state_sha256": "cdbad4abe5bad2554b518d24d70073e2bc94d4943e30a634c6ba0726503e656b"
+    },
+    {
+      "client": "phone",
+      "round": 2,
+      "examples": 16,
+      "state_sha256": "e86c4b5fc6d082e9c38c18456f288992a477c508f4d80b58ec412d8edf5b15e3"
+    },
+    {
+      "client": "linux",
+      "round": 2,
+      "examples": 16,
+      "state_sha256": "1e96c71619493228377db69f36108fa29609ac8f2af2152316d9f933f50a2f65"
+    },
+    {
+      "client": "phone",
+      "round": 3,
+      "examples": 16,
+      "state_sha256": "971376f8c826e95376012918e502f855f45127580342d36a9b22402bb23cbaea"
+    },
+    {
+      "client": "linux",
+      "round": 3,
+      "examples": 16,
+      "state_sha256": "624f47c4bc52e20dc4111b95dfa98edeeb81e7e5679ee833207f258830354966"
+    },
+    {
+      "client": "phone",
+      "round": 4,
+      "examples": 16,
+      "state_sha256": "c04130830e338db8226653a87cfd25b9f612f6f00e4ec27b6ddc9622cfd729d2"
+    },
+    {
+      "client": "linux",
+      "round": 4,
+      "examples": 16,
+      "state_sha256": "0632e22d4ff0fb9944a63db7822a7d3aed5abc81e36e6b462ab005220ae8a675"
+    },
+    {
+      "client": "phone",
+      "round": 5,
+      "examples": 16,
+      "state_sha256": "78134c9106ef4e9aa405ba57f13c6384ace341a5c92e67c7fe43b2cd312ad3d2"
+    },
+    {
+      "client": "linux",
+      "round": 5,
+      "examples": 16,
+      "state_sha256": "73e3329e9db959d2df88669703c20f964e3d0ab572736a5e437f2a92ebd15700"
+    },
+    {
+      "client": "phone",
+      "round": 6,
+      "examples": 16,
+      "state_sha256": "81422213b709e5ba8b533abc9b5c88314985d6072271c1471ebe72223743b3f2"
+    },
+    {
+      "client": "linux",
+      "round": 6,
+      "examples": 16,
+      "state_sha256": "2977d211ff04d6378f11ea486d0a108f1035b8d944507bfa6c80b9772c4097d7"
+    },
+    {
+      "client": "phone",
+      "round": 7,
+      "examples": 16,
+      "state_sha256": "54903c6c4f375ee469d4df0968a450c1db9124325303625298ad10a5c934c151"
+    },
+    {
+      "client": "linux",
+      "round": 7,
+      "examples": 16,
+      "state_sha256": "b65746ceec0ea57d3fb89d3255ec6b5d3554cfb432d91300670cdc928da8b09d"
+    }
+  ],
+  "preservation": {
+    "files": 33,
+    "all_sha256_unchanged": true,
+    "foreground_service_absent": true
+  },
+  "owned_run_helpers": {
+    "desktop_absent": true,
+    "proxy_absent": true,
+    "monitor_absent": true
+  },
+  "owned_mac_guards": {
+    "at_utc": "2026-10-14T21:03:47.388376+00:00",
+    "wakeguard_absent": true,
+    "deadline_absent": true,
+    "development_tunnel_retained": true
+  },
+  "previous_evidence_preserved": {
+    "android-heartbeat-progress-2026-10-11.json": 38,
+    "android-wireless-background-2026-10-13.json": 62,
+    "android-training-stop-2026-10-12.json": 50,
+    "android-screenoff-longrun-2026-10-11.json": 42,
+    "android-image-acknowledgement-loss-2026-10-11.json": 47,
+    "android-image-upload-interruption-2026-10-11.json": 41,
+    "android-image-reconnect-final-2026-10-11.json": 25
+  },
+  "previous_powered_attempt_bindings_preserved": 135,
+  "code_finding": {
+    "status": "CONFIRMED_CODE_PATH_WITH_INCIDENT_CORRELATION",
+    "heartbeat_failures_set_shared_abort_flag": "mobile_client/shared/src/FedLearnClient.cpp:389",
+    "should_stop_reads_same_flag": "mobile_client/shared/include/fedlearn/FedLearnClient.h:65",
+    "native_round_converts_flag_to_stop": "mobile_client/shared/src/FederatedLoop.cpp:315",
+    "bridge_prefixes_clean_stop": "mobile_client/bridge/common/FedLearnCoreModule.cpp:457",
+    "resilient_loop_returns_without_rejoin_on_stop": "mobile_client/src/lib/training.ts:374",
+    "description": "Transient heartbeat failures share the explicit/server-stop flag. The retry can see STOP and terminate instead of rejoining.",
+    "abort_flag_value_or_reason_directly_sampled": false,
+    "product_fix_implemented": false
+  },
+  "limitations": [
+    "This is a failed ten-round qualification: seven completed federated rounds, no registered final aggregate or independent local numerical replay.",
+    "The scrubbed on-device journal confirms gRPC code4 Deadline Exceeded and the subsequent clean-stop log. Internal abort-flag reason was not directly sampled; incident correlation is distinguished from the inspected code defect.",
+    "The underlying burst/stall cause is not established. A successful synthetic model-sized transfer before training does not guarantee later sustained throughput.",
+    "Charger power, app-specific OEM opt-in, fresh initialization and active Wi-Fi ADB diagnostics are recorded conditions. These do not prove a policy-only fix, battery-only survival or natural deep Doze.",
+    "Samples can miss brief wakes and temperature peaks; battery temperature is not processor junction temperature.",
+    "The eight-round local computation is not eight accepted contributions: round8 had only a partial stream and checkpoint remains7.",
+    "Prior native/mobile/Android checks belong to their own source-bound receipts; no new application code or build for this case.",
+    "Physical Release/deployed TLS, prolonged suspension, process-death recovery, mobile trees and secure aggregation remain outside this run."
+  ],
+  "private_evidence_sha256": {
+    "run.json": "b97dc3201d39e7502e9b3b9a3ce303b3a7bff1b02c8f07fd1f817163100a0fba",
+    "manifest.json": "35380446ed25039d25ae6a8716620bfa8887d6f9d0e38f8bc43f1d25ad6e5edd",
+    "events.json": "b43ce8516972f631fb3906916165143ef8a9d67853ab0396bdebcbf412451a0d",
+    "proxy-events.jsonl": "87e24ed50fb4f5dde29d5e8a792b67b88ba53b1a1b2e5ddd125f56755791f418",
+    "device-samples.jsonl": "3d7caf89f9b13e372616f81d32de85caaa950e7ed8af5f8f1cfe0432ea5a6882",
+    "debugger-audit.json": "7f70c48aeb634a43fcd7be99e2966099d4e00126505f0474141f07eddc624955",
+    "exercise.log": "89cd27ad12dbbec78c487530615a7a40e7ce9d4d8349563914748a15bd2d7248",
+    "desktop.log": "2a2f803460fe501fdc02bf6cdddaa0cf57fbf2806f0628288447ceb59cf715a7",
+    "monitor.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "preflight.json": "26df2ab8b18176f1b41858162a01e3d10d18d65f73a655a0884a402ee7da7cd9",
+    "runtime-after.json": "eaf3cddcd122733d0d38a54e5c372144109414cb807f15f307d9a267700440b7",
+    "phone-preservation-before.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+    "phone-preservation-after-failure.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+    "snapshot-after-failure.json": "4bc93b2f8449b458f348deeb7c27836f3abd38c142146885a2125ca30d3c682c",
+    "accepted-updates-failure.json": "8c118010172b834006237535e45450d2e2e78b79310d633f06b1721992ecdd3a",
+    "record-offset.txt": "1baaa28323ecfb670bbae4051b6551b4acfa51bae7d31d520cb126f8b7641326",
+    "record-end-failure.txt": "a3374c3b6c910aa6017ba1bc33d5e67ee263326a6c2e00443d729355ecd92dc1",
+    "project-after-failure.json": "81eb9ff9c7384fc651d45f6d0765698dd11440a1254397f79ea5bc5d56ecbf4b",
+    "checkpoint-after-failure.json": "10159baf262b43a92d95db59dae1f72c645127301661e0a3ce4e38b295a97c58",
+    "provider-after-failure.json": "064947d6d8b743b89b3eae899ba94503024002affb4f03d533cb7c37d3bf6fe7",
+    "failure-route-provider-restoration.json": "a32f9177995ed69f8991dd56bbfdcccf5a7a37da91076c933992f5a7a5395d91",
+    "failure-helper-cleanup.json": "8f811780bea7d814c373e0844c6f0f66ff66b7b13d18b693732510281e2b403f",
+    "guard-start.json": "45ea7fef1818d0c0e77ac0af7cd3f0b8f448a22177016b72b65eeea01f4b781d",
+    "guard-cleanup.json": "591be87e7a0b7da6129b40965f1496549125abc52076afd17358310c4fcfbbdd",
+    "event-log.txt": "99ec2c282f552008f3946ae78419bacea436adb6787213d7d072c81998e4cbb8",
+    "system-log.txt": "b1489caec4fc5b6372ffa8ed507201fc40af8ebc4a051789a682a975444dab03",
+    "runtime-log.txt": "d87dd6555872d85f77f84d0fdbeaa0ba6f14398da359afd172ac75b07566897c",
+    "crash-log.txt": "2c00462ea27fa279f73714181bd0da2ec3e00689dcde2ce327f4dc9cb74791ff",
+    "server-log-export.txt": "75d0130304c3643d6d9868f0c2cffb4015cf477689c54026ab1ef9325bdf35d9",
+    "failure-verification.json": "2cdb41420fde21fedd340c7af57ddce8aeb98e1474cf7e44d8562c23354a22af",
+    "failure-verification.log": "2cdb41420fde21fedd340c7af57ddce8aeb98e1474cf7e44d8562c23354a22af",
+    "phone-diagnostics.txt": "dca918a11349e6d5fe0d7a436e3c6387ee245e3c29a99a08f55ca4fdcaeae76b",
+    "native-training-result-probe.json": "9ff422300c9a2dd1fe9d23d9b52e5d43b871f1f81c76eb7cfe1ee676a0b6478f",
+    "app-readiness.json": "c8bb81e83597c585849fa27b2d4027999a3d1cbd46b10208ca47e2016b36bc1f",
+    "policy-ready.json": "15a78f78c6a3e460dc65241d9fbc93f61c459ef9c6708e3684043fc3e7ca6199",
+    "policy-preflight.json": "c4493fde9678b80b8f3e99291234ad371d96da88ea7c5ca9ca0613abbe598e0d",
+    "root-preservation-before.json": "08544f929ea6924195cf0f56b1cf85a04f5a6c09548f3ad620bdc32acf2c9efb",
+    "workspace-before.json": "5985904ba970102f7e99eb139ef4afbb5f8bb7da58867e947b812c458091c151",
+    "workspace-after-failure.json": "fcda6d54ad512cfa49aef029904591605be06b06d713df46bd260ba3f269b8df",
+    "transport-before.json": "5d15a9a15bb4abb2535de490c1b0d951fb485feb2dc6dad542cc242db1b23579",
+    "transport.json": "2e34df8c0fbe5dda626eb4d8a02583b6b2b36203c92ff39c0d2e7f89a612d848",
+    "model-sized-transfer-check.json": "38f7aa783e7ca3a5e8654e4e8f63dba7949d84a2984f6e3986663c1d79ca919e",
+    "tunnel-recovery.json": "208e3fb06f02bc0509f71ce4bfa872bd4cdc18dc1f21836416150548bc15f9b0",
+    "project-name-refusal.json": "a4fcfdc22dc827b35a19fdc363e8200c155ba02f5459c44399774da731edde61",
+    "prepare-initial-error.log": "1869e32847bf05b6e2160c618545e7f9799b17b3a4f58b7a3719f407853600cb",
+    "setup-initial-driver.py": "66e69b5f2dc8bd13980d9734bb0be2e16e43a5cd9dfd058a8c394201b3f9def6",
+    "wifi-shutdown.json": "6f20e6aa90ede938ff2666df7c6779016ace1e992c1406c0d5d64897ce9656e3",
+    "wifi-shutdown-preflight.json": "d9ae46ddcae22ff857a873f3d224af3cf1cd15147df4040d5f71e807784a6d87"
+  },
+  "private_driver_sha256": {
+    "wireless_powered_refreshed_setup.py": "a64fb6373cdb1628e0457c4a46c95befee8894af0625dab195640ee21fbff3ba",
+    "wireless_powered_refreshed_desktop.py": "8c8634f1d34c41a3990a9d83fb759341d6a5a86b7a3477b3c0d6a6fdc0b14e04",
+    "wireless_powered_refreshed_proxy.py": "c0c7c238c2ffdd52d236ce57d10d07639a46330a4e73742d1af32c742a6ad764",
+    "wireless_powered_refreshed_remote.py": "01101a34cb9899175c289c68421a46ce15891735ab75b5c7abd47fd48dc93c90",
+    "wireless_powered_refreshed_exercise.py": "34d36aa76d17507077a1d6918e0509386dd65db3ba80120e63404134d7d70c5f",
+    "wireless_powered_refreshed_transport.py": "34d0c6cfaecdb3e94e2b260f8beb700e9e87b020e7b84cb5a2062e80582120de",
+    "wireless_powered_refreshed_readiness.py": "919ce4ea062629efa8fc233827134fc1cf8101ab4b0fe587f3f9380fe4aa5043",
+    "wireless_powered_refreshed_postflight.py": "1a31867d4e61094fd51f80f4c491e089a5ca22b68adf97418a88d4859c54dd78",
+    "wireless_powered_refreshed_preservation.py": "e9fbfd40d49797214040ecfafd201bce44ef16394684a94257b33e126d52b91c",
+    "wireless_powered_refreshed_deadline.py": "48fa0bcb1024bfcd65ad214009593200a99014ae52df4bb04b659950fcc0df15",
+    "wireless_powered_refreshed_guard_cleanup.py": "c4c8129e14cf219d4b745f412bbb0ff15b2b270654537d798a795ab6fcaf9448",
+    "wireless_powered_refreshed_failure_collect.py": "9564fb3c8fa9aff2315f0127193a20c5149076fa710ba995e3798e21b84daf1a",
+    "wireless_powered_refreshed_failure_provider.py": "41641b3e4e91fe102e6a3a020290e4b0646217a7d394dd555de0447b80589ce9",
+    "wireless_powered_refreshed_usb_restore.py": "233407efd73d6f7d22692b0424b881b0673b372da38300d62e16b5198dcc70de",
+    "verify_wireless_powered_refreshed_failure.py": "4c187e97d2a924ebd55986a4613081e47336e1d45661212a42c11663edca57d8",
+    "read_refreshed_phone_journal.py": "b4dd478e6ad1e0aac212d578fe21b6b01f2c70928879a48c7604bc81ad2485ba",
+    "prepare_wireless_powered_refreshed.py": "a3286593d87e8ec9593e02a4bc32d94d4a7378c9bdbbdb137e0024366e0b9b52",
+    "check_evening_model_transfer.py": "c48cee1b09b9005335d3fbbfc697b340898d7c8852e15d649448fcf34079e877",
+    "curate_wireless_powered_refreshed_failure.py": "7094fd736279b2add960640d7526dfd5119e5045fcdd7dc54af6480905c12ae0",
+    "wireless_powered_refreshed_wifi_shutdown.py": "eff5aeb2210e11ea06acfd6c6e3796d0decb72e6a2f51919bbe73e17596c6ebb",
+    "finalize_refreshed_failure_cleanup.py": "a2024c6957ed46702030fc7c4935a12ddb6d8c8a7ab20982c4967bdb46e11a26"
+  },
+  "shared_driver_sha256": {
+    "image_upload_observer.py": "531f543781613b126b2ed4f9eac24bd2924377ad39fe18f3af85565275d87423",
+    "cdp.cjs": "76ed4346e2594a57312bbb6fd1c43c82825ac7b2de78eee5f6801c7ebd28b87a",
+    "mounted-auth-driver.js": "01c2269595279917840d3099d55b9c1b2159548285c63f3123154466f8052897",
+    "lifecycle-network/provider-driver.js": "fbce02b7e93178afc038e184359d4fae554f6abea8396efe4b39732ddad966aa",
+    "lifecycle/provider-state.js": "371099fcf1a175feb3afe268e7dfaf27bb33fef66a372dc2a1460ef628f1784c",
+    "power_policy_enable.py": "e9c475997f080d6cc4da369d2f10c27d58a5ce456d063d3325f59df2c8bb1d6f",
+    "power_policy_verify.py": "d1c9865d2a0b0c1aa1fdc29fc9c327c0f3a2b7620473c28b37be87ef437e2f0a"
+  },
+  "usb_restoration": null,
+  "cleanup_status": "WIFI_ADB_DISABLED_USB_POSTCHECK_PENDING",
+  "physical_driver": "wireless_powered_refreshed_exercise.py",
+  "wifi_debugging_shutdown": {
+    "at_utc": "2026-10-14T21:41:15.738435+00:00",
+    "adb_usb_ack": "restarting in USB mode",
+    "tcp_adb_port_refused": true,
+    "consecutive_refusals": 3,
+    "port_probe_observations": [
+      "OPEN",
+      "CONNECTION_REFUSED",
+      "CONNECTION_REFUSED",
+      "CONNECTION_REFUSED"
+    ],
+    "wireless_transport_absent": true,
+    "original_reverse_restored_before_shutdown": true,
+    "original_forward_unchanged_before_shutdown": true,
+    "pre_shutdown_phone": {
+      "serial_verified": true,
+      "installed_apk_sha256": "8f284fb4974cc926b4c4d7c7f3056770c19ce318d8d54b4f1219ef0d079cb91e",
+      "dataset": {
+        "files": 33,
+        "all_sha256_unchanged": true
+      },
+      "battery": {
+        "level": 100,
+        "temperature_c": 24.0,
+        "usb_powered": false,
+        "ac_powered": true,
+        "wireless_powered": false
+      },
+      "training_service_absent": true,
+      "original_reverse_restored_before_shutdown": true,
+      "original_forward_unchanged_before_shutdown": true
+    },
+    "usb_postcheck_performed": false,
+    "post_shutdown_device_identity_checked": false,
+    "cleanup_status": "WIFI_ADB_DISABLED_USB_POSTCHECK_PENDING"
+  }
+}

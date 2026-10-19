@@ -1,0 +1,32 @@
+{
+  "description": "FedAvg local-update golden at the numbers execution contract v1 states for this run (see ../execution_contract_v1/projection_tinynet_fedavg.json). Same real LocalTrainer.fit(mu=0) as fedavg_local_manifest.json, different training.",
+  "torch_version": "2.12.0",
+  "platform_machine": "arm64",
+  "learning_rate": 0.001,
+  "local_epochs": 1,
+  "flat_dim": 25,
+  "initial_flat_file": "zo_flat.f32",
+  "inputs_file": "zo_inputs.f32",
+  "targets_file": "zo_targets.i64",
+  "param_layout": [
+    [
+      "fc1.weight",
+      [
+        5,
+        4
+      ],
+      20
+    ],
+    [
+      "fc1.bias",
+      [
+        5
+      ],
+      5
+    ]
+  ],
+  "final_flat_file": "contract_local_final.f32",
+  "final_flat_sha256": "0a7583dc2d4ee095c9acba56b9b3ec31a5faf317a03c787220145379eac06f38",
+  "endpoint_atol": 1e-06,
+  "max_param_movement": 0.00014412403106689453
+}

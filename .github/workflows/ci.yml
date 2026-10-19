@@ -37,17 +37,33 @@ jobs:
           filters: |
             framework:
               - 'framework/**'
+              - 'proto/fedlearn/tree/**'
+              # Tested by framework/tests/test_stage_model_bundle.py against the programs it stages.
+              - 'scripts/stage_model_bundle.py'
             backend:
               - 'backend/**'
+              # The backend compiles the execution contract from its canonical proto and runs the
+              # shared conformance corpus, so either changing re-runs the Java reader.
+              - 'proto/fedlearn/contract/**'
+              - 'framework/tests/fixtures/execution_contract_v1/**'
             backend_scripts:
               - 'fl-runtime/**'
               - 'backend/fl-platform-api/requirements.txt'
+              # execution_plan.py builds and validates contracts with the framework's contract reader.
+              - 'framework/src/fedlearn/contract/**'
+              - 'framework/tests/fixtures/execution_contract_v1/**'
             frontend:
               - 'frontend/**'
             desktop:
               - 'fedlearn-desktop/**'
+              # Driven by fedlearn-desktop/src/__tests__/executionContractLaunch.test.ts.
+              - 'client-docker/entrypoint.sh'
             mobile:
               - 'mobile_client/**'
+              # The mobile app commits a reader generated from the canonical contract proto and runs
+              # the shared conformance corpus.
+              - 'proto/fedlearn/contract/**'
+              - 'framework/tests/fixtures/execution_contract_v1/**'
             client_docker:
               - 'client-docker/**'
 
@@ -91,6 +107,24 @@ jobs:
         env:
           FEDLEARN_FAIL_ON_UNEXPECTED_SKIP: '1'
         run: PYTHONPATH=src python -m pytest -q
+
+  tree-workload:
+    needs: changes
+    if: ${{ needs.changes.outputs.framework == 'true' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.backend_scripts == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the CPU tree workload without neural native libraries
+        run: |
+          # The breast-cancer partition regression imports sklearn's stratified splitter.
+          python -m pip install "xgboost-cpu==3.4.1" "numpy==2.1.2" \
+            "grpcio>=1.71.2,<2" "protobuf>=5.29,<6" "PyJWT>=2.8,<3" "requests>=2.32,<3" \
+            scikit-learn pytest
+      - name: Typed tree model, round, RPC and runtime regressions
+        run: PYTHONPATH=framework/src python -m pytest -q framework/tree_tests
 
   backend:
     needs: changes
@@ -233,6 +267,14 @@ jobs:
         working-directory: mobile_client
         run: |
           npm ci
+          # The committed execution-contract reader must be exactly what the pinned generator emits
+          # from the canonical proto.
+          npm run proto:contract
+          if [[ -n "$(git status --porcelain -- src/gen)" ]]; then
+            echo "::error::src/gen is stale. Run 'npm run proto:contract' in mobile_client and commit the result."
+            git status --porcelain -- src/gen
+            exit 1
+          fi
           npm run lint
           npx tsc --noEmit
           npm run test:coverage   # TE-11: jest --coverage --ci; coverageThreshold enforced from package.json
@@ -286,7 +328,7 @@ jobs:
   # (the coverage-regression gate); a finer base-vs-PR coverage delta is a follow-up (needs a coverage
   # service or a base re-run).
   ci-gate:
-    needs: [framework, backend, backend-scripts, frontend, desktop, mobile-js, client-docker]
+    needs: [framework, tree-workload, backend, backend-scripts, frontend, design-tokens, desktop, mobile-js, client-docker]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:

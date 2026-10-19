@@ -1,0 +1,71 @@
+import java.security.KeyStore
+import java.security.PrivateKey
+import javax.naming.ldap.LdapName
+
+// Credentials come from the build environment; no release identity lives in this checkout.
+def releaseSigning = [
+  storeFile: System.getenv('FEDLEARN_RELEASE_STORE_FILE'),
+  storePassword: System.getenv('FEDLEARN_RELEASE_STORE_PASSWORD'),
+  keyAlias: System.getenv('FEDLEARN_RELEASE_KEY_ALIAS'),
+  keyPassword: System.getenv('FEDLEARN_RELEASE_KEY_PASSWORD'),
+  storeType: System.getenv('FEDLEARN_RELEASE_STORE_TYPE') ?: 'PKCS12'
+]
+def requiredNames = [
+  storeFile: 'FEDLEARN_RELEASE_STORE_FILE',
+  storePassword: 'FEDLEARN_RELEASE_STORE_PASSWORD',
+  keyAlias: 'FEDLEARN_RELEASE_KEY_ALIAS',
+  keyPassword: 'FEDLEARN_RELEASE_KEY_PASSWORD'
+]
+
+android {
+  signingConfigs {
+    release {
+      storeFile releaseSigning.storeFile ? rootProject.file(releaseSigning.storeFile) : null
+      storePassword releaseSigning.storePassword
+      keyAlias releaseSigning.keyAlias
+      keyPassword releaseSigning.keyPassword
+      storeType releaseSigning.storeType
+    }
+  }
+  buildTypes {
+    release {
+      signingConfig signingConfigs.release
+    }
+  }
+}
+
+def signingValidation = tasks.register('validateReleaseSigningCredentials') {
+  // Always validate the supplied private key; a cached result cannot qualify different credentials.
+  doLast {
+    def missing = requiredNames.findAll { name, _ -> !releaseSigning[name] }.values()
+    if (!missing.isEmpty()) {
+      throw new GradleException('Release signing requires: ' + missing.join(', '))
+    }
+    def path = rootProject.file(releaseSigning.storeFile)
+    if (!path.isFile()) {
+      throw new GradleException('Release signing keystore does not exist.')
+    }
+    def certificate
+    try {
+      def store = KeyStore.getInstance(releaseSigning.storeType)
+      path.withInputStream { stream -> store.load(stream, releaseSigning.storePassword.toCharArray()) }
+      if (!(store.getKey(releaseSigning.keyAlias, releaseSigning.keyPassword.toCharArray()) instanceof PrivateKey)) {
+        throw new IllegalArgumentException('Private key missing')
+      }
+      certificate = store.getCertificate(releaseSigning.keyAlias)
+      if (certificate == null) throw new IllegalArgumentException('Certificate missing')
+      certificate.checkValidity()
+    } catch (Exception ignored) {
+      throw new GradleException('Release signing credentials could not open a valid private key and certificate.')
+    }
+    def debugCertificate = new LdapName(certificate.subjectX500Principal.name).rdns.any {
+      it.type.equalsIgnoreCase('CN') && it.value.toString().equalsIgnoreCase('Android Debug')
+    }
+    if (debugCertificate || releaseSigning.keyAlias.equalsIgnoreCase('androiddebugkey')) {
+      throw new GradleException('Android debug certificate cannot sign a release.')
+    }
+  }
+}
+tasks.matching { it.name in ['preReleaseBuild', 'validateSigningRelease'] }.configureEach {
+  dependsOn signingValidation
+}

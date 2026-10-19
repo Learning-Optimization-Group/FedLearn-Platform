@@ -31,7 +31,7 @@ const BASE = {
   serverAddress: 'fl.example.org:50001',
   partitionId: '2',
   modelType: 'CNN',
-  datasetPath: '/Users/me/data',
+  datasetPath: '/datasets/local',
   connectionToken: 'a.b.c',
   strategy: 'FedAvg',
 };
@@ -81,4 +81,49 @@ describe('preload startTraining — server trust', () => {
     expect(res.success).toBe(false);
     expect(ipcRenderer.invoke).not.toHaveBeenCalled();
   });
+});
+
+// Execution contract v1: the backend sends the run, its contract state and, when READY, the contract. Main validates
+// and writes it; the preload must pass all three through and reject values that cannot be what the backend sent.
+describe('preload startTraining — execution contract', () => {
+  const RUN = '4f2c8a1e-7b3d-4c59-9e21-6a0d5b8f3c17';
+  const CONTRACT = { contractVersion: 1, runId: RUN };
+
+  test('forwards the run, its contract state and the contract', async () => {
+    await exposedApi().startTraining({ ...BASE, runId: RUN, contractState: 'READY', executionContract: CONTRACT });
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith(
+      'docker:start-training',
+      expect.objectContaining({ runId: RUN, contractState: 'READY', executionContract: CONTRACT }),
+    );
+  });
+
+  test.each([
+    [{ runId: 'not-a-uuid' }, 'Invalid run ID'],
+    [{ contractState: 'SOMETIMES' }, 'Invalid execution contract state'],
+    [{ executionContract: 'text' }, 'Invalid execution contract'],
+    [{ executionContract: [CONTRACT] }, 'Invalid execution contract'],
+  ])('rejects %p', async (field, error) => {
+    const result = await exposedApi().startTraining({ ...BASE, ...field });
+    expect(result).toEqual({ success: false, error });
+    expect(ipcRenderer.invoke).not.toHaveBeenCalled();
+  });
+});
+
+
+test('forwards the named model preset through the preload', async () => {
+  await exposedApi().startTraining({ ...BASE, modelType: 'XGBOOST', modelName: 'xgboost_breast_cancer' });
+  expect(ipcRenderer.invoke).toHaveBeenCalledWith('docker:start-training', expect.objectContaining({modelName:'xgboost_breast_cancer'}));
+});
+
+test('refuses malformed model names before IPC', async () => {
+  const result=await exposedApi().startTraining({ ...BASE, modelName:'bad\0name' });
+  expect(result.success).toBe(false);
+  expect(ipcRenderer.invoke).not.toHaveBeenCalled();
+});
+
+
+test('dataset file selection uses the native consent dialog', async () => {
+  const call=(contextBridge.exposeInMainWorld as jest.Mock).mock.calls.find(([name])=>name==='fedLearnAPI');
+  await call[1].selectDatasetPath('file');
+  expect(ipcRenderer.invoke).toHaveBeenCalledWith('dialog:open-directory','file');
 });

@@ -10,10 +10,12 @@
     "lint": "eslint .",
     "test": "jest",
     "test:coverage": "jest --coverage --ci",
-    "codegen": "react-native codegen"
+    "codegen": "react-native codegen",
+    "proto:contract": "buf generate --template buf.gen.contract.yaml"
   },
   "//": "VERSIONS ARE verify-before-use (02-TECH-STACK.md §17): pin exact via `npm view <pkg> version`. RN 0.8x line, NativeWind 4.x, TypeScript 5.x. react-native-reusables components are copied in (shadcn-style), not an npm dependency.",
   "dependencies": {
+    "@bufbuild/protobuf": "2.2.3",
     "@react-navigation/bottom-tabs": "^7.0.0",
     "@react-navigation/native": "^7.0.0",
     "@react-navigation/native-stack": "^7.17.7",
@@ -32,6 +34,8 @@
     "react-native-worklets": "^0.4.2"
   },
   "devDependencies": {
+    "@bufbuild/buf": "1.47.2",
+    "@bufbuild/protoc-gen-es": "2.2.3",
     "@eslint/js": "^9.22.0",
     "@react-native-community/cli": "^19.1.2",
     "@react-native-community/cli-platform-android": "^19.1.2",
@@ -67,7 +71,8 @@
       "!src/**/__tests__/**",
       "!src/**/__mocks__/**",
       "!src/**/*.types.ts",
-      "!src/theme/tokens.generated.ts"
+      "!src/theme/tokens.generated.ts",
+      "!src/gen/**"
     ],
     "coverageThreshold": {
       "global": {

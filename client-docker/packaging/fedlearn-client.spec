@@ -44,6 +44,7 @@ FULL_COLLECT = (
     'scipy',
     'sklearn',
     'fedlearn',        # installed via `pip install -e ../../framework`
+    'xgboost',         # tree protocol requires its pinned native library
 )
 
 for pkg in FULL_COLLECT:
@@ -73,7 +74,11 @@ hiddenimports.extend([
 # the transitive-import audit in the DA-5 plan — a missing entry surfaces only as
 # a runtime ModuleNotFoundError in the frozen binary, not at build time.
 LOCAL_SIBLINGS = ['config.py', 'data.py', 'recipes.py',
-                  'device.py', 'models', 'data_loaders', 'architecture']
+                  'device.py', 'models', 'data_loaders', 'architecture',
+                  # client.py's execution-contract check (--execution-contract) and what it imports.
+                  'execution_plan.py', 'strategy_client_settings.py',
+                  'local_snapshot.py', 'local_images.py', 'nih_runtime.py', 'nih_dataset.py', 'contracted_dropout.py',
+                  'workload_dispatch.py', 'tree_runtime.py']
 for name in LOCAL_SIBLINGS:
     src = os.path.join(RUNTIME_DIR, name)
     if os.path.isdir(src):

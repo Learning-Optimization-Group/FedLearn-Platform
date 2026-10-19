@@ -13,7 +13,9 @@
 namespace fedlearn::bridge {
 
 struct PlatformDeviceState {
-  std::string thermalState = "NOMINAL";  // NOMINAL | FAIR | SERIOUS | CRITICAL
+  // NOMINAL | FAIR | SERIOUS | CRITICAL, or UNKNOWN until the platform layer has sampled: a device that has not been
+  // measured must not report a healthy thermal state it never read.
+  std::string thermalState = "UNKNOWN";
   double batteryLevel = -1.0;            // 0..1; -1 if unknown
   bool batteryCharging = false;
 };

@@ -3,6 +3,7 @@ plugins {
     id 'jacoco'
     id 'org.springframework.boot' version '3.4.5'
     id 'io.spring.dependency-management' version '1.1.4'
+    id 'com.google.protobuf' version '0.9.4'
 }
 
 group = 'com.federated'
@@ -44,6 +45,11 @@ dependencies {
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
 
+    // Execution contract v1 (proto/fedlearn/contract/v1): generated messages plus JsonFormat for the
+    // ProtoJSON REST boundary. Pinned to the protoc release below, which matches the buf Java plugin.
+    implementation 'com.google.protobuf:protobuf-java:4.28.3'
+    implementation 'com.google.protobuf:protobuf-java-util:4.28.3'
+
     // SE-12: BouncyCastle for per-client X509 mTLS certificate issuance at enrollment.
     implementation 'org.bouncycastle:bcpkix-jdk18on:1.78.1'
 
@@ -64,6 +70,37 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:postgresql'
+}
+
+// The execution contract is compiled from its canonical proto at build time, so the backend cannot drift
+// from the schema the Python and TypeScript readers use. Only fedlearn/contract is staged: the plugin
+// ignores include filters on a proto source directory, and pointing it at proto/ would also compile the
+// gRPC contracts. protoc 28.3 is the compiler behind the buf.build/protocolbuffers/java:v28.3 plugin that
+// proto/buf.gen.yaml pins.
+def contractProtoDir = layout.buildDirectory.dir('contract-proto')
+def syncContractProto = tasks.register('syncContractProto', Sync) {
+    from('../../proto') {
+        include 'fedlearn/contract/**'
+    }
+    into contractProtoDir
+}
+
+sourceSets {
+    main {
+        proto {
+            srcDir contractProtoDir
+        }
+    }
+}
+
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:4.28.3'
+    }
+}
+
+tasks.matching { it.name in ['generateProto', 'processResources'] }.configureEach {
+    dependsOn syncContractProto
 }
 
 tasks.named('test') {
@@ -92,8 +129,16 @@ jacoco {
     toolVersion = '0.8.12'
 }
 
+// Generated protobuf classes are not hand-written code; counting them would dilute the coverage floor.
+def jacocoClassesWithoutGeneratedProto = {
+    files(sourceSets.main.output.classesDirs.files.collect {
+        fileTree(dir: it, exclude: ['com/fedlearn/contract/**'])
+    })
+}
+
 tasks.named('jacocoTestReport') {
     dependsOn tasks.named('test')
+    classDirectories.setFrom(jacocoClassesWithoutGeneratedProto())
     reports {
         xml.required = true
         html.required = true
@@ -105,6 +150,7 @@ tasks.named('jacocoTestReport') {
 // aspirational target — bump it up as coverage improves.
 tasks.named('jacocoTestCoverageVerification') {
     dependsOn tasks.named('test')
+    classDirectories.setFrom(jacocoClassesWithoutGeneratedProto())
     violationRules {
         rule {
             limit {

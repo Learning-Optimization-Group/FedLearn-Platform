@@ -2,11 +2,34 @@ package com.federated.fl_platform_api.model;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Entity
 @Table(name = "runs")
 public class Run {
+    @Column(name = "fedopt_variant")
+    private String fedoptVariant;
+    @Column(name = "fedopt_server_learning_rate")
+    private Double fedoptServerLearningRate;
+    @Column(name = "fedopt_beta1")
+    private Double fedoptBeta1;
+    @Column(name = "fedopt_beta2")
+    private Double fedoptBeta2;
+    @Column(name = "fedopt_tau")
+    private Double fedoptTau;
+
+    public FedOptSettings getFedOpt() {
+        return fedoptVariant == null ? null : new FedOptSettings(fedoptVariant, fedoptServerLearningRate, fedoptBeta1, fedoptBeta2, fedoptTau);
+    }
+    public void setFedOpt(FedOptSettings settings) {
+        fedoptVariant = settings == null ? null : settings.variant();
+        fedoptServerLearningRate = settings == null ? null : settings.serverLearningRate();
+        fedoptBeta1 = settings == null ? null : settings.beta1();
+        fedoptBeta2 = settings == null ? null : settings.beta2();
+        fedoptTau = settings == null ? null : settings.tau();
+    }
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -103,6 +126,47 @@ public class Run {
     @Column(name = "secure_agg_threshold")
     private Integer secureAggThreshold;
 
+    // V27: the intent the run was started with (see RunIntent). All null on a run that predates the snapshot.
+    @Column(name = "intent_version")
+    private Short intentVersion;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "intent_training_arm", length = 32)
+    private TrainingArm intentTrainingArm;
+
+    @Column(name = "intent_model_name")
+    private String intentModelName;
+
+    @Column(name = "intent_task_type", length = 64)
+    private String intentTaskType;
+
+    @Column(name = "intent_dp_enabled")
+    private Boolean intentDpEnabled;
+
+    @Column(name = "intent_dp_target_epsilon")
+    private Double intentDpTargetEpsilon;
+
+    @Column(name = "intent_dp_delta")
+    private Double intentDpDelta;
+
+    @Column(name = "intent_dp_clip_norm")
+    private Double intentDpClipNorm;
+
+    @Column(name = "intent_tls_required")
+    private Boolean intentTlsRequired;
+
+    @Column(name = "intent_client_auth_required")
+    private Boolean intentClientAuthRequired;
+
+    // V29: the round timeout the FL server was given; recorded from intent version 2.
+    @Column(name = "intent_round_timeout_ms")
+    private Long intentRoundTimeoutMs;
+
+    // V30: where the run's training data comes from; recorded from intent version 3.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "intent_data_source", length = 16)
+    private TrainingDataSource intentDataSource;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getProjectId() { return projectId; }
@@ -160,4 +224,32 @@ public class Run {
     public void setSecureAggregation(boolean secureAggregation) { this.secureAggregation = secureAggregation; }
     public Integer getSecureAggThreshold() { return secureAggThreshold; }
     public void setSecureAggThreshold(Integer secureAggThreshold) { this.secureAggThreshold = secureAggThreshold; }
+
+    /** The recorded start intent; empty for a run that predates the snapshot. */
+    public Optional<RunIntent> getIntent() {
+        if (intentVersion == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new RunIntent(intentTrainingArm, intentModelName, intentTaskType,
+                Boolean.TRUE.equals(intentDpEnabled), intentDpTargetEpsilon, intentDpDelta, intentDpClipNorm,
+                Boolean.TRUE.equals(intentTlsRequired), Boolean.TRUE.equals(intentClientAuthRequired),
+                intentRoundTimeoutMs, intentDataSource));
+    }
+
+    public void setIntent(RunIntent intent) {
+        intentVersion = (short) (intent.dataSource() != null ? RunIntent.VERSION
+                : intent.roundTimeoutMs() != null ? RunIntent.VERSION_WITHOUT_DATA_SOURCE
+                : RunIntent.VERSION_WITHOUT_ROUND_TIMEOUT);
+        intentTrainingArm = intent.trainingArm();
+        intentModelName = intent.modelName();
+        intentTaskType = intent.taskType();
+        intentDpEnabled = intent.dpEnabled();
+        intentDpTargetEpsilon = intent.dpTargetEpsilon();
+        intentDpDelta = intent.dpDelta();
+        intentDpClipNorm = intent.dpClipNorm();
+        intentTlsRequired = intent.tlsRequired();
+        intentClientAuthRequired = intent.clientAuthRequired();
+        intentRoundTimeoutMs = intent.roundTimeoutMs();
+        intentDataSource = intent.dataSource();
+    }
 }

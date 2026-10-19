@@ -187,7 +187,7 @@ class ProjectServiceExtendedTest {
 
         Run stubRun = new Run();
         stubRun.setId(UUID.randomUUID());
-        when(runService.createForStart(eq(testProject), eq("FedLoRA"), anyInt(), anyInt(), anyInt(), any(), any()))
+        when(runService.createForStart(eq(testProject), eq("FedLoRA"), anyInt(), anyInt(), anyInt(), any(), any(), any()))
                 .thenReturn(stubRun);
         when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
         when(flServerManager.startServerForProject(eq(testProject), eq("FedLoRA"), anyInt(), anyInt(), any(), any(), any()))
@@ -203,7 +203,7 @@ class ProjectServiceExtendedTest {
 
         // Assert: both collaborators received the forced "FedLoRA" strategy, not "DeComFL".
         verify(runService).createForStart(eq(testProject), eq("FedLoRA"), anyInt(), anyInt(), anyInt(),
-                org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull());
+                org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(), any());
         verify(flServerManager).startServerForProject(eq(testProject), eq("FedLoRA"), anyInt(), anyInt(),
                 org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(), any());
     }

@@ -58,6 +58,11 @@ class ExecutorchModel {
   // Expected length of the `flat` input (input 0's element count, from the .pte metadata).
   int64_t flatDim() const;
 
+  // The most examples one call takes: the batch dimension of x (input 1) as the program's metadata declares it, its
+  // dynamic bound for a dynamic-batch program. ExecuTorch can plan a program for fewer examples than it was exported
+  // for (the CNN's loss and infer programs, exported for 32, take 15), so callers ask the program rather than assume.
+  int64_t maxExamplesPerCall() const;
+
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;

@@ -21,23 +21,100 @@
 
 namespace fedlearn {
 
+/**
+ * How a first-order round batches the local dataset (the contract's local_training). The default, batchSize 0, is one
+ * whole-dataset step per epoch: what every single-batch contract states, and what the loop always did. With
+ * seededPermutation (BATCH_ORDER_SEEDED_PERMUTATION_V1), each epoch visits the examples in the order drawn from
+ * (seed, the server's round, epoch) and takes one step per batchSize minibatch, keeping the final partial one.
+ */
+struct LocalBatching {
+  int64_t batchSize = 0;
+  bool seededPermutation = false;
+  uint64_t seed = 0;  // ExecutionContract.seed (0 when absent)
+};
+
+/** The contract's local optimizer: SGD at the round's learning rate, or Adam (fresh each round) at it. */
+struct LocalOptimizer {
+  bool adam = false;
+  double beta1 = 0.9;
+  double beta2 = 0.999;
+  double epsilon = 1e-8;
+};
+
+/**
+ * The contract's dropout layers (ModelTraining.dropout): their rates in forward order and the run seed their
+ * DROPOUT_MASKS_SEEDED_V1 masks are drawn with. Empty for a model without dropout. The program must take one mask
+ * input per layer, after (x, y).
+ */
+struct DropoutSpec {
+  std::vector<double> rates;
+  uint64_t seed = 0;
+};
+
+/**
+ * One BatchNorm layer of the contract (ModelTraining.batch_norm): its channels, momentum, and the values per example
+ * its statistics average over, so a step over `rows` examples averages over n = rows * valuesPerExample.
+ */
+struct BatchNormRule {
+  int64_t features = 0;
+  double momentum = 0.1;
+  int64_t valuesPerExample = 1;
+};
+
+/**
+ * The contract's training-mode BatchNorm layers. Empty for a model without them. When given, the federated state is the
+ * trainable parameters followed by each layer's running mean and running variance; the program returns each step's
+ * batch mean and biased variance after (loss, prediction), and the round updates the running statistics by
+ * BATCH_NORM_RUNNING_STATS_V1 (float64, rounded to float32 once).
+ */
+struct BatchNormSpec {
+  std::vector<BatchNormRule> layers;
+};
+
+}  // namespace fedlearn
+
+namespace fedlearn {
+
 struct RoundOutcome {
   bool ranTraining = false;   // true if this client trained + submitted this round
   bool shouldStop = false;    // true if the loop must stop (server should_stop / deadline / terminal)
   int round = 0;
   int scalarsK = 0;           // server-authoritative K (local steps) actually used this round
   int scalarsP = 0;           // server-authoritative P (perturbations) actually used this round
+  int64_t uplinkBytes = 0;    // serialized model payload submitted by a first-order round
+  int64_t downlinkBytes = 0;  // serialized model payload received; excludes gRPC/TLS framing
   std::string note;           // human-readable reason when shouldStop / skipped
+};
+
+// In-memory trajectory for one contracted DeComFL participant. The bridge owns it
+// across transport replacement and resets it when loading another model. Access
+// must be serialized with rounds; this is not a process-restart checkpoint.
+class DeComFLState {
+ public:
+  void reset() { *this = DeComFLState{}; }
+
+ private:
+  friend class FederatedLoop;
+  std::vector<float> flat;
+  int syncedThrough = 0;
+  std::string runId;
+  std::string clientId;
+  ZerothOrderContract contract;
+  bool bound = false;
 };
 
 class FederatedLoop {
  public:
   FederatedLoop(IFedLearnClient& net, ModelManager& mm);
+  // state must outlive this loop and every replacement loop using it.
+  FederatedLoop(IFedLearnClient& net, ModelManager& mm, DeComFLState& state);
+  FederatedLoop(const FederatedLoop&) = delete;
+  FederatedLoop& operator=(const FederatedLoop&) = delete;
 
   // One DeComFL round (§6.2): GetDeComFLConfig -> (rebuild if missed) -> fit -> SubmitGradientScalars.
   // The K/P/eta/mu come from the per-round server config (the server is authoritative).
-  RoundOutcome deComFLRound(ExecutorchModel& model, const std::string& runId,
-                            const std::string& clientId, const DataBatch& batch);
+  RoundOutcome deComFLRound(ExecutorchModel& model, const std::string& runId, const std::string& clientId,
+                            const DataBatch& batch, const ZerothOrderContract* contract = nullptr);
 
   // One FedAvg round (§6.3, ZO-SGD): GetGlobalModelStream -> loadStateDict -> K local ZO-SGD steps
   // -> SubmitGradientScalars (scalar upload, Constraint 7 — not a weight blob). numLocalSteps (K),
@@ -51,16 +128,26 @@ class FederatedLoop {
   // One TRUE first-order (FedAvg) round via real backprop (Phase B M2): GetGlobalModelStream ->
   // load the global weights into `model` -> K local SGD steps (execute_forward_backward + SGD in
   // TrainableExecutorchModel::trainStep) -> serialize the updated weights -> submitModelUpdate (the
-  // weight-blob wire, NOT the ZO scalar wire). K (numLocalSteps) + learningRate are server-authoritative.
+  // weight-blob wire, NOT the ZO scalar wire). numLocalSteps and learningRate are the run's
+  // execution contract; per-round server settings must equal them or the round is refused before upload.
+  // FedOpt additionally requires the server to send them. proximalMu is the contract's FedProx
+  // coefficient (0 for every other strategy): each step adds mu * (w - w_global), with w_global the
+  // downloaded model, and the server's proximal_mu (absent = 0) must equal it. batching is the contract's minibatching
+  // (LocalBatching); the update is always weighted by the whole dataset's example count.
   RoundOutcome firstOrderRound(TrainableExecutorchModel& model, const std::string& runId,
                                const std::string& clientId, const DataBatch& batch,
-                               int numLocalSteps, double learningRate);
+                               int numLocalSteps, double learningRate,
+                               bool requireServerConfig = false, double proximalMu = 0.0,
+                               const LocalBatching& batching = {}, const LocalOptimizer& optimizer = {},
+                               const DropoutSpec& dropout = {}, const BatchNormSpec& batchNorm = {});
 #endif
 
  private:
   IFedLearnClient& net_;
   ModelManager& mm_;
   std::vector<float> flatState_;
+  DeComFLState ownedDeComFLState_;
+  DeComFLState& deComFLState_;
 };
 
 }  // namespace fedlearn

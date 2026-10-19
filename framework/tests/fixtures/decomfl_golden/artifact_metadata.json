@@ -1,0 +1,36 @@
+{
+  "description": "What the TinyNet golden programs (zo_model_tiny.pte, zo_model_tiny_infer.pte, tinynet_trainable.pte) need from a runtime, recorded here so scripts/stage_model_bundle.py can stay stdlib-only. framework/tests/test_stage_model_bundle.py reads the staged programs with ExecuTorch and fails if requiredOperators is not exactly their operator set.",
+  "requiredOperators": [
+    "aten::_log_softmax.out",
+    "aten::addmm.out",
+    "aten::alias_copy.out",
+    "aten::argmax.out",
+    "aten::div.out",
+    "aten::exp.out",
+    "aten::full_like.out",
+    "aten::gather.out",
+    "aten::le.Scalar_out",
+    "aten::mm.out",
+    "aten::mul.out",
+    "aten::ne.Scalar_out",
+    "aten::neg.out",
+    "aten::permute_copy.out",
+    "aten::relu.out",
+    "aten::scalar_tensor.out",
+    "aten::scatter.value_out",
+    "aten::slice_copy.Tensor_out",
+    "aten::squeeze_copy.dims_out",
+    "aten::sub.out",
+    "aten::sum.IntList_out",
+    "aten::unsqueeze_copy.out",
+    "aten::view_copy.out",
+    "aten::where.self_out",
+    "dim_order_ops::_to_dim_order_copy.out"
+  ],
+  "resourceEnvelope": {
+    "peakMemoryBytes": 67108864,
+    "probeMs": 2000,
+    "trainMs": 10000,
+    "basis": "Declared budgets, not measurements. TinyNet has 43 parameters and trains on one 8x4 batch, so these bound it generously; portable-CPU qualification measures a device against them. Storage is the staged model files' total size."
+  }
+}

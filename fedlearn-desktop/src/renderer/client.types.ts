@@ -9,6 +9,7 @@ export interface ClientProject {
   projectId: string;
   name: string;
   modelType: string;
+  modelName?: string;
   status: string;
   visibility: string | null;
   requirements?: DeviceRequirements;
@@ -18,6 +19,7 @@ export interface ProjectConnection {
   projectId: string;
   name: string;
   modelType: string;
+  modelName?: string;
   serverAddress: string;
   partitionId: number;
   status: string;
@@ -31,4 +33,9 @@ export interface ProjectConnection {
   // Server trust: whether the FL server serves TLS, and the certificate to verify it with (null when none).
   grpcTls?: boolean;
   grpcServerCertPem?: string | null;
+  // Execution contract v1: the active run, its contract state and, when READY, the contract as ProtoJSON. The
+  // launcher hands a READY contract to the client, which refuses training it would not execute exactly.
+  runId?: string | null;
+  contractState?: string | null;
+  executionContract?: Record<string, unknown> | null;
 }

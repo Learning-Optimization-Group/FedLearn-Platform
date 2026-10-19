@@ -39,6 +39,9 @@ class DeComFLClient(Client):
             smoothing_param: μ - smoothing parameter for ZO estimation
             device: Device to run on
         """
+        # Called with each round's config before any training; raises to refuse the round. A caller holding an
+        # execution contract uses it to hold the server's per-round settings to the contract.
+        self.round_check = None
         self.model = model.to(device)
         self.train_loader = train_loader
         self.device = device
@@ -237,6 +240,8 @@ class DeComFLClient(Client):
             gradient_scalars: Nested list [local_step][perturbation]
             num_examples: Number of training examples
         """
+        if self.round_check is not None:
+            self.round_check(config)
         # Extract config
         seeds = config.get('seeds', [])
         K = len(seeds)  # Number of local steps

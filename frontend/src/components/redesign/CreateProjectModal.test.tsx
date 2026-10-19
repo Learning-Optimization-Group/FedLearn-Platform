@@ -24,7 +24,7 @@ function project(status: api.Project['status']): api.Project {
   return { id: 'p1', name: 'My proj', modelType: 'CNN', modelName: 'net', optimizer: 'Adam', status };
 }
 
-async function fillAndSubmit(onSubmit: ReturnType<typeof vi.fn>) {
+async function fillAndSubmit(onSubmit: Parameters<typeof CreateProjectModalV2>[0]['onSubmit']) {
   const onCreated = vi.fn();
   const onClose = vi.fn();
   render(<CreateProjectModalV2 isOpen onSubmit={onSubmit} onCreated={onCreated} onClose={onClose} />);
@@ -72,4 +72,23 @@ describe('CreateProjectModal — async init polling (BA-1)', () => {
     expect(onCreated).toHaveBeenCalledTimes(1);
     expect(api.fetchProject).not.toHaveBeenCalled();
   });
+});
+
+it('creates XGBoost without carrying neural warm-up rounds across model selection', async () => {
+  vi.mocked(api.fetchModelRecipes).mockResolvedValue(resp([RECIPE, {
+    ...RECIPE,key:'XGBOOST',displayName:'XGBoost',inputKind:'vector',classes:['0','1'],
+    baseModels:['xgboost_binary'],optimizers:['TreeBoosting'],supportedArms:['FULL'],
+    supportedDataSources:['LOCAL_SNAPSHOT'],
+  }]));
+  const onSubmit=vi.fn().mockResolvedValue(project('CREATED'));
+  render(<CreateProjectModalV2 isOpen onSubmit={onSubmit} onCreated={vi.fn()} onClose={vi.fn()} />);
+  await screen.findByRole('option',{name:'XGBoost'});
+  fireEvent.change(screen.getByRole('spinbutton'),{target:{value:'7'}});
+  fireEvent.change(screen.getAllByRole('combobox')[0],{target:{value:'XGBOOST'}});
+  fireEvent.change(screen.getByPlaceholderText(/My first model/i),{target:{value:'Trees'}});
+  expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button',{name:/create project/i}));
+  await waitFor(()=>expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+    modelType:'XGBOOST',modelName:'xgboost_binary',optimizer:'TreeBoosting',pretrainEpochs:0,
+  })));
 });

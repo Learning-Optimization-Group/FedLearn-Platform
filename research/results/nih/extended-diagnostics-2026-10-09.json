@@ -1,0 +1,1966 @@
+{
+  "dataset": "NIH_ChestXray14 binary pneumonia absent/present",
+  "neural_recipe": "NIH_PNEUMONIA_CNN",
+  "training_host": "Linux x86 CPU",
+  "research_driver_source_commit": "35355347e3b208d773af140e91945b82c6e0ab0f",
+  "research_driver_sha256": "868351dc58db23fe2a03acbe0459996cc9767b8107c77cac345217ae09ee8d29",
+  "partition_provenance": {
+    "training_rows": [
+      256,
+      256
+    ],
+    "training_positive_rows": [
+      128,
+      128
+    ],
+    "validation_rows": 256,
+    "validation_positive_rows": 128,
+    "all_packages_patient_unique": true,
+    "patient_overlap": 0,
+    "raw_and_prepared_image_overlap": 0,
+    "official_test_used": false,
+    "packages": [
+      {
+        "split": "client-0",
+        "package_sha256": "64ed0a8ffb35f502f311a299cc3b794e502499480b1a41097dd4e8f5c851678e",
+        "selected_rows_sha256": "a9ff6ca6d05aa00a29d1ef0648900411c6b27bb62a981a515331e782f7e8288c",
+        "snapshot_id": "69c62a3f9d83f6c8f231618a0bd10c02e94c4216a61c17b49d103ea44a8de96b"
+      },
+      {
+        "split": "client-1",
+        "package_sha256": "2b54c4e8bce83f9f36b259b18942ce76001eed0b05048970bd01c419f2b769c9",
+        "selected_rows_sha256": "3e494ad9ba14522a66b53e0a4cc77aee861eed0e495a049df280e617fd0198d4",
+        "snapshot_id": "bf1941f0a834fcfcbdb9ecd8ea613c1097b890e0f68ee3bf5923350a64b05394"
+      },
+      {
+        "split": "validation",
+        "package_sha256": "998ec030f975943f8127b0ffd217bb22e5b20bba096a190d995ef0cd8a24739e",
+        "selected_rows_sha256": "8e385f883bc72e07b85222fdf5237f6fca41859271c48b94faaa4233163e5840",
+        "snapshot_id": "b1f4771279e4812172ba65d5c2058b6536caf30ad798d3c767f6dcb09a494a0e"
+      }
+    ],
+    "preparation_sha256": "1e0e2e54851619e19ba4aba1c299c31c40ed7af3bdcb8975508029beda818521",
+    "source_metadata_hashes": {
+      "Data_Entry_2017.csv": "88f75094e25ccc0c6f1f9cdfd4b2f94f9379a0ae07d5ff4dcf94242707b07462",
+      "test_list.txt": "38ca5ef7f756092946f57c1a59faca882ed589a1ab1f72590b45dc06c6d5e1cc",
+      "train_val_list.txt": "61fbe896321c1c1c8b75f3e4f3a08e4fef6486d95ef8a667c31d4d60dca6cb81"
+    },
+    "limits": [
+      "Balanced held-out validation is an enriched diagnostic sample; accuracy/precision do not estimate source prevalence.",
+      "Raw manifests and ownership checked when packaged on source host; training host verifies bounded packages."
+    ]
+  },
+  "training": {
+    "torch_version": "2.12.0+cpu",
+    "numpy_version": "2.1.2",
+    "torch_num_threads": 4,
+    "initial_file_sha256": "7e1285a4c442f048c3dbb8ddf255a8ecc6ef02cc04a48d796974e09dff6f4910",
+    "training_count": 512,
+    "validation_count": 256,
+    "official_test_used": false,
+    "source_receipt_verification": "Full raw source verified when packages were prepared; copied package receipts checked here.",
+    "packages": [
+      {
+        "package_sha256": "64ed0a8ffb35f502f311a299cc3b794e502499480b1a41097dd4e8f5c851678e",
+        "snapshot_id": "69c62a3f9d83f6c8f231618a0bd10c02e94c4216a61c17b49d103ea44a8de96b",
+        "selected_rows_sha256": "a9ff6ca6d05aa00a29d1ef0648900411c6b27bb62a981a515331e782f7e8288c"
+      },
+      {
+        "package_sha256": "2b54c4e8bce83f9f36b259b18942ce76001eed0b05048970bd01c419f2b769c9",
+        "snapshot_id": "bf1941f0a834fcfcbdb9ecd8ea613c1097b890e0f68ee3bf5923350a64b05394",
+        "selected_rows_sha256": "3e494ad9ba14522a66b53e0a4cc77aee861eed0e495a049df280e617fd0198d4"
+      },
+      {
+        "package_sha256": "998ec030f975943f8127b0ffd217bb22e5b20bba096a190d995ef0cd8a24739e",
+        "snapshot_id": "b1f4771279e4812172ba65d5c2058b6536caf30ad798d3c767f6dcb09a494a0e",
+        "selected_rows_sha256": "8e385f883bc72e07b85222fdf5237f6fca41859271c48b94faaa4233163e5840"
+      }
+    ],
+    "controls": [
+      {
+        "optimizer": "Adam",
+        "learning_rate": 0.0001,
+        "seed": 1120682010002157247,
+        "optimizer_lifetime": "persistent",
+        "batch_size": 16,
+        "initial_state_sha256": "29499f00311849745b68515630f0fa94176c2e14e5a19091b9c69c927c3ea085",
+        "epochs": [
+          {
+            "epoch": 1,
+            "training_loss": 0.7135807033628225,
+            "examples": 512,
+            "state_sha256": "3e8b055d30c7d3f9d799f126615c4b7a9235de91a2912b5a95aef3fd763f11fd",
+            "training": {
+              "accuracy": 0.6171875,
+              "balanced_accuracy": 0.6171875,
+              "auroc": 0.6341094970703125,
+              "average_precision": 0.6262487187039947,
+              "majority_accuracy": 0.5,
+              "true_positive": 157,
+              "false_negative": 99,
+              "true_negative": 159,
+              "false_positive": 97,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 159,
+                "fp": 97,
+                "fn": 99,
+                "tp": 157
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.49609375,
+              "positive_probability_quantiles": [
+                0.46204107999801636,
+                0.4843239560723305,
+                0.49989624321460724,
+                0.5120316594839096,
+                0.5547847151756287
+              ]
+            },
+            "validation": {
+              "accuracy": 0.5390625,
+              "balanced_accuracy": 0.5390625,
+              "auroc": 0.5770263671875,
+              "average_precision": 0.5996681952844133,
+              "majority_accuracy": 0.5,
+              "true_positive": 70,
+              "false_negative": 58,
+              "true_negative": 68,
+              "false_positive": 60,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 68,
+                "fp": 60,
+                "fn": 58,
+                "tp": 70
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.5078125,
+              "positive_probability_quantiles": [
+                0.464298278093338,
+                0.4859617128968239,
+                0.5001725256443024,
+                0.5138949006795883,
+                0.546829879283905
+              ]
+            }
+          },
+          {
+            "epoch": 2,
+            "training_loss": 0.6850317735224962,
+            "examples": 512,
+            "state_sha256": "9e7edec64a93f771a075e9d082c5ffc147e986810c8b0411c7dc10b4c2814085",
+            "training": {
+              "accuracy": 0.62109375,
+              "balanced_accuracy": 0.62109375,
+              "auroc": 0.65435791015625,
+              "average_precision": 0.6428152709758379,
+              "majority_accuracy": 0.5,
+              "true_positive": 156,
+              "false_negative": 100,
+              "true_negative": 162,
+              "false_positive": 94,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 162,
+                "fp": 94,
+                "fn": 100,
+                "tp": 156
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.48828125,
+              "positive_probability_quantiles": [
+                0.4248604476451874,
+                0.468846820294857,
+                0.49919499456882477,
+                0.5288113057613373,
+                0.6187334656715393
+              ]
+            },
+            "validation": {
+              "accuracy": 0.56640625,
+              "balanced_accuracy": 0.56640625,
+              "auroc": 0.5960693359375,
+              "average_precision": 0.6123281898784071,
+              "majority_accuracy": 0.5,
+              "true_positive": 74,
+              "false_negative": 54,
+              "true_negative": 71,
+              "false_positive": 57,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 71,
+                "fp": 57,
+                "fn": 54,
+                "tp": 74
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.51171875,
+              "positive_probability_quantiles": [
+                0.4352327287197113,
+                0.4699890986084938,
+                0.5011353492736816,
+                0.5304766744375229,
+                0.6035756468772888
+              ]
+            }
+          },
+          {
+            "epoch": 3,
+            "training_loss": 0.674976147711277,
+            "examples": 512,
+            "state_sha256": "3fe77ba5c4fd0130d35691cc5ff00f56ac04b04a68869397d5a7359c3e8a7fb7",
+            "training": {
+              "accuracy": 0.62109375,
+              "balanced_accuracy": 0.62109375,
+              "auroc": 0.6822509765625,
+              "average_precision": 0.6643455985936639,
+              "majority_accuracy": 0.5,
+              "true_positive": 138,
+              "false_negative": 118,
+              "true_negative": 180,
+              "false_positive": 76,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 180,
+                "fp": 76,
+                "fn": 118,
+                "tp": 138
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.41796875,
+              "positive_probability_quantiles": [
+                0.36665862798690796,
+                0.4319453835487366,
+                0.47939833998680115,
+                0.5387831330299377,
+                0.6828300952911377
+              ]
+            },
+            "validation": {
+              "accuracy": 0.58203125,
+              "balanced_accuracy": 0.58203125,
+              "auroc": 0.6083984375,
+              "average_precision": 0.618628949382692,
+              "majority_accuracy": 0.5,
+              "true_positive": 66,
+              "false_negative": 62,
+              "true_negative": 83,
+              "false_positive": 45,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 83,
+                "fp": 45,
+                "fn": 62,
+                "tp": 66
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.43359375,
+              "positive_probability_quantiles": [
+                0.38254740834236145,
+                0.4334755539894104,
+                0.48166535794734955,
+                0.5397734194993973,
+                0.6534577012062073
+              ]
+            }
+          },
+          {
+            "epoch": 4,
+            "training_loss": 0.6648779530078173,
+            "examples": 512,
+            "state_sha256": "d94caa90fffd3389dee632ea94d2ed263508ce05a5c5e45adbe7b6ebac85f1a9",
+            "training": {
+              "accuracy": 0.638671875,
+              "balanced_accuracy": 0.638671875,
+              "auroc": 0.708282470703125,
+              "average_precision": 0.6881459744803597,
+              "majority_accuracy": 0.5,
+              "true_positive": 205,
+              "false_negative": 51,
+              "true_negative": 122,
+              "false_positive": 134,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 122,
+                "fp": 134,
+                "fn": 51,
+                "tp": 205
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.662109375,
+              "positive_probability_quantiles": [
+                0.34230008721351624,
+                0.48130548000335693,
+                0.539837509393692,
+                0.6054680645465851,
+                0.7813830971717834
+              ]
+            },
+            "validation": {
+              "accuracy": 0.5703125,
+              "balanced_accuracy": 0.5703125,
+              "auroc": 0.6240234375,
+              "average_precision": 0.6310406930854837,
+              "majority_accuracy": 0.5,
+              "true_positive": 94,
+              "false_negative": 34,
+              "true_negative": 52,
+              "false_positive": 76,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 52,
+                "fp": 76,
+                "fn": 34,
+                "tp": 94
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.6640625,
+              "positive_probability_quantiles": [
+                0.3929724395275116,
+                0.48164723068475723,
+                0.5466472506523132,
+                0.6082198619842529,
+                0.7399222254753113
+              ]
+            }
+          },
+          {
+            "epoch": 5,
+            "training_loss": 0.6589428596198559,
+            "examples": 512,
+            "state_sha256": "78e9b0e7156bd0978fe00fcfda86b81753703faee294a5a83670fef64a0f56cf",
+            "training": {
+              "accuracy": 0.646484375,
+              "balanced_accuracy": 0.646484375,
+              "auroc": 0.725067138671875,
+              "average_precision": 0.7081667077291989,
+              "majority_accuracy": 0.5,
+              "true_positive": 135,
+              "false_negative": 121,
+              "true_negative": 196,
+              "false_positive": 60,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 196,
+                "fp": 60,
+                "fn": 121,
+                "tp": 135
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.380859375,
+              "positive_probability_quantiles": [
+                0.25460320711135864,
+                0.3955719992518425,
+                0.46239106357097626,
+                0.5426179766654968,
+                0.7777806520462036
+              ]
+            },
+            "validation": {
+              "accuracy": 0.625,
+              "balanced_accuracy": 0.625,
+              "auroc": 0.6295166015625,
+              "average_precision": 0.6436442138246491,
+              "majority_accuracy": 0.5,
+              "true_positive": 66,
+              "false_negative": 62,
+              "true_negative": 94,
+              "false_positive": 34,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 94,
+                "fp": 34,
+                "fn": 62,
+                "tp": 66
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.390625,
+              "positive_probability_quantiles": [
+                0.27099594473838806,
+                0.40409451723098755,
+                0.46026846766471863,
+                0.5494285225868225,
+                0.723719596862793
+              ]
+            }
+          },
+          {
+            "epoch": 6,
+            "training_loss": 0.6506244204938412,
+            "examples": 512,
+            "state_sha256": "cf7fa5e6d3607bfe71125f513c9aa8a0a129aa67e440a308a8201bd0fcaa62c7",
+            "training": {
+              "accuracy": 0.681640625,
+              "balanced_accuracy": 0.681640625,
+              "auroc": 0.7514495849609375,
+              "average_precision": 0.7394846948035083,
+              "majority_accuracy": 0.5,
+              "true_positive": 176,
+              "false_negative": 80,
+              "true_negative": 173,
+              "false_positive": 83,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 173,
+                "fp": 83,
+                "fn": 80,
+                "tp": 176
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.505859375,
+              "positive_probability_quantiles": [
+                0.25933969020843506,
+                0.4261951148509979,
+                0.5016240775585175,
+                0.5752020627260208,
+                0.7900923490524292
+              ]
+            },
+            "validation": {
+              "accuracy": 0.609375,
+              "balanced_accuracy": 0.609375,
+              "auroc": 0.63201904296875,
+              "average_precision": 0.6455966560860882,
+              "majority_accuracy": 0.5,
+              "true_positive": 77,
+              "false_negative": 51,
+              "true_negative": 79,
+              "false_positive": 49,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 79,
+                "fp": 49,
+                "fn": 51,
+                "tp": 77
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.4921875,
+              "positive_probability_quantiles": [
+                0.2761107087135315,
+                0.4306912273168564,
+                0.4975001811981201,
+                0.5816782414913177,
+                0.7187545299530029
+              ]
+            }
+          },
+          {
+            "epoch": 7,
+            "training_loss": 0.6367286276072264,
+            "examples": 512,
+            "state_sha256": "93c1ea0565159eafd9c940d5629dab47a702c7814f0c5e50433493f5f4abf37f",
+            "training": {
+              "accuracy": 0.677734375,
+              "balanced_accuracy": 0.677734375,
+              "auroc": 0.75811767578125,
+              "average_precision": 0.7480662370688748,
+              "majority_accuracy": 0.5,
+              "true_positive": 162,
+              "false_negative": 94,
+              "true_negative": 185,
+              "false_positive": 71,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 185,
+                "fp": 71,
+                "fn": 94,
+                "tp": 162
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.455078125,
+              "positive_probability_quantiles": [
+                0.20630371570587158,
+                0.3938211426138878,
+                0.479337215423584,
+                0.5760658979415894,
+                0.827455997467041
+              ]
+            },
+            "validation": {
+              "accuracy": 0.61328125,
+              "balanced_accuracy": 0.61328125,
+              "auroc": 0.635986328125,
+              "average_precision": 0.6417959693502509,
+              "majority_accuracy": 0.5,
+              "true_positive": 75,
+              "false_negative": 53,
+              "true_negative": 82,
+              "false_positive": 46,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 82,
+                "fp": 46,
+                "fn": 53,
+                "tp": 75
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.47265625,
+              "positive_probability_quantiles": [
+                0.2237057238817215,
+                0.39445941895246506,
+                0.48475785553455353,
+                0.5748508423566818,
+                0.7377467751502991
+              ]
+            }
+          },
+          {
+            "epoch": 8,
+            "training_loss": 0.6124648172408342,
+            "examples": 512,
+            "state_sha256": "10bf281cc4e8d4e7c539389c081ad9e17cbcba6a4b47428fc91999c7d8cebd4b",
+            "training": {
+              "accuracy": 0.697265625,
+              "balanced_accuracy": 0.697265625,
+              "auroc": 0.8037567138671875,
+              "average_precision": 0.8023021210107382,
+              "majority_accuracy": 0.5,
+              "true_positive": 124,
+              "false_negative": 132,
+              "true_negative": 233,
+              "false_positive": 23,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 233,
+                "fp": 23,
+                "fn": 132,
+                "tp": 124
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.287109375,
+              "positive_probability_quantiles": [
+                0.16163954138755798,
+                0.3681015893816948,
+                0.4409799724817276,
+                0.5140581727027893,
+                0.7871509194374084
+              ]
+            },
+            "validation": {
+              "accuracy": 0.59765625,
+              "balanced_accuracy": 0.59765625,
+              "auroc": 0.6396484375,
+              "average_precision": 0.6454369316656464,
+              "majority_accuracy": 0.5,
+              "true_positive": 47,
+              "false_negative": 81,
+              "true_negative": 106,
+              "false_positive": 22,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 106,
+                "fp": 22,
+                "fn": 81,
+                "tp": 47
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.26953125,
+              "positive_probability_quantiles": [
+                0.17192406952381134,
+                0.3739703670144081,
+                0.4276798218488693,
+                0.5081285536289215,
+                0.7206314206123352
+              ]
+            }
+          },
+          {
+            "epoch": 9,
+            "training_loss": 0.6164104333147407,
+            "examples": 512,
+            "state_sha256": "24c3df94cd1cec8d91f13a0702cad93485af113876253223cc12e0f493fc09d2",
+            "training": {
+              "accuracy": 0.724609375,
+              "balanced_accuracy": 0.724609375,
+              "auroc": 0.8151397705078125,
+              "average_precision": 0.8114774823867985,
+              "majority_accuracy": 0.5,
+              "true_positive": 181,
+              "false_negative": 75,
+              "true_negative": 190,
+              "false_positive": 66,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 190,
+                "fp": 66,
+                "fn": 75,
+                "tp": 181
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.482421875,
+              "positive_probability_quantiles": [
+                0.18755950033664703,
+                0.39054375141859055,
+                0.4951745867729187,
+                0.5928905755281448,
+                0.8499948978424072
+              ]
+            },
+            "validation": {
+              "accuracy": 0.578125,
+              "balanced_accuracy": 0.578125,
+              "auroc": 0.6376953125,
+              "average_precision": 0.6451685416446262,
+              "majority_accuracy": 0.5,
+              "true_positive": 71,
+              "false_negative": 57,
+              "true_negative": 77,
+              "false_positive": 51,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 77,
+                "fp": 51,
+                "fn": 57,
+                "tp": 71
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.4765625,
+              "positive_probability_quantiles": [
+                0.1784314513206482,
+                0.39354149997234344,
+                0.49299266934394836,
+                0.5954820215702057,
+                0.7652909159660339
+              ]
+            }
+          },
+          {
+            "epoch": 10,
+            "training_loss": 0.5823913374915719,
+            "examples": 512,
+            "state_sha256": "96e1744b8b3d393abebb03a3576c0c366d796dd505fe6325a8e1644ba3c12651",
+            "training": {
+              "accuracy": 0.7421875,
+              "balanced_accuracy": 0.7421875,
+              "auroc": 0.8313140869140625,
+              "average_precision": 0.82639424838753,
+              "majority_accuracy": 0.5,
+              "true_positive": 205,
+              "false_negative": 51,
+              "true_negative": 175,
+              "false_positive": 81,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 175,
+                "fp": 81,
+                "fn": 51,
+                "tp": 205
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.55859375,
+              "positive_probability_quantiles": [
+                0.11654199659824371,
+                0.3840068504214287,
+                0.5413150787353516,
+                0.6771459728479385,
+                0.928238570690155
+              ]
+            },
+            "validation": {
+              "accuracy": 0.6171875,
+              "balanced_accuracy": 0.6171875,
+              "auroc": 0.6409912109375,
+              "average_precision": 0.6446679451918118,
+              "majority_accuracy": 0.5,
+              "true_positive": 87,
+              "false_negative": 41,
+              "true_negative": 71,
+              "false_positive": 57,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 71,
+                "fp": 57,
+                "fn": 41,
+                "tp": 87
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.5625,
+              "positive_probability_quantiles": [
+                0.1143660619854927,
+                0.39673248678445816,
+                0.5331733226776123,
+                0.6668634116649628,
+                0.8851304650306702
+              ]
+            }
+          }
+        ],
+        "final_state_sha256": "96e1744b8b3d393abebb03a3576c0c366d796dd505fe6325a8e1644ba3c12651",
+        "checkpoint_file_sha256": "da1982fe2c39e1abe5e86aacb1f4f6be7538a9d36b7b4bf90c7a705f9da026aa"
+      },
+      {
+        "optimizer": "Adam",
+        "learning_rate": 1e-05,
+        "seed": 1120682010002157247,
+        "optimizer_lifetime": "persistent",
+        "batch_size": 16,
+        "initial_state_sha256": "29499f00311849745b68515630f0fa94176c2e14e5a19091b9c69c927c3ea085",
+        "epochs": [
+          {
+            "epoch": 1,
+            "training_loss": 0.6941596493124962,
+            "examples": 512,
+            "state_sha256": "8cfff2e610285b2db42514fa29255049f7ac413e363de2ac9efcfff218744e14",
+            "training": {
+              "accuracy": 0.615234375,
+              "balanced_accuracy": 0.615234375,
+              "auroc": 0.6403427124023438,
+              "average_precision": 0.6268056325741643,
+              "majority_accuracy": 0.5,
+              "true_positive": 151,
+              "false_negative": 105,
+              "true_negative": 164,
+              "false_positive": 92,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 164,
+                "fp": 92,
+                "fn": 105,
+                "tp": 151
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.474609375,
+              "positive_probability_quantiles": [
+                0.4745365381240845,
+                0.48841021955013275,
+                0.4986969232559204,
+                0.5081022530794144,
+                0.5417131781578064
+              ]
+            },
+            "validation": {
+              "accuracy": 0.57421875,
+              "balanced_accuracy": 0.57421875,
+              "auroc": 0.58087158203125,
+              "average_precision": 0.6023293026343153,
+              "majority_accuracy": 0.5,
+              "true_positive": 70,
+              "false_negative": 58,
+              "true_negative": 77,
+              "false_positive": 51,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 77,
+                "fp": 51,
+                "fn": 58,
+                "tp": 70
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.47265625,
+              "positive_probability_quantiles": [
+                0.47558391094207764,
+                0.48861417174339294,
+                0.4990837574005127,
+                0.5087078511714935,
+                0.5348352193832397
+              ]
+            }
+          },
+          {
+            "epoch": 2,
+            "training_loss": 0.6867726948112249,
+            "examples": 512,
+            "state_sha256": "4ec3a183fa5c962d7bd09943a9cc41e870b3d25f17c66be47e436f3cca8c142e",
+            "training": {
+              "accuracy": 0.59765625,
+              "balanced_accuracy": 0.59765625,
+              "auroc": 0.648284912109375,
+              "average_precision": 0.6343455825220327,
+              "majority_accuracy": 0.5,
+              "true_positive": 199,
+              "false_negative": 57,
+              "true_negative": 107,
+              "false_positive": 149,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 107,
+                "fp": 149,
+                "fn": 57,
+                "tp": 199
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.6796875,
+              "positive_probability_quantiles": [
+                0.4649200141429901,
+                0.4938907027244568,
+                0.5140942335128784,
+                0.5314700454473495,
+                0.6012349128723145
+              ]
+            },
+            "validation": {
+              "accuracy": 0.5390625,
+              "balanced_accuracy": 0.5390625,
+              "auroc": 0.5894775390625,
+              "average_precision": 0.607397515492008,
+              "majority_accuracy": 0.5,
+              "true_positive": 95,
+              "false_negative": 33,
+              "true_negative": 43,
+              "false_positive": 85,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 43,
+                "fp": 85,
+                "fn": 33,
+                "tp": 95
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.703125,
+              "positive_probability_quantiles": [
+                0.46949028968811035,
+                0.495306134223938,
+                0.5147204399108887,
+                0.5344018191099167,
+                0.5905174612998962
+              ]
+            }
+          },
+          {
+            "epoch": 3,
+            "training_loss": 0.6807275246828794,
+            "examples": 512,
+            "state_sha256": "c8581b5a8d63550e0d0230c4f634070b7ad03bd6eb65a9582d345961a2089d1f",
+            "training": {
+              "accuracy": 0.619140625,
+              "balanced_accuracy": 0.619140625,
+              "auroc": 0.65570068359375,
+              "average_precision": 0.6417793677312974,
+              "majority_accuracy": 0.5,
+              "true_positive": 128,
+              "false_negative": 128,
+              "true_negative": 189,
+              "false_positive": 67,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 189,
+                "fp": 67,
+                "fn": 128,
+                "tp": 128
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.380859375,
+              "positive_probability_quantiles": [
+                0.4257868826389313,
+                0.45966558158397675,
+                0.4858752489089966,
+                0.5155045986175537,
+                0.6088436245918274
+              ]
+            },
+            "validation": {
+              "accuracy": 0.58984375,
+              "balanced_accuracy": 0.58984375,
+              "auroc": 0.5977783203125,
+              "average_precision": 0.6132651944813896,
+              "majority_accuracy": 0.5,
+              "true_positive": 65,
+              "false_negative": 63,
+              "true_negative": 86,
+              "false_positive": 42,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 86,
+                "fp": 42,
+                "fn": 63,
+                "tp": 65
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.41796875,
+              "positive_probability_quantiles": [
+                0.43278899788856506,
+                0.46039678156375885,
+                0.48708514869213104,
+                0.5180552899837494,
+                0.5902785658836365
+              ]
+            }
+          },
+          {
+            "epoch": 4,
+            "training_loss": 0.6771591305732727,
+            "examples": 512,
+            "state_sha256": "5aa3c40d6cf2f77b709809b0e9d251cd329cea5cf4460d35b520cbf4982476cd",
+            "training": {
+              "accuracy": 0.58984375,
+              "balanced_accuracy": 0.58984375,
+              "auroc": 0.6644744873046875,
+              "average_precision": 0.6475268237552608,
+              "majority_accuracy": 0.5,
+              "true_positive": 215,
+              "false_negative": 41,
+              "true_negative": 87,
+              "false_positive": 169,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 87,
+                "fp": 169,
+                "fn": 41,
+                "tp": 215
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.75,
+              "positive_probability_quantiles": [
+                0.44247111678123474,
+                0.5000857561826706,
+                0.5424600541591644,
+                0.5815163254737854,
+                0.7076543569564819
+              ]
+            },
+            "validation": {
+              "accuracy": 0.5546875,
+              "balanced_accuracy": 0.5546875,
+              "auroc": 0.60125732421875,
+              "average_precision": 0.6126774917809377,
+              "majority_accuracy": 0.5,
+              "true_positive": 106,
+              "false_negative": 22,
+              "true_negative": 36,
+              "false_positive": 92,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 36,
+                "fp": 92,
+                "fn": 22,
+                "tp": 106
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.7734375,
+              "positive_probability_quantiles": [
+                0.4505799412727356,
+                0.503985583782196,
+                0.5437189042568207,
+                0.5859092324972153,
+                0.6866516470909119
+              ]
+            }
+          },
+          {
+            "epoch": 5,
+            "training_loss": 0.6718846336007118,
+            "examples": 512,
+            "state_sha256": "9f1acb7106cba146611a03ba44b038036813966f4da49e6d9ff7cf14d3b9c292",
+            "training": {
+              "accuracy": 0.619140625,
+              "balanced_accuracy": 0.619140625,
+              "auroc": 0.664459228515625,
+              "average_precision": 0.6512886490506997,
+              "majority_accuracy": 0.5,
+              "true_positive": 132,
+              "false_negative": 124,
+              "true_negative": 185,
+              "false_positive": 71,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 185,
+                "fp": 71,
+                "fn": 124,
+                "tp": 132
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.396484375,
+              "positive_probability_quantiles": [
+                0.3742493987083435,
+                0.4335472956299782,
+                0.4776087552309036,
+                0.5339520126581192,
+                0.6988707780838013
+              ]
+            },
+            "validation": {
+              "accuracy": 0.5859375,
+              "balanced_accuracy": 0.5859375,
+              "auroc": 0.6051025390625,
+              "average_precision": 0.6210721867959094,
+              "majority_accuracy": 0.5,
+              "true_positive": 65,
+              "false_negative": 63,
+              "true_negative": 85,
+              "false_positive": 43,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 85,
+                "fp": 43,
+                "fn": 63,
+                "tp": 65
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.421875,
+              "positive_probability_quantiles": [
+                0.39022645354270935,
+                0.43497519940137863,
+                0.4809102267026901,
+                0.5346242487430573,
+                0.666931688785553
+              ]
+            }
+          },
+          {
+            "epoch": 6,
+            "training_loss": 0.6690332796424627,
+            "examples": 512,
+            "state_sha256": "bf6383250eeb8c5621ec41bd112629b4db3fc3fdfdda2c97b22c2dde376687d3",
+            "training": {
+              "accuracy": 0.64453125,
+              "balanced_accuracy": 0.64453125,
+              "auroc": 0.6781768798828125,
+              "average_precision": 0.6625834471761463,
+              "majority_accuracy": 0.5,
+              "true_positive": 161,
+              "false_negative": 95,
+              "true_negative": 169,
+              "false_positive": 87,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 169,
+                "fp": 87,
+                "fn": 95,
+                "tp": 161
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.484375,
+              "positive_probability_quantiles": [
+                0.36706867814064026,
+                0.4422018378973007,
+                0.49540576338768005,
+                0.5599103569984436,
+                0.7350074052810669
+              ]
+            },
+            "validation": {
+              "accuracy": 0.5625,
+              "balanced_accuracy": 0.5625,
+              "auroc": 0.61358642578125,
+              "average_precision": 0.6241768622306699,
+              "majority_accuracy": 0.5,
+              "true_positive": 71,
+              "false_negative": 57,
+              "true_negative": 73,
+              "false_positive": 55,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 73,
+                "fp": 55,
+                "fn": 57,
+                "tp": 71
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.4921875,
+              "positive_probability_quantiles": [
+                0.38285547494888306,
+                0.4452725797891617,
+                0.4977836161851883,
+                0.5600931346416473,
+                0.7008064985275269
+              ]
+            }
+          },
+          {
+            "epoch": 7,
+            "training_loss": 0.6631073858588934,
+            "examples": 512,
+            "state_sha256": "cf7cba37691047bd326734bd7c2d684eba8e29f4d6b8af6716cf1066c6233031",
+            "training": {
+              "accuracy": 0.6171875,
+              "balanced_accuracy": 0.6171875,
+              "auroc": 0.6899261474609375,
+              "average_precision": 0.6735799155663973,
+              "majority_accuracy": 0.5,
+              "true_positive": 116,
+              "false_negative": 140,
+              "true_negative": 200,
+              "false_positive": 56,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 200,
+                "fp": 56,
+                "fn": 140,
+                "tp": 116
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.3359375,
+              "positive_probability_quantiles": [
+                0.3385200500488281,
+                0.4122045114636421,
+                0.4589768797159195,
+                0.5246775448322296,
+                0.71056067943573
+              ]
+            },
+            "validation": {
+              "accuracy": 0.59375,
+              "balanced_accuracy": 0.59375,
+              "auroc": 0.62164306640625,
+              "average_precision": 0.6313289994024068,
+              "majority_accuracy": 0.5,
+              "true_positive": 58,
+              "false_negative": 70,
+              "true_negative": 94,
+              "false_positive": 34,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 94,
+                "fp": 34,
+                "fn": 70,
+                "tp": 58
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.359375,
+              "positive_probability_quantiles": [
+                0.34973281621932983,
+                0.4132561981678009,
+                0.46060818433761597,
+                0.5271163433790207,
+                0.6713190674781799
+              ]
+            }
+          },
+          {
+            "epoch": 8,
+            "training_loss": 0.6592750996351242,
+            "examples": 512,
+            "state_sha256": "d07a66fdb207f09eda51db4087bd5b1388f586e0dcf5691b31fddf284af22ca1",
+            "training": {
+              "accuracy": 0.625,
+              "balanced_accuracy": 0.625,
+              "auroc": 0.6964263916015625,
+              "average_precision": 0.6789525061899824,
+              "majority_accuracy": 0.5,
+              "true_positive": 129,
+              "false_negative": 127,
+              "true_negative": 191,
+              "false_positive": 65,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 191,
+                "fp": 65,
+                "fn": 127,
+                "tp": 129
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.37890625,
+              "positive_probability_quantiles": [
+                0.3144085705280304,
+                0.405276395380497,
+                0.4639904350042343,
+                0.5388125479221344,
+                0.7404065728187561
+              ]
+            },
+            "validation": {
+              "accuracy": 0.59375,
+              "balanced_accuracy": 0.59375,
+              "auroc": 0.624114990234375,
+              "average_precision": 0.6336891323948575,
+              "majority_accuracy": 0.5,
+              "true_positive": 63,
+              "false_negative": 65,
+              "true_negative": 89,
+              "false_positive": 39,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 89,
+                "fp": 39,
+                "fn": 65,
+                "tp": 63
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.3984375,
+              "positive_probability_quantiles": [
+                0.32676008343696594,
+                0.40835168212652206,
+                0.4662293642759323,
+                0.5433308184146881,
+                0.6961613893508911
+              ]
+            }
+          },
+          {
+            "epoch": 9,
+            "training_loss": 0.6525193434208632,
+            "examples": 512,
+            "state_sha256": "8ca65d773ea9d52269c2040ef8d8c7c8295759f8821388fe67c0e4f6b95666f8",
+            "training": {
+              "accuracy": 0.6484375,
+              "balanced_accuracy": 0.6484375,
+              "auroc": 0.70697021484375,
+              "average_precision": 0.6864179521261875,
+              "majority_accuracy": 0.5,
+              "true_positive": 206,
+              "false_negative": 50,
+              "true_negative": 126,
+              "false_positive": 130,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 126,
+                "fp": 130,
+                "fn": 50,
+                "tp": 206
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.65625,
+              "positive_probability_quantiles": [
+                0.3205021023750305,
+                0.4784722775220871,
+                0.5465083718299866,
+                0.6175617873668671,
+                0.8202791213989258
+              ]
+            },
+            "validation": {
+              "accuracy": 0.55859375,
+              "balanced_accuracy": 0.55859375,
+              "auroc": 0.62347412109375,
+              "average_precision": 0.6252695696985088,
+              "majority_accuracy": 0.5,
+              "true_positive": 91,
+              "false_negative": 37,
+              "true_negative": 52,
+              "false_positive": 76,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 52,
+                "fp": 76,
+                "fn": 37,
+                "tp": 91
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.65234375,
+              "positive_probability_quantiles": [
+                0.34877440333366394,
+                0.4767538532614708,
+                0.5499167144298553,
+                0.6259116530418396,
+                0.7847257256507874
+              ]
+            }
+          },
+          {
+            "epoch": 10,
+            "training_loss": 0.6522006615996361,
+            "examples": 512,
+            "state_sha256": "6e0eca47decc099c0cea430ca653413faa2bb48a2cf4fef8bb499bd482ef0735",
+            "training": {
+              "accuracy": 0.626953125,
+              "balanced_accuracy": 0.626953125,
+              "auroc": 0.71087646484375,
+              "average_precision": 0.6916892344284169,
+              "majority_accuracy": 0.5,
+              "true_positive": 144,
+              "false_negative": 112,
+              "true_negative": 177,
+              "false_positive": 79,
+              "positive_images": 256,
+              "negative_images": 256,
+              "record_count": 512,
+              "confusion": {
+                "tn": 177,
+                "fp": 79,
+                "fn": 112,
+                "tp": 144
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.435546875,
+              "positive_probability_quantiles": [
+                0.27612558007240295,
+                0.4076809138059616,
+                0.48133400082588196,
+                0.5648640543222427,
+                0.8099108338356018
+              ]
+            },
+            "validation": {
+              "accuracy": 0.59375,
+              "balanced_accuracy": 0.59375,
+              "auroc": 0.62860107421875,
+              "average_precision": 0.6342074820571981,
+              "majority_accuracy": 0.5,
+              "true_positive": 69,
+              "false_negative": 59,
+              "true_negative": 83,
+              "false_positive": 45,
+              "positive_images": 128,
+              "negative_images": 128,
+              "record_count": 256,
+              "confusion": {
+                "tn": 83,
+                "fp": 45,
+                "fn": 59,
+                "tp": 69
+              },
+              "majority_baseline_accuracy": 0.5,
+              "predicted_positive_fraction": 0.4453125,
+              "positive_probability_quantiles": [
+                0.28569284081459045,
+                0.4093235954642296,
+                0.48057226836681366,
+                0.5744648575782776,
+                0.7620784044265747
+              ]
+            }
+          }
+        ],
+        "final_state_sha256": "6e0eca47decc099c0cea430ca653413faa2bb48a2cf4fef8bb499bd482ef0735",
+        "checkpoint_file_sha256": "c4e10186753d14b1268de66708cc142ceeb91ed0197f49cfa4e00fd4e41f79b9"
+      }
+    ]
+  },
+  "reload_and_reference": {
+    "torch_version": "2.12.0+cpu",
+    "reference_validation_rows": 512,
+    "reference_positive_rows": 6,
+    "reference_package_sha256": "4f6b19b714635a3dba2a90a4cc12f0deadb6f7f35e07c78b46876e688c182ec0",
+    "official_test_used": false,
+    "heldout_patient_overlap": 169,
+    "heldout_raw_image_overlap": 134,
+    "train_heldout_patient_or_image_overlap": 0,
+    "controls": [
+      {
+        "learning_rate": 0.0001,
+        "checkpoint_sha256": "da1982fe2c39e1abe5e86aacb1f4f6be7538a9d36b7b4bf90c7a705f9da026aa",
+        "balanced_validation_reload_exact": true,
+        "balanced_validation": {
+          "accuracy": 0.6171875,
+          "balanced_accuracy": 0.6171875,
+          "auroc": 0.6409912109375,
+          "average_precision": 0.6446679451918118,
+          "majority_accuracy": 0.5,
+          "true_positive": 87,
+          "false_negative": 41,
+          "true_negative": 71,
+          "false_positive": 57,
+          "positive_images": 128,
+          "negative_images": 128,
+          "record_count": 256,
+          "confusion": {
+            "tn": 71,
+            "fp": 57,
+            "fn": 41,
+            "tp": 87
+          },
+          "majority_baseline_accuracy": 0.5,
+          "predicted_positive_fraction": 0.5625,
+          "positive_probability_quantiles": [
+            0.1143660619854927,
+            0.39673248678445816,
+            0.5331733226776123,
+            0.6668634116649628,
+            0.8851304650306702
+          ]
+        },
+        "proportional_reference_validation": {
+          "accuracy": 0.478515625,
+          "balanced_accuracy": 0.4891304347826087,
+          "auroc": 0.4107378129117259,
+          "average_precision": 0.01143251748379106,
+          "majority_accuracy": 0.98828125,
+          "true_positive": 3,
+          "false_negative": 3,
+          "true_negative": 242,
+          "false_positive": 264,
+          "positive_images": 6,
+          "negative_images": 506,
+          "record_count": 512,
+          "confusion": {
+            "tn": 242,
+            "fp": 264,
+            "fn": 3,
+            "tp": 3
+          },
+          "majority_baseline_accuracy": 0.98828125,
+          "predicted_positive_fraction": 0.521484375,
+          "positive_probability_quantiles": [
+            0.1143660619854927,
+            0.3878334164619446,
+            0.5144443213939667,
+            0.6374373733997345,
+            0.9457018375396729
+          ]
+        }
+      },
+      {
+        "learning_rate": 1e-05,
+        "checkpoint_sha256": "c4e10186753d14b1268de66708cc142ceeb91ed0197f49cfa4e00fd4e41f79b9",
+        "balanced_validation_reload_exact": true,
+        "balanced_validation": {
+          "accuracy": 0.59375,
+          "balanced_accuracy": 0.59375,
+          "auroc": 0.62860107421875,
+          "average_precision": 0.6342074820571981,
+          "majority_accuracy": 0.5,
+          "true_positive": 69,
+          "false_negative": 59,
+          "true_negative": 83,
+          "false_positive": 45,
+          "positive_images": 128,
+          "negative_images": 128,
+          "record_count": 256,
+          "confusion": {
+            "tn": 83,
+            "fp": 45,
+            "fn": 59,
+            "tp": 69
+          },
+          "majority_baseline_accuracy": 0.5,
+          "predicted_positive_fraction": 0.4453125,
+          "positive_probability_quantiles": [
+            0.28569284081459045,
+            0.4093235954642296,
+            0.48057226836681366,
+            0.5744648575782776,
+            0.7620784044265747
+          ]
+        },
+        "proportional_reference_validation": {
+          "accuracy": 0.623046875,
+          "balanced_accuracy": 0.39756258234519104,
+          "auroc": 0.3883399209486166,
+          "average_precision": 0.01222991733998163,
+          "majority_accuracy": 0.98828125,
+          "true_positive": 1,
+          "false_negative": 5,
+          "true_negative": 318,
+          "false_positive": 188,
+          "positive_images": 6,
+          "negative_images": 506,
+          "record_count": 512,
+          "confusion": {
+            "tn": 318,
+            "fp": 188,
+            "fn": 5,
+            "tp": 1
+          },
+          "majority_baseline_accuracy": 0.98828125,
+          "predicted_positive_fraction": 0.369140625,
+          "positive_probability_quantiles": [
+            0.2692174017429352,
+            0.4054591879248619,
+            0.4612710028886795,
+            0.5419674515724182,
+            0.826897919178009
+          ]
+        }
+      }
+    ],
+    "torch_num_threads": 4,
+    "untrained_initial": {
+      "balanced_validation": {
+        "accuracy": 0.44921875,
+        "balanced_accuracy": 0.44921875,
+        "auroc": 0.4605712890625,
+        "average_precision": 0.4716289939690618,
+        "majority_accuracy": 0.5,
+        "true_positive": 83,
+        "false_negative": 45,
+        "true_negative": 32,
+        "false_positive": 96,
+        "positive_images": 128,
+        "negative_images": 128,
+        "record_count": 256,
+        "confusion": {
+          "tn": 32,
+          "fp": 96,
+          "fn": 45,
+          "tp": 83
+        },
+        "majority_baseline_accuracy": 0.5,
+        "predicted_positive_fraction": 0.69921875,
+        "positive_probability_quantiles": [
+          0.4948217570781708,
+          0.49966640025377274,
+          0.5010102689266205,
+          0.5023803412914276,
+          0.5068654417991638
+        ]
+      },
+      "proportional_reference_validation": {
+        "accuracy": 0.30078125,
+        "balanced_accuracy": 0.23451910408432147,
+        "auroc": 0.1880764163372859,
+        "average_precision": 0.008059311031720461,
+        "majority_accuracy": 0.98828125,
+        "true_positive": 1,
+        "false_negative": 5,
+        "true_negative": 153,
+        "false_positive": 353,
+        "positive_images": 6,
+        "negative_images": 506,
+        "record_count": 512,
+        "confusion": {
+          "tn": 153,
+          "fp": 353,
+          "fn": 5,
+          "tp": 1
+        },
+        "majority_baseline_accuracy": 0.98828125,
+        "predicted_positive_fraction": 0.69140625,
+        "positive_probability_quantiles": [
+          0.4926258623600006,
+          0.49969983100891113,
+          0.5010482370853424,
+          0.5026309341192245,
+          0.5075396299362183
+        ]
+      }
+    }
+  },
+  "cpu_timing_probe": [
+    {
+      "threads": 1,
+      "measured_batch_seconds": [
+        1.6191198000014992,
+        1.5888551289972384
+      ],
+      "mean_seconds": 1.6039874644993688
+    },
+    {
+      "threads": 2,
+      "measured_batch_seconds": [
+        0.9230032279956504,
+        0.9316605130006792
+      ],
+      "mean_seconds": 0.9273318704981648
+    },
+    {
+      "threads": 4,
+      "measured_batch_seconds": [
+        0.5616415230033454,
+        0.594485674999305
+      ],
+      "mean_seconds": 0.5780635990013252
+    }
+  ],
+  "incomplete_pilot": {
+    "completed": false,
+    "stop_receipt": {
+      "reason": "Four CPU threads improve measured batch runtime2.77x; restart fixed comparisons with recorded thread count.",
+      "source_commit": "322c7e59a10ba2fb7bec913371650a0d312ebc79",
+      "completed": false
+    },
+    "epochs": [
+      {
+        "epoch": 1,
+        "training_loss": 0.7135807033628225,
+        "examples": 512,
+        "state_sha256": "3e8b055d30c7d3f9d799f126615c4b7a9235de91a2912b5a95aef3fd763f11fd",
+        "training": {
+          "accuracy": 0.6171875,
+          "balanced_accuracy": 0.6171875,
+          "auroc": 0.6341094970703125,
+          "average_precision": 0.6262487187039947,
+          "majority_accuracy": 0.5,
+          "true_positive": 157,
+          "false_negative": 99,
+          "true_negative": 159,
+          "false_positive": 97,
+          "positive_images": 256,
+          "negative_images": 256,
+          "record_count": 512,
+          "confusion": {
+            "tn": 159,
+            "fp": 97,
+            "fn": 99,
+            "tp": 157
+          },
+          "majority_baseline_accuracy": 0.5,
+          "predicted_positive_fraction": 0.49609375,
+          "positive_probability_quantiles": [
+            0.46204107999801636,
+            0.4843239560723305,
+            0.49989624321460724,
+            0.5120316594839096,
+            0.5547847151756287
+          ]
+        },
+        "validation": {
+          "accuracy": 0.5390625,
+          "balanced_accuracy": 0.5390625,
+          "auroc": 0.5770263671875,
+          "average_precision": 0.5996681952844133,
+          "majority_accuracy": 0.5,
+          "true_positive": 70,
+          "false_negative": 58,
+          "true_negative": 68,
+          "false_positive": 60,
+          "positive_images": 128,
+          "negative_images": 128,
+          "record_count": 256,
+          "confusion": {
+            "tn": 68,
+            "fp": 60,
+            "fn": 58,
+            "tp": 70
+          },
+          "majority_baseline_accuracy": 0.5,
+          "predicted_positive_fraction": 0.5078125,
+          "positive_probability_quantiles": [
+            0.464298278093338,
+            0.4859617128968239,
+            0.5001725256443024,
+            0.5138949006795883,
+            0.546829879283905
+          ]
+        }
+      },
+      {
+        "epoch": 2,
+        "training_loss": 0.6850317735224962,
+        "examples": 512,
+        "state_sha256": "9e7edec64a93f771a075e9d082c5ffc147e986810c8b0411c7dc10b4c2814085",
+        "training": {
+          "accuracy": 0.62109375,
+          "balanced_accuracy": 0.62109375,
+          "auroc": 0.65435791015625,
+          "average_precision": 0.6428152709758379,
+          "majority_accuracy": 0.5,
+          "true_positive": 156,
+          "false_negative": 100,
+          "true_negative": 162,
+          "false_positive": 94,
+          "positive_images": 256,
+          "negative_images": 256,
+          "record_count": 512,
+          "confusion": {
+            "tn": 162,
+            "fp": 94,
+            "fn": 100,
+            "tp": 156
+          },
+          "majority_baseline_accuracy": 0.5,
+          "predicted_positive_fraction": 0.48828125,
+          "positive_probability_quantiles": [
+            0.4248604476451874,
+            0.468846820294857,
+            0.49919499456882477,
+            0.5288113057613373,
+            0.6187334656715393
+          ]
+        },
+        "validation": {
+          "accuracy": 0.56640625,
+          "balanced_accuracy": 0.56640625,
+          "auroc": 0.5960693359375,
+          "average_precision": 0.6123281898784071,
+          "majority_accuracy": 0.5,
+          "true_positive": 74,
+          "false_negative": 54,
+          "true_negative": 71,
+          "false_positive": 57,
+          "positive_images": 128,
+          "negative_images": 128,
+          "record_count": 256,
+          "confusion": {
+            "tn": 71,
+            "fp": 57,
+            "fn": 54,
+            "tp": 74
+          },
+          "majority_baseline_accuracy": 0.5,
+          "predicted_positive_fraction": 0.51171875,
+          "positive_probability_quantiles": [
+            0.4352327287197113,
+            0.4699890986084938,
+            0.5011353492736816,
+            0.5304766744375229,
+            0.6035756468772888
+          ]
+        }
+      },
+      {
+        "epoch": 3,
+        "training_loss": 0.674976147711277,
+        "examples": 512,
+        "state_sha256": "3fe77ba5c4fd0130d35691cc5ff00f56ac04b04a68869397d5a7359c3e8a7fb7",
+        "training": {
+          "accuracy": 0.62109375,
+          "balanced_accuracy": 0.62109375,
+          "auroc": 0.6822509765625,
+          "average_precision": 0.6643455985936639,
+          "majority_accuracy": 0.5,
+          "true_positive": 138,
+          "false_negative": 118,
+          "true_negative": 180,
+          "false_positive": 76,
+          "positive_images": 256,
+          "negative_images": 256,
+          "record_count": 512,
+          "confusion": {
+            "tn": 180,
+            "fp": 76,
+            "fn": 118,
+            "tp": 138
+          },
+          "majority_baseline_accuracy": 0.5,
+          "predicted_positive_fraction": 0.41796875,
+          "positive_probability_quantiles": [
+            0.36665862798690796,
+            0.4319453835487366,
+            0.47939833998680115,
+            0.5387831330299377,
+            0.6828300952911377
+          ]
+        },
+        "validation": {
+          "accuracy": 0.58203125,
+          "balanced_accuracy": 0.58203125,
+          "auroc": 0.6083984375,
+          "average_precision": 0.618628949382692,
+          "majority_accuracy": 0.5,
+          "true_positive": 66,
+          "false_negative": 62,
+          "true_negative": 83,
+          "false_positive": 45,
+          "positive_images": 128,
+          "negative_images": 128,
+          "record_count": 256,
+          "confusion": {
+            "tn": 83,
+            "fp": 45,
+            "fn": 62,
+            "tp": 66
+          },
+          "majority_baseline_accuracy": 0.5,
+          "predicted_positive_fraction": 0.43359375,
+          "positive_probability_quantiles": [
+            0.38254740834236145,
+            0.4334755539894104,
+            0.48166535794734955,
+            0.5397734194993973,
+            0.6534577012062073
+          ]
+        }
+      },
+      {
+        "epoch": 4,
+        "training_loss": 0.6648779530078173,
+        "examples": 512,
+        "state_sha256": "d94caa90fffd3389dee632ea94d2ed263508ce05a5c5e45adbe7b6ebac85f1a9",
+        "training": {
+          "accuracy": 0.638671875,
+          "balanced_accuracy": 0.638671875,
+          "auroc": 0.708282470703125,
+          "average_precision": 0.6881459744803597,
+          "majority_accuracy": 0.5,
+          "true_positive": 205,
+          "false_negative": 51,
+          "true_negative": 122,
+          "false_positive": 134,
+          "positive_images": 256,
+          "negative_images": 256,
+          "record_count": 512,
+          "confusion": {
+            "tn": 122,
+            "fp": 134,
+            "fn": 51,
+            "tp": 205
+          },
+          "majority_baseline_accuracy": 0.5,
+          "predicted_positive_fraction": 0.662109375,
+          "positive_probability_quantiles": [
+            0.34230008721351624,
+            0.48130548000335693,
+            0.539837509393692,
+            0.6054680645465851,
+            0.7813830971717834
+          ]
+        },
+        "validation": {
+          "accuracy": 0.5703125,
+          "balanced_accuracy": 0.5703125,
+          "auroc": 0.6240234375,
+          "average_precision": 0.6310406930854837,
+          "majority_accuracy": 0.5,
+          "true_positive": 94,
+          "false_negative": 34,
+          "true_negative": 52,
+          "false_positive": 76,
+          "positive_images": 128,
+          "negative_images": 128,
+          "record_count": 256,
+          "confusion": {
+            "tn": 52,
+            "fp": 76,
+            "fn": 34,
+            "tp": 94
+          },
+          "majority_baseline_accuracy": 0.5,
+          "predicted_positive_fraction": 0.6640625,
+          "positive_probability_quantiles": [
+            0.3929724395275116,
+            0.48164723068475723,
+            0.5466472506523132,
+            0.6082198619842529,
+            0.7399222254753113
+          ]
+        }
+      },
+      {
+        "epoch": 5,
+        "training_loss": 0.6589428596198559,
+        "examples": 512,
+        "state_sha256": "78e9b0e7156bd0978fe00fcfda86b81753703faee294a5a83670fef64a0f56cf",
+        "training": {
+          "accuracy": 0.646484375,
+          "balanced_accuracy": 0.646484375,
+          "auroc": 0.725067138671875,
+          "average_precision": 0.7081667077291989,
+          "majority_accuracy": 0.5,
+          "true_positive": 135,
+          "false_negative": 121,
+          "true_negative": 196,
+          "false_positive": 60,
+          "positive_images": 256,
+          "negative_images": 256,
+          "record_count": 512,
+          "confusion": {
+            "tn": 196,
+            "fp": 60,
+            "fn": 121,
+            "tp": 135
+          },
+          "majority_baseline_accuracy": 0.5,
+          "predicted_positive_fraction": 0.380859375,
+          "positive_probability_quantiles": [
+            0.25460320711135864,
+            0.3955719992518425,
+            0.46239106357097626,
+            0.5426179766654968,
+            0.7777806520462036
+          ]
+        },
+        "validation": {
+          "accuracy": 0.625,
+          "balanced_accuracy": 0.625,
+          "auroc": 0.6295166015625,
+          "average_precision": 0.6436442138246491,
+          "majority_accuracy": 0.5,
+          "true_positive": 66,
+          "false_negative": 62,
+          "true_negative": 94,
+          "false_positive": 34,
+          "positive_images": 128,
+          "negative_images": 128,
+          "record_count": 256,
+          "confusion": {
+            "tn": 94,
+            "fp": 34,
+            "fn": 62,
+            "tp": 66
+          },
+          "majority_baseline_accuracy": 0.5,
+          "predicted_positive_fraction": 0.390625,
+          "positive_probability_quantiles": [
+            0.27099594473838806,
+            0.40409451723098755,
+            0.46026846766471863,
+            0.5494285225868225,
+            0.723719596862793
+          ]
+        }
+      }
+    ]
+  },
+  "conclusions": [
+    "The extended lower-rate controls avoid the earlier all-positive collapse.",
+    "Final enriched-validation AUROC .64099/.62860 shows modest discrimination, with a training-validation gap.",
+    "The proportional 512-image reference has only six positive cases; final AUROC .41074/.38834 and accuracy remain poor.",
+    "Both fixed configurations completed all ten epochs; final checkpoints reload exact balanced metrics.",
+    "No configuration was selected or tuned from official test data or proportional reference performance."
+  ],
+  "limits": [
+    "Enriched held-out accuracy/AP do not estimate population performance.",
+    "The two held-out samples overlap in169 patients/134 source images; they are not independent replications.",
+    "One image per patient in the balanced diagnostic sets; proportional reference may contain repeated patients.",
+    "Prior/new experiments change sample sizes and CPU thread configuration; no causal comparison is claimed.",
+    "Raw inventory/ownership verified at packaging on source host; g14 independently binds copied packages.",
+    "These research controls do not alter or qualify a new NIH platform learning-rate contract.",
+    "Clinical utility, full-scale convergence and mobile execution at these research rates are unproven."
+  ],
+  "cpu_timing_probe_method": {
+    "input": "Synthetic zero-valued 16x1x224x224 batch with alternating binary labels",
+    "model": "Same pneumonia CNN architecture, forward/backward/Adam update",
+    "steps_per_thread_count": 3,
+    "warmup_steps_excluded": 1,
+    "measured_steps": 2,
+    "concurrent_load": "One-thread NIH pilot remained active",
+    "purpose": "Bounded configuration selection; not a general throughput benchmark"
+  }
+}

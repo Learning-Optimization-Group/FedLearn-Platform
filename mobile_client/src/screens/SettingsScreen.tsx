@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DeviceInfo from 'react-native-device-info';
 import { LogOut, Server, Cpu, Smartphone } from 'lucide-react-native';
@@ -9,8 +9,11 @@ import { getServerBaseUrl, setServerBaseUrl } from '../lib/serverConfig';
 import { maxSupportedTier, type ModelTier } from '../lib/deviceClass';
 import { useAuth } from '../context/AuthContext';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { DeviceDatasetsCard } from '../components/DeviceDatasetsCard';
 import { StatusBadge } from '../components/StatusBadge';
 import { useThemeTokens } from '../theme/useThemeTokens';
+import { diagnosticJournal } from '../lib/diagnosticJournal';
+import { collectCapabilityReport, diagnosticsWithReport } from '../lib/capabilityReport';
 
 type ProbeState = 'idle' | 'probing' | 'reachable' | 'unreachable';
 
@@ -26,6 +29,7 @@ export function SettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [diagnosticsNotice, setDiagnosticsNotice] = useState<string | null>(null);
   const [probe, setProbe] = useState<ProbeState>('idle');
   const [tier, setTier] = useState<ModelTier | null>(null);
   // The saved confirmation is a transient caption under the field (the button label never mutates).
@@ -175,6 +179,44 @@ export function SettingsScreen() {
           choose as on desktop.
         </Text>
       </View>
+
+      <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
+        <Text className="text-label font-sans font-semibold text-fg mb-2">Training diagnostics</Text>
+        <Text className="text-caption font-sans text-fg-muted mb-2">
+          A short on-device history of training steps and errors survives app restarts. Review the
+          shared text before sending it to anyone.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Share training diagnostics"
+          className="flex-row items-center justify-center bg-surface-1 border border-hairline rounded-md py-3 active:opacity-80"
+          onPress={() => {
+            void Promise.all([diagnosticJournal.exportText(), collectCapabilityReport().catch(() => undefined)])
+              .then(([journal, report]) => Share.share({ message: diagnosticsWithReport(journal, report) }))
+              .catch((e) => setError(`Could not share diagnostics: ${String(e)}`));
+          }}>
+          <Text className="text-fg text-label font-sans">Share training diagnostics</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Clear training diagnostics"
+          className="flex-row items-center justify-center bg-surface-1 border border-hairline rounded-md py-3 mt-2 active:opacity-80"
+          onPress={async () => {
+            try {
+              await diagnosticJournal.clear();
+              setDiagnosticsNotice('Diagnostics cleared');
+            } catch (e) {
+              setError(`Could not clear diagnostics: ${String(e)}`);
+            }
+          }}>
+          <Text className="text-fg text-label font-sans">Clear training diagnostics</Text>
+        </Pressable>
+        {diagnosticsNotice ? (
+          <Text className="text-caption font-sans text-success mt-2">{diagnosticsNotice}</Text>
+        ) : null}
+      </View>
+
+      <DeviceDatasetsCard />
 
       {/* Account (the app-version row moved into the This-device card above) */}
       <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">

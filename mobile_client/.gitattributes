@@ -1,0 +1,3 @@
+# Generated from proto/ by `npm run proto:contract`; CI requires it to match the generator byte for byte,
+# so whitespace rules do not apply and review tools collapse it.
+src/gen/** linguist-generated=true -whitespace

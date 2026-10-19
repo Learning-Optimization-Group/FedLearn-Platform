@@ -1,3 +1,4 @@
+import { collectCapabilityReport } from './capabilityReport';
 import { api } from './restClient';
 import nativeCore from './nativeCore';
 import { getOrCreateClientId } from './clientId';
@@ -24,12 +25,34 @@ export interface RunManifest {
   // Secure aggregation (LightSecAgg): the server accepts only masked gradient scalars. The phone cannot mask,
   // so runTrainingLoop refuses such a run. Absent (a backend from before this field) means off.
   secureAggregation?: boolean;
+  // Execution contract v1, dual-emitted beside the legacy fields: the state always, the contract and its opaque ID
+  // only when READY, the machine-readable reason only when UNAVAILABLE. The phone trains only what a READY
+  // contract states (executionContractGate.ts).
+  contractState?: string;
+  contractId?: string;
+  executionContract?: Record<string, unknown>;
+  contractUnavailableReason?: string;
+}
+
+/** Re-reads a run's manifest, so a client waiting for its execution contract can see it published. */
+export async function fetchRunManifest(runId: string): Promise<RunManifest> {
+  const res = await api.get<RunManifest>(`/api/runs/${runId}/manifest`);
+  return res.data;
 }
 
 export interface JoinParams {
   projectId: string;
+  /** Reconnect only this already-qualified run and contract; ordinary joins resolve the active run. */
+  expectedRun?: { runId: string; contractId: string };
   /** Overrides the backend's grpcTls. Normally omitted, so the join follows what the deployment requires. */
   useTls?: boolean;
+}
+
+export class RunJoinRefusedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RunJoinRefusedError';
+  }
 }
 
 export interface JoinedRun {
@@ -86,13 +109,31 @@ async function pollUntilRunning(runId: string): Promise<void> {
  * (native "task 14") + round execution are the model-delivery / execution slices.
  */
 export async function joinRun(p: JoinParams): Promise<JoinedRun> {
-  const runId = await resolveRunId(p.projectId);
+  const runId = p.expectedRun?.runId ?? await resolveRunId(p.projectId);
   await pollUntilRunning(runId);
 
-  const { data: enroll } = await api.post<EnrollResponse>(`/api/runs/${runId}/enroll`);
+  // Stage 3 D1: report this device's capabilities with the enrollment. Informational only: a report that cannot be
+  // collected is left out, and it never decides whether this device may train.
+  const capabilityReport = await collectCapabilityReport().catch(() => undefined);
+  const { data: enroll } = await api.post<EnrollResponse>(`/api/runs/${runId}/enroll`,
+    capabilityReport ? { capabilityReport } : undefined);
+
+  if (enroll.runId !== runId || enroll.projectId !== p.projectId
+      || enroll.manifest?.runId !== runId || enroll.manifest.projectId !== p.projectId) {
+    throw new RunJoinRefusedError('Enrollment identity differs from the requested run or project. Join again to '
+      + 'start a new participation.');
+  }
+  if (p.expectedRun && (enroll.manifest.contractState !== 'READY'
+      || enroll.manifest.contractId !== p.expectedRun.contractId)) {
+    throw new RunJoinRefusedError('The reconnect execution contract differs from the qualified contract. Join again '
+      + 'to qualify a new participation.');
+  }
 
   const clientId = await getOrCreateClientId();
   const useTls = p.useTls ?? enroll.grpcTls ?? false;
+  if (!__DEV__ && !useTls) {
+    throw new RunJoinRefusedError('Release training requires TLS from the FL server.');
+  }
   const reg = await nativeCore.registerClient(
     enroll.grpcEndpoint, runId, clientId, enroll.connectionToken, useTls, enroll.grpcServerCertPem ?? '',
   );

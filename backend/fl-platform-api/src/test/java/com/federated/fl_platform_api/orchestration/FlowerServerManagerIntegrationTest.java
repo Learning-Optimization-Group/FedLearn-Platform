@@ -65,6 +65,7 @@ class FlServerManagerIntegrationTest {
 
     private Path aliveStub;
     private Path crashStub;
+    private Path pipedStub;
     private final List<UUID> startedProjects = new ArrayList<>();
 
     @BeforeEach
@@ -105,8 +106,8 @@ class FlServerManagerIntegrationTest {
         // IPv4 and IPv6 wildcard) and blocks. Binding both families is deliberate: the manager detects a
         // taken port with a plain Java `new ServerSocket(port)`, which binds the IPv6 wildcard by default
         // on macOS but the IPv4 wildcard on Linux — an IPv4-only child would be invisible to the probe on
-        // macOS. `exec` replaces bash with python so the tracked PID becomes the port holder, and so
-        // destroyForcibly actually frees the port (a forked child would survive the kill and keep it bound).
+        // macOS. `exec` replaces bash with python so the tracked PID is the port holder. The real wrapper forks
+        // python instead (it pipes through tee); pipedStub below covers that shape.
         aliveStub = Files.createTempFile("stub-fl-alive", ".sh");
         Files.writeString(aliveStub,
                 "#!/bin/bash\n"
@@ -128,6 +129,29 @@ class FlServerManagerIntegrationTest {
                         + "s6.bind(('::', p)); s6.listen(1)\n"
                         + "time.sleep(300)\"\n");
 
+        // Piped stub: the real run_fl_server.sh's shape. It runs python as a CHILD whose output is piped through
+        // tee, so bash cannot exec into it and the tracked PID is the wrapper, not the port holder.
+        pipedStub = Files.createTempFile("stub-fl-piped", ".sh");
+        Files.writeString(pipedStub,
+                "#!/bin/bash\n"
+                        + "PORT=\"\"\n"
+                        + "while [ \"$#\" -gt 0 ]; do\n"
+                        + "  case \"$1\" in\n"
+                        + "    --port) PORT=\"$2\"; shift 2 ;;\n"
+                        + "    *) shift ;;\n"
+                        + "  esac\n"
+                        + "done\n"
+                        + "python3 -c \"import socket, time\n"
+                        + "p = int('${PORT}')\n"
+                        + "s4 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n"
+                        + "s4.bind(('0.0.0.0', p)); s4.listen(1)\n"
+                        + "s6 = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)\n"
+                        + "s6.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)\n"
+                        + "s6.bind(('::', p)); s6.listen(1)\n"
+                        + "print('STUB_FL_SERVER_PIPED bound', flush=True)\n"
+                        + "time.sleep(300)\" 2>&1 | tee -a /dev/null\n"
+                        + "exit ${PIPESTATUS[0]}\n");
+
         // Crash stub: prints one error line to stdout, then exits non-zero immediately.
         crashStub = Files.createTempFile("stub-fl-crash", ".sh");
         Files.writeString(crashStub, "#!/bin/bash\necho \"STUB_FL_SERVER_CRASH boom\"\nexit 1\n");
@@ -144,6 +168,7 @@ class FlServerManagerIntegrationTest {
         }
         Files.deleteIfExists(aliveStub);
         Files.deleteIfExists(crashStub);
+        Files.deleteIfExists(pipedStub);
     }
 
     @Test
@@ -230,7 +255,94 @@ class FlServerManagerIntegrationTest {
                 "the port from the failed start must be free for a subsequent successful start");
     }
 
+    // The real wrapper runs python | tee as children of bash. Killing only the wrapper orphaned the FL server,
+    // which kept running and kept its port after stop reported success (seen live, twice).
+    @Test
+    void stopTerminatesTheServerTheWrapperForksNotOnlyTheWrapper() throws IOException {
+        int port = pickFreePortInRange();
+        useWrapper(pipedStub);
+        ReflectionTestUtils.setField(manager, "portRangeStart", port);
+        ReflectionTestUtils.setField(manager, "portRangeEnd", port);
+        Project p = project("CNN");
+        manager.startServerForProject(p, "FedAvg", 5, 1);
+        startedProjects.add(p.getId());
+        await().atMost(10, SECONDS).until(() -> isPortBound(port));
+        List<ProcessHandle> forked = trackedHandle(p.getId()).descendants().toList();
+        assertFalse(forked.isEmpty(), "the piped wrapper must have forked the server and tee");
+
+        assertTrue(manager.stopServerForProject(p.getId()));
+
+        await().atMost(10, SECONDS).untilAsserted(() -> {
+            for (ProcessHandle child : forked) {
+                assertFalse(child.isAlive(), "a process the wrapper forked survived stop: pid " + child.pid());
+            }
+            assertFalse(isPortBound(port), "the server's port must be free after stop");
+        });
+    }
+
+    @Test
+    void shutdownTerminatesTheServerTheWrapperForks() throws IOException {
+        int port = pickFreePortInRange();
+        useWrapper(pipedStub);
+        ReflectionTestUtils.setField(manager, "portRangeStart", port);
+        ReflectionTestUtils.setField(manager, "portRangeEnd", port);
+        Project p = project("CNN");
+        manager.startServerForProject(p, "FedAvg", 5, 1);
+        startedProjects.add(p.getId());
+        await().atMost(10, SECONDS).until(() -> isPortBound(port));
+        List<ProcessHandle> forked = trackedHandle(p.getId()).descendants().toList();
+        assertFalse(forked.isEmpty(), "the piped wrapper must have forked the server and tee");
+
+        manager.stopAllOnShutdown();
+
+        await().atMost(10, SECONDS).untilAsserted(() -> {
+            for (ProcessHandle child : forked) {
+                assertFalse(child.isAlive(), "a process the wrapper forked survived shutdown: pid " + child.pid());
+            }
+            assertFalse(isPortBound(port), "the server's port must be free after shutdown");
+        });
+    }
+
+    // The FL port range sits inside the OS ephemeral range, so an unrelated outgoing connection can hold a local port
+    // in it. The probe used to accept such a port (a wildcard bind with SO_REUSEADDR succeeds beside it), and the FL
+    // server's own bind then failed with EADDRINUSE: seen three times on a developer machine. The probe must skip it.
+    @Test
+    void aPortHeldByAnOutgoingConnectionIsSkipped() throws IOException {
+        int port = pickTwoFreeConsecutivePortsInRange();
+        useWrapper(aliveStub);
+        ReflectionTestUtils.setField(manager, "portRangeStart", port);
+        ReflectionTestUtils.setField(manager, "portRangeEnd", port + 1);
+        try (ServerSocket peer = new ServerSocket(0, 50, java.net.InetAddress.getLoopbackAddress());
+             java.net.Socket outgoing = new java.net.Socket()) {
+            outgoing.bind(new java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), port));
+            outgoing.connect(peer.getLocalSocketAddress());
+
+            Project p = project("CNN");
+            Optional<Integer> reserved = manager.startServerForProject(p, "FedAvg", 5, 1);
+            startedProjects.add(p.getId());
+
+            assertEquals(Optional.of(port + 1), reserved, "the port held by the outgoing connection must be skipped");
+            assertTrue(manager.isServerRunning(p.getId()));
+        }
+    }
+
     // --- helpers ------------------------------------------------------------
+
+    private int pickTwoFreeConsecutivePortsInRange() {
+        for (int candidate = RANGE_START; candidate < RANGE_END; candidate++) {
+            if (!isPortBound(candidate) && !isPortBound(candidate + 1)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("no two consecutive free ports in " + RANGE_START + "-" + RANGE_END);
+    }
+
+    @SuppressWarnings("unchecked")
+    private ProcessHandle trackedHandle(UUID projectId) {
+        return ((java.util.Map<UUID, ProcessHandle>) ReflectionTestUtils.getField(manager, "runningServers"))
+                .get(projectId);
+    }
+
 
     private void useWrapper(Path stub) {
         ReflectionTestUtils.setField(manager, "flServerWrapperPath", stub.toString());

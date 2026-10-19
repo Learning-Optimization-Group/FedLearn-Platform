@@ -33,7 +33,7 @@ describe('PlaygroundView — generation falls back to the REST body (FE-3)', () 
     // Broker unreachable: activate() fails the socket instead of connecting,
     // so the /topic/inference subscription never goes live and no token
     // arrives.
-    vi.mocked(StompClient).mockImplementation(() => {
+    vi.mocked(StompClient).mockImplementation(function () {
       const client = {
         onConnect: null,
         onStompError: null,
@@ -84,7 +84,7 @@ describe('PlaygroundView — generation falls back to the REST body (FE-3)', () 
 // the reply commits.
 describe('PlaygroundView — honest stream indicator (FE-8)', () => {
   beforeEach(() => {
-    vi.mocked(StompClient).mockImplementation(() => {
+    vi.mocked(StompClient).mockImplementation(function () {
       const client = {
         onConnect: null,
         onStompError: null,

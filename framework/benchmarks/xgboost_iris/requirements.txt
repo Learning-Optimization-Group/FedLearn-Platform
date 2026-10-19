@@ -1,0 +1,5 @@
+numpy==2.1.2
+scipy==1.18.0
+scikit-learn==1.7.1
+xgboost==3.4.1
+pytest==9.1.1

@@ -29,6 +29,26 @@ class InferenceServiceStopTest {
         assertTrue(svc.stoppedGenerations.contains(pid));
     }
 
+    // The generation script is a bash wrapper that forks python; stopping must end the python, not only bash, or the
+    // "stopped" generation keeps running and streaming.
+    @Test
+    @org.junit.jupiter.api.condition.DisabledOnOs(org.junit.jupiter.api.condition.OS.WINDOWS)
+    void stopTrackedKillsWhatTheGenerationScriptForked() throws Exception {
+        InferenceService svc = newService();
+        UUID pid = UUID.randomUUID();
+        java.nio.file.Path pidFile = java.nio.file.Files.createTempFile("gen", ".pid");
+        java.nio.file.Files.delete(pidFile);
+        Process wrapper = com.federated.fl_platform_api.orchestration.ProcessTreesTest.startForkingWrapper(pidFile);
+        ProcessHandle child = com.federated.fl_platform_api.orchestration.ProcessTreesTest.forkedChild(pidFile);
+        svc.runningGenerations.put(pid, wrapper);
+
+        assertTrue(svc.stopTrackedGeneration(pid));
+
+        org.awaitility.Awaitility.await().atMost(10, java.util.concurrent.TimeUnit.SECONDS)
+                .untilAsserted(() -> assertFalse(child.isAlive(), "the forked generation process survived stop"));
+        java.nio.file.Files.deleteIfExists(pidFile);
+    }
+
     @Test
     void stoppedResultHasStoppedFinishReason() {
         JsonNode n = newService().stoppedResult("LLM_LORA");

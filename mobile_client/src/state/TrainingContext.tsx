@@ -23,19 +23,23 @@ import React, {
   useRef,
 } from 'react';
 
-import { joinRun } from '../lib/runJoin';
+import { fetchRunManifest, joinRun } from '../lib/runJoin';
 import nativeCore from '../lib/nativeCore';
 import { connectStomp, type StompHandle } from '../lib/stompClient';
 import { foregroundService } from '../lib/foregroundService';
 import {
   runTrainingLoop,
+  ExecutionContractRefusedError,
   MobileFedAvgUnsupportedError,
   MobileSecureAggregationUnsupportedError,
 } from '../lib/training';
-import { startServerStatusHeartbeat } from '../lib/statusHeartbeat';
+import { startServerStatusHeartbeat, type ServerStatusHeartbeatHandle } from '../lib/statusHeartbeat';
 import { ModelDeliveryUnavailableError } from '../lib/modelProvisioning';
+import type { DatasetSnapshot } from '../lib/datasetService';
 import { readError } from '../lib/errors';
 import { contributionLedger } from '../lib/contributionLedger';
+import { diagnosticJournal } from '../lib/diagnosticJournal';
+import { SingleFlight } from '../lib/singleFlight';
 import {
   initialTrainingState,
   trainingReducer,
@@ -46,20 +50,44 @@ export interface TrainingContextValue {
   state: TrainingState;
   /** Join the project's active run (registers the native FL client). */
   join: (projectId: string, projectName?: string) => Promise<void>;
-  /** Start the on-device training loop for the joined run. */
-  startTraining: () => Promise<void>;
+  /**
+   * Start the on-device training loop for the joined run. A run on the device's own data trains `dataset`, which the
+   * loop checks against the run's contract; it stays pinned (state.datasetInUse) until training ends.
+   */
+  startTraining: (dataset?: DatasetSnapshot) => Promise<void>;
   /** Abort training + native path + foreground service and reset to notJoined. */
   stopTraining: () => Promise<void>;
 }
 
 const TrainingContext = createContext<TrainingContextValue | null>(null);
+// The native core is app-wide. Keep its participation gate across authenticated
+// provider lifetimes so a late enrollment cannot overlap a new login's training.
+const participationFlight = new SingleFlight();
 
 export function TrainingProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(trainingReducer, initialTrainingState);
   const stompRef = useRef<StompHandle | null>(null);
+  const heartbeatRef = useRef<ServerStatusHeartbeatHandle | null>(null);
   const stopRef = useRef(false); // cooperative stop flag polled by the training loop
+  const mountedRef = useRef(true);
   const joined = state.joined;
   const projectName = state.projectName;
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      stopRef.current = true;
+      foregroundService.stop();
+      heartbeatRef.current?.stop();
+      heartbeatRef.current = null;
+      stompRef.current?.deactivate();
+      stompRef.current = null;
+      // Abort promptly, then also stop any registration created while a pending
+      // enrollment unwinds. The shared gate stays closed through both aborts.
+      void participationFlight.abortAndWait(() => nativeCore.stop()).catch(() => {});
+    };
+  }, []);
 
   // Once joined, stream the server's round logs for this project (parity with desktop's Activity
   // Log). Same /ws-logs STOMP endpoint the web dashboard uses, authenticated with the mobile
@@ -78,9 +106,9 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         stompRef.current = handle;
-        handle.subscribe(`/topic/logs/${joined.projectId}`, (body) =>
-          dispatch({ type: 'LOG_APPEND', body }),
-        );
+        handle.subscribe(`/topic/logs/${joined.projectId}`, (body) => {
+          if (alive) dispatch({ type: 'LOG_APPEND', body });
+        });
       } catch (e) {
         if (alive) dispatch({ type: 'LOG_APPEND', body: readError(e), level: 'WARN' });
       }
@@ -107,79 +135,111 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
         /* best-effort telemetry — the card holds its last value until a poll succeeds */
       },
     });
+    heartbeatRef.current = hb;
     return () => {
       hb.stop();
+      if (heartbeatRef.current === hb) heartbeatRef.current = null;
     };
   }, [joined]);
 
   const join = useCallback(async (projectId: string, name?: string) => {
-    dispatch({ type: 'JOIN_START' });
-    try {
-      const result = await joinRun({ projectId });
-      dispatch({ type: 'JOIN_SUCCESS', joined: result, projectName: name });
-    } catch (e) {
-      // MO-16: readError, not String(e) — an axios join failure otherwise renders as
-      // the meaningless "[object Object]".
-      dispatch({ type: 'JOIN_FAILURE', error: readError(e) });
-    }
+    if (!mountedRef.current) return;
+    return participationFlight.run(async () => {
+      dispatch({ type: 'JOIN_START' });
+      try {
+        const result = await joinRun({ projectId });
+        if (!mountedRef.current) return;
+        dispatch({ type: 'JOIN_SUCCESS', joined: result, projectName: name });
+        void diagnosticJournal.append('join', 'registered for training').catch(() => {});
+      } catch (e) {
+        if (!mountedRef.current) return;
+        // MO-16: readError, not String(e) — an axios join failure otherwise renders as
+        // the meaningless "[object Object]".
+        dispatch({ type: 'JOIN_FAILURE', error: readError(e) });
+        void diagnosticJournal.append('join-error', readError(e)).catch(() => {});
+      }
+    }, () => dispatch({ type: 'LOG_APPEND', body: 'Join or training is already active.', level: 'WARN' }));
   }, []);
 
   // Start the on-device training loop: stage the model + local data, then run rounds. All compute
   // is on-device; only seeds + gradient scalars are uploaded (raw data never leaves).
-  const startTraining = useCallback(async () => {
-    if (!joined) return;
-    const ledgerProjectName = projectName ?? joined.projectId;
-    dispatch({ type: 'TRAINING_START' });
-    stopRef.current = false;
-    foregroundService.start();
-    try {
-      await runTrainingLoop(joined, {
-        onLog: (line) => dispatch({ type: 'LOG_APPEND', body: line }),
-        onRound: (r) => {
-          dispatch({ type: 'ROUND_RESULT', round: r });
-          // Persist the completed round to the device-local contribution ledger. Best-effort:
-          // a storage failure must never interrupt the run.
-          void contributionLedger
-            .record({
-              projectId: joined.projectId,
-              projectName: ledgerProjectName,
-              round: r.round,
-              wallClockMs: r.computeMs,
-              bytesUp: r.uplinkBytes,
-              bytesDown: r.downlinkBytes,
-              at: new Date().toISOString(),
-            })
-            .catch(() => {});
-        },
-        shouldStop: () => stopRef.current,
-      });
-    } catch (e) {
-      if (
-        e instanceof ModelDeliveryUnavailableError ||
-        e instanceof MobileFedAvgUnsupportedError ||
-        e instanceof MobileSecureAggregationUnsupportedError
-      ) {
-        // Known "can't train here (yet)" refusals — informational, not a failure.
-        dispatch({ type: 'LOG_APPEND', body: e.message, level: 'INFO' });
-      } else {
-        dispatch({ type: 'TRAINING_ERROR', error: readError(e) });
+  const startTraining = useCallback(async (dataset?: DatasetSnapshot) => {
+    if (!joined || !mountedRef.current) return;
+    return participationFlight.run(async () => {
+      const ledgerProjectName = projectName ?? joined.projectId;
+      dispatch({ type: 'TRAINING_START', datasetId: dataset?.snapshotId });
+      stopRef.current = false;
+      foregroundService.start();
+      try {
+        await runTrainingLoop(joined, {
+          onLog: (line) => {
+            if (!mountedRef.current) return;
+            dispatch({ type: 'LOG_APPEND', body: line });
+            void diagnosticJournal.append('training', line).catch(() => {});
+          },
+          onRound: (r) => {
+            if (!mountedRef.current) return;
+            dispatch({ type: 'ROUND_RESULT', round: r });
+            void diagnosticJournal.append('upload', `round ${r.round}; bytes ${r.uplinkBytes}`).catch(() => {});
+            // Persist the completed round to the device-local contribution ledger. Best-effort:
+            // a storage failure must never interrupt the run.
+            void contributionLedger
+              .record({
+                projectId: joined.projectId,
+                projectName: ledgerProjectName,
+                round: r.round,
+                wallClockMs: r.computeMs,
+                bytesUp: r.uplinkBytes,
+                bytesDown: r.downlinkBytes,
+                at: new Date().toISOString(),
+              })
+              .catch(() => {});
+          },
+          shouldStop: () => stopRef.current || !mountedRef.current,
+          onRunEnded: () => {
+            if (!mountedRef.current) return;
+            heartbeatRef.current?.stop();
+            heartbeatRef.current = null;
+            dispatch({ type: 'SERVER_STATUS', status: null });
+          },
+        }, {
+          // A run's contract is published while its bundle stages, so wait for it rather than refusing at once.
+          contract: { fetchManifest: fetchRunManifest },
+          dataset,
+        });
+      } catch (e) {
+        if (!mountedRef.current) return;
+        void diagnosticJournal.append('training-error', readError(e)).catch(() => {});
+        if (
+          e instanceof ModelDeliveryUnavailableError ||
+          e instanceof MobileFedAvgUnsupportedError ||
+          e instanceof MobileSecureAggregationUnsupportedError ||
+          e instanceof ExecutionContractRefusedError
+        ) {
+          // Known "can't train here (yet)" refusals — informational, not a failure.
+          dispatch({ type: 'LOG_APPEND', body: e.message, level: 'INFO' });
+        } else {
+          dispatch({ type: 'TRAINING_ERROR', error: readError(e) });
+        }
+      } finally {
+        foregroundService.stop();
+        if (mountedRef.current) dispatch({ type: 'TRAINING_END' });
       }
-    } finally {
-      foregroundService.stop();
-      dispatch({ type: 'TRAINING_END' });
-    }
+    }, () => dispatch({ type: 'LOG_APPEND', body: 'Join or training is already active.', level: 'WARN' }));
   }, [joined, projectName]);
 
   // Stop = abort the native gRPC/training path (sets the abort flag + joins threads), stop the
   // Android foreground service, tear down the STOMP stream, and reset to notJoined.
   const stopTraining = useCallback(async () => {
+    if (!mountedRef.current) return;
     dispatch({ type: 'STOP_START' });
     stopRef.current = true; // break the training loop before the native abort
     try {
-      await nativeCore.stop();
+      await participationFlight.abortAndWait(() => nativeCore.stop());
     } catch {
       /* already stopped / not registered */
     }
+    if (!mountedRef.current) return;
     foregroundService.stop();
     stompRef.current?.deactivate();
     stompRef.current = null;

@@ -1,0 +1,151 @@
+{
+  "description": "Training-mode BatchNorm golden (Stage 4 S7): torch nn.BatchNorm2d in training mode, Adam.",
+  "torch_version": "2.12.0",
+  "examples": 20,
+  "input_shape": [
+    3,
+    8,
+    8
+  ],
+  "batch_size": 8,
+  "local_epochs": 2,
+  "learning_rate": 0.001,
+  "seed": 42,
+  "round": 1,
+  "state_layout": [
+    [
+      "conv1.weight",
+      [
+        8,
+        3,
+        3,
+        3
+      ]
+    ],
+    [
+      "bn1.weight",
+      [
+        8
+      ]
+    ],
+    [
+      "bn1.bias",
+      [
+        8
+      ]
+    ],
+    [
+      "conv2.weight",
+      [
+        8,
+        8,
+        3,
+        3
+      ]
+    ],
+    [
+      "bn2.weight",
+      [
+        8
+      ]
+    ],
+    [
+      "bn2.bias",
+      [
+        8
+      ]
+    ],
+    [
+      "fc.weight",
+      [
+        10,
+        8
+      ]
+    ],
+    [
+      "fc.bias",
+      [
+        10
+      ]
+    ],
+    [
+      "bn1.running_mean",
+      [
+        8
+      ]
+    ],
+    [
+      "bn1.running_var",
+      [
+        8
+      ]
+    ],
+    [
+      "bn2.running_mean",
+      [
+        8
+      ]
+    ],
+    [
+      "bn2.running_var",
+      [
+        8
+      ]
+    ]
+  ],
+  "trainable_param_count": 914,
+  "param_names_flat_order": [
+    "base.conv1.weight",
+    "base.bn1.weight",
+    "base.bn1.bias",
+    "base.conv2.weight",
+    "base.bn2.weight",
+    "base.bn2.bias",
+    "base.fc.weight",
+    "base.fc.bias"
+  ],
+  "batch_norm": [
+    {
+      "module": "bn1",
+      "num_features": 8,
+      "momentum": 0.1,
+      "eps": 1e-05,
+      "values_per_example": 36
+    },
+    {
+      "module": "bn2",
+      "num_features": 8,
+      "momentum": 0.1,
+      "eps": 1e-05,
+      "values_per_example": 4
+    }
+  ],
+  "pte_file": "bn_trainable_dynbatch.pte",
+  "pte_sha256": "6c3549fd231876229a7fccd92c72b0977ed6184df742e441b75c9bec95edbe71",
+  "loss_pte_file": "bn_loss_dynbatch.pte",
+  "loss_pte_sha256": "7e9c5e9dd8082b197285d8d32b4371ad540bfee160c3b5e3c895973ad5e1a84e",
+  "final_state_file": "bn_adam_final.f32",
+  "endpoint_atol": 0.0001,
+  "control_separation": {
+    "stats_never_updated": 0.5711117386817932,
+    "batch_norm_in_eval_mode": 0.5711117386817932,
+    "momentum_0_01": 0.4998212456703186,
+    "biased_running_variance": 0.003800511360168457,
+    "sequential_order": 0.02649235725402832
+  },
+  "wide": {
+    "description": "Gradient precision of a BatchNorm over many values per channel: one SGD step on the probe batch (pte_export.probe_batch, step 1), gradient from torch in float64.",
+    "pte_file": "bn_wide_trainable.pte",
+    "pte_sha256": "0b7fbc3585fe1104497743bf7ca65b2707daf4f5cb7d9f128188b3b895b31e81",
+    "input_shape": [
+      3,
+      64,
+      64
+    ],
+    "rows": 8,
+    "classes": 10,
+    "learning_rate": 0.1,
+    "gradient_file": "bn_wide_grad.f64",
+    "bias_rtol": 1e-06
+  }
+}

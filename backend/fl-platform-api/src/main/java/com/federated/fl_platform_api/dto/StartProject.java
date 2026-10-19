@@ -17,6 +17,10 @@ import jakarta.validation.constraints.Pattern;
  * command.
  */
 public class StartProject {
+    private com.federated.fl_platform_api.model.FedOptSettings fedOpt;
+    public com.federated.fl_platform_api.model.FedOptSettings getFedOpt() { return fedOpt; }
+    public void setFedOpt(com.federated.fl_platform_api.model.FedOptSettings settings) { fedOpt = settings; }
+
 
     /**
      * Gradient strategies mirror those registered in
@@ -33,8 +37,8 @@ public class StartProject {
      * so it produces a real FedProx run rather than a mislabeled FedAvg.
      */
     @Pattern(
-            regexp = "FedAvg|DeComFL|FedProx|FedOpt|Robust|FoT",
-            message = "strategy must be one of: FedAvg, DeComFL, FedProx, FedOpt, Robust, FoT"
+            regexp = "FedAvg|DeComFL|FedProx|FedOpt|Robust|FoT|XgbBagging",
+            message = "strategy must be one of: FedAvg, DeComFL, FedProx, FedOpt, Robust, FoT, XgbBagging"
     )
     private String strategy;
 
@@ -49,6 +53,14 @@ public class StartProject {
             message = "trainingArm must be one of: FULL, FROZEN_HEAD, OVA_LP"
     )
     private String trainingArm;
+
+    /**
+     * V30: where this run's training data comes from, as a {@link com.federated.fl_platform_api.model.TrainingDataSource}
+     * name. Omitted means {@code FIXTURE}, the recipe's committed data (unchanged behaviour). {@code LOCAL_SNAPSHOT}
+     * trains each participant's own dataset imported on its device, and the server then serves no training data.
+     */
+    @Pattern(regexp = "FIXTURE|LOCAL_SNAPSHOT", message = "dataSource must be one of: FIXTURE, LOCAL_SNAPSHOT")
+    private String dataSource;
 
     @Min(value = 1, message = "numRounds must be at least 1")
     @Max(value = 100, message = "numRounds must be at most 100")
@@ -155,6 +167,14 @@ public class StartProject {
 
     public void setTrainingArm(String trainingArm) {
         this.trainingArm = trainingArm;
+    }
+
+    public String getDataSource() {
+        return dataSource;
+    }
+
+    public void setDataSource(String dataSource) {
+        this.dataSource = dataSource;
     }
 
     public String getRobustMethod() {

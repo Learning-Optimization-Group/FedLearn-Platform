@@ -1,0 +1,108 @@
+{
+  "date": "2026-10-11",
+  "source_commit": "73ca4bf",
+  "scope": "Native transport lifecycle and required-registration reconnect corrections after final review",
+  "review": {
+    "range": "8c91746..e0f233c",
+    "important_findings": 2,
+    "critical_findings": 0,
+    "deferred_minors": []
+  },
+  "native_regression": {
+    "interleaving_tests": 4,
+    "unsafe_variant_failed_tests": 3,
+    "full_host_native_suite_passed": true,
+    "source_sha256": "be7a960337e7074eacb13c2abaf136099e364ab52679e96c53dd90967af3e709"
+  },
+  "reconnect_regression": {
+    "failing_regressions_before_fix": 3,
+    "focused_tests_passed": 30,
+    "full_mobile_tests_passed": 681,
+    "lint_and_types_passed": true,
+    "requires_accepted_registration_before_rounds": true,
+    "default_twenty_second_outage_recovery": true,
+    "exhausted_registration_budget_refuses_rounds": true,
+    "stop_interrupts_reconnect_waits": true
+  },
+  "physical_native_fixture": {
+    "scope": "Real vivo native gRPC transport against a fixed-response local TLS server; not full HTTPS enrollment or federated-training qualification",
+    "server_certificate_sha256": "3ce27cb16953e238de2a733415c8ae998cb84e817ac9fded4bff9569c4c4f013",
+    "private_key_persisted": false,
+    "successful_registration_count": 2,
+    "cases": [
+      {
+        "case": "trusted",
+        "accepted": true,
+        "seconds": 0.6950796669989359,
+        "result": {
+          "state": "done",
+          "result": {
+            "accepted": true,
+            "message": "local TLS fixture",
+            "assignedRound": 1,
+            "serverProtocolVersion": 2
+          },
+          "status": {
+            "serverState": "TRAINING_COMPLETE",
+            "currentRound": 1,
+            "requiredClientsForRound": 1,
+            "receivedUpdatesThisRound": 1,
+            "activeClients": 1,
+            "roundDeadlineUnixMs": 0
+          }
+        }
+      },
+      {
+        "case": "wrong-root",
+        "accepted": false,
+        "seconds": 0.4542710419918876,
+        "result": {
+          "state": "refused",
+          "error": "RegisterClient failed: gRPC code 14: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:58443: Ssl handshake failed (TSI_PROTOCOL_FAILURE): SSL_ERROR_SSL: error:1000007d:SSL routines:OPENSSL_internal:CERTIFICATE_VERIFY_FAILED"
+        }
+      },
+      {
+        "case": "wrong-hostname",
+        "accepted": false,
+        "seconds": 0.6367610839952249,
+        "result": {
+          "state": "refused",
+          "error": "RegisterClient failed: gRPC code 14: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:58443: Peer name 127.0.0.1 is not in peer certificate"
+        }
+      },
+      {
+        "case": "default-untrusted-roots",
+        "accepted": false,
+        "seconds": 0.5548702090163715,
+        "result": {
+          "state": "refused",
+          "error": "RegisterClient failed: gRPC code 14: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:58443: Ssl handshake failed (TSI_PROTOCOL_FAILURE): SSL_ERROR_SSL: error:1000007d:SSL routines:OPENSSL_internal:CERTIFICATE_VERIFY_FAILED"
+        }
+      },
+      {
+        "case": "plaintext-to-tls",
+        "accepted": false,
+        "seconds": 0.6314423749863636,
+        "result": {
+          "state": "refused",
+          "error": "RegisterClient failed: gRPC code 14: failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:58443: Socket closed"
+        }
+      }
+    ],
+    "lifecycle": {
+      "blocked_registration_refused": true,
+      "native_stop_seconds": 0.371189332974609,
+      "blocked_registration_heartbeat_absent": true,
+      "fresh_registration_accepted": true,
+      "fresh_registration_heartbeat_observed": true,
+      "final_native_stop_complete": true
+    }
+  },
+  "fixture_driver_sha256": "4aaffc4c603b7ab0b6ef14f9045caabe10d5f4c6d6ef88562aed51e546411984",
+  "limits": [
+    "Fixed-response local TLS server and actual Debug TurboModule, not a complete authenticated federated-training run.",
+    "Deterministic native regressions cover replacement/start/stop interleavings; physical fixture covers cancellation during a blocked registration and an observed heartbeat after fresh accepted registration.",
+    "Twenty-second reconnect state-machine behavior is regression-tested; no fresh physical image-outage run on this final source is claimed.",
+    "Earlier image contributions and original numerical replays remain valid within their recorded source scope."
+  ]
+}

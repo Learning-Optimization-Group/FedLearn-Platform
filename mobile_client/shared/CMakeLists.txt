@@ -13,6 +13,9 @@ add_library(fedlearn_core STATIC
   src/Safetensors.cpp
   src/DataLoader.cpp
   src/FederatedLoop.cpp
+  src/BatchOrder.cpp
+  src/DropoutMasks.cpp
+  src/DatasetEvaluation.cpp
 )
 
 # First-order (FedAvg/FedProx) on-device training via the ExecuTorch training extension. OFF by
@@ -21,7 +24,7 @@ add_library(fedlearn_core STATIC
 # EXECUTORCH_BUILD_EXTENSION_TRAINING=ON. It adds TrainableExecutorchModel + the training libs.
 option(FEDLEARN_BUILD_TRAINING "First-order training (ET training extension + TrainableExecutorchModel)" OFF)
 if(FEDLEARN_BUILD_TRAINING)
-  target_sources(fedlearn_core PRIVATE src/TrainableExecutorchModel.cpp)
+  target_sources(fedlearn_core PRIVATE src/TrainableExecutorchModel.cpp src/Qualification.cpp)
   target_compile_definitions(fedlearn_core PUBLIC FEDLEARN_HAS_TRAINING)
 endif()
 
@@ -54,10 +57,14 @@ endforeach()
 # executables linking fedlearn_core inherit the force-load.
 find_library(ET_PORTABLE_OPS_LIB NAMES portable_ops_lib libportable_ops_lib
   PATHS "${ET_BUILD}" PATH_SUFFIXES . lib kernels/portable NO_DEFAULT_PATH REQUIRED)
+# libexecutorch registers the prim ops the same way (kernels/prim_ops/register_prim_ops.cpp:
+# executorch_prim::et_view, aten::sym_size and the scalar arithmetic a program with a dynamic shape or a flatten
+# emits). Nothing references them by symbol, so without the force-load the linker drops them and a program that
+# needs one fails to load with OperatorMissing (error 20). TinyNet and the MLP needed none; the CNN's flatten does.
 if(APPLE)
-  set(_force_ops "-Wl,-force_load,${ET_PORTABLE_OPS_LIB}")
+  set(_force_ops "-Wl,-force_load,${ET_PORTABLE_OPS_LIB}" "-Wl,-force_load,${ET_LIB_executorch}")
 else()
-  set(_force_ops "-Wl,--whole-archive" "${ET_PORTABLE_OPS_LIB}" "-Wl,--no-whole-archive")
+  set(_force_ops "-Wl,--whole-archive" "${ET_PORTABLE_OPS_LIB}" "${ET_LIB_executorch}" "-Wl,--no-whole-archive")
 endif()
 
 get_filename_component(ET_SRC_PARENT "${ET_SRC}" DIRECTORY)
@@ -113,6 +120,25 @@ if(FEDLEARN_BUILD_GRPC)
   # full transitive graph (utf8_validity, utf8_range, abseil). GRPC_DIR is on CMAKE_PREFIX_PATH.
   find_package(protobuf CONFIG REQUIRED)
   find_package(gRPC CONFIG REQUIRED)
+  if(ANDROID AND TARGET gRPC::crypto)
+    # Isolate BoringSSL's optional weak function from Folly's exported sdallocx
+    # function-pointer variable. Rename only the crypto archive's reference: a
+    # whole-library --wrap would also rewrite legitimate Folly variable references.
+    get_target_property(_crypto_configs gRPC::crypto IMPORTED_CONFIGURATIONS)
+    foreach(_config IN LISTS _crypto_configs)
+      get_target_property(_crypto_archive gRPC::crypto "IMPORTED_LOCATION_${_config}")
+      set(_isolated_crypto "${CMAKE_BINARY_DIR}/libcrypto-${_config}-isolated.a")
+      execute_process(
+        COMMAND "${CMAKE_OBJCOPY}" --redefine-sym=sdallocx=fedlearn_boringssl_sdallocx
+                "${_crypto_archive}" "${_isolated_crypto}"
+        RESULT_VARIABLE _crypto_rename_result)
+      if(NOT _crypto_rename_result EQUAL 0)
+        message(FATAL_ERROR "Could not isolate the BoringSSL allocator symbol")
+      endif()
+      set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_crypto_archive}")
+      set_property(TARGET gRPC::crypto PROPERTY "IMPORTED_LOCATION_${_config}" "${_isolated_crypto}")
+    endforeach()
+  endif()
   file(GLOB FEDLEARN_GENERATED_SRCS "${GENERATED_PROTO_DIR}/fedlearn/v2/*.cc")
   add_library(fedlearn_grpc STATIC
     src/FedLearnClient.cpp
@@ -128,11 +154,23 @@ if(FEDLEARN_BUILD_GRPC)
     protobuf::libprotobuf
   )
   target_compile_features(fedlearn_grpc PUBLIC cxx_std_17)
+  target_compile_definitions(fedlearn_grpc PRIVATE
+    "$<$<CONFIG:Debug>:FEDLEARN_ALLOW_INSECURE_GRPC=1>")
 
   if(FEDLEARN_BUILD_TESTS)
     add_executable(fedlearn_grpc_tests tests/grpc_marshal_test.cpp)
     target_link_libraries(fedlearn_grpc_tests PRIVATE fedlearn_grpc GTest::gtest_main)
     include(GoogleTest)
     gtest_discover_tests(fedlearn_grpc_tests)
+
+    # Compile the same transport for a plaintext loopback fixture independently
+    # of the production library's Debug-only insecure-transport permission.
+    add_executable(fedlearn_grpc_recovery_tests
+      tests/grpc_recovery_test.cpp src/FedLearnClient.cpp ${FEDLEARN_GENERATED_SRCS})
+    target_include_directories(fedlearn_grpc_recovery_tests PRIVATE ${GENERATED_PROTO_DIR})
+    target_link_libraries(fedlearn_grpc_recovery_tests PRIVATE
+      fedlearn_core gRPC::grpc++ protobuf::libprotobuf GTest::gtest_main)
+    target_compile_definitions(fedlearn_grpc_recovery_tests PRIVATE FEDLEARN_ALLOW_INSECURE_GRPC=1)
+    gtest_discover_tests(fedlearn_grpc_recovery_tests)
   endif()
 endif()

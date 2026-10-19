@@ -32,7 +32,12 @@ describe('sanitizeDatasetPath', () => {
     expect(path.isAbsolute(result!)).toBe(true);
   });
 
-  test('returns null for a non-string input', () => {
+  test.each(['csv','zip'])('accepts a selected local dataset %s file', (extension) => {
+    const file=path.join(tempDir,`input.${extension}`);fs.writeFileSync(file,'data');
+    try { expect(sanitizeDatasetPath(file)).toBe(file); } finally { fs.unlinkSync(file); }
+  });
+
+  test('returns null for a non-string input' , () => {
     expect(sanitizeDatasetPath(42)).toBeNull();
     expect(sanitizeDatasetPath(null)).toBeNull();
     expect(sanitizeDatasetPath(undefined)).toBeNull();

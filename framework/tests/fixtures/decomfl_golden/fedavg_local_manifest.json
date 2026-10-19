@@ -29,5 +29,9 @@
   "final_flat_sha256": "a57c98c268a726660308c15222fc2a2a417929bda2a7d570260a833efa06ae22",
   "state_file": "fedavg_local_state.safetensors",
   "state_sha256": "1713d29354c8bd801304a22e89d4d3622ecaea820d0833a0ed76636b4b5779a3",
-  "endpoint_atol": 0.002
+  "endpoint_atol": 0.002,
+  "small_batch_examples": 6,
+  "small_batch_final_flat_file": "fedavg_local_final_6.f32",
+  "small_batch_final_flat_sha256": "0f5addb7c5e4bf0584921a7636edaa4a1b71754173b8a163c39da788ddae1f56",
+  "small_batch_separation_from_full_batch": 0.07068700343370438
 }

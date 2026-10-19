@@ -229,6 +229,81 @@ class ClientApiServiceTest {
         assertEquals("DeComFL", dto.getStrategy());
     }
 
+    private com.federated.fl_platform_api.dto.EnrollmentDto enrollmentWith(
+            com.federated.fl_platform_api.dto.RunManifestDto manifest) {
+        com.federated.fl_platform_api.dto.EnrollmentDto enr = new com.federated.fl_platform_api.dto.EnrollmentDto();
+        enr.setGrpcEndpoint("localhost:50007");
+        enr.setPartitionId(0);
+        enr.setConnectionToken("tok");
+        enr.setManifest(manifest);
+        return enr;
+    }
+
+    @Test
+    void getConnection_carriesTheRunIdAndItsPublishedContract() {
+        UUID pid = UUID.randomUUID();
+        UUID rid = UUID.randomUUID();
+        Project p = proj(pid, ProjectVisibility.PUBLIC, user(2L));
+        p.setStatus("RUNNING");
+        p.setActiveRunId(rid);
+        when(projectRepository.findById(pid)).thenReturn(Optional.of(p));
+        var manifest = new com.federated.fl_platform_api.dto.RunManifestDto();
+        manifest.setContractState("READY");
+        manifest.setContractId("c".repeat(64));
+        var contract = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode().put("runId", rid.toString());
+        manifest.setExecutionContract(contract);
+        when(runService.enroll(rid)).thenReturn(enrollmentWith(manifest));
+
+        var dto = service.getConnection(pid);
+
+        assertEquals(rid, dto.getRunId());
+        assertEquals("READY", dto.getContractState());
+        assertEquals("c".repeat(64), dto.getContractId());
+        assertEquals(contract, dto.getExecutionContract());
+        assertNull(dto.getContractUnavailableReason());
+    }
+
+    @Test
+    void getConnection_passesOnWhyNoContractIsAvailable() {
+        UUID pid = UUID.randomUUID();
+        UUID rid = UUID.randomUUID();
+        Project p = proj(pid, ProjectVisibility.PUBLIC, user(2L));
+        p.setStatus("RUNNING");
+        p.setActiveRunId(rid);
+        when(projectRepository.findById(pid)).thenReturn(Optional.of(p));
+        var manifest = new com.federated.fl_platform_api.dto.RunManifestDto();
+        manifest.setContractState("UNAVAILABLE");
+        manifest.setContractUnavailableReason("NOT_REPRESENTABLE");
+        when(runService.enroll(rid)).thenReturn(enrollmentWith(manifest));
+
+        var dto = service.getConnection(pid);
+
+        assertEquals("UNAVAILABLE", dto.getContractState());
+        assertEquals("NOT_REPRESENTABLE", dto.getContractUnavailableReason());
+        assertNull(dto.getExecutionContract());
+    }
+
+    @Test
+    void getConnection_statesTheArmTheRunRecorded() {
+        UUID pid = UUID.randomUUID();
+        UUID rid = UUID.randomUUID();
+        Project p = proj(pid, ProjectVisibility.PUBLIC, user(2L));
+        p.setStatus("RUNNING");
+        p.setActiveRunId(rid);
+        p.setModelName("net");
+        p.setTrainingArm(com.federated.fl_platform_api.model.TrainingArm.FULL);
+        when(projectRepository.findById(pid)).thenReturn(Optional.of(p));
+        when(runService.enroll(rid)).thenReturn(enrollmentWith(null));
+        com.federated.fl_platform_api.model.Run run = new com.federated.fl_platform_api.model.Run();
+        run.setStrategy("FedAvg");
+        run.setIntent(new com.federated.fl_platform_api.model.RunIntent(
+                com.federated.fl_platform_api.model.TrainingArm.FROZEN_HEAD, "net", null, false, null, null, null,
+                false, false, 120_000L));
+        when(runRepository.findById(rid)).thenReturn(Optional.of(run));
+
+        assertEquals("FROZEN_HEAD", service.getConnection(pid).getTrainingArm());
+    }
+
     @Test
     void getConnection_noActiveRun_throwsProjectState() {
         UUID pid = UUID.randomUUID();

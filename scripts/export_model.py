@@ -36,11 +36,11 @@ import numpy as np
 import torch
 
 REPO = Path(__file__).resolve().parent.parent
-BACKEND_SCRIPTS = REPO / "backend" / "fl-platform-api" / "src" / "main" / "resources" / "scripts"
+FL_RUNTIME = REPO / "fl-runtime"
 MOBILE_SCRIPTS = REPO / "mobile_client" / "scripts"
-# recipes.py (recipe catalog + build_model), pte_export.py (the ExecuTorch export primitives),
-# stage_model_bundle.py (the staging that owns the served bundle shape) — reused, not duplicated.
-for p in (BACKEND_SCRIPTS, MOBILE_SCRIPTS, REPO / "scripts"):
+# recipes.py + execution_plan.py (the recipe catalog and its contract plans), pte_export.py (the ExecuTorch export
+# primitives), stage_model_bundle.py (the staging that owns the served bundle shape) — reused, not duplicated.
+for p in (FL_RUNTIME, MOBILE_SCRIPTS, REPO / "scripts"):
     sys.path.insert(0, str(p))
 
 import recipes  # noqa: E402
@@ -53,10 +53,78 @@ import stage_model_bundle  # noqa: E402
 # One entry per functional/mobile recipe; extend when a new mobile recipe lands.
 EXAMPLE_SHAPES = {
     "TINYNET_GOLDEN": (4,),
+    "MLP": (140,),
     "CNN": (3, 32, 32),
+    "CIFAR_RESNET18": (3, 112, 112),  # the 112 x 112 images its recipe resizes to; a package carries them
     "BLOOD_CNN": (3, 28, 28),
     "PNEUMONIA_CNN": (1, 224, 224),
+    "NIH_PNEUMONIA_CNN": (1, 224, 224),
 }
+
+
+# Declared resource budgets per recipe: what the contract's envelope states and what qualification holds a device to
+# (probeMs). They are declarations, not measurements. A recipe with none declared gets no contract fields, so the
+# backend publishes no contract for it rather than one with invented budgets.
+ENVELOPES = {
+    "CIFAR_RESNET18": {
+        "peakMemoryBytes": 2 * 1024 * 1024 * 1024,
+        "probeMs": 600000,
+        "trainMs": 7200000,
+        "basis": "Declared budgets, not measurements. ResNet-18 has 11,181,642 parameters (45 MB as float32) and trains "
+                 "batches of at most 32 images of 3 x 112 x 112. On the portable CPU kernels the host measured 16.9 s "
+                 "for two 8-image steps on an M4 Max, so a phone round can take tens of minutes; qualification "
+                 "measures a device against probeMs. Storage is the staged model files' total size.",
+    },
+    "PNEUMONIA_CNN": {
+        "peakMemoryBytes": 2 * 1024 * 1024 * 1024,
+        "probeMs": 600000,
+        "trainMs": 7200000,
+        "basis": "Declared budgets, not measurements. The pneumonia CNN has 25,783,554 parameters (103 MB as float32; "
+                 "all but 0.3% in one 100,352 x 256 linear layer) and trains batches of at most 16 grayscale images of "
+                 "224 x 224. Adam keeps two more copies of the parameters, so training holds ~0.5 GB of state before "
+                 "activations. Qualification measures a device against probeMs. Storage is the staged model files' "
+                 "total size.",
+    },
+    "CNN": {
+        "peakMemoryBytes": 128 * 1024 * 1024,
+        "probeMs": 5000,
+        "trainMs": 120000,
+        "basis": "Declared budgets, not measurements. The CNN has 62,006 parameters (248 KB as float32) and trains "
+                 "batches of at most 32 images of 3 x 32 x 32, so these bound it generously; portable-CPU "
+                 "qualification measures a device against probeMs. Storage is the staged model files' total size.",
+    },
+    "MLP": {
+        "peakMemoryBytes": 64 * 1024 * 1024,
+        "probeMs": 2000,
+        "trainMs": 60000,
+        "basis": "Declared budgets, not measurements. The MLP has 13,314 parameters (53 KB as float32) and trains "
+                 "batches of at most 128 x 140 features, so these bound it generously; portable-CPU qualification "
+                 "measures a device against probeMs. Storage is the staged model files' total size.",
+    },
+}
+
+# Most examples a probe uses: the probe is two steps on a small synthetic batch, whatever the run's batch size.
+ENVELOPES["NIH_PNEUMONIA_CNN"] = dict(ENVELOPES["PNEUMONIA_CNN"])
+PROBE_ROWS = 8
+
+
+def _plan_batch_size(key: str) -> int | None:
+    """The batch size the recipe's first-order contract plan trains with, or None when it has no plan."""
+    import execution_plan
+    try:
+        source = "LOCAL_SNAPSHOT" if key == "NIH_PNEUMONIA_CNN" else "FIXTURE"
+        return int(execution_plan.resolve_model_training(key, "FedAvg", "FULL", data_source=source).local_training.batch_size)
+    except execution_plan.NotRepresentable:
+        return None
+
+
+def _operators(program: bytes) -> set[str]:
+    """The runtime operators a program calls, read from the program itself."""
+    from executorch.exir._serialize._program import deserialize_pte_binary
+    parsed = deserialize_pte_binary(program)
+    parsed = getattr(parsed, "program", parsed)
+    return {f"{op.name}.{op.overload}" if op.overload else op.name
+            for plan in parsed.execution_plan for op in plan.operators}
 
 
 def _sha256(path: Path) -> str:
@@ -79,9 +147,12 @@ def build_recipe_model(recipe_key: str) -> tuple[torch.nn.Module, int]:
         # functional but deliberately off-catalog (recipes.py:364) -> get_recipe() raises; build directly.
         return recipes.build_blood_cnn().eval(), 8
     recipe = recipes.get_recipe(key)
-    if not recipe.is_functional:
-        raise SystemExit(f"recipe {key} is not functional (no build_model); cannot export")
-    return recipe.build_model(device="cpu").eval(), len(recipe.classes)
+    # Export needs only the model. (is_functional says whether the model AND its data live in recipes.py, which
+    # CIFAR_RESNET18's do not count as, although its build_model does.)
+    try:
+        return recipe.build_model(device="cpu").eval(), len(recipe.classes)
+    except NotImplementedError as exc:
+        raise SystemExit(f"recipe {key} has no build_model; cannot export ({exc})") from exc
 
 
 def _load_init_state(model: torch.nn.Module, path: Path) -> None:
@@ -112,6 +183,8 @@ def export_recipe_bundle(
     if key not in EXAMPLE_SHAPES:
         raise SystemExit(f"no example-input shape registered for recipe {key}; add it to EXAMPLE_SHAPES")
 
+    # Seeded, so the weights a program embeds (and its probe reference is computed from) are the same on every export.
+    torch.manual_seed(seed)
     model, num_classes = build_recipe_model(key)
     if init_state is not None:
         _load_init_state(model, init_state)
@@ -123,9 +196,30 @@ def export_recipe_bundle(
     x = torch.randn(num_samples, *feat, generator=g, dtype=torch.float32)
     y = torch.randint(0, num_classes, (num_samples,), generator=g, dtype=torch.int64)
 
+    # Every program takes 1..max_batch examples per call, so a device can train its own dataset (and, with
+    # minibatching, a final partial batch) rather than only a batch of exactly the example's size, which a static
+    # export refuses at runtime (ExecuTorch NotSupported). The bound is the batch size the recipe's contract plan
+    # trains with (the backend refuses a contract whose batch exceeds it), else the example count.
+    max_batch = _plan_batch_size(key) or num_samples
+    if num_samples > max_batch:
+        raise SystemExit(f"{num_samples} example rows exceed the programs' batch bound {max_batch}")
+
+    # A model with BatchNorm trains it in training mode on a device (Stage 4 S7): its running statistics are federated
+    # state, so the loss and infer programs take them in their flat input after the parameters (federated_flat).
+    has_batch_norm = bool(pte_export.batch_norm_layers(model))
+
     # Weight-free graphs. pte_export bakes frozen params as constants; trainable params are the flat input.
-    loss_pte = pte_export.export_functional_pte(model, (x, y))
-    infer_pte = pte_export.export_functional_infer_pte(model, x)
+    functional_x, functional_y = x, y
+    if key == "CNN":
+        # Edge conversion narrows this CNN's symbolic batch range around the example count: tracing eight rows
+        # plans only fifteen. Trace at the requested upper bound so DeComFL can evaluate its entire local batch.
+        # These are shape examples only; the original x/y below still define the unchanged qualification probe.
+        functional_x = x[:1].expand(max_batch, *feat).contiguous()
+        functional_y = y[:1].expand(max_batch).contiguous()
+    loss_pte = pte_export.export_functional_pte(model, (functional_x, functional_y), max_batch=max_batch,
+                                              include_buffers=has_batch_norm)
+    infer_pte = pte_export.export_functional_infer_pte(model, functional_x, max_batch=max_batch,
+                                                    include_buffers=has_batch_norm)
 
     # First-order (FedAvg) trainable graph: forward(x, y) -> (cross_entropy, prediction) with a CAPTURED
     # backward pass, loadable by ET's TrainingModule on the phone (execute_forward_backward + SGD). This is
@@ -133,10 +227,19 @@ def export_recipe_bundle(
     # named_parameters onto training_trainable_names() order. Feasible recipes only (small enough to ship +
     # fit device memory); a heavy recipe still ships loss/infer for DeComFL. Best-effort: if the ET training
     # export cannot capture this model's backward, we degrade to a DeComFL-only bundle rather than fail.
+    # A model with dropout gets the masked program, forward(x, y, masks): its masks come from the contract's seeded
+    # stream, so a device's step is reproducible, which ExecuTorch's own dropout RNG would not be.
     trainable_pte: bytes | None = None
     trainable_param_names: list[str] = []
     try:
-        trainable_pte = pte_export.export_trainable_pte(model, (x, y))
+        if has_batch_norm:
+            # Training-mode BatchNorm rebuilt from primitive ops, returning each step's batch statistics.
+            trainable_pte = pte_export.export_bn_trainable_pte(model, (x, y), max_batch=max_batch)
+        elif pte_export.dropout_layers(model):
+            trainable_pte = pte_export.export_masked_trainable_pte(
+                model, (x, y), mask_shapes=pte_export.dropout_mask_shapes(model, x), max_batch=max_batch)
+        else:
+            trainable_pte = pte_export.export_trainable_pte(model, (x, y), max_batch=max_batch)
         trainable_param_names = pte_export.training_trainable_names(model)
     except Exception as e:  # noqa: BLE001 — export is experimental; never let it abort the (DeComFL) bundle
         print(f"  [trainable-pte] export failed for {key} ({type(e).__name__}: {e}); "
@@ -152,6 +255,11 @@ def export_recipe_bundle(
 
     # Sanity: the flat layout the phone will perturb must equal the server's aggregation order.
     assert trainable == sum(pl["numel"] for pl in param_layout), "trainable flat != sum(param_layout)"
+    # The staged layout is the federated state: after the parameters, each BatchNorm layer's running statistics.
+    if has_batch_norm:
+        buffers = dict(model.named_buffers())
+        param_layout += [{"name": n, "shape": list(buffers[n].shape), "numel": buffers[n].numel()}
+                         for n in pte_export.federated_buffer_names(model)]
 
     # Reference metrics on the example batch (reporting only).
     with torch.no_grad():
@@ -194,6 +302,23 @@ def export_recipe_bundle(
             manifest["trainable_sha256"] = _sha256(fx / "trainable.pte")
             manifest["trainable_param_names"] = trainable_param_names
         (fx / "zo_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+
+        # What the execution contract needs from the bundle, for a recipe with declared budgets: the operators the
+        # programs call, the envelope, the batch bound the programs were exported with, and the qualification probe.
+        envelope = ENVELOPES.get(key)
+        if envelope is not None:
+            programs = [loss_pte, infer_pte] + ([trainable_pte] if trainable_pte is not None else [])
+            (fx / "artifact_metadata.json").write_text(json.dumps({
+                "requiredOperators": sorted(set().union(*(_operators(p) for p in programs))),
+                "resourceEnvelope": envelope,
+            }, indent=2) + "\n")
+            dynbatch = {"max_batch": max_batch}
+            # The probe's batch takes each example's shape (an image's [channels, height, width]).
+            if trainable_pte is not None:
+                dynbatch["probe"] = pte_export.probe_reference(
+                    model, rows=min(PROBE_ROWS, max_batch), width=int(np.prod(feat)), classes=num_classes,
+                    input_shape=feat)
+            (fx / "fedavg_pte_manifest.json").write_text(json.dumps({"dynbatch": dynbatch}, indent=2) + "\n")
         dest = stage_model_bundle.stage_bundle(run_id, out_root, fixture=fx)
 
     # stamp the real recipe key into the staged manifest meta (stage_bundle hardcodes "tinynet-golden").

@@ -90,3 +90,69 @@ def test_submit_model_update_with_non_finite_params_is_invalid_argument():
     with pytest.raises(_Aborted):
         servicer.SubmitModelUpdate(req, ctx)
     assert ctx.code == grpc.StatusCode.INVALID_ARGUMENT
+
+
+# --- a deliberate abort inside a handler's try must reach the client as itself ---------------------------------
+# gRPC's context.abort() works by raising. Raised inside a handler's broad try, it was caught by `except Exception`,
+# logged as "RPC failed" with a stack trace, and replaced by INTERNAL: a client at the end of a run was told
+# "An internal server error occurred" and retried instead of seeing "Training complete".
+
+def _model_servicer(answer):
+    coordinator = MagicMock()
+    coordinator.get_global_model_for_client.return_value = answer
+    return FederatedLearningServiceServicer(coordinator)
+
+
+@pytest.mark.parametrize("answer, code, details", [
+    ((None, -1, {}), grpc.StatusCode.UNAVAILABLE, "Training complete"),
+    ((None, 1, {}), grpc.StatusCode.UNAVAILABLE, "Server not initialized"),
+], ids=["run_over", "no_model_yet"])
+def test_the_model_stream_refuses_with_its_own_status(answer, code, details, caplog):
+    ctx = _AbortContext()
+    with pytest.raises(_Aborted):
+        list(_model_servicer(answer).GetGlobalModelStream(pb.GetGlobalModelRequest(client_id="c"), ctx))
+    assert (ctx.code, ctx.details) == (code, details)
+    assert "RPC failed" not in caplog.text
+
+
+def test_the_unary_model_download_refuses_a_missing_model_as_unavailable(caplog):
+    ctx = _AbortContext()
+    with pytest.raises(_Aborted):
+        _model_servicer((None, 1, {})).GetGlobalModel(pb.GetGlobalModelRequest(client_id="c"), ctx)
+    assert ctx.code == grpc.StatusCode.UNAVAILABLE
+    assert "RPC failed" not in caplog.text
+
+
+def test_the_unary_model_download_tells_a_client_to_stream_a_model_too_large_for_it(monkeypatch, caplog):
+    import fedlearn.server.grpc_servicer as servicer_module
+
+    def too_large(*_args, **_kwargs):
+        raise MemoryError
+
+    monkeypatch.setattr(servicer_module, "parameters_to_proto", too_large)
+    ctx = _AbortContext()
+    with pytest.raises(_Aborted):
+        _model_servicer((OrderedDict({"w": torch.zeros(2)}), 1, {})).GetGlobalModel(
+            pb.GetGlobalModelRequest(client_id="c"), ctx)
+    assert ctx.code == grpc.StatusCode.RESOURCE_EXHAUSTED
+    assert "RPC failed" not in caplog.text
+
+
+def test_no_handler_aborts_inside_a_broad_try():
+    """Guard: context.abort() raises, so called inside a try whose handler catches Exception it is swallowed and
+    re-sent as INTERNAL. Deliberate refusals are raised as _Refusal and aborted from their own clause instead."""
+    import ast
+    import inspect
+    import fedlearn.server.grpc_servicer as servicer_module
+
+    offenders = []
+    for node in ast.walk(ast.parse(inspect.getsource(servicer_module))):
+        if not isinstance(node, ast.Try):
+            continue
+        if not any(h.type is None or (isinstance(h.type, ast.Name) and h.type.id in ("Exception", "BaseException"))
+                   for h in node.handlers):
+            continue
+        for inner in ast.walk(ast.Module(body=node.body, type_ignores=[])):
+            if isinstance(inner, ast.Call) and getattr(inner.func, "attr", "") == "abort":
+                offenders.append(inner.lineno)
+    assert offenders == [], f"context.abort() inside a broad try at lines {offenders}"

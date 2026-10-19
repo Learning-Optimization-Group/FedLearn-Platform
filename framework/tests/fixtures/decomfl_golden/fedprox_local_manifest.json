@@ -1,0 +1,33 @@
+{
+  "description": "FedProx local-update golden. LocalTrainer.fit with proximal_mu > 0: the FedAvg golden's local_epochs full-batch SGD steps at lr, each adding mu * (w - w_global) to the gradient.",
+  "torch_version": "2.12.0",
+  "platform_machine": "arm64",
+  "learning_rate": 0.1,
+  "local_epochs": 5,
+  "proximal_mu": 0.1,
+  "flat_dim": 25,
+  "initial_flat_file": "zo_flat.f32",
+  "inputs_file": "zo_inputs.f32",
+  "targets_file": "zo_targets.i64",
+  "param_layout": [
+    [
+      "fc1.weight",
+      [
+        5,
+        4
+      ],
+      20
+    ],
+    [
+      "fc1.bias",
+      [
+        5
+      ],
+      5
+    ]
+  ],
+  "final_flat_file": "fedprox_local_final.f32",
+  "final_flat_sha256": "6746c9f8ed9433712321795a27ca79a8309194e6b307bc5ab2e038eb38af5623",
+  "endpoint_atol": 0.0001,
+  "separation_from_fedavg": 0.0013731420040130615
+}

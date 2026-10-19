@@ -21,6 +21,7 @@
 import Docker from 'dockerode';
 import { app, BrowserWindow } from 'electron';
 import { ChildProcess, spawn } from 'child_process';
+import { CONTAINER_EXECUTION_CONTRACT_PATH } from './executionContract';
 import { CONTAINER_ROOT_CERT_PATH } from './grpcTls';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -34,6 +35,7 @@ export interface TrainingConfig {
   serverAddress: string;
   partitionId: string;
   modelType: string;
+  modelName?: string;
   datasetPath: string;
   // The active run's aggregation strategy (from GET /client/projects/{id}/connection). Forwarded to
   // the client as --strategy so it picks the matching path (e.g. DeComFL) instead of defaulting to
@@ -45,6 +47,10 @@ export interface TrainingConfig {
   // has the client upload the full state dict against a head-only server.
   // Optional so a payload from a backend predating P1 still type-checks.
   trainingArm?: string;
+  // Execution contract v1: a READY contract written by the launcher (executionContract.ts) and the run it belongs
+  // to. Forwarded as --execution-contract/--run-id; absent on a legacy launch.
+  executionContractPath?: string;
+  runId?: string;
   // Backend-minted FL connection token (from GET /client/projects/{id}/connection).
   // Optional so the legacy no-auth flow still type-checks; required in practice once
   // the FL server is fail-closed (app.fl.require-client-auth=true).
@@ -62,14 +68,23 @@ export interface TrainingConfig {
  * token travels as a container env var rather than a CLI arg. Omitted entirely
  * when absent, so a gate-off server still accepts the legacy no-token flow.
  */
+function containerDatasetPath(config: TrainingConfig): string {
+  if (config.datasetPath && fs.existsSync(config.datasetPath) && fs.statSync(config.datasetPath).isFile()) {
+    return '/data/input' + path.extname(config.datasetPath).toLowerCase();
+  }
+  return '/data';
+}
+
 export function buildContainerEnv(config: TrainingConfig): string[] {
   const env = [
     `PROJECT_ID=${config.projectId}`,
     `SERVER_ADDRESS=${config.serverAddress}`,
     `PARTITION_ID=${config.partitionId}`,
     `MODEL_TYPE=${config.modelType}`,
-    `DATASET_PATH=/data`,
+
   ];
+  if (config.datasetPath) env.push(`DATASET_PATH=${containerDatasetPath(config)}`);
+  if (config.modelName) env.push(`MODEL_NAME=${config.modelName}`);
   if (config.strategy) {
     // entrypoint.sh forwards this to the client as --strategy (parity with the native path push).
     env.push(`STRATEGY=${config.strategy}`);
@@ -80,6 +95,10 @@ export function buildContainerEnv(config: TrainingConfig): string[] {
   }
   if (config.connectionToken) {
     env.push(`FEDLEARN_CONNECTION_TOKEN=${config.connectionToken}`);
+  }
+  if (config.executionContractPath && config.runId) {
+    // The host file is mounted read-only at this path (buildContainerBinds); entrypoint.sh forwards both.
+    env.push(`EXECUTION_CONTRACT=${CONTAINER_EXECUTION_CONTRACT_PATH}`, `RUN_ID=${config.runId}`);
   }
   if (config.grpcTls) {
     env.push('FEDLEARN_GRPC_USE_TLS=1');
@@ -118,11 +137,17 @@ export function withGrpcTlsEnv(base: NodeJS.ProcessEnv, config: TrainingConfig):
     : { ...base, FEDLEARN_GRPC_USE_TLS: '1' };
 }
 
-/** Container binds: the dataset, plus the server certificate, read-only, when the client verifies against it. */
+/**
+ * Container binds: the dataset, plus, read-only, the server certificate when the client verifies against it and the
+ * execution contract when the run published one.
+ */
 export function buildContainerBinds(config: TrainingConfig): string[] {
-  const binds = [`${config.datasetPath}:/data`];
+  const binds = config.datasetPath ? [`${config.datasetPath}:${containerDatasetPath(config)}`] : [];
   if (config.grpcTls && config.grpcServerCertPath) {
     binds.push(`${config.grpcServerCertPath}:${CONTAINER_ROOT_CERT_PATH}:ro`);
+  }
+  if (config.executionContractPath && config.runId) {
+    binds.push(`${config.executionContractPath}:${CONTAINER_EXECUTION_CONTRACT_PATH}:ro`);
   }
   return binds;
 }
@@ -360,10 +385,11 @@ export class DockerService {
       args.push('--model-type', config.modelType);
     }
 
+    if (config.modelName) args.push('--model-name', config.modelName);
+
     // Forward the active run's strategy so the client selects the matching path (DeComFL vs the
-    // default FedAvg-style path). Only DeComFL actually changes client behaviour — the other strategy
-    // strings (FedAvg/FedOpt/Robust/FedLoRA) all use the same first-order client path, so passing them
-    // is a safe no-op. Omitted when absent (the client then defaults to FedAvg, the legacy behaviour).
+    // default FedAvg-style path). Adaptive and proximal strategies also resolve their own client
+    // settings, while XgbBagging selects the tree workload. An absent strategy retains the legacy default.
     // Forward the training arm so the client freezes the same modules the server filtered its
     // parameters to. Omitted when absent, which reproduces the pre-P1 behaviour (client defaults
     // to FULL) rather than sending an empty value.
@@ -373,6 +399,11 @@ export class DockerService {
 
     if (config.strategy) {
       args.push('--strategy', config.strategy);
+    }
+
+    // Execution contract v1: the client refuses to train unless it would execute this contract exactly.
+    if (config.executionContractPath && config.runId) {
+      args.push('--execution-contract', config.executionContractPath, '--run-id', config.runId);
     }
 
     // DE-2: forward the user-selected local dataset directory to the native
