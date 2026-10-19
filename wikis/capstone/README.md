@@ -75,7 +75,7 @@ tests pass. A fresh bounded comparison reproduces all eight stored cells from
 repetition 0 of `main_n80_eps1` exactly under torch 2.12.0. The original 160-cell
 torch 2.9.1 verification remains historical evidence; this new eight-cell check
 does not replace or expand its scope. The full integrated framework suite passes:
-1,664 tests, 14 deselected, 81.04% coverage after the NIH content-audit slice, with unhandled thread exceptions
+1,695 tests, 14 deselected, 81.04% coverage after the NIH curated-cohort slice, with unhandled thread exceptions
 treated as errors. These checks do not establish NIH learning or content integrity.
 
 The first useful run is a small, no-DP/no-attack validation pilot with real NIH
@@ -122,8 +122,9 @@ declared patient IDs and six with contradictory labels (categories overlap).
 A separate direct pixel/metadata check confirmed every reported group. See the
 [NIH audit](../../docs/artifacts/capstone/nih-data-audit-2026-10-19.md) for evidence
 and the [quarantine design](../../docs/superpowers/specs/2026-10-19-capstone-nih-cohort-curation-design.md)
-for the next gate. The proposed separate development cohort would exclude 111
-images from nine non-test patients, retaining the complete official test set.
+for the next gate. The separate curated development cohort is now prepared and independently
+reverified: it excludes 111 images from nine non-test patients and retains the
+complete official test set.
 No source files or original manifests have been changed. Do not extract features
 from the failed original cohort or label it content-separated.
 
@@ -145,6 +146,57 @@ and local qualification reports outside git.
 
 The retrospective [Milestone 2 report](../../docs/artifacts/capstone/capstone-milestone-2-report.md) now records the exploratory methods, source-linked tables, anomalies, reproduction scope and practical phase-2 questions. It does not reclassify historical experiments as confirmatory.
 
+## Curated NIH development cohort — 19 October
+
+The explicit `nih-development-quarantine-v1` policy is implemented in
+`framework/benchmarks/nih_cohort.py`. It quarantines whole non-test patients
+implicated in cross-patient or contradictory-label exact RGB groups. It does not
+redraw validation, relabel images or modify official test. The failed original
+audit remains preserved; this is a new cohort with a narrower development-content
+gate, not a replacement claim that all original labels are clean.
+
+| Split | Selected images | Patients | Finding images | Excluded images |
+| --- | ---: | ---: | ---: | ---: |
+| Training | 68,650 | 22,399 | 28,515 | 108 |
+| Validation | 17,763 | 5,600 | 7,470 | 3 |
+| Official test | 25,596 | 2,797 | 15,735 | 0 |
+
+All 111 excluded images (39 findings, 72 No Finding) and their patient/group reasons
+are retained privately. Separate full reconstruction re-read all source images and
+completed in 252.69 seconds with exit zero. An independent CSV/set audit checked
+exact retained rows, every exclusion/reason, client union/whole-patient ownership,
+zero independent-split RGB overlap and unchanged official-test bytes. A separate
+original-metadata check covered all 112,120 selected/quarantined image labels and
+patient IDs. Three ambiguous exact RGB groups remain inside official test; they
+are disclosed, not removed or corrected.
+
+Cohort report SHA-256:
+`287dca8359300f08cea79098d367793a73e43205bcfe3213e9d22115e3bb7267`.
+Training client assignment SHA-256:
+`be4cd7d1352726f325a04590c4b2f4440a5c3f5408cddaaf20160b9900ab787d`.
+
+Set `NIH_CURATED_COHORT` to a fresh output directory and `NIH_IMAGE_AUDIT` to the
+completed original audit. Keep `NIH_PREPARATION` pointing to the original manifests:
+
+```bash
+"$CAPSTONE_PYTHON" -m benchmarks.nih_cohort --data-root "$NIH_DATA_ROOT" \
+  --original-preparation "$NIH_PREPARATION" --image-audit "$NIH_IMAGE_AUDIT" \
+  --output "$NIH_CURATED_COHORT" --audit-workers 4
+"$CAPSTONE_PYTHON" -m benchmarks.nih_cohort --data-root "$NIH_DATA_ROOT" \
+  --original-preparation "$NIH_PREPARATION" --image-audit "$NIH_IMAGE_AUDIT" \
+  --output "$NIH_CURATED_COHORT" --audit-workers 4 --verify-only
+```
+
+Both commands require the full original source tree; verification rechecks the
+original audit and reconstructs the policy. There is no ignore/force flag.
+Frozen feature extraction, explicit engine split selection and useful learning
+remain unverified. The [feature plan](../../docs/superpowers/plans/2026-10-19-capstone-nih-frozen-features.md)
+now consumes this explicit cohort and keeps quarantined development rows out.
+
+A private second-device checkpoint through `88ce88b`, including the completed
+content audit and 55 archived evidence files, has been hash-verified. Newer cohort
+work still requires its next checkpoint; no capstone branch publication is implied.
+
 ## Practical research outputs
 
 The capstone should produce evidence for project decisions, alongside the report:
@@ -164,6 +216,8 @@ The capstone should produce evidence for project decisions, alongside the report
 Expand experiments when a pilot or uncertainty requires them. Keep each resulting
 recommendation linked to configurations, uncertainty, measured costs and limits;
 avoid adding an unrestricted Cartesian experiment matrix.
+
+The [methods source register](../../docs/artifacts/capstone/phase-2-methods-sources.md) distinguishes checked primary references from claims still needing full theoretical review.
 
 ## Protocol decisions to freeze
 
@@ -185,7 +239,7 @@ avoid adding an unrestricted Cartesian experiment matrix.
 
 The recommended head-size comparison holds frozen ResNet-18 features fixed and
 uses a linear head plus MLP hidden widths 8, 128 and 512: 1,026, 4,122, 65,922 and
-263,682 trainable parameters. This is the working comparison under the continuous-work mandate; freeze it in the prospective protocol after the pilot. A ResNet-50
+263,682 trainable parameters. Head capacity and optimization still change; compare each head against its matched no-DP baseline rather than calling every difference a pure dimension effect. This is the working comparison under the continuous-work mandate; freeze it in the prospective protocol after the pilot. A ResNet-50
 linear head has 4,098 parameters but also changes feature dimension/backbone;
 retain it only as a separately named representation comparison.
 

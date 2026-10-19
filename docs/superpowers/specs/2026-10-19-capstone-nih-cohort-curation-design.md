@@ -1,6 +1,6 @@
 # NIH development-cohort quarantine design
 
-Date: 19 October 2026. Status: selected under the continuous capstone mandate, before classifier performance inspection; implementation pending.
+Date: 19 October 2026. Status: selected under the continuous capstone mandate, before classifier performance inspection; implemented and independently reverified; final review pending.
 
 ## Reason for the extension
 

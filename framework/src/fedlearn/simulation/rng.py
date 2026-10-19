@@ -8,12 +8,14 @@ in a passing test suite and fatal in an experiments table.
 
 The fix is to make a client's stream a **pure function of (run_seed, client_id)** — and, where
 a round-local draw is needed, of ``(run_seed, client_id, round)``. Nothing else. In particular
-it must not depend on cohort size or construction order, which rules out the otherwise natural
-``numpy.random.SeedSequence.spawn(n)`` design: spawning ``n`` children folds ``n`` into each
-child's entropy, so the same client draws differently in a bigger cohort.
+it must not depend on cohort size or construction order. ``numpy.random.SeedSequence.spawn(n)``
+is also a valid independent-stream mechanism: a fresh parent's first child is unchanged when
+``n`` increases. The bookkeeping risk is assigning children by client construction order, or
+reusing a mutable parent's spawn position as client sets change. That can bind one client identity
+to a different child stream.
 
-Here the identity is folded into ``SeedSequence``'s entropy *tuple* instead, which is
-order-free and count-free by construction::
+Here the identity is folded directly into ``SeedSequence``'s entropy *tuple*, avoiding positional
+assignment and mutable parent state. It is order-free and count-free by construction::
 
     SeedSequence(entropy=(run_seed, client_id))
     SeedSequence(entropy=(run_seed, client_id, round))

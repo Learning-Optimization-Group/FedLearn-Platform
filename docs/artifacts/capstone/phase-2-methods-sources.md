@@ -1,0 +1,14 @@
+# Phase-2 methods: source checks
+
+Checked 19 October 2026. This is a working source register, not a completed literature review or a substitute for the prospective protocol. The research questions and implementation must be assessed separately from cited papers' results.
+
+| Primary source | Supported use here | Limits of this check |
+| --- | --- | --- |
+| Wang et al., [ChestX-ray8](https://arxiv.org/abs/1705.02315v5), CVPR 2017 | The dataset's disease labels originate from report text mining; the revised paper also points to ChestX-ray14 updates in its appendix. This supports describing our binary labels as report-derived. | Abstract and version notes checked. Do not replace the measured downloaded-cohort counts with the original eight-label abstract's counts, or call No Finding a clinically verified healthy diagnosis. |
+| Yin et al., [Byzantine-Robust Distributed Learning: Towards Optimal Statistical Rates](https://arxiv.org/abs/1803.01498v2), ICML 2018 | Primary background for coordinate-wise median and trimmed-mean robust distributed learning. | Abstract/bibliographic check only. Its theoretical results do not automatically establish robustness for this platform's local training, clipping, DP noise or NIH workload; examine assumptions before citing a theorem. |
+| Azuma and Nishio, [BlazeFL: Fast and Deterministic Federated Learning Simulation](https://arxiv.org/abs/2604.03606v1), 2026 | Related work on isolated client random streams and deterministic single-node simulation. | Abstract states conditions including fixed software/hardware and managed stochastic generators. Its speedups and parallelism results are not measurements of our engine. |
+| [NumPy parallel random-number generation](https://numpy.org/doc/stable/reference/random/parallel.html) | Supports both spawn-tree streams and deterministic streams derived from explicit integer identities. | Library documentation checked alongside a local NumPy 2.1.2 reproduction. A fresh parent's first spawned child is unchanged by asking for two versus 1,000 children; construction-order assignment and reused parent state are the bookkeeping concerns. |
+
+The engine's RNG documentation has been corrected on that final point; runtime draws are unchanged. A fixed representation also does not isolate trainable dimension from every other effect: changing head width changes capacity and optimization. Compare each head's privacy penalty against its matched no-DP baseline, and record clipping/update behavior rather than interpreting every raw accuracy difference as a pure dimension effect.
+
+The No Finding/any-finding task, conservative development quarantine and primary official-test evaluation are project study decisions, not procedures validated by these citations. Their exact configurations, provenance, tuning restrictions and uncertainty claims belong in the versioned protocol after the learning pilot.

@@ -48,7 +48,7 @@ Report schema is independently named, with policy version, original preparation/
 
 ## Task 1: Implement, verify and qualify the curated cohort
 
-- [ ] Write failing tests with synthetic exact duplicates across train/test and validation/test, as well as within-development cross-patient and same-patient contradictory-label cases. Assert whole-patient exclusion, correct reason digests, unchanged test bytes/order/labels, retained training/validation row order, new client union/ownership and deterministic outputs.
+- [x] Write failing tests with synthetic exact duplicates across train/test and validation/test, as well as within-development cross-patient and same-patient contradictory-label cases. Assert whole-patient exclusion, correct reason digests, unchanged test bytes/order/labels, retained training/validation row order, new client union/ownership and deterministic outputs.
 
 ```python
 def test_quarantine_keeps_official_test_and_removes_whole_development_patient(case, tmp_path):
@@ -60,12 +60,12 @@ def test_quarantine_keeps_official_test_and_removes_whole_development_patient(ca
     assert implicated_patient not in read_patients(output / "train.csv")
 ```
 
-- [ ] Include clean-input/no-quarantine and within-patient same-label duplicate controls. Test undecoded original images, infeasible remaining clients, empty retained train/validation, altered originals/audit, unsafe/existing outputs and interrupted publication.
-- [ ] Test forged/rehashed exclusions, reasons, settings, official-test changes, client row indices and row/patient ordering. Verification reconstructs policy and every output byte; no edited list is trusted.
-- [ ] Run `PYTHONPATH=framework/src:framework <python> -m pytest -q -o addopts= framework/tests/test_capstone_nih_cohort.py`. Expected RED: missing module/functions before implementation.
-- [ ] Implement policy reconstruction, full-source audit verification, exact CSV payloads and report assertions. Derive non-test implicated patients from group members. Build selected splits as ordered filters, quarantine every original non-test row for those IDs, and refuse impossible splits/clients. Check every selected exact RGB group for remaining cross-split or development ambiguity before writing.
-- [ ] Implement immutable publication and full reconstruction verifier with clear refusal errors; CLI has `--data-root --original-preparation --image-audit --output --audit-workers --verify-only`, no ignore/force flag. Successful curation keeps the original failed audit unchanged.
-- [ ] Run targeted NIH/partition/workload/reproduction checks and full framework suite with coverage and thread exceptions treated as errors. Expected GREEN; keep logs.
-- [ ] Prepare the real cohort into a new ignored directory and separately reverify it. Independently check quarantine membership/reasons and exact retained rows against original metadata and full audit. Expected current counts: train 68,650/22,399; validation 17,763/5,600; official test 25,596/2,797; excluded 111 images/nine development patients. These are assertions against measured outputs, not hardcoded cohort selection.
-- [ ] Update the data-audit report and capstone plan, then revise frozen-feature inputs to require this explicitly verified cohort alongside original manifests/audit. Do not extract features until that interface revision is complete.
-- [ ] Commit as `feat(capstone): quarantine ambiguous NIH development patients`.
+- [x] Include clean-input/no-quarantine and within-patient same-label duplicate controls. Test undecoded original images, infeasible remaining clients, empty retained train/validation, altered originals/audit, unsafe/existing outputs and interrupted publication.
+- [x] Test forged/rehashed exclusions, reasons, settings, official-test changes, client row indices and row/patient ordering. Verification reconstructs policy and every output byte; no edited list is trusted.
+- [x] Run `PYTHONPATH=framework/src:framework <python> -m pytest -q -o addopts= framework/tests/test_capstone_nih_cohort.py`. Expected RED: missing module/functions before implementation.
+- [x] Implement policy reconstruction, full-source audit verification, exact CSV payloads and report assertions. Derive non-test implicated patients from group members. Build selected splits as ordered filters, quarantine every original non-test row for those IDs, and refuse impossible splits/clients. Check every selected exact RGB group for remaining cross-split or development ambiguity before writing.
+- [x] Implement immutable publication and full reconstruction verifier with clear refusal errors; CLI has `--data-root --original-preparation --image-audit --output --audit-workers --verify-only`, no ignore/force flag. Successful curation keeps the original failed audit unchanged.
+- [x] Run targeted NIH/partition/workload/reproduction checks and full framework suite with coverage and thread exceptions treated as errors. Expected GREEN; keep logs.
+- [x] Prepare the real cohort into a new ignored directory and separately reverify it. Independently check quarantine membership/reasons and exact retained rows against original metadata and full audit. Expected current counts: train 68,650/22,399; validation 17,763/5,600; official test 25,596/2,797; excluded 111 images/nine development patients. These are assertions against measured outputs, not hardcoded cohort selection.
+- [x] Update the data-audit report and capstone plan, then revise frozen-feature inputs to require this explicitly verified cohort alongside original manifests/audit. Do not extract features until that interface revision is complete.
+- [x] Commit as `feat(capstone): quarantine ambiguous NIH development patients`.
