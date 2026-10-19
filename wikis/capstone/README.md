@@ -5,6 +5,10 @@ reports and design notes remain historical evidence. Confirmatory phase 2 has no
 been pre-registered or run. The NIH validation pilot and Milestone 2 grids are
 exploratory; pilot readiness issues below must be resolved before test evaluation.
 
+The [final-report evidence map](../../docs/artifacts/capstone/final-report-evidence-map.md)
+tracks which claims are currently supported, the remaining study/report/demo
+gates and an eight-page working outline. It is not a finished final report.
+
 ## Objective and boundaries
 
 Study how client-level differential privacy, robust aggregation, adversarial
@@ -320,7 +324,9 @@ The smaller shards give 3–5 local SGD steps per client/round at eighty clients
 versus 26–30 at ten, despite the same nominal image passes. Total minibatch calls
 increase, so the confound is the local trajectory/averaging schedule, not simply
 less total computation. Next freeze a bounded LR 0.003 schedule probe: eighty
-clients at seven local epochs/twenty rounds versus one epoch/140 rounds. Keep
+clients at seven local epochs/twenty rounds versus one epoch/140 rounds. The
+[v3 protocol](../../docs/artifacts/capstone/nih-schedule-pilot-v3-protocol.md) is now
+frozen before any v3 training. Keep
 all v2 results unchanged and test this hypothesis before more feature tuning.
 
 The reviewed runner enforces the fixed cache pin and isolated child source
