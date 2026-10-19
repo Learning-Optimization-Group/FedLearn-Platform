@@ -91,6 +91,8 @@ and curation reconstruction. It used MPS, batches of 64, four preprocessing work
 four audit workers and four torch CPU threads. The cache occupies approximately
 228 MiB. OS-reported child-process maximum RSS was 1,034,797,056 bytes; this excludes
 GPU allocation and is not a whole-process-tree peak-memory measurement.
+Regression checks overlapped preparation; the elapsed value is an observed cost,
+not an isolated throughput benchmark.
 
 | Split | Feature rows | Patients | Feature width |
 | --- | ---: | ---: | ---: |

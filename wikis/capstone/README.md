@@ -1,8 +1,9 @@
 # Capstone plan — current as of 19 October 2026
 
 This is the current schedule and completion checklist. Earlier milestone decks,
-reports and design notes remain historical evidence. Phase 2 has not been
-pre-registered or run; the Milestone 2 grids are exploratory.
+reports and design notes remain historical evidence. Confirmatory phase 2 has not
+been pre-registered or run. The NIH validation pilot and Milestone 2 grids are
+exploratory; pilot readiness issues below must be resolved before test evaluation.
 
 ## Objective and boundaries
 
@@ -69,7 +70,9 @@ official-test performance to select settings.
 The [first implementation plan](../../docs/superpowers/plans/2026-10-19-capstone-nih-manifests.md)
 is implemented and verified. It covers source validation, patient-separated manifests,
 whole-patient client allocation and independent verification. Feature extraction,
-engine evaluation-split integration and features remain later slices. The complete content audit is implemented; its failed cohort qualification requires explicit quarantine before extraction.
+engine integration and feature extraction are now implemented in later slices.
+The original failed content audit remains preserved; only the qualified curated
+cohort enters the new cache and engine.
 
 After integrating main, 60 targeted workload/config/engine tests pass, with the
 synthetic scale test deselected; another 40 reproduction/strategy/behavior/privacy
@@ -77,14 +80,15 @@ tests pass. A fresh bounded comparison reproduces all eight stored cells from
 repetition 0 of `main_n80_eps1` exactly under torch 2.12.0. The original 160-cell
 torch 2.9.1 verification remains historical evidence; this new eight-cell check
 does not replace or expand its scope. The full integrated framework suite passes:
-1,775 tests, 14 deselected, 81.21% coverage after NIH engine integration, with unhandled thread exceptions
+1,787 tests, 14 deselected, 81.21% coverage after the fixed-budget pilot runner, with unhandled thread exceptions
 treated as errors. These checks do not establish NIH learning or content integrity.
 
-The first useful run is a small, no-DP/no-attack validation pilot with real NIH
-features. It must establish that labels, learning, patient ownership and evaluation
-work before scaling to 1,000 clients or adding privacy/attacks. The next gate is
-a 1,000-client, two-round execution/cost check, explicitly distinct from a utility
-claim. Measure elapsed time and memory before expanding the matrix.
+The no-DP/no-attack NIH validation pilot and the separate 1,000-client/two-round
+execution check are complete. The workload/ownership path works and ranking signal
+is useful, but the selected optimizer has poor confidence calibration. A bounded
+replay also proved a probability-saturation AUROC defect. Correct/version scoring
+and establish stable optimization before adding privacy/attacks or expanding the
+matrix; successful execution alone is not study readiness.
 
 ## NIH manifest qualification — 19 October
 
@@ -193,7 +197,8 @@ Both commands require the full original source tree; verification rechecks the
 original audit and reconstructs the policy. There is no ignore/force flag.
 Frozen feature extraction now consumes this explicit cohort and keeps quarantined
 development rows out. Explicit engine split selection is now implemented and tested;
-useful learning remains unverified. See the [feature plan](../../docs/superpowers/plans/2026-10-19-capstone-nih-frozen-features.md)
+ranking information is now demonstrated, while stable optimization remains open.
+See the [feature plan](../../docs/superpowers/plans/2026-10-19-capstone-nih-frozen-features.md)
 and the qualification below.
 
 A private second-device checkpoint through `bf1c9cc`, including the curated
@@ -258,8 +263,37 @@ A separate constructor-only real-cache audit checked complete row coverage,
 disjoint whole-patient clients and exact counts at 1, 10 and 1,000 clients. The
 ten-client allocation matches the curated client manifests at seed 42. At 1,000
 clients, each has 22–23 patients but 27–198 images. This is an allocation check,
-not a completed training/cost check or evidence of useful learning. Whole-slice
-review will follow the bounded validation pilot in the current implementation plan.
+not itself a training/cost result. The separately completed pilot and execution
+check below supply that later evidence. Whole-slice review follows these results.
+
+## Validation pilot and current blocker — 19 October
+
+The [prospectively fixed exploratory pilot](../../docs/artifacts/capstone/nih-validation-pilot-protocol.md)
+completed all eleven cells and 102 rounds in 68.63 seconds, with no failure,
+omission or timeout. Independent reconciliation checked every config/hash/round,
+rebuilt patient assignments from CSV and confirmed the fixed selection rule.
+The [full report and curves](../../docs/artifacts/capstone/nih-validation-pilot-v1-report.md)
+retain all cases, including poor results.
+
+The selected ten-client LR 0.1 gave probability-score AUROC 0.718259, loss 6.127444
+and ECE 0.349491. Three-seed AUROC mean/range was 0.718472 / 0.718259–0.718697,
+but loss/calibration remained poor. Pooled LR 0.001 gave AUROC 0.719872, loss
+0.612794 and ECE 0.025980, showing useful representation signal. Do not treat the
+runner's narrow AUROC readiness flag as a stable model or a deployment result.
+
+The separately frozen [three-replay diagnostic](../../docs/artifacts/capstone/nih-score-diagnostic-protocol.md)
+matched original final model digests and every ten-round utility metric. In pooled
+LR 0.1, 15,729 of 17,763 probabilities saturated at exactly 1: probability AUROC
+0.564571 versus decision-margin AUROC 0.718015 on identical logits. The selected
+federated case's scoring difference was negligible; its poor calibration remains
+real. Explicit stable scoring and a bounded optimization/conditioning diagnostic
+are now higher priority than the privacy/attack matrix. Preserve v1 and all earlier
+records unchanged; historical impact outside these replays is unknown.
+
+The 1,000-client/two-round execution check completed in 7.063 seconds end-to-end
+(3.560 seconds inside simulation), peak process RSS 735,051,776 bytes. This is a
+sequential CPU tiny-head simulator over cached features, not 1,000 physical devices,
+CNN training, convergence or deployment latency. Large-head costs remain unmeasured.
 
 ## Practical research outputs
 

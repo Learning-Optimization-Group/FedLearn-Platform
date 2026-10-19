@@ -1,9 +1,12 @@
 # Explicit NIH evaluation and patient-preserving simulation plan
 
-Status: Task 1 implemented and verified (1,775 full-suite passes, 81.21% coverage;
-92 targeted passes; real constructor-only patient allocation checked through
-1,000 clients). Task 2 pilot and final whole-slice review remain outstanding.
-The preceding frozen-feature slice passed complete qualification and review.
+Status: both tasks implemented and exercised; final whole-slice review pending.
+Full suite:1,787passes,14deselected,81.21%coverage. All11pilot cells/102rounds and
+the separate three-replay score diagnostic independently verified. The pilot
+exposed poor calibration and a real probability-saturation AUROC defect; these
+are study-readiness blockers, not reasons to discard or edit v1 results. See the
+[report](../../artifacts/capstone/nih-validation-pilot-v1-report.md). The preceding
+frozen-feature slice passed complete qualification and review.
 
 **Goal:** Run the existing simulation engine on the verified NIH cache while
 preserving patient ownership, explicit validation/test selection and exact cache
