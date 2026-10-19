@@ -1,4 +1,4 @@
-# Capstone plan — current as of 18 October 2026
+# Capstone plan — current as of 19 October 2026
 
 This is the current schedule and completion checklist. Earlier milestone decks,
 reports and design notes remain historical evidence. Phase 2 has not been
@@ -12,10 +12,11 @@ The next dataset is NIH ChestX-ray14 with **0 = No Finding** and **1 = any of th
 listed findings**. These are report-derived labels, not verified clinical diagnoses.
 Pneumonia-only results from the mobile project answer a different task.
 
-The simulation engine is implemented at `8a9b89d`. Its 1,000-client execution check
-does not establish performance or scientific results on NIH. The mobile branch is
-published separately at `8467f37`; its Release/TLS work is parked for the capstone.
-Do not merge all mobile changes into the research branch just to obtain a loader.
+The simulation engine was implemented at `8a9b89d`. Its 1,000-client execution check
+does not establish performance or scientific results on NIH. Mobile/XGBoost PR #14
+is merged into `main` at `3012d1e`, with post-merge CI green. Release/TLS work stays
+parked for the capstone. The dedicated `capstone` branch preserves the original
+research commits and integrates this verified main baseline at `660576a`.
 
 ## Verified starting point
 
@@ -23,8 +24,10 @@ Do not merge all mobile changes into the research branch just to obtain a loader
   PowerPoint and the first generated HTML deck are not the current presentation.
 - The three retained grids contain 420 + 480 + 45 = 945 run JSON files, excluding
   their index files. The research note explicitly calls them exploratory.
-- The capstone branch has 17 commits not present on origin before this handoff.
-  Its code, ignored results/notes, presentation assets, experiment configurations
+- The original 18 capstone commits, including the consolidated plan/design, remain
+  preserved on `worktree-capstone-dp-trimmed-mean` as well as the new `capstone`
+  branch. Capstone branch publication is still outstanding. Its code, ignored
+  results/notes, presentation assets, experiment configurations
   and original Kermany feature cache are included in a private safety backup.
   Git publication alone does not include ignored evidence.
 - NIH metadata has 112,120 unique image IDs: 60,361 No Finding and 51,759 with
@@ -59,6 +62,20 @@ defines the proposed implementation boundary and acceptance checks. Preserve the
 old Kermany behavior and exact reproduction anchors. Do not alter the mobile
 pneumonia recipe, reuse its class mapping, overwrite an old feature cache or inspect
 official-test performance to select settings.
+
+The [first implementation plan](../../docs/superpowers/plans/2026-10-19-capstone-nih-manifests.md)
+is ready for review. It covers source validation, patient-separated manifests,
+whole-patient client allocation and independent verification. Feature extraction,
+content auditing and engine evaluation-split integration remain a later slice.
+
+After integrating main, 60 targeted workload/config/engine tests pass, with the
+synthetic scale test deselected; another 40 reproduction/strategy/behavior/privacy
+tests pass. A fresh bounded comparison reproduces all eight stored cells from
+repetition 0 of `main_n80_eps1` exactly under torch 2.12.0. The original 160-cell
+torch 2.9.1 verification remains historical evidence; this new eight-cell check
+does not replace or expand its scope. The full integrated framework suite passes:
+1,542 tests, 14 deselected, 80.94% coverage, with unhandled thread exceptions
+treated as errors. These checks do not establish NIH learning or content integrity.
 
 The first useful run is a small, no-DP/no-attack validation pilot with real NIH
 features. It must establish that labels, learning, patient ownership and evaluation
