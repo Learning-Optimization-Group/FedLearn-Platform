@@ -13,7 +13,7 @@
     "url": "https://github.com/anurag2796/FedLearn-Platform.git"
   },
   "scripts": {
-    "dev:renderer": "webpack serve --config webpack.renderer.config.js --mode development",
+    "dev:renderer": "vite --config vite.config.mjs",
     "dev:main": "webpack --config webpack.main.config.js --mode development --watch",
     "dev:preload": "webpack --config webpack.preload.config.js --mode development --watch",
     "dev:electron": "electron dist/main/main.js",
@@ -52,7 +52,7 @@
     "@fontsource/hanken-grotesk": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@types/dockerode": "3.3.34",
-    "@types/jest": "^29.5.14",
+    "@types/jest": "^30.0.0",
     "@types/react": "18.3.18",
     "@types/react-dom": "18.3.5",
     "@types/ws": "^8.18.1",
@@ -69,11 +69,11 @@
     "style-loader": "4.0.0",
     "terser-webpack-plugin": "^5.4.0",
     "ts-jest": "^29.3.2",
-    "ts-loader": "9.5.1",
+    "ts-loader": "^9.6.2",
     "typescript": "5.7.3",
     "typescript-eslint": "^8.59.3",
+    "vite": "^6.4.4",
     "webpack": "^5.106.2",
-    "webpack-cli": "6.0.1",
-    "webpack-dev-server": "^5.2.3"
+    "webpack-cli": "6.0.1"
   }
 }

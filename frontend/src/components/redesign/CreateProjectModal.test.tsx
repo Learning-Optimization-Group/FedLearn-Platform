@@ -24,7 +24,7 @@ function project(status: api.Project['status']): api.Project {
   return { id: 'p1', name: 'My proj', modelType: 'CNN', modelName: 'net', optimizer: 'Adam', status };
 }
 
-async function fillAndSubmit(onSubmit: ReturnType<typeof vi.fn>) {
+async function fillAndSubmit(onSubmit: Parameters<typeof CreateProjectModalV2>[0]['onSubmit']) {
   const onCreated = vi.fn();
   const onClose = vi.fn();
   render(<CreateProjectModalV2 isOpen onSubmit={onSubmit} onCreated={onCreated} onClose={onClose} />);
