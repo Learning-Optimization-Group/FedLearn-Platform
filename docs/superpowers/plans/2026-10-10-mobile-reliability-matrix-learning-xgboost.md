@@ -6,7 +6,7 @@ substantive failures and explicit support limits.
 Base: fb9c2b7; existing isolated feat/xgboost-mobile-foundations worktree.
 Execution: inline, one fresh final review. Keep local commits and clean g14 sync;
 no push/main merge. Preserve root user edits, installed datasets, services and
-unrelated runs. New g14 files stay under /home/anurag/codebase/FedLearn_Platform.
+unrelated runs. New relay-host files stay inside its existing project checkout.
 
 ## Authorized design
 

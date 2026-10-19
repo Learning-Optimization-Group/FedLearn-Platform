@@ -31,7 +31,7 @@ const BASE = {
   serverAddress: 'fl.example.org:50001',
   partitionId: '2',
   modelType: 'CNN',
-  datasetPath: '/Users/me/data',
+  datasetPath: '/datasets/local',
   connectionToken: 'a.b.c',
   strategy: 'FedAvg',
 };

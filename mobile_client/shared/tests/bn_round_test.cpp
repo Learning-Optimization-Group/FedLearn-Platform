@@ -175,4 +175,3 @@ TEST(BatchNormRound, AWideBatchNormsGradientIsTorchsToFloat32Precision) {
   }
   EXPECT_EQ(checked, 2);
 }
-
