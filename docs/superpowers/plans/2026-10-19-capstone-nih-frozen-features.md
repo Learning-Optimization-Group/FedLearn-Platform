@@ -1,26 +1,26 @@
 # NIH frozen feature cache implementation plan
 
-Status: deferred after the complete content audit found cross-split duplicates. Implement the [separate curated development cohort](../specs/2026-10-19-capstone-nih-cohort-curation-design.md) first, then revise these interfaces and real counts explicitly. Do not bypass the failed original audit.
+Status: interfaces revised for the [separate curated development cohort](../specs/2026-10-19-capstone-nih-cohort-curation-design.md). Real extraction remains gated on its complete qualification and review. The original failed audit is retained and fully verified; only explicitly curated manifests enter this cache.
 
 **Goal:** Create a source-bound, independently loadable frozen ResNet-18 cache for the verified patient-separated NIH cohort without examining test performance.
 
-**Architecture:** A preparation command fully re-verifies the image audit before extraction, then checks each image's raw and canonical RGB identity again as it prepares bounded forward batches. Features are float32 NumPy arrays, labels are int64 arrays, and original split CSVs preserve aligned patient/image identities. A final report binds all payloads, transforms and actual frozen model state. A loader validates that contract independently of the original image tree.
+**Architecture:** A preparation command fully re-verifies the original image audit and explicit curated cohort through `verify_cohort` before extraction, then checks each image's raw and canonical RGB identity again as it prepares bounded forward batches. Features are float32 NumPy arrays, labels are int64 arrays, and original split CSVs preserve aligned patient/image identities. A final report binds all payloads, transforms and actual frozen model state. A loader validates that contract independently of the original image tree.
 
 **Tech stack:** Python 3.12, PyTorch, torchvision, NumPy, Pillow and pytest. Reuse `_build_backbone`, `_IMAGENET_MEAN` and `_IMAGENET_STD` from `benchmarks/dp_on_head_xray.py`; do not reuse its ImageFolder cache identity.
 
 **Spec:** [NIH workload design](../specs/2026-10-18-capstone-nih-workload-design.md), frozen feature section. Engine integration and validation pilots remain separate slices.
 
-**Execution:** Direct sequential execution under the continuous-work mandate. This plan may be prepared while the preceding full image audit runs, but real feature extraction requires a qualified completed audit.
+**Execution:** Direct sequential execution under the continuous-work mandate. This plan may be prepared while the preceding full image audit runs, but real feature extraction requires a qualified explicit development cohort backed by a fully verified original audit. Do not require the original audit flag to become true or edit its failed status.
 
 ## Global constraints
 
-- Preserve official test and all original metadata/manifests. No balancing, subsetting, triggered features, clinical claims or model selection on official test.
+- Preserve official test, the failed original audit, the separate curated cohort and all original metadata/manifests. No balancing, subsetting, triggered features, clinical claims or model selection on official test.
 - Use the same frozen ResNet-18 representation for all later head sizes. Default pretrained weights are identified by resolved torchvision weight enum and the SHA-256 of every frozen state tensor, including buffers.
 - Preprocessing is fixed RGB conversion, bilinear antialiased resize to 224×224, float tensor in [0,1], and ImageNet mean/std normalization. Record versions, device, dtype and exact transform parameters.
 - Explicitly label random-weight test caches as non-pretrained. Never reuse a random cache as a pretrained cache.
 - Bounded forward batches, positive non-boolean integer batch size at most 256, device explicitly selected from CPU/MPS/CUDA and refused if unavailable. Do not enable silent device fallback.
-- Output must be new and outside source, preparation and audit directories. Refuse existing outputs and symlinks. Reserve output exclusively; report is published last with fsync and atomic replace. Retain incomplete evidence and refuse it on reload.
-- All three independent splits retain every row in their original order, labels and patient/image identities. Features must be finite float32 arrays of shape (rows,512); labels int64 and exactly equal to source CSVs. Do not silently turn validation into test.
+- Output must be new and outside source, original preparation, audit and curated cohort directories. Refuse existing outputs and symlinks. Reserve output exclusively; report is published last with fsync and atomic replace. Retain incomplete evidence and refuse it on reload.
+- All three independent splits retain every selected curated row in its original order, labels and patient/image identities. Quarantined development rows must not re-enter features. Features must be finite float32 arrays of shape (rows,512); labels int64 and exactly equal to source CSVs. Do not silently turn validation into test.
 - Cache loading uses `np.load(allow_pickle=False)` and a fixed file allowlist. Verify all payload hashes before accepting arrays. No arbitrary paths from JSON. Caller may supply the expected report SHA-256 to detect stale/replaced cache identities.
 - The original ImageFolder cache/legacy workload behavior remains unchanged. No real cache or patient metadata enters git.
 
@@ -41,7 +41,8 @@ Status: deferred after the complete content audit found cross-split duplicates. 
 
 ```python
 # benchmarks.prepare_nih_features
-def prepare(root: Path, preparation: Path, image_audit: Path, output: Path, *,
+def prepare(root: Path, original_preparation: Path, image_audit: Path,
+            curated_cohort: Path, output: Path, *,
             device: str = "cpu", batch_size: int = 64, pretrained: bool = True,
             backbone_seed: int = 1234, audit_workers: int = 1) -> dict: ...
 def main(argv: list[str] | None = None) -> None: ...
@@ -50,30 +51,30 @@ def main(argv: list[str] | None = None) -> None: ...
 def load_nih_cache(output: Path, *, expected_report_sha256: str | None = None) -> dict: ...
 ```
 
-Cache files: `train-x.npy`, `train-y.npy`, `train.csv`, corresponding `validation-*` and `test-*`, and `report.json`. Returned loader dictionary has `splits` mapping each split to `x`, `y`, `image_ids`, `patient_ids`, plus `provenance` and `report_sha256`. Arrays are NumPy arrays; the future workload converts them to tensors. The report records schema/version, dataset/classes, source/preparation/audit hashes, source split manifest hashes, transform, backbone identity/state digest, library/device/dtype information, counts/dimensions, and fixed payload hashes. No model-performance fields.
+Cache files: `train-x.npy`, `train-y.npy`, `train.csv`, corresponding `validation-*` and `test-*`, `cohort-report.json` copied byte-for-byte from the verified cohort, and `report.json`. Returned loader dictionary has `splits` mapping each split to `x`, `y`, `image_ids`, `patient_ids`, plus `provenance` and `report_sha256`. Arrays are NumPy arrays; the future workload converts them to tensors. The report records schema/version, dataset/classes, source/original-preparation/audit/curated-cohort hashes, selected split manifest hashes, transform, backbone identity/state digest, library/device/dtype information, counts/dimensions, and fixed payload hashes. No model-performance fields.
 
 ## Task 1: Implement cache creation and validation
 
-- [ ] Write tests first using the existing `nih_tree` fixture with two clients and a completed audit. Compare all 24 feature rows with a separately built frozen random ResNet-18 on exactly the declared transforms; use CPU tolerance `rtol=1e-5, atol=1e-6`, and assert label/identity alignment and patient separation across all three splits.
+- [ ] Write tests first using the existing `nih_tree` fixture with two clients, a completed audit and a verified explicit curated cohort. The clean synthetic control retains all 24 images. Compare all 24 feature rows with a separately built frozen random ResNet-18 on exactly the declared transforms; use CPU tolerance `rtol=1e-5, atol=1e-6`, and assert label/identity alignment and patient separation across all three splits.
 
 ```python
 def test_cache_preserves_original_split_rows_and_frozen_reference(prepared, tmp_path):
-    root, manifests, audit = prepared
+    root, original, audit, curated = prepared
     output = tmp_path / "features"
-    report = prepare(root, manifests, audit, output, pretrained=False, batch_size=4)
+    report = prepare(root, original, audit, curated, output, pretrained=False, batch_size=4)
     loaded = load_nih_cache(output)
     assert report["feat_dim"] == 512
     assert sum(len(split["y"]) for split in loaded["splits"].values()) == 24
     assert report["pretrained"] is False
 ```
 
-- [ ] Add tests for unqualified audit, source mutation during extraction, all invalid batch/seed/device inputs, existing/unsafe output, batch bound and eval/no-gradient state, source/report/payload tampering, rehashed wrong labels/row identities, changed expected report digest, nonfinite and malformed arrays, extra/missing files and interruption before final report publication. A pretrained cache test may reuse cached weights offline; never require network for tests.
+- [ ] Add tests for missing/unverified cohort, unresolved decoding failures, accidental quarantined-row inclusion, source mutation during extraction, all invalid batch/seed/device inputs, existing/unsafe output, batch bound and eval/no-gradient state, source/report/payload tampering, rehashed wrong labels/row identities, changed expected report digest, nonfinite and malformed arrays, extra/missing files and interruption before final report publication. A pretrained cache test may reuse cached weights offline; never require network for tests.
 - [ ] Run `PYTHONPATH=framework/src:framework <python> -m pytest -q -o addopts= framework/tests/test_capstone_nih_features.py`. Expected RED: missing preparation/loader modules before implementation.
-- [ ] Implement a fixed-schema loader: expected digest first, fixed payload allowlist and SHA-256 validation, array dtype/shape/finite checks, CSV schema/labels/canonical IDs and nonempty disjoint patient ownership. Bind CSVs to the original preparation manifest digests stored in provenance. Raise ValueError with the failing contract; do not guess/reorder/repair.
-- [ ] Implement preparation: validate arguments and new output before expensive work; verify manifests and full image audit, refuse false qualification; construct the frozen backbone in a scoped RNG context and hash named state tensors. Use exact declared transforms; compare raw and RGB fingerprints during each read, collect bounded batches and write split arrays and exact source split CSVs. Publish the complete report last. Reload with its expected digest before reporting success. CLI arguments mirror public parameters; errors exit nonzero.
+- [ ] Implement a fixed-schema loader: expected digest first, fixed payload allowlist and SHA-256 validation, array dtype/shape/finite checks, CSV schema/labels/canonical IDs and nonempty disjoint patient ownership. Bind CSVs to the selected manifest digests in the exact copied `cohort-report.json`, whose own digest is bound by the feature report. Validate cohort schema/policy and narrow content gate. Use read-only NumPy memory maps to inspect array headers/shapes before materializing data; stream payload hashing in bounded chunks. Raise ValueError with the failing contract; do not guess/reorder/repair.
+- [ ] Implement preparation: validate arguments and new output before expensive work; call `verify_cohort(root, original_preparation, image_audit, curated_cohort, audit_workers=...)`, which re-verifies the full original image audit and policy once; refuse a failed selected-development gate or mismatched reports. Do not call a second redundant full audit verification in the same preparation; construct the frozen backbone in a scoped RNG context and hash named state tensors. Use exact declared transforms; compare raw and RGB fingerprints during each read, collect bounded batches and write split arrays and exact curated split CSVs and the canonical curated report. Publish the complete report last. Reload with its expected digest before reporting success. CLI arguments mirror public parameters, including required `--original-preparation --image-audit --curated-cohort`; errors exit nonzero.
 - [ ] Run targeted cache, NIH, workload and reproduction tests, then the full framework suite with coverage and thread exceptions treated as errors. Expected GREEN; retain logs and explicit same-device reference tolerance.
-- [ ] After the preceding real NIH audit qualifies, run full audit verification and extraction as one separate preparation invocation into a fresh ignored output. Prefer available MPS on this laptop only after an explicit device check; record actual device/version and elapsed time. Extraction may read official-test images but must not evaluate a classifier on them.
-- [ ] Independently reload the complete real cache with its expected report digest and confirm 68,758/17,766/25,596 rows, 512 finite features each, exact labels/IDs/patient ownership and unchanged official membership. Inspect no model metrics. Update the capstone plan with measured costs and limitations.
+- [ ] After the preceding real NIH curated cohort qualifies, run full cohort/audit verification and extraction as one separate preparation invocation into a fresh ignored output. Prefer available MPS on this laptop only after an explicit device check; record actual device/version and elapsed time. Extraction may read official-test images but must not evaluate a classifier on them.
+- [ ] Independently reload the complete real cache with its expected report digest and confirm the independently verified selected counts (currently expected 68,650/17,763/25,596 rows), 512 finite features each, exact labels/IDs/patient ownership and unchanged official membership and zero quarantined development identities. Inspect no model metrics. Update the capstone plan with measured costs and limitations.
 - [ ] Commit as `feat(capstone): prepare source-bound frozen NIH features`.
 
 ## Follow-on gate
