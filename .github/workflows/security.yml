@@ -52,9 +52,6 @@ jobs:
           #   5.10, a major bump that also needs tokenizers >=0.22 and huggingface-hub >=1.5, and
           #   the FoT path depends on it — tracked as a separate upgrade.
           #
-          # PYSEC-2026-3716 (datasets 3.1.0 -> 5.0.1): major bump, coupled to the same
-          #   huggingface-hub move as transformers.
-          #
           # PYSEC-2026-3804 (accelerate 1.10.0): no fixed version is published (checked against
           #   OSV), so there is nothing to upgrade to; revisit when one ships.
           #
@@ -74,7 +71,6 @@ jobs:
             PYSEC-2026-2289
             PYSEC-2026-2290
             PYSEC-2026-3929
-            PYSEC-2026-3716
             PYSEC-2026-3804
             PYSEC-2026-3447
             CVE-2026-80047

@@ -667,14 +667,9 @@ class _HFXrayDataset:
 def _hf_load_kwargs(hf_split, env=None):
     """Build the ``datasets.load_dataset`` kwargs for the HuggingFace pneumonia fallback.
 
-    SE-19: remote-code execution is OFF by default. ``load_dataset(repo, ..., trust_remote_code=True)``
-    downloads and RUNS the dataset repo's loader script on THIS (backend) host; the default repo is
-    unpinned, so a supply-chain compromise of it would be arbitrary code execution the moment a
-    PNEUMONIA_CNN run starts. We therefore:
-      * never enable ``trust_remote_code`` unless the operator explicitly sets
-        ``FEDLEARN_PNEUMONIA_TRUST_REMOTE_CODE=1`` (a deliberate, auditable choice), and
-      * pin the dataset to a commit when ``FEDLEARN_PNEUMONIA_REVISION`` is set, so even an opted-in
-        run executes a known, immutable revision rather than whatever the repo's HEAD becomes.
+    SE-19: dataset-loader scripts cannot execute. datasets 5 removed script-backed loaders, so
+    reject the former remote-code opt-in with migration guidance. ``FEDLEARN_PNEUMONIA_REVISION``
+    still pins a data-only dataset to a known revision.
     """
     env = os.environ if env is None else env
     kwargs = {"split": hf_split}
@@ -682,7 +677,11 @@ def _hf_load_kwargs(hf_split, env=None):
     if revision:
         kwargs["revision"] = revision
     if env.get("FEDLEARN_PNEUMONIA_TRUST_REMOTE_CODE", "").strip() == "1":
-        kwargs["trust_remote_code"] = True
+        raise ValueError(
+            "FEDLEARN_PNEUMONIA_TRUST_REMOTE_CODE=1 is unsupported: datasets 5 removed "
+            "script-backed dataset loaders. Unset this flag and use FEDLEARN_PNEUMONIA_DIR "
+            "for local image folders, or choose a data-only Hugging Face dataset such as Parquet."
+        )
     return kwargs
 
 
@@ -707,7 +706,7 @@ def _full_dataset(split):
     name = os.environ.get("FEDLEARN_PNEUMONIA_DATASET", "keremberke/chest-xray-classification")
     cfg = os.environ.get("FEDLEARN_PNEUMONIA_CONFIG", "full")
     hf_split = "test" if split == "test" else "train"
-    kwargs = _hf_load_kwargs(hf_split)  # SE-19: no remote-code exec unless explicitly opted in
+    kwargs = _hf_load_kwargs(hf_split)  # SE-19: reject script-loader execution
     ds = load_dataset(name, cfg, **kwargs) if cfg else load_dataset(name, **kwargs)
     return _HFXrayDataset(ds)
 
