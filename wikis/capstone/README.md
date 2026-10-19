@@ -193,9 +193,10 @@ Frozen feature extraction, explicit engine split selection and useful learning
 remain unverified. The [feature plan](../../docs/superpowers/plans/2026-10-19-capstone-nih-frozen-features.md)
 now consumes this explicit cohort and keeps quarantined development rows out.
 
-A private second-device checkpoint through `88ce88b`, including the completed
-content audit and 55 archived evidence files, has been hash-verified. Newer cohort
-work still requires its next checkpoint; no capstone branch publication is implied.
+A private second-device checkpoint through `bf1c9cc`, including the curated
+cohort implementation, 98 NIH evidence files/source-metadata files and the retained
+1,021-file historical capstone archive, has been hash-verified after transfer.
+Raw NIH image files are not included. This is separate from branch publication.
 
 ## Practical research outputs
 
@@ -233,6 +234,7 @@ The [methods source register](../../docs/artifacts/capstone/phase-2-methods-sour
   confirmatory test evaluation; never choose a favorable intermediate round.
 - Exact cell list and repetitions, resource/time cap, stop/refusal criteria and
   reporting of incomplete/failed cells. Avoid an unrestricted Cartesian product.
+- Release scope must distinguish the privatized model trajectory from research diagnostics. The engine currently records pre-noise clipping/shrink statistics, raw-update summaries, training-based fairness and an initial upload digest. The model accountant does not establish privacy for that entire diagnostic record. Inventory/label those outputs before a public-export or production-privacy claim; retain original public-dataset research logs as evidence.
 - DP unit is a simulated client under replace-one adjacency. Patient-disjoint
   allocation does not by itself turn that into a patient-level DP guarantee.
   Keep the existing conservative no-subsampling-credit accounting explicit.
