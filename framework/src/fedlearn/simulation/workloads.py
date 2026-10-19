@@ -173,6 +173,7 @@ class NihFeatureHeadWorkload(FeatureHeadWorkload):
         assignment = {"algorithm": "nih-client-assignment-v1", "clients": assignments}
         self.info = {
             "dataset": "nih", "source_dataset": report["dataset"], "backbone": report["backbone"],
+            "training_device": str(self.train_x.device), "torch_num_threads": torch.get_num_threads(),
             "pretrained": report["pretrained"], "allow_random_features": wl["allow_random_features"],
             "evaluation_split": wl["evaluation_split"], "features_report_sha256": cache["report_sha256"],
             "curated_cohort_sha256": report["curated_cohort_sha256"],

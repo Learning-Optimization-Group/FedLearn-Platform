@@ -5,7 +5,6 @@ import json
 
 import numpy as np
 import pytest
-import torch
 
 from tests.test_capstone_nih_features import template as feature_template
 from fedlearn.simulation.config import ConfigError, config_hash, resolve
