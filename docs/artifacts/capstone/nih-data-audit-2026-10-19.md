@@ -42,3 +42,9 @@ This policy also addresses ambiguous within-training identities that could other
 Dataset preparation should report both patient ownership and decoded-content identity. A clean metadata report or unique filenames cannot replace that check. Preserve the evidence and explicit failure state so downstream training cannot silently proceed on a cohort known to overlap. The platform can reuse this pattern for future dataset preflight checks after the capstone workload is qualified.
 
 No NIH learning, privacy benefit, robustness benefit, clinical efficacy or near-duplicate safety has been demonstrated by this audit.
+
+## Implementation review and remaining limits
+
+The final review independently ran all 32 focused tests and reopened all 51 members of the 25 RGB groups. The full framework check passed 1,664 tests with 14 deselected and 81.04% coverage. No correctness blocker was found for this audit or its failed-qualification outcome.
+
+Two verification limitations remain deferred. Oversized refused files have no full content hash, so same-size changes to those failed inputs are not established by re-verification; they remain unqualified. The report verifier compares normalized JSON values rather than the original report byte representation, so formatting changes can pass. The real audit has no oversized/failed images, and its saved report and both invocation outputs were separately compared byte for byte and are identical. Neither limitation changes the confirmed collisions, but future evidence consumers must not interpret the verifier as unconditional byte integrity for every failed input and every report representation.
