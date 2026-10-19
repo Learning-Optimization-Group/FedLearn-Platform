@@ -54,6 +54,10 @@ setup(
 
     # Optional dependencies
     extras_require={
+        'xgboost': [
+            'xgboost-cpu==3.4.1; platform_system == "Linux"',
+            'xgboost==3.4.1; platform_system != "Linux"',
+        ],
         'dev': [
             'pytest>=7.4.0',
             'pytest-asyncio>=0.21.0',

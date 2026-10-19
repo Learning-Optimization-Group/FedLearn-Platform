@@ -25,7 +25,12 @@ describe('PRIVACY_SECTIONS', () => {
     const stays = PRIVACY_SECTIONS.find((s) => s.key === 'stays');
     const leaves = PRIVACY_SECTIONS.find((s) => s.key === 'leaves');
     expect(stays?.points.join(' ')).toContain('raw training data');
-    expect(stays?.points.join(' ')).toContain('partition');
+    // A run trains the dataset the user imports (or a test run's demo sample); only the example count leaves.
+    expect(stays?.points.join(' ')).toContain('dataset you import');
+    expect(stays?.points.join(' ')).toContain('how many examples');
+    // A DeComFL run uploads gradient numbers and seeds, not weights, so the label must not say "weights only".
+    expect(leaves?.points.join(' ')).not.toContain('weight updates only');
+    expect(leaves?.points.join(' ')).toContain('gradient numbers');
     expect(leaves?.points.join(' ')).toContain('sha256');
     expect(leaves?.points.join(' ')).toContain('safetensors');
   });

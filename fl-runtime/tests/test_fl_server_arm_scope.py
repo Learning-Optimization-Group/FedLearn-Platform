@@ -92,8 +92,9 @@ def test_the_arm_filter_precedes_the_dataset_branches():
     assert filter_line, "fl_server.main() no longer validates the training arm"
 
     loads = [n.lineno for n in ast.walk(main)
-             if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
-             and n.func.attr == "load_server_test_data"]
+             if isinstance(n, ast.Call) and (
+                 isinstance(n.func, ast.Attribute) and n.func.attr == "load_server_test_data"
+                 or isinstance(n.func, ast.Name) and n.func.id == "load_evaluation_data")]
     assert loads, "expected server-side dataset loading in main()"
     assert filter_line < min(loads), (
         f"the arm is validated at line {filter_line}, after dataset loading begins at "

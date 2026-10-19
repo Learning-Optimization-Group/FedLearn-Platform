@@ -26,6 +26,10 @@ Input file (JSON, written by the backend), one of:
   {"kind": "text",   "text": "The movie was surprisingly good."}
 """
 
+if __name__ == "__main__":
+    from workload_dispatch import dispatch_tree_cli
+    dispatch_tree_cli("infer")
+
 import argparse
 import json
 import sys

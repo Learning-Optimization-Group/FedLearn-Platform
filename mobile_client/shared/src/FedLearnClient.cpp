@@ -1,12 +1,16 @@
 #include "fedlearn/FedLearnClient.h"
+#include "fedlearn/DeComFLServerConfig.h"
+#include "fedlearn/ModelStream.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <fstream>
+#include <limits>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
 
 #include "fedlearn/Sha256.h"
 
@@ -33,16 +37,6 @@ std::string statusStr(const grpc::Status& s) {
   return ss.str();
 }
 
-std::string cfgGet(const ::google::protobuf::Map<std::string, std::string>& m,
-                   const std::string& key, const std::string& fallback) {
-  auto it = m.find(key);
-  return it != m.end() ? it->second : fallback;
-}
-
-GradEstimateMethod parseMethod(const std::string& s) {
-  return s == "central" ? GradEstimateMethod::Central : GradEstimateMethod::Forward;
-}
-
 }  // namespace
 
 void FedLearnClient::validateCodec(const std::string& codec) {
@@ -53,6 +47,12 @@ void FedLearnClient::validateCodec(const std::string& codec) {
 }
 
 std::shared_ptr<grpc::Channel> FedLearnClient::makeChannel() const {
+#if defined(FEDLEARN_ALLOW_INSECURE_GRPC) && FEDLEARN_ALLOW_INSECURE_GRPC
+  constexpr bool allowInsecure = true;
+#else
+  constexpr bool allowInsecure = false;
+#endif
+  requireTlsTransport(cfg_.useTls, allowInsecure);
   grpc::ChannelArguments args;
   args.SetMaxReceiveMessageSize(cfg_.maxMessageBytes);
   args.SetMaxSendMessageSize(cfg_.maxMessageBytes);
@@ -119,10 +119,18 @@ void FedLearnClient::prepareRpc(grpc::ClientContext& ctx) const {
                    std::chrono::milliseconds(cfg_.rpcDeadlineMs));
 }
 
-// MO-2: trip the cooperative abort flag (broken out of the round loop at the next shouldStop() poll)
-// AND cancel the in-flight training RPC so a call blocked on a slow/hung server returns immediately.
+bool FedLearnClient::shouldStop() const {
+  const auto state = participationState_.load();
+  if (state == ParticipationState::ReconnectRequired) {
+    throw std::runtime_error("RECONNECT_REQUIRED: Heartbeat connection lost; re-register before training");
+  }
+  return state == ParticipationState::Stopped;
+}
+
+// Mark a terminal Stop and cancel the in-flight training RPC so a call blocked
+// on a slow/hung server returns immediately.
 void FedLearnClient::requestAbort() {
-  abortFlag_.store(true);
+  participationState_.store(ParticipationState::Stopped);
   std::lock_guard<std::mutex> lk(trainCtxMutex_);
   if (trainCtx_) trainCtx_->TryCancel();
 }
@@ -157,6 +165,9 @@ v2::RegisterClientResponse FedLearnClient::registerClient(const std::string& run
 }
 
 v2::GetServerStatusResponse FedLearnClient::getServerStatus(const std::string& runId) {
+  // Status polling must also surface heartbeat loss while waiting for peers or
+  // a previously submitted round, when no native round would otherwise run.
+  if (shouldStop()) throw std::runtime_error("STOP: Client participation ended");
   v2::GetServerStatusRequest req;
   req.set_run_id(runId);
   v2::GetServerStatusResponse resp;
@@ -188,19 +199,20 @@ DeComFLConfig FedLearnClient::getDeComFLConfig(const std::string& runId,
 
   DeComFLConfig out;
   // should_stop lives on HeartbeatResponse, NOT on GetDeComFLConfigResponse — the stop signal already
-  // flows via the heartbeat (HeartbeatResponse.should_stop -> abortFlag_ -> shouldStop()), so the config
+  // flows via the heartbeat (HeartbeatResponse.should_stop -> participationState_ -> shouldStop()), so the config
   // path leaves out.shouldStop at its default false. Server-authoritative completion is signalled as
   // current_round == -1 (handled in FederatedLoop::deComFLRound).
   out.currentRound = resp.current_round();
-  out.config.learningRate = std::stod(cfgGet(resp.config(), "lr", "0.001"));
-  out.config.mu = std::stod(cfgGet(resp.config(), "mu", "0.001"));
+  // learning_rate / smoothing_param are the keys the server sends; this used to read "lr" and "mu", which it never
+  // sends, so every round trained on the 0.001 defaults. The shared parser records whether each value was sent.
+  applyDeComFLServerConfig(std::map<std::string, std::string>(resp.config().begin(), resp.config().end()),
+                           resp.grad_estimate_method(), out);
   // mu is the zeroth-order finite-difference radius and a DIVISOR of the g-scalar: g = Δloss / mu. A
   // server-supplied mu of 0 makes it 0/0 = NaN, which poisons the local update AND the uploaded scalars;
   // a non-finite mu is likewise degenerate. Reject anything that is not strictly positive and finite.
   if (!(out.config.mu > 0.0) || !std::isfinite(out.config.mu)) {
     throw std::runtime_error("DeComFL config: mu must be a positive finite number");
   }
-  out.config.method = parseMethod(resp.grad_estimate_method());
   out.config.torchVersion = resp.torch_version();  // carried but NOT gated by FederatedLoop
   out.seeds = fromProtoSeeds(resp.current_seeds());
   out.config.numLocalSteps = static_cast<int>(out.seeds.size());
@@ -240,7 +252,8 @@ void FedLearnClient::submitGradientScalars(const std::string& runId, const std::
 // FedAvg streaming
 // ---------------------------------------------------------------------------
 std::string FedLearnClient::getGlobalModelStream(const std::string& runId,
-                                                 const std::string& clientId, int* outCurrentRound) {
+                                                 const std::string& clientId, int* outCurrentRound,
+                                                 std::map<std::string, std::string>* outConfig) {
   v2::GetGlobalModelRequest req;
   req.set_client_id(clientId);
   req.set_run_id(runId);
@@ -251,35 +264,24 @@ std::string FedLearnClient::getGlobalModelStream(const std::string& runId,
   std::unique_ptr<grpc::ClientReader<v2::ModelChunk>> reader(
       trainingStub_->GetGlobalModelStream(&ctx, req));
 
-  std::string blob;
+  ModelStream stream(cfg_.maxMessageBytes * static_cast<int64_t>(4096));
   v2::ModelChunk chunk;
-  int64_t declaredTotal = -1;
-  std::string declaredSha;
-  int currentRound = 0;
+  std::map<std::string, std::string> firstConfig;
   bool first = true;
   while (reader->Read(&chunk)) {
+    stream.append({chunk.chunk_index(), chunk.total_chunks(), chunk.is_final_chunk(),
+                   chunk.current_round(), chunk.codec(), chunk.compressed(), chunk.total_bytes(),
+                   chunk.sha256(), chunk.chunk_data()});
     if (first) {
-      validateCodec(chunk.codec());            // E7-style: reject unknown codec
-      declaredTotal = chunk.total_bytes();
-      declaredSha = chunk.sha256();
-      currentRound = chunk.current_round();
-      if (declaredTotal > cfg_.maxMessageBytes * static_cast<int64_t>(4096)) {
-        throw std::runtime_error("getGlobalModelStream: declared total_bytes exceeds sane cap");
-      }
+      firstConfig.insert(chunk.config().begin(), chunk.config().end());
       first = false;
-    }
-    blob.append(chunk.chunk_data());
-    if (declaredTotal >= 0 && static_cast<int64_t>(blob.size()) > declaredTotal) {
-      throw std::runtime_error("getGlobalModelStream: reassembled size exceeds declared total_bytes");
     }
   }
   grpc::Status s = reader->Finish();
   if (!s.ok()) throw std::runtime_error("GetGlobalModelStream failed: " + statusStr(s));
-
-  if (!declaredSha.empty() && Sha256::hexDigest(blob) != declaredSha) {
-    throw std::runtime_error("getGlobalModelStream: sha256 mismatch on reassembled model blob");
-  }
-  if (outCurrentRound) *outCurrentRound = currentRound;
+  std::string blob = stream.finish();
+  if (outCurrentRound) *outCurrentRound = stream.currentRound();
+  if (outConfig) *outConfig = std::move(firstConfig);
   return blob;
 }
 
@@ -347,17 +349,26 @@ void FedLearnClient::reportClientMetrics(const v2::ReportClientMetricsRequest& m
 void FedLearnClient::startHeartbeat(const std::string& runId, const std::string& clientId,
                                     int currentRound) {
   stopHeartbeat();  // ensure no prior thread
+  if (shouldStop()) return;  // Only a replacement registration may revive a dead heartbeat.
   heartbeatStop_.store(false);
-  abortFlag_.store(false);
+  updateProgress("IDLE", currentRound, 0, 0);
 
-  heartbeatThread_ = std::thread([this, runId, clientId, currentRound]() {
+  heartbeatThread_ = std::thread([this, runId, clientId]() {
     int consecutiveFailures = 0;
     while (!heartbeatStop_.load()) {
       v2::HeartbeatRequest req;
       req.set_client_id(clientId);
       req.set_run_id(runId);
-      req.set_status("TRAINING");
-      req.set_current_round(currentRound);
+      const auto progress = progressSnapshot();
+      req.set_status(progress.status);
+      req.set_current_round(progress.round);
+      // The existing wire uses int32 counts. An unrepresentable total is
+      // unknown (0/0), rather than a wrapped count or a false percentage.
+      if (progress.totalSteps > 0 && progress.totalSteps <= std::numeric_limits<int32_t>::max() &&
+          progress.currentStep >= 0 && progress.currentStep <= progress.totalSteps) {
+        req.set_current_step(static_cast<int32_t>(progress.currentStep));
+        req.set_total_steps(static_cast<int32_t>(progress.totalSteps));
+      }
 
       v2::HeartbeatResponse resp;
       grpc::ClientContext ctx;
@@ -370,15 +381,18 @@ void FedLearnClient::startHeartbeat(const std::string& runId, const std::string&
       grpc::Status s = heartbeatStub_->Heartbeat(&ctx, req, &resp);
       { std::lock_guard<std::mutex> lk(hbCtxMutex_); hbCtx_ = nullptr; }
 
+      if (heartbeatStop_.load()) break;  // Lifecycle cancellation is not a connection failure.
       if (!s.ok()) {
         if (++consecutiveFailures >= cfg_.heartbeatFailureLimit) {
-          abortFlag_.store(true);  // M-H3: heartbeat death is now VISIBLE to the training loop
+          // Never overwrite a concurrent explicit Stop with a recoverable loss.
+          auto active = ParticipationState::Active;
+          participationState_.compare_exchange_strong(active, ParticipationState::ReconnectRequired);
           break;
         }
       } else {
         consecutiveFailures = 0;
         if (resp.should_stop()) {  // server told us to abort (deadline / quorum-lost / stopped)
-          abortFlag_.store(true);
+          participationState_.store(ParticipationState::Stopped);
           break;
         }
       }

@@ -2,7 +2,7 @@
 # =============================================================================
 # FedLearn Native Client — macOS Build
 # =============================================================================
-# Produces dist/fedlearn-client/ with torch 2.5.1. On Apple Silicon the wheel
+# Produces dist/fedlearn-client/ with torch 2.12.0. On Apple Silicon the wheel
 # includes MPS acceleration; on x64 Macs it's CPU-only (Apple dropped CUDA
 # support years ago). PyPI serves the correct wheel automatically based on
 # `uname -m`, so the pip command is arch-agnostic.
@@ -29,7 +29,7 @@ echo "[build-mac] Venv:         $VENV_DIR"
 
 if [[ ! -d "$VENV_DIR" ]]; then
   echo "[build-mac] Creating fresh venv..."
-  python3 -m venv "$VENV_DIR"
+  "${PYTHON_BIN:-python3.12}" -m venv "$VENV_DIR"
 fi
 
 # shellcheck disable=SC1091
@@ -37,8 +37,8 @@ source "$VENV_DIR/bin/activate"
 
 python -m pip install --upgrade pip wheel setuptools
 
-echo "[build-mac] Installing torch 2.5.1 (MPS-enabled, default index)..."
-pip install "torch==2.5.1" "torchvision==0.20.1"
+echo "[build-mac] Installing torch 2.12.0 (MPS-enabled, default index)..."
+pip install "torch==2.12.0" "torchvision==0.27.0"
 
 echo "[build-mac] Installing pinned runtime deps..."
 pip install -r "$SCRIPT_DIR/requirements-client.txt"

@@ -38,7 +38,7 @@ struct GrpcClientConfig {
   std::string caCertPath;
   int maxMessageBytes = 33554432;  // 32 MB phone cap (E11 / M-M3), NOT 1 GB
   int heartbeatIntervalMs = 5000;
-  int heartbeatFailureLimit = 3;   // N consecutive failures -> abortFlag_ (E4 / M-H3)
+  int heartbeatFailureLimit = 3;   // N consecutive failures require re-registration
   // MO-2: per-RPC deadline for the training-stub calls (register/status/config/submit/download). A
   // bare ClientContext has NO deadline, so a stalled server hangs the call forever and the round loop's
   // between-step shouldStop() poll never gets to run. This bounds every call; requestAbort() also
@@ -62,7 +62,8 @@ class FedLearnClient : public IFedLearnClient {
   v2::GetServerStatusResponse getServerStatus(const std::string& runId);
 
   // --- IFedLearnClient (core-typed seam consumed by FederatedLoop) ---
-  bool shouldStop() const override { return abortFlag_.load(); }
+  // Genuine Stop returns true; a dead heartbeat rejects with RECONNECT_REQUIRED.
+  bool shouldStop() const override;
   // GetDeComFLConfig -> core DeComFLConfig (lr/mu/method from the config map, seeds, rebuild
   // history, should_stop, current_round).
   DeComFLConfig getDeComFLConfig(const std::string& runId, const std::string& clientId) override;
@@ -74,7 +75,8 @@ class FedLearnClient : public IFedLearnClient {
   // FedAvg download: reassembles the ModelChunk stream into a validated blob (codec whitelist +
   // cumulative size cap + sha256), sets *outCurrentRound. Single decode site is ModelManager.
   std::string getGlobalModelStream(const std::string& runId, const std::string& clientId,
-                                   int* outCurrentRound) override;
+                                   int* outCurrentRound,
+                                   std::map<std::string, std::string>* outConfig = nullptr) override;
   // Proto-free seam upload: marshals the weight blob onto SubmitModelUpdateStream (below).
   void submitModelUpdate(const std::string& runId, const std::string& clientId,
                          int trainedOnRound, const std::string& modelBlob,
@@ -90,11 +92,11 @@ class FedLearnClient : public IFedLearnClient {
   // --- telemetry (best-effort; never throws) ---
   void reportClientMetrics(const v2::ReportClientMetricsRequest& metrics);
 
-  // --- dual heartbeat: own thread + own channel; sets abortFlag_ on N failures OR should_stop ---
+  // --- dual heartbeat: own thread + own channel; distinguishes connection loss from Stop ---
   void startHeartbeat(const std::string& runId, const std::string& clientId, int currentRound);
   void stopHeartbeat();
 
-  // Abort: flips the shared abort flag so an in-progress round's shouldStop() poll breaks out at the
+  // Abort: marks a terminal stop so an in-progress round's shouldStop() poll breaks out at the
   // next between-step check, AND TryCancel()s the in-flight training RPC (if any) so a call blocked on
   // a slow/hung server returns immediately instead of waiting out the deadline. Safe to call from any
   // thread (e.g. the JS-thread stop()) — it never takes the round mutex; only the brief trainCtx mutex
@@ -133,7 +135,8 @@ class FedLearnClient : public IFedLearnClient {
   std::unique_ptr<v2::FederatedLearningService::Stub> trainingStub_;
   std::unique_ptr<v2::FederatedLearningService::Stub> heartbeatStub_;
 
-  std::atomic<bool> abortFlag_{false};
+  enum class ParticipationState { Active, ReconnectRequired, Stopped };
+  std::atomic<ParticipationState> participationState_{ParticipationState::Active};
   std::atomic<bool> heartbeatStop_{false};
   std::thread heartbeatThread_;
   std::mutex hbCtxMutex_;                 // guards hbCtx_ (the heartbeat's in-flight ClientContext)

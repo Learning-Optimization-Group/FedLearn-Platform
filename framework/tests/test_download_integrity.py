@@ -254,3 +254,31 @@ def test_new_client_decodes_legacy_pickle_stream(client_for):
     for name, tensor in INIT_PARAMS.items():
         assert torch.equal(params[name], tensor)
     assert current_round == 1
+
+
+def test_a_model_larger_than_a_phones_message_cap_streams_in_chunks_a_phone_accepts():
+    """Stage 4 S7: the server cut the download into 50 MB chunks, so ResNet-18's 42.7 MB state went out as one
+    message, over the phone's 32 MB cap (FedLearnClient.h maxMessageBytes), and the phone's gRPC cancelled every
+    attempt. Downloads now use the same chunk size as uploads (FEDLEARN_CHUNK_SIZE_MB, 4 MB by default)."""
+    from fedlearn.communication.serializer import CHUNK_SIZE
+    phone_cap = 33554432
+    big = OrderedDict(w=torch.arange(9_000_000, dtype=torch.float32))   # 36 MB of float32
+    strat = FedAvg(initial_parameters=big, min_fit_clients=1, clients_per_round=1)
+    coord = FLCoordinator(strat, min_clients_for_aggregation=1, clients_per_round=1, round_timeout_s=30)
+    coord.set_initial_parameters(strat.initialize_parameters())
+    server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=2))
+    pbg.add_FederatedLearningServiceServicer_to_server(FederatedLearningServiceServicer(coord), server)
+    port = _free_port()
+    server.add_insecure_port(f"127.0.0.1:{port}")
+    server.start()
+    try:
+        options = [("grpc.max_receive_message_length", phone_cap)]
+        with grpc.insecure_channel(f"127.0.0.1:{port}", options=options) as channel:
+            chunks = list(pbg.FederatedLearningServiceStub(channel).GetGlobalModelStream(
+                pb.GetGlobalModelRequest(client_id="phone-sized")))
+    finally:
+        server.stop(grace=None)
+    assert len(chunks) > 1 and max(len(c.chunk_data) for c in chunks) <= CHUNK_SIZE
+    payload = b"".join(c.chunk_data for c in chunks)
+    assert len(payload) == chunks[0].total_bytes and hashlib.sha256(payload).hexdigest() == chunks[0].sha256
+    assert np.array_equal(dict(load_safetensors(payload)[0])["w"], big["w"].numpy())

@@ -48,7 +48,9 @@ describe('OwnerDashboard — honest connection indicator (FE-8)', () => {
   beforeEach(() => {
     fakeClient = makeFakeClient();
     vi.mocked(StompClient).mockImplementation(
-      () => fakeClient as unknown as InstanceType<typeof StompClient>,
+      function () {
+        return fakeClient as unknown as InstanceType<typeof StompClient>;
+      },
     );
     vi.mocked(api.fetchOwnedProjects).mockResolvedValue(resp([]));
     vi.mocked(api.fetchProjectResults).mockResolvedValue(resp([]));

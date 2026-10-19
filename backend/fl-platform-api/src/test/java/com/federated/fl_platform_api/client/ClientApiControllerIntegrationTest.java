@@ -134,7 +134,10 @@ class ClientApiControllerIntegrationTest {
         Project p = createProject(alice, "RUNNING", null);
         membershipRepository.save(new ProjectMembership(
             p, bob, MembershipRole.CLIENT, JoinedVia.OWNER_ADD, alice));
-        createRunForProject(p, RunStatus.RUNNING, 50000);
+        Run active = createRunForProject(p, RunStatus.RUNNING, 50000);
+        active.setIntent(RunIntent.capture(p, false, true, 120_000L, TrainingDataSource.LOCAL_SNAPSHOT));
+        runRepository.save(active);
+        p.setModelName("edited_after_start"); projectRepository.save(p);
 
         String bobCookie = loginAs("bob_cn");
         @SuppressWarnings({"unchecked", "rawtypes"})
@@ -145,6 +148,7 @@ class ClientApiControllerIntegrationTest {
         assertNotNull(first.getBody());
         assertEquals(0, ((Number) first.getBody().get("partitionId")).intValue());
         assertEquals("RUNNING", first.getBody().get("status"));
+        assertEquals("resnet8", first.getBody().get("modelName"));
         assertTrue(((String) first.getBody().get("serverAddress")).endsWith(":50000"));
         assertNotNull(first.getBody().get("connectionToken"),
             "connectionToken must be present in the response");

@@ -65,7 +65,7 @@ def stub_pretrained_downloads(monkeypatch):
     monkeypatch.delenv("FEDLEARN_LLM_LORA_BASE", raising=False)
 
 
-_CATALOG = [(r["key"], name) for r in recipes.RECIPE_METADATA for name in r["base_models"]]
+_CATALOG = [(r["key"], name) for r in recipes.RECIPE_METADATA if r.get("workload_kind") != "tree" for name in r["base_models"]]
 _MULTI_MODEL_KEYS = [r["key"] for r in recipes.RECIPE_METADATA if len(r["base_models"]) > 1]
 
 
@@ -81,3 +81,8 @@ def test_every_advertised_base_model_instantiates(stub_pretrained_downloads, key
 def test_multi_model_recipes_dispatch_on_model_name(stub_pretrained_downloads, key):
     with pytest.raises(ValueError):
         init_model.get_model(key, "no-such-model-xyz", "cpu")
+
+
+def test_tree_recipe_cannot_enter_the_neural_builder():
+    with pytest.raises(ValueError, match="typed tree runtime"):
+        init_model.get_model("XGBOOST", "xgboost_binary", "cpu")

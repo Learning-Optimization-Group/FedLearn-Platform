@@ -451,6 +451,10 @@ class GrpcClient:
                 })
 
             config = dict(response.config)
+            # The estimator travels in its own field; keep it with the rest of the round's settings so a caller
+            # holding an execution contract can check it (it was dropped here, so no client ever saw it).
+            if response.grad_estimate_method:
+                config["grad_estimate_method"] = response.grad_estimate_method
             return response.current_round, seeds, rebuild_history, config
 
         except grpc.RpcError as e:

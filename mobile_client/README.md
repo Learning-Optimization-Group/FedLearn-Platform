@@ -14,6 +14,20 @@ Bridge build/codegen specifics: [`bridge/README.md`](bridge/README.md).
 
 ---
 
+## Current Android scope — 18 October 2026
+
+Use the [current run guide](../wikis/mobile/15-current-android-runbook.md) for
+setup, local data, standalone builds and manual recovery. The
+[qualification matrix](../wikis/mobile/13-qualification-matrix.md) distinguishes
+implemented plans from actual device evidence. Android portable CPU/FULL training
+covers six recipes and 24 declared strategy plans. Real vector/image datasets and
+bounded CNN FedAvg/DeComFL manual cold recovery have retained evidence.
+
+The packaged Metro-free client is internal Debug. Production signing identity,
+full Release HTTPS/gRPC TLS training and same-release-key update qualification
+remain open; follow the [release procedure](../wikis/mobile/16-release-tls-qualification.md).
+iOS training and Android XGBoost are not implemented.
+
 ## Platform status — read this before you build
 
 | Platform | Status |
@@ -38,30 +52,29 @@ on-device training entry point instead of taking down the JS bundle.
 
 ## What actually runs on the device
 
-Two training paths, both native C++:
+Two training paths, both native C++ and selected by the run's execution contract:
 
-- **DeComFL (zeroth-order)** — the default. The device evaluates forward passes only; per round it
-  uploads **perturbation seeds and K·P gradient scalars**, never weights. This is what makes the
-  mobile client viable: no backward pass, and the uplink is a handful of numbers.
-- **First-order FedAvg** — real backprop via ExecuTorch's training extension, uploading a weight
-  blob that any gradient-aggregating server (FedAvg / FedProx / FedOpt / Robust) consumes over
-  `SubmitModelUpdateStream`. It is **capability-gated**: it runs only when the backend provisioned a
-  trainable `.pte` for the run (`manifest.firstOrderSupported`). Without one, `src/lib/training.ts`
-  refuses **fail-closed** with `MobileFedAvgUnsupportedError` before touching the device, rather
-  than uploading ZO scalars a FedAvg server cannot aggregate.
+- **First-order FedAvg, FedOpt, Robust and FedProx** use exported ExecuTorch
+  training programs and upload float32 model state. The client executes the
+  contract's optimizer, batching, dropout, BatchNorm and FedProx settings;
+  aggregation and FedOpt's adaptive server step run on the coordinator.
+- **DeComFL** evaluates forward loss programs and sends seeds/scalars. TinyNet
+  and the bounded CIFAR CNN plan are supported. CNN uses one sequential batch
+  of at most 32 local images per client; this is not general image-model support.
 
-Models and data arrive per-run, not baked in: `src/lib/modelProvisioning.ts` fetches
-`GET /api/runs/{runId}/model-bundle`, downloads each binary (the weights-free loss `.pte`, the
-infer `.pte`, `inputs.f32`, `targets.i64`, and the optional `trainable.pte`), and stages each one
-through `stageBundleFile`, which **sha256-verifies the decoded bytes before writing** and refuses
-any file the bundle did not declare a hash for. A bundle that isn't staged yet 404s gracefully.
+The app requires a READY execution contract and matching supported artifacts.
+`src/lib/modelProvisioning.ts` downloads each declared program with integrity
+checks and resumable transfer. LOCAL_SNAPSHOT runs use imported app-private data;
+fixture data remains limited to declared demo plans. The native core reads raw
+features/labels locally; training updates, metrics and enrollment metadata are
+shared. Local data is not uploaded as a training dataset.
 
-> Backend-side, `ScriptModelBundleStager` stages fixture-backed recipes (today: `TINYNET_GOLDEN`)
-> with a stdlib-only copy needing no ExecuTorch toolchain, and takes a best-effort real export path
-> (`scripts/export_model.py --recipe …`) for everything else. The TinyNet fixture
-> (`Linear(4,5)→ReLU→Linear(5,3)`, `fc2` frozen: 43 params, 25 trainable) still stands in as the
-> device's local partition on demo runs — genuine per-device data is a deliberate post-MVP step.
-> See [`ON_DEVICE_TRAINING_E2E.md`](ON_DEVICE_TRAINING_E2E.md).
+`ScriptModelBundleStager` uses repository-root `scripts/stage_model_bundle.py`
+for fixture recipes and `scripts/export_model.py` for real models. The latter
+imports `fl-runtime/recipes.py` and needs the pinned host export toolchain. A
+failed export is not a qualified run: inspect the contract's unavailable reason
+before retrying. `mobile_client/scripts/export_model.py` is a separate legacy
+model-tier utility, not the per-run export entry point.
 
 The app shell is a four-tab bottom bar (Home · Projects · Models · Settings) over a native stack
 that pushes Model Testing, Playground and Project Detail; `src/state/TrainingContext.tsx` is the
@@ -238,7 +251,7 @@ bash scripts/build_executorch_arm64.sh                      # ET_VERSION default
 GRPC_CPP_VERSION=v1.67.1 bash scripts/build_grpc_arm64.sh   # no default — the script exits if unset
 (cd ../proto && buf generate)
 
-(cd android && ./gradlew assembleRelease \
+(cd android && ./gradlew :app:assembleDebug -PfedlearnStandalone=true \
    -PET_SRC=… -PET_BUILD=… -PTORCH_INCLUDE=… -PGRPC_DIR=… -PGENERATED_PROTO_DIR=…)
 ```
 
@@ -249,8 +262,11 @@ ExecuTorch's Java API. (`bridge/android/jni/CMakeLists.txt` still builds a stand
 `libfedlearn_jni.so` target with the same flags, but Gradle no longer references it — the app build
 moved into `android/app/src/main/jni/` in `1edf350`.)
 
-**Still outstanding:** a real release signing config for both platforms (Android and iOS currently
-use debug/none), and the iOS runtime migration above.
+Android Release requires an explicitly configured non-Debug keystore; missing or
+invalid signing credentials fail the build. See
+[signing/TLS requirements](../wikis/mobile/14-release-readiness.md). A persistent
+backed-up release identity, full physical Release training and same-key Release
+updates are still unqualified. The iOS runtime migration and signing remain open.
 
 ---
 

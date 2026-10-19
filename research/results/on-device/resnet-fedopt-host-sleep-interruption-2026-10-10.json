@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-10",
+  "qualification_complete": false,
+  "outcome": "Stopped after host sleep interrupted connectivity following round 1; excluded from completed qualification evidence.",
+  "project_id": "f9a10ff6-3a06-4669-a783-9ab56bbceee8",
+  "run_id": "3a05d0d6-6856-4afe-ad38-f4714223a10d",
+  "source_commit": "f95f8a6645fd7a63059f420ceb03980ec5386ccf",
+  "model": "CIFAR_RESNET18",
+  "strategy": "FedOpt",
+  "client_learning_rate": 0.001,
+  "server_settings": {
+    "variant": "adam",
+    "serverLearningRate": 0.01,
+    "beta1": 0.9,
+    "beta2": 0.99,
+    "tau": 0.001
+  },
+  "requested_rounds": 2,
+  "phone_completed_rounds": [
+    {
+      "round": 1,
+      "loss": 0.8592980112880468,
+      "accuracy": 0.78125,
+      "scalarsTransmitted": 0,
+      "uplinkBytes": 44774166,
+      "downlinkBytes": 44774081,
+      "computeMs": 393578,
+      "reverted": false
+    }
+  ],
+  "accepted_updates": [
+    {
+      "client": "desktop",
+      "round": 1,
+      "num_examples": 64,
+      "state_sha256": "70dd616a8afc562b54b47a09b2309053abaacfe10f2e6989be5800828d233d55"
+    },
+    {
+      "client": "phone",
+      "round": 1,
+      "num_examples": 64,
+      "state_sha256": "ffcf87da28cddc8c1f1e14df58a77a7b274533e7249afa81679b6de33a00bb0c"
+    }
+  ],
+  "original_desktop_round1_replay": {
+    "run_id": "3a05d0d6-6856-4afe-ad38-f4714223a10d",
+    "torch": "2.12.0+cpu",
+    "torch_num_threads": 1,
+    "rounds": [
+      {
+        "round": 1,
+        "examples": 64,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      }
+    ],
+    "wrong_label_control_max_abs_diff": 0.008707761764526367
+  },
+  "final_artifact_http_status": 404,
+  "cause_evidence": "Host power logs record sleep/darkwake; desktop stream ping timeout, phone status deadlines/network rejoin failures and CDP collector timeout coincide. Local/forwarded health responds after wake.",
+  "raw_receipt_sha256": {
+    "contract.json": "80586841434df8c4ed2efb6ffbf0f80b11e5d51bdec8db73e05876271796b09f",
+    "manifest.json": "637a36df5432fc2a86d77788a9b5aba69758d53acccf7285b28a264f6e0ee655",
+    "phone-interrupted-cdp.json": "d5b5159420410403e1394b6e5bf79aa84bd5020676961bf75ab36fabe0809126",
+    "accepted-before-interruption.json": "832b5a0a46ef09bf157bfc70d5f75b55a79e50ef5fa2495c3196fd4dcdb5d045",
+    "desktop-replay.json": "f3b9d471bed4909aba93c752c41cf2f0456191a7228037c36ba707dcac95d775",
+    "desktop-replay.log": "e99bb8cd2498ddbec60876504ed2a7f7904e35b83b0e0e897ec45e3a6c357d7c",
+    "host-sleep.log": "7bb91cdce176cc4ed6bff0978f027a8a17a3e3fcd951c56f14546158159ff35b",
+    "server-interrupted-log.txt": "5c20a14218833d2aa3ef631a7b5218e37f66d70fbddba44ac2ad1793979d98a2",
+    "stopped-after-interruption.json": "9923c208ecbfa93ddbc23b1b5311b62cbf9423eec007b45eb4edff4136c5d1d7",
+    "latest-artifact-after-stop-status.json": "bd0d744c824db3beb9c5bb9509d03e16487cda388cd911747257615d54dafc49"
+  },
+  "limits": [
+    "One accepted round is not a completed two-round qualification.",
+    "Phone contribution has not been replayed for this interrupted attempt.",
+    "Server round1 reported36.06%; no registered final checkpoint exists and no independent full-run reload is claimed.",
+    "No rate, dataset or model change was made in response to this connectivity failure."
+  ],
+  "superseded_by_receipt": "resnet-fedopt-client-rate-2026-10-10.json"
+}

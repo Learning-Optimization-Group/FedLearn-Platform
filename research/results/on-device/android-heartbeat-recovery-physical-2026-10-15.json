@@ -1,0 +1,307 @@
+{
+  "date": "2026-10-15",
+  "time_basis": "UTC",
+  "verdict": "PASS_TWO_ROUND_CONTROLLED_HEARTBEAT_RECOVERY",
+  "project_id": "3c6d6d7d-5e92-4f2c-85e6-7bd521ab48ed",
+  "run_id": "5a40ac66-d718-450a-9bc7-9b0fc913013e",
+  "model": "PNEUMONIA_CNN",
+  "strategy": "FedAvg",
+  "training_arm": "FULL",
+  "examples_per_client": 16,
+  "local_optimizer": "Adam",
+  "local_updates_per_round": 1,
+  "source_commit": "f497dd0af8e9bf93261d89831b29d410af88fd8f",
+  "native_transport_fix_commit": "f24e2cddf9192b0d2e2d9baaa8c02be86848eb92",
+  "apk_sha256": "e31d467cba75fa4183b3a7820cad6e6a901f94ce55d0f22e98a16e4e6bc9ca51",
+  "application_source_receipt_sha256": "7e057ed177b5a93e646f3e2fcd6ed34a350b9f01e67f8d3368ac2aa69e63a438",
+  "installation": {
+    "same_signer_update": true,
+    "usb_debugging_postcheck_passed": true,
+    "saved_files_before_and_after": 33,
+    "older_wireless_cleanup_postcheck_completed_here": true
+  },
+  "verification": {
+    "verdict": "PASS_TWO_ROUND_CONTROLLED_HEARTBEAT_RECOVERY",
+    "run_id": "5a40ac66-d718-450a-9bc7-9b0fc913013e",
+    "accepted_updates": 4,
+    "completed_checkpoint": 2,
+    "injected_heartbeat_failures": 3,
+    "accepted_registrations": 2,
+    "renewed_real_server_heartbeat": true,
+    "duplicate_round1_update": false,
+    "aggregate_bitwise_equal": true,
+    "phone_update_payloads_match_accepted_states": true,
+    "dataset_files_unchanged": 33,
+    "same_phone_pid": 20200,
+    "usb_power_required": true,
+    "active_samples": 33,
+    "temperature_min_c": 22.0,
+    "temperature_max_c": 24.0,
+    "post_completion_upstream_heartbeat_failures": 1,
+    "internal_abort_state_directly_sampled": false,
+    "physical_numerical_client_replay_repeated": false,
+    "screen_off_qualification": false
+  },
+  "aggregate": {
+    "accepted_rows_in_unfiltered_recorder_window": 4,
+    "aggregate_bitwise_equal": true,
+    "finite_state": true,
+    "initial_state_matches_contract": true,
+    "reconstructed_parent_sha256": {
+      "1": "21484f2dc16dd0eda9abbdfa19fe54338ce8522e4856f4a59348a9560f92ef77",
+      "2": "337e5f9158b86fcf30ad1a6a1cd714897c94921c9be621d7439e8db1fe6ead91"
+    },
+    "registered_npz_sha256": "7e5bddeceaa14a6f654aa4c97d329f8ee653468dcb15d2df1c638610435b2ace",
+    "integer_tensor_count": 0,
+    "batchnorm_variance_tensor_count": 0,
+    "physical_client_replay_repeated": false
+  },
+  "events": [
+    {
+      "at_utc": "2026-10-15T01:27:28.332080+00:00",
+      "name": "exercise_started"
+    },
+    {
+      "at_utc": "2026-10-15T01:27:29.622574+00:00",
+      "name": "proxy_started",
+      "kind": "proxy",
+      "pid": 66121
+    },
+    {
+      "at_utc": "2026-10-15T01:27:30.562044+00:00",
+      "name": "monitor_started",
+      "kind": "monitor",
+      "pid": 66179
+    },
+    {
+      "at_utc": "2026-10-15T01:27:34.688783+00:00",
+      "name": "training_started",
+      "pid": 20200
+    },
+    {
+      "at_utc": "2026-10-15T01:27:47.665265+00:00",
+      "name": "active_monitor_ready",
+      "sample": {
+        "started_utc": "2026-10-15T01:27:45.437390+00:00",
+        "at_utc": "2026-10-15T01:27:45.597272+00:00",
+        "wakefulness": "Awake",
+        "interactive": true,
+        "light_idle": false,
+        "deep_idle": false,
+        "battery_level": 100,
+        "temperature_c": 22.0,
+        "usb_powered": true,
+        "ac_powered": false,
+        "wireless_powered": false,
+        "foreground_service_present": true,
+        "app_process_present": true,
+        "app_process_pid": 20200
+      }
+    },
+    {
+      "at_utc": "2026-10-15T01:31:31.007419+00:00",
+      "name": "phone_round1_checkpointed_peer_held",
+      "checkpoint": 1
+    },
+    {
+      "at_utc": "2026-10-15T01:31:31.079386+00:00",
+      "name": "heartbeat_failure_injection_armed"
+    },
+    {
+      "at_utc": "2026-10-15T01:31:54.861125+00:00",
+      "name": "recovered_with_checkpoint_preserved",
+      "failures": [
+        {
+          "at_utc": "2026-10-15T01:31:34.922292+00:00",
+          "name": "injected_heartbeat_failure",
+          "remaining": 2,
+          "run_id": "5a40ac66-d718-450a-9bc7-9b0fc913013e",
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "current_round": 1,
+          "status": "WAITING",
+          "current_step": 1,
+          "total_steps": 1
+        },
+        {
+          "at_utc": "2026-10-15T01:31:39.981708+00:00",
+          "name": "injected_heartbeat_failure",
+          "remaining": 1,
+          "run_id": "5a40ac66-d718-450a-9bc7-9b0fc913013e",
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "current_round": 1,
+          "status": "WAITING",
+          "current_step": 1,
+          "total_steps": 1
+        },
+        {
+          "at_utc": "2026-10-15T01:31:45.036675+00:00",
+          "name": "injected_heartbeat_failure",
+          "remaining": 0,
+          "run_id": "5a40ac66-d718-450a-9bc7-9b0fc913013e",
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "current_round": 1,
+          "status": "WAITING",
+          "current_step": 1,
+          "total_steps": 1
+        }
+      ],
+      "registration": {
+        "at_utc": "2026-10-15T01:31:54.392709+00:00",
+        "name": "rpc_completed",
+        "method": "RegisterClient",
+        "grpc_status": "0",
+        "run_id": "5a40ac66-d718-450a-9bc7-9b0fc913013e",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "registration_status": 1
+      },
+      "heartbeat": {
+        "at_utc": "2026-10-15T01:31:54.430785+00:00",
+        "name": "rpc_completed",
+        "method": "Heartbeat",
+        "grpc_status": "0",
+        "run_id": "5a40ac66-d718-450a-9bc7-9b0fc913013e",
+        "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+        "current_round": 1,
+        "status": "IDLE",
+        "current_step": 0,
+        "total_steps": 0,
+        "acknowledged": true,
+        "should_stop": false
+      }
+    },
+    {
+      "at_utc": "2026-10-15T01:31:54.949006+00:00",
+      "name": "desktop_round_released",
+      "round": 1
+    },
+    {
+      "at_utc": "2026-10-15T01:35:41.632624+00:00",
+      "name": "desktop_round_released",
+      "round": 2
+    },
+    {
+      "at_utc": "2026-10-15T01:36:03.128385+00:00",
+      "name": "completed",
+      "checkpoint": 2,
+      "accepted_updates": 4
+    },
+    {
+      "at_utc": "2026-10-15T01:36:03.372537+00:00",
+      "name": "helpers_cleaned",
+      "proof": {
+        "proxy_absent": true,
+        "desktop_absent": true,
+        "monitor_absent": true,
+        "owned_proxy_route_absent": true,
+        "normal_run_route_restored": true
+      },
+      "success": true
+    }
+  ],
+  "scope": {
+    "device": "vivo1805",
+    "phone_pid": 20200,
+    "host": "Linux CPU peer",
+    "screen_off_required": false,
+    "usb_power_required": true,
+    "physical_usb_transport": true,
+    "synthetic_heartbeat_failures_only": true,
+    "upstream_registration_and_updates_real": true,
+    "registered_aggregate_reconstructed": true,
+    "independent_client_numerical_replay": false,
+    "natural_doze_qualified": false
+  },
+  "limitations": [
+    "Three controlled heartbeat RPC failures were injected through an application-level gRPC proxy. Other successful responses came from the real server. This is a functional recovery test, not a general prolonged-partition or background endurance qualification.",
+    "The proxy forwards raw successful protobuf payloads and the connection token; other metadata/trailers are not preserved and forwarded deadlines are capped at60seconds. The subsequent long Wi-Fi test uses a separate byte-forwarding proxy.",
+    "The internal native participation state was not directly sampled. Real failure/registration/ACK chronology, the journal and inspected source establish the observed bounded recovery behavior.",
+    "The journal records the reconnect attempt; it does not contain a directly captured RECONNECT_REQUIRED rejection or a new model-probe measurement. The model qualification result was reused from its cache.",
+    "One upstream heartbeat failed after the final peer release and terminal run message as the server exited. No upstream non-injected RPC failure occurred during the controlled recovery interval.",
+    "DeComFL native continuation beyond round one, production signing/deployed TLS, process-death recovery, battery-only survival and natural deep Doze remain open."
+  ],
+  "prior_harness_attempt": {
+    "verdict": "ABORTED_STALE_PRETRAINING_MONITOR_SAMPLE",
+    "project_id": "0f810926-4a94-41bb-b403-aeefaefa8f79",
+    "run_id": "b8f314e7-9614-4950-b9da-2cb582850414",
+    "accepted_updates": 0,
+    "fault_injection_started": false,
+    "owned_helpers_absent": true,
+    "product_failure_established": false,
+    "explanation": "The immediate FGS assertion consumed a monitor sample from before training. The retry waited for a fresh active sample. Initial evidence and exact drivers remain archived."
+  },
+  "private_short_case_sha256": {
+    "heartbeat-recovery-physical-retry/run.json": "71a44aa352fa91c9be2338053901660b9acfbb9c63c79d8c5e0d4ce9c407e66b",
+    "heartbeat-recovery-physical-retry/events.json": "c8be8cb8bfe7d28175b9819896bb303beb34f1c7de12ed5395ad76e87c5fb52c",
+    "heartbeat-recovery-physical-retry/accepted-updates.json": "90cc9f8457e53ab84becf36a3fb595586605cdf69490d4255882304c71ede6b8",
+    "heartbeat-recovery-physical-retry/record-offset.txt": "a3374c3b6c910aa6017ba1bc33d5e67ee263326a6c2e00443d729355ecd92dc1",
+    "heartbeat-recovery-physical-retry/record-end.txt": "58f8b6cd44b64da67ee28cd6b969117b00ec4959245040b43628ccf2ddf0bfe7",
+    "heartbeat-recovery-physical-retry/contract.json": "e6e2af802ed71cdf6eb8168683ff0872012113df9768fc909416ca2af2bd7b15",
+    "heartbeat-recovery-physical-retry/initial.npz": "ac6ebc7bdd830fe3d534a5cd5434f6cf5c3ee2cc567a4e9e5742e7b2b0a488f8",
+    "heartbeat-recovery-physical-retry/desktop.zip": "0b78ede069b937df804686c86b01d8dd9585561710c0e452b794d7d6754c4d64",
+    "heartbeat-recovery-physical-retry/artifact.json": "54afb355de94ac7fb75a218b0be28e5a03243693b72d7c4ffbfc6d60c5306ded",
+    "heartbeat-recovery-physical-retry/registered.npz": "7e5bddeceaa14a6f654aa4c97d329f8ee653468dcb15d2df1c638610435b2ace",
+    "heartbeat-recovery-physical-retry/aggregate-verification.json": "3bfa0ffc3e77713467b88d24ae2361aa754cb3f40be09608499ff05587523459",
+    "heartbeat-recovery-physical-retry/project-completed.json": "b6156bbd3235ae3366f2aa661ce8c6be0074633ef333bc92a7635f1c01945f72",
+    "heartbeat-recovery-physical-retry/provider-final.json": "0a9740b9b918bc1e3e85473e6d36500a6345e840f554a6823cde4b5b18d0578c",
+    "heartbeat-recovery-physical-retry/provider-progress.json": "0a9740b9b918bc1e3e85473e6d36500a6345e840f554a6823cde4b5b18d0578c",
+    "heartbeat-recovery-physical-retry/proxy-events.jsonl": "580a442432cca32085f8ee26b97052e9bb6c9ffeb378b851834ff8c4fb6898ef",
+    "heartbeat-recovery-physical-retry/device-samples.jsonl": "508a6edb189d6ed70363c32997d5c5c25126e9af60374afdb0d808022b552c3b",
+    "heartbeat-recovery-physical-retry/preflight.json": "726635bd474e0e8f8394646c21b17ba15e8a188950dcc358e3d25e1943da3079",
+    "heartbeat-recovery-physical-retry/phone-preservation-before.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+    "heartbeat-recovery-physical-retry/phone-preservation-after.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+    "heartbeat-recovery-physical-retry/helper-absence.json": "ae84348159f6004fe452671f8af0a0637b0910ad0da0b4cc113ef264b566d924",
+    "heartbeat-recovery-physical-retry/phone-diagnostics.txt": "f166d15161ebef38781d7e5a5457b5e596c6003783cab0b682c5c9f8243260a9",
+    "heartbeat-recovery-physical-retry/verification.json": "fda9892354fba58b2ca5e6e6739d40dfaa5f9d16a468d76194ec8028b308fc1f",
+    "heartbeat-recovery-physical-retry/verification.log": "bd9d3e876762d604b3567e87ae1ff491aab15634f1974f90258281875d62f0a2",
+    "heartbeat-recovery-physical-retry/exercise.log": "f3216dd2c57b7c10c195a07da8251da16219948f69564e8d1b0db4d2e04093ea",
+    "heartbeat-recovery-physical-retry/desktop.log": "e4091ee5fbbeda77a431610fe36b481d9c7bb72a49ff92798c3e5be3a0a90e33",
+    "heartbeat-recovery-physical-retry/proxy.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "heartbeat-recovery-physical-retry/monitor.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "heartbeat-recovery-physical-retry/deadline.log": "b3f24fc05d741c0283d86493aa4a6be087bb5d507e3c48cfb89aab9b61b61b78",
+    "heartbeat-recovery-physical-retry/deadline-guard.log": "aaeea1b3379f69961d7400e1caa5af67934c83f1323bd40eadb939804e8f916e",
+    "heartbeat-recovery-physical-retry/workspace-before-verification.json": "436949d1658b9e7c693571266989a0eeb0a8a205537f83d703813565c2d58393",
+    "heartbeat_recovery_retry_setup.py": "8753256ea4eb73fd6676718a912d8d72529a13815140eacbce7f96bd83729122",
+    "heartbeat_recovery_retry_proxy.py": "f5643f923408cf804b5b86792436fce5d1962b86179c261d14a11c701ae87bed",
+    "heartbeat_recovery_retry_remote.py": "e301276ca8cd787b772ff2040c78f2ca58e0fc246e0c6271f7fe11e9c38f10c0",
+    "heartbeat_recovery_retry_desktop.py": "1aeaae35526957826e9f4919b075eaf9ac3e3fdf89e5ebad1fcdedd860fc1b6c",
+    "heartbeat_recovery_retry_readiness.py": "2249165475ee217e39e71c5ebc389173d49402a7f03659605be626e19560a158",
+    "heartbeat_recovery_retry_exercise.py": "aa3444878f78d56c89cb91c7ac787a2c5513054e6b797dcd4c4318b2e8651656",
+    "heartbeat_recovery_retry_deadline.py": "5c76589b8eed06224ab2e7602865f0e43cf1f02847003b498a46fec19d60bb91",
+    "heartbeat_recovery_retry_deadline_guard.py": "2d96bf7eecd8405950def3dd4ca69cfd036c6742008e6455cdd835639ad2f944",
+    "heartbeat_recovery_retry_aggregate.py": "89278a66e334b97a2a02d838e8959d502d91e12cf5e25003dce86aa9a635bc24",
+    "heartbeat_recovery_retry_journal.py": "0b5993a319d0e46009fb176d20e0c681202a34b398b75b07f2b68f03fe635a44",
+    "verify_heartbeat_recovery_physical.py": "763a316f6797eb9f731daa1bcfb6d8324ae0036ac4ab866c934d5ce8e727fab4",
+    "heartbeat_recovery_preservation.py": "4dfc6d22ed42e626fb07147d6bb4c2e66bee756513f1960db0ec44619bd165f5"
+  },
+  "private_installation_evidence_sha256": {
+    "usb-postcheck.json": "020f070367dbd893af2768261d5b9e71919755d4c23d48d440aa97b4a9f2de12",
+    "install-preservation.json": "c10467c8d74e93c8b0e7e6891b8ba0411fc4768116f459dbfe283e24ecd37119",
+    "install.log": "781a31c82430c97897af612ece5e0ca2205e301cb5ff121ce2660541ea5182c7",
+    "candidate-signature.txt": "3583c6009988e708225f121c60e10073e781006bac855a48c5950c8c79a6dfe9",
+    "previous-signature.txt": "3583c6009988e708225f121c60e10073e781006bac855a48c5950c8c79a6dfe9"
+  },
+  "private_initial_attempt_sha256": {
+    "events.json": "c28956d196d4dce91fe7d5d7cb0fd393654450f596aee92e53886de0f5719e85",
+    "exercise.log": "e26d6fe429fedc62dfed4b4f50e0599180a5ffb36bbbaa55ef1af4dcefe55a7b",
+    "device-samples.jsonl": "e3d940c6c81f01d0067438ce4e458a41d077779786ba2095da4b96f0533d854c",
+    "proxy-events.jsonl": "587bf05ca090f1755e8ff8871b8f08ec3a04c188c7c525c0200a831a86050787",
+    "helper-absence.json": "ae84348159f6004fe452671f8af0a0637b0910ad0da0b4cc113ef264b566d924",
+    "desktop.log": "0128b383831342421f153cf1ddc6f71c0331a55f8ea49ed5bfb41679b9756f08",
+    "record-offset.txt": "a3374c3b6c910aa6017ba1bc33d5e67ee263326a6c2e00443d729355ecd92dc1",
+    "record-end-aborted.txt": "a3374c3b6c910aa6017ba1bc33d5e67ee263326a6c2e00443d729355ecd92dc1",
+    "aborted-recorder-window.json": "faec58e93663c1f7072a37fa652cd0e8e6bf2ac19a2187307ee0ccb696749815"
+  },
+  "private_initial_driver_sha256": {
+    "initial-driver-heartbeat_recovery_exercise.py": "fd599ee9682820f002a8ce221cea751f79ae0f82387318e9bface9ad0f020b3e",
+    "initial-driver-heartbeat_recovery_bridge.py": "ea16925df0c5a8623f52b1f93536408c462f021c8cb419468504b44ad52d7569",
+    "initial-driver-heartbeat_recovery_remote.py": "c37d7c47ed0928313f86736b36a728c872ac1a47b0109919c98d4379628a3e5c",
+    "initial-driver-heartbeat_recovery_setup.py": "1db41d25461090cabb0ff942eb66c2ea6e006dd898bb3927bcd2c834935bd047",
+    "initial-driver-heartbeat_recovery_deadline.py": "6be2f757814abd834054b2fa9896b6e1aa7f2ddd9724136e7c3802bf9af71fa5",
+    "initial-driver-heartbeat_recovery_proxy.py": "a5578d3174e442e7f4f544fc824c1a72de58017ce69cb91588c8a9afbd9508c7",
+    "initial-driver-heartbeat_recovery_desktop.py": "53860f6fed158aa03a16f488dbcf85c83a6ab4e116a62c144c7a6e993f45d06f",
+    "initial-driver-heartbeat_recovery_readiness.py": "d540b0204113af53bfe467150e4a2072465fca7d8a66e390748048d8afdeb77a",
+    "initial-driver-heartbeat_recovery_install.py": "c08991e623dacf190632fd8a0869e982e9487b03e5113140ee88d34618812098",
+    "initial-driver-heartbeat_recovery_bridge_retry.py": "eec38d103af8e48e40499124d520380e8b224dc91635d0a135afe01181096f68"
+  },
+  "private_curation_driver_sha256": "daaa6534b777065fc2e74895dfe2f9a6bea1c0611572d28cd128045ae6fbfe68"
+}

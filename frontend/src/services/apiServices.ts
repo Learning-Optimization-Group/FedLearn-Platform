@@ -51,6 +51,8 @@ export interface ProjectData {
 }
 
 export interface StartServerData {
+    /** Server optimizer settings, only for FedOpt; omitted values retain historical defaults. */
+    fedOpt?: {variant?: 'adam' | 'yogi'; serverLearningRate?: number; beta1?: number; beta2?: number; tau?: number};
     strategy?: string;
     numRounds?: number;
     minClients?: number;
@@ -68,6 +70,8 @@ export interface StartServerData {
     secureAggThreshold?: number;
     /** Devices a round waits for; it can still finish with minClients. Defaults to minClients on the server. */
     clientsPerRound?: number;
+    /** Where participants' training data comes from; the server default is the recipe's fixture data. */
+    dataSource?: 'FIXTURE' | 'LOCAL_SNAPSHOT';
 }
 
 export interface Project {
@@ -182,6 +186,8 @@ export interface ModelRecipe {
     supportedArms?: string[];
     /** Present only when the recipe offers more than one arm. */
     armTradeoff?: ArmTradeoff;
+    /** Where a run's participants may take their training data from; absent means the fixture data only. */
+    supportedDataSources?: string[];
 }
 
 /** Lists the model recipes the platform can train. */
@@ -241,6 +247,9 @@ export const startProjectServer = (projectId: string, startData: StartServerData
         if (startData.secureAggThreshold !== undefined) {
             body.secureAggThreshold = startData.secureAggThreshold;
         }
+    }
+    if (startData?.dataSource) {
+        body.dataSource = startData.dataSource;
     }
     return api.post<Project>(`/projects/${projectId}/start`, body);
 };

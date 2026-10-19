@@ -1,0 +1,207 @@
+{
+  "date": "2026-10-16",
+  "time_basis": "UTC",
+  "verdict": "PASS_SIGN_OUT_CANCELS_PARTICIPATION",
+  "source_commit": "07f2d44ecad8f8cee3b84f7399c24af853d9951d",
+  "source_sha256": {
+    "mobile_client/src/state/TrainingContext.tsx": "5f311e464c6166fb9e770133d6d2dd35764ae42a91adef73d45e51d9cab666d4",
+    "mobile_client/src/__tests__/trainingProviderLifecycle.test.tsx": "84e5d0c38aeb7bba1d19bb8dd1495b429efdcc3e168a7784082500b9de683dac"
+  },
+  "android_runtime": {
+    "apk_sha256": "a3f8edb6d4113a64acbe9e7323d6839ee4ddf92ba504af9c914d722454dae707",
+    "embedded_hermes_bundle": {
+      "byte_size": 5344272,
+      "sha256": "c5276abd7a16ce4ff66401a3c5858b1fa75fea2b2c13c438a1d37cef1017baa4"
+    },
+    "native_archive_sha256": "9948ab3f284c9096b7f600591839b8af21dd1cc89b41552ce9923dfe9c84b98a",
+    "native_code_changed": false,
+    "metro_stopped": true,
+    "internal_debug": true,
+    "production_release": false
+  },
+  "case": {
+    "project_id": "c52cadc8-813b-4ca6-a178-c7c3372751f3",
+    "run_id": "06049a16-b398-448c-bbd7-3777981fabf7",
+    "model": "CNN",
+    "strategy": "FedAvg",
+    "training_arm": "FULL",
+    "data_source": "LOCAL_SNAPSHOT",
+    "rounds": 3,
+    "clients": 2,
+    "examples_per_client": 32,
+    "unique_accepted_updates": 6,
+    "aggregate_bitwise_equal": true,
+    "actual_desktop_parents_checked": true,
+    "registered_npz_sha256": "bb63954a8f860c4009e533bb377a29b92dbe9794b32af5ff7daaf7f436aa3041",
+    "recorder_window": {
+      "start_byte": 96936,
+      "end_byte": 99057,
+      "sha256": "2b555dfeda800e9a0b9c2f614bc265bbf425d9c7a83aab00aae04544a910606a"
+    },
+    "program_sha256": {
+      "trainable.pte": "a2c696eebf95a31d1b2b1d49c4b11f99c3b375bf46f783b533d73c0bd94bd77b",
+      "loss.pte": "acf2d3da7003c26ed8f2a4ffc32208ec742fa58851e73ca1686df3a862c86304",
+      "infer.pte": "5650dbe4d6e8a61b7fbffbf542b575c415f220a0caf98b991395abb36b65b721"
+    }
+  },
+  "lifecycle": {
+    "phone_round1_accepted_before_signout": true,
+    "normal_ui_signout": true,
+    "foreground_service_removed_after_signout": true,
+    "same_phone_process_across_signout": true,
+    "server_advanced_to_round2_while_signed_out": true,
+    "desktop_round2_accepted_while_phone_signed_out": true,
+    "no_phone_round2_during_signedout_observation": true,
+    "signedout_observation_seconds": 10.714217000058852,
+    "signedout_samples": 13,
+    "explicit_signin_join_dataset_selection_start": true,
+    "phone_accepted_rounds": [
+      1,
+      2,
+      3
+    ],
+    "active_process_death_recovery_tested": false
+  },
+  "transport": {
+    "api_and_training": "Temporary USB reverse and SSH loopback routes",
+    "wifi_qualified_by_this_test": false,
+    "tls_qualified_by_this_test": false
+  },
+  "verification": {
+    "new_regressions": 7,
+    "mobile_tests": 699,
+    "mobile_suites": 45,
+    "lint_passed": true,
+    "typecheck_passed": true,
+    "existing_native_baseline_tests": 3,
+    "android_assembly_passed": true,
+    "android_jvm_task": "UP-TO-DATE; no fresh JVM execution in this build",
+    "prior_bindings_verified": 1013,
+    "independent_physical_client_numerical_replay": false
+  },
+  "power": {
+    "samples": 64,
+    "all_usb_powered": true,
+    "battery_min_percent": 100,
+    "maximum_battery_temperature_c": 26.0
+  },
+  "preservation": {
+    "all36_existing_phone_dataset_files_unchanged": true,
+    "original_saved_account_and_server_restored": true,
+    "previous_apk_retained": true,
+    "historical_default_outputs_preserved": true,
+    "root_user_edit_preserved": true
+  },
+  "cleanup": {
+    "no_training_service": true,
+    "owned_desktop_and_local_guards_stopped": true,
+    "temporary_ui_helper_removed": true,
+    "temporary_usb_and_ssh_forwards_removed": true,
+    "tcp_adb_disabled": true,
+    "metro_remains_stopped": true,
+    "phone_usb_powered": true,
+    "phone_wakefulness": "Asleep"
+  },
+  "limitations": [
+    "Actual device test covers sign-out while waiting after an accepted round, then explicit same-process sign-in/rejoin; it does not test Android process death.",
+    "Pending enrollment, in-flight training, final-abort exclusion, queued messages and unmount during Stop are covered by provider-callback tests with mocked native/network boundaries.",
+    "No automatic resume, DeComFL state persistence, natural Doze, endurance, production Release or deployed TLS qualification.",
+    "Final model is reconstructed from actual accepted updates with the production aggregation implementation; no independent numerical replay of the physical client."
+  ],
+  "private_physical_evidence_sha256": {
+    "source-binding.json": "7d57b5949a3d7114edc742eb8e13a4547b05b531b35a8a4e1688aefd3580a56d",
+    "source-sync.json": "4cdbf94d0f000b5e1ef15707c325bdc5534a90d19832d83ff06d28328b438ef4",
+    "preflight.json": "e884410eacc7d42330dcc8fd6d67ea3774494d3cf37ec99306e118dc88a64f8f",
+    "install-preservation.json": "fe8933a02324f5d8fa5a6a08058ee011116ae9880764172063f19b149cb1d0e9",
+    "phone-preservation-after-training.json": "416bb61bf1ddec9a4f237d64ee8fe0287c8545f0cba433fcabf1d775e58365fb",
+    "phone-preservation-final.json": "416bb61bf1ddec9a4f237d64ee8fe0287c8545f0cba433fcabf1d775e58365fb",
+    "phone-first-update.json": "bb2d6e228cf5fda4d6c13a7cdf68c6803a9822d074ab42510a7489c7b180ae74",
+    "signed-out.json": "674ab04374e5d28711432534f1acea22274d00a50ee869c511167a15e66c353d",
+    "logged-out-round2.json": "2eaa6f45b6a2abd2b9f3ba3ddd61eea76cbe5a61aee866f10b3be4c0cdb6b18a",
+    "device-samples.jsonl": "e9b699a3bbdd4d21ae5e4f14c70e7b526462b160135bb768139f85ca4be80aa4",
+    "cleanup-remote.json": "dac3588aa71ad66ab8c843e0d959f4add5c0811d1761ad1a8ef3c533a0d690be",
+    "cleanup-local.json": "cfebcd228ab2b2dece9a2d83048dc4cda8915785cf50966ba9beb89776e62763",
+    "phone-final.json": "947d85dbe7c021f165573a05c39be612fbe65d785dfde7cbf6dc4909464b6210",
+    "postflight.json": "b081489aa97f79e709184f68923274bb7d5dce3fd524027597cc967220ed100f",
+    "preservation-after.json": "eae50454ef5e8b371c05c5b920c2225c82986f41c40c4f413bda5bd626f17154",
+    "test-route.txt": "b1fb246ad3d614fbdb5e00d21d98ee32c914569ef862a87edd6ccd76c135cea7"
+  },
+  "private_ui_evidence_sha256": {
+    "candidate-ready.xml": "af4d441dfb4eea0fcadab76efcabcd571e7e2dcfaedc4b7f83b50a6f32b9417f",
+    "test-home.xml": "af4d441dfb4eea0fcadab76efcabcd571e7e2dcfaedc4b7f83b50a6f32b9417f",
+    "lifecycle-detail.xml": "5802ef9d6641962d08f5893b833a677bdf3f741c360103e841b9c1b76f238c70",
+    "lifecycle-selected.xml": "45f635a0bbed953acb8653fff4144360ec136dc2e0e32292053bb00d6d3a4676",
+    "phone-round1-uploaded.xml": "caf2768d53ca3194df5bcd67d8265cd319f16a35539ce2099d093ae545405a4e",
+    "training-signout-visible.xml": "e8513ba16f070d0eb55c0fd83184402c4d7ee84867801d066e91d2e9094e3ab8",
+    "signed-out-login.xml": "1d7b66e6a1ffb285bda5b493108cd3cd25d712475f8eeb42382ce5861c73e41c",
+    "still-signed-out.xml": "1d7b66e6a1ffb285bda5b493108cd3cd25d712475f8eeb42382ce5861c73e41c",
+    "signed-back-in.xml": "8af08840c66129dc187e861ca674aaf3dcdf42dde6e09d77555bf87c03bb5d31",
+    "rejoin-detail.xml": "edc2d39303bceefcedd4750550ae3c7457200be71007c87eae67c997445fb507",
+    "second-start-selected.xml": "9f7b97179f8fbcdc8c3c526c09eb0b0aea9c1f28d7bfdb2386fe91e37d8f0688",
+    "lifecycle-completed.xml": "abf4c37f976344224cd2052b7f113ec9458edfdb801a8c5f0380e7c1a30d2446",
+    "lifecycle-left.xml": "2da420647cac24ccae578366d27b24f680f8c4f098c21b463bbd58930c6cceb5",
+    "original-account-restored.xml": "7b5fe0d08d7c4e446df4e13d9a70acaadf03a67ff237ff9a9c3e11136aa9974b",
+    "final-cold-launch.xml": "99c803c23cac58defd99e2a9c9f703f595168fd66b77468429e2312a4664570b",
+    "ui-actions.jsonl": "5b5e7f059405038b8c1729f0fc7c8051d8f813c675563a784899baba113258e6"
+  },
+  "private_training_evidence_sha256": {
+    "fedavg/run.json": "b252681dcbe82a32adafb94fd7682e9bad32e905e822cf6d445fd4889ce86174",
+    "fedavg/contract.json": "49ae60e9bcd19d1e13c92a0631963b090e0cad5c6fe1711e1501b529dfa9732c",
+    "fedavg/manifest.json": "05137d5cc5e463df7720b5eecda93c35ffad3516fd42c674fc9405889c0ce381",
+    "fedavg/initial.npz": "9bc34eade595162646170428028058a9c98389cbd3770bc7577f69cc49fcc18c",
+    "fedavg/accepted-updates.json": "b23715d5cd06a5687f20fb44a9257bbde792d67e7ac6f7711015d132b2ec7035",
+    "fedavg/aggregate-verification.json": "3eef78d57ce9eae49b9c5ef2603cb8ac4d7bbe6ccea5950b4abddeddd38bb8c2",
+    "fedavg/artifact.json": "b84bfb40b01b8c79072a972076d9e2985b0a49416ab46f1effddf2be416e005f",
+    "fedavg/registered.npz": "bb63954a8f860c4009e533bb377a29b92dbe9794b32af5ff7daaf7f436aa3041",
+    "fedavg/terminal-project.json": "3f72281b51923f15c88f6ebbe2e5e4a17732cc4f094114588a09fe256a06271f",
+    "fedavg/record-offset.txt": "ad58977912cd151f4fa3d28d66283fbd08e8c8f2be36766c032398a01d12e37c",
+    "fedavg/record-end.txt": "87d07e58fb81bc1623eff1b6c06947e5c1e1614fb30aa6a08db7801705ecaef2",
+    "fedavg/desktop.log": "e8687aacb0a622b86e404db837b993f1781e69cc7de2b2ed8a55308efb9cb6a2",
+    "fedavg/desktop-config-1.json": "6964ee8c19af99d3dec509a865197856656a200a312fe6038cbef7463ea02622",
+    "fedavg/desktop-config-3.json": "2b791c24cd67216a7917b1070837abb7109561c8001ee57d81170c207be3c224",
+    "fedavg/desktop-config-2.json": "746a5465d7f1f09508feee8b4f6c4b61938dcb197bfa7a1fd95336eacc95f357",
+    "fedavg/parent-1.safetensors": "7f4648f6e2a0c404a2dfdff46f72988785a56d5114e536aa22e08c1b8556503a",
+    "fedavg/parent-2.safetensors": "363a6bbff52fdfffd1629639a515044592345c66eab623edcf8f5a2af8a8bd21",
+    "fedavg/parent-3.safetensors": "fa8c6fb7764f769a470a24f54d4c8c6d03115359b4739f4ddda8aff2c8b70216",
+    "fedavg/desktop-held-round1.txt": "8113d8db0fde6190834809fdd8750a500c283c23c44cf44371e9a51967ee9745",
+    "fedavg/desktop-release-round1.txt": "72c45b3c6320e55ccdf39031b51eb7299f530703e741ea13058850019f141016"
+  },
+  "private_local_verification_sha256": {
+    "mobile-baseline.log": "6638cc0e9a6a5dc8ec86821866a6f4a2d847c428a2f218a5e267b9932b18fbb8",
+    "native-baseline.log": "466c9c3870f4898fa80ffea6627d065630ef521ed83aee611c51373e8cfa5b92",
+    "provider-red2.log": "9b3ee6c78633eb1b6d70c0a2c829263c749a1fa6a3bbc17060e837b7da0b5dc0",
+    "queued-log-red.log": "c6912c35a47982e0977c6ef66f49fa7c7bc7652bc3172e6040f699ee1fc7c45c",
+    "mobile-final.log": "664248e4d648450463f3ee8ae9873073761917d447f7dc57f18c0f79d33f13a1",
+    "lint-final.log": "68d396aa2ee4dc2b3dd54e5e32d08f9de5c7c64a80680b45903c06d0791b6dec",
+    "types-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "private_build_evidence_sha256": {
+    "android-build.log": "f86238d2c6c1ed9bf4ccaf721c37f0804bc3c4aa275ae4291409c6d509e7aec3",
+    "android-build.json": "ef64a94d4e097c059cec02a024e05cab7d6a088bf5c648d206895a9560f2c3e3",
+    "build-driver.log": "400aacc9a4a25e8c61e2e65ada8f0cae65f90ac9e1b146e974c6e921a983381a",
+    "transfer.log": "aa72b0d37cac3328d1d3cd38af9ea48319c570620d726d33dd0ec2135433a4a3",
+    "install-driver.log": "cdee27d52444bc1879bd1942e6dac4dd78979336b5e20a922fa91ecbfaaf431c"
+  },
+  "private_driver_sha256": {
+    "logout_lifecycle_aggregate.py": "fdaee97f21e723f1f0c867b738b120dba5e6a5c2d6fc9f5e5a23135ae4a4cb5b",
+    "logout_lifecycle_build_android.py": "031149434b087f3840e8e8a5abc0270928ca1400e1939473c4b155086714ee8f",
+    "logout_lifecycle_case_transfer.py": "24b6ee5f922c37da26014a06a717130e664c023cc6bc8dfa27936f5159374bab",
+    "logout_lifecycle_cleanup_remote.py": "a40683c1ea9d6f64fcd06a40351e6ba4607d926e9a447364167de28a9bd54137",
+    "logout_lifecycle_deadline.py": "7a07489563ee6f10f3dd6a612c028149df30ed2836708fecd6062f3b9c9b568a",
+    "logout_lifecycle_desktop.py": "c0bbcfc6340d55711910dee34193a119487a0a35a7a54a7e6525ddf963637d8b",
+    "logout_lifecycle_launch_backend.py": "4f5635f20b4b2d0c54c8b4dad6951b721ec34aeeb0c894423a1cc697a310184e",
+    "logout_lifecycle_monitor.py": "62a2179edb19e0ed21e5a724d9c921d61810222c384413f87a2d9adba1a26b90",
+    "logout_lifecycle_observe.py": "8bb23e5c3c74630e34b751cfe3cb56d85479cc6f071478a35490d924bb5ef205",
+    "logout_lifecycle_phone.py": "1c9e730aa0ab8b58d329d462f7f5dea7e7bae7f103cbb6bff73eb1c6f197610f",
+    "logout_lifecycle_preservation.py": "47d7cf2fa20d21a328f1abe23dc700cce9841dacc8b146baa044d367a4a95381",
+    "logout_lifecycle_receipt.py": "0531088cbf128da1f3ab6d84bca7c1afa130f8ee0b98ac3ebe39331181caee45",
+    "logout_lifecycle_relay.py": "2502a1776aa0cf13099df4b8cecd9250683eb65af54fc8e266904ccacdbfc139",
+    "logout_lifecycle_restore_backend.py": "6aabd1b0e09ed080d0d30c98933ba97649ecf3cd6f77e69373f23e72212853c2",
+    "logout_lifecycle_setup.py": "b3ef1f01829eb41993a32d5601ad53c98d32d7dc6f3a15cf1c386417e3a7b75d",
+    "logout_lifecycle_source_sync.py": "e8b373b535a36e01521182cf2fa3b8a44990077e2cbf00532d0d10487de2c899",
+    "logout_lifecycle_start_desktop.py": "5dafc85b7a5689a6d9c0fefea0077cf5656ed1aa256c2ee4294ad8c9754c3b15",
+    "logout_lifecycle_status.py": "ba2ed482d3dbea6ba7e8050e8f2f1df75edbdccedc64876c617c23192e3e1a7b",
+    "logout_lifecycle_transfer.py": "6d4c53cfc6ab559d12095599165614a00df0286d03bec04e8f27918c69e504f4",
+    "logout_lifecycle_ui.py": "2a648c4dc3ae333b2357c0ac1fbec8d264d4c58e2372503b155188e93c1de671"
+  }
+}

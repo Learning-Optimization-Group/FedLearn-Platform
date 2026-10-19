@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { Project, StartServerData, errorMessage } from '../../services/apiServices';
+import { Project, StartServerData, errorMessage, fetchModelRecipes, type ModelRecipe } from '../../services/apiServices';
 import { createLogger } from '../../lib/logger';
 import { Modal, Input, Select, Button, FormField } from '../ui';
 
@@ -18,7 +18,7 @@ const STRATEGIES: { value: string; label: string }[] = [
   { value: 'FedAvg', label: 'Standard — averages everyone\'s learning (recommended)' },
   { value: 'FedProx', label: 'Stable — keeps clients close to the shared model on uneven data' },
   { value: 'DeComFL', label: 'Low-bandwidth — sends tiny updates' },
-  { value: 'FedOpt', label: 'Adaptive — faster convergence on varied data' },
+  { value: 'FedOpt', label: 'Adaptive — adjusts how the server combines updates' },
   { value: 'Robust', label: 'Robust — resists a few bad or noisy clients' },
   { value: 'FoT', label: 'For text models' },
 ];
@@ -48,6 +48,8 @@ const SECURE_AGG_MIN_THRESHOLD = 2;
 
 export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartProjectModalProps) {
   const [strategy, setStrategy] = useState('FedAvg');
+  const [fedOptVariant, setFedOptVariant] = useState<'adam' | 'yogi'>('adam');
+  const [serverLearningRate, setServerLearningRate] = useState(1);
   const [numRounds, setNumRounds] = useState(5);
   const [minClients, setMinClients] = useState(2);
   const [robustMethod, setRobustMethod] = useState('MEDIAN');
@@ -58,18 +60,41 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
   const [secureAggThreshold, setSecureAggThreshold] = useState(SECURE_AGG_MIN_THRESHOLD);
   // null = follow "Devices needed to start" until the user sets a round size of their own.
   const [clientsPerRound, setClientsPerRound] = useState<number | null>(null);
+  const [ownData, setOwnData] = useState(false);
+  const [recipes, setRecipes] = useState<ModelRecipe[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // The catalog says whether this project's recipe can train on each phone's own dataset. Without it the choice is
+  // simply not offered, and the run trains on the recipe's built-in data as before.
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    fetchModelRecipes()
+      .then((res) => { if (!cancelled) setRecipes(res.data ?? []); })
+      .catch(() => { if (!cancelled) setRecipes([]); });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   if (!project) return null;
 
   const isLlmLora = (project?.modelType ?? '').toUpperCase() === 'LLM_LORA';
-  const showRobust = !isLlmLora && strategy === 'Robust';
+  const isTree = project.modelType === 'XGBOOST';
+  const isNih = project.modelType === 'NIH_PNEUMONIA_CNN';
+  const effectiveStrategy = isTree ? 'XgbBagging' : isNih && !['FedAvg', 'Robust'].includes(strategy) ? 'FedAvg' : strategy;
+  const showRobust = !isTree && !isLlmLora && strategy === 'Robust';
   const selectedRule = ROBUST_RULES.find((r) => r.value === robustMethod);
-  // Secure aggregation masks only DeComFL's gradient scalars, so it is offered only there.
-  const showSecure = !isLlmLora && strategy === 'DeComFL';
+  const recipe = recipes.find((r) => r.key.toUpperCase() === (project.modelType ?? '').toUpperCase());
+  // Text federation trains no model on device data, so it has no data source to choose.
+  const showData = !isTree && !isNih && strategy !== 'FoT' && (recipe?.supportedDataSources ?? []).includes('LOCAL_SNAPSHOT');
+  const onOwnData = isTree || isNih || (showData && ownData);
+  // Secure aggregation masks only DeComFL's gradient scalars, so it is offered only there. Only phones train on
+  // their own data and phones can't join a secure run yet, so it is not offered on participants' own data.
+  const showSecure = !isLlmLora && !isNih && strategy === 'DeComFL' && !onOwnData;
   // Text federation has no rounds of devices to size.
-  const showPerRound = isLlmLora || strategy !== 'FoT';
+  const showPerRound = !isTree && (isLlmLora || strategy !== 'FoT');
   const perRound = clientsPerRound ?? minClients;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,13 +103,16 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
     try {
       setIsLoading(true);
       const config: StartServerData = {
-        strategy,
+        strategy: effectiveStrategy,
         numRounds: Number(numRounds),
         minClients: Number(minClients),
       };
       // Robust fields are added only for the Robust method, and only the parameter the chosen rule
       // reads. The backend rejects robust fields on any other method, so leftovers from a rule the user
       // looked at and then switched away from must never ride along.
+      if (!isLlmLora && effectiveStrategy === 'FedOpt') {
+        config.fedOpt = {variant: fedOptVariant, serverLearningRate: Number(serverLearningRate)};
+      }
       if (showRobust && selectedRule) {
         config.robustMethod = selectedRule.value;
         if (selectedRule.param === 'fraction') config.byzantineFraction = Number(byzantineFraction);
@@ -100,9 +128,15 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
       if (showPerRound && Number(perRound) > Number(minClients)) {
         config.clientsPerRound = Number(perRound);
       }
+      // The built-in data is the server default, so only a run on participants' own data names its source.
+      if (onOwnData) {
+        config.dataSource = 'LOCAL_SNAPSHOT';
+      }
       await onSubmit(project.id, config);
       // Reset form defaults upon success
       setStrategy('FedAvg');
+      setFedOptVariant('adam');
+      setServerLearningRate(1);
       setNumRounds(5);
       setMinClients(2);
       setRobustMethod('MEDIAN');
@@ -112,6 +146,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
       setSecureAggregation(false);
       setSecureAggThreshold(SECURE_AGG_MIN_THRESHOLD);
       setClientsPerRound(null);
+      setOwnData(false);
     } catch (err) {
       // Keep the modal open and surface the backend detail inline, so the
       // failure isn't hidden behind the modal on the route beneath it.
@@ -160,14 +195,26 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
           </FormField>
         ) : (
           <FormField label="Training method">
-            <Select value={strategy} onChange={(e) => setStrategy(e.target.value)}>
-              {STRATEGIES.map((s) => (
+            <Select value={effectiveStrategy} onChange={(e) => setStrategy(e.target.value)}>
+              {(isTree ? [{value:'XgbBagging', label:'XGBoost — combines trees trained by each client'}] : isNih ? STRATEGIES.filter(s => ['FedAvg', 'Robust'].includes(s.value)) : STRATEGIES).map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </Select>
           </FormField>
         )}
 
+        {!isLlmLora && effectiveStrategy === 'FedOpt' && (
+          <>
+            <FormField label="Server optimizer">
+              <Select value={fedOptVariant} onChange={(e) => setFedOptVariant(e.target.value as 'adam' | 'yogi')}>
+                <option value="adam">Adam</option><option value="yogi">Yogi</option>
+              </Select>
+            </FormField>
+            <FormField label="Server learning rate" help="Controls the server update, separately from each device's training rate. Large values can make training unstable. Historical default: 1.">
+              <Input type="number" min="0.00000001" max="10" step="any" required value={serverLearningRate} onChange={(e) => setServerLearningRate(Number(e.target.value))} />
+            </FormField>
+          </>
+        )}
         {showRobust && (
           <>
             <FormField label="Aggregation rule" help={selectedRule?.help}>
@@ -224,6 +271,36 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
           </>
         )}
 
+        {isTree && (
+          <p className="text-caption text-fg-muted">
+            Each Python CPU client trains on its own CSV with columns f0, f1, f2, f3 and label (0 or 1).
+            All selected clients must contribute every round. Android clients cannot join this model yet.
+          </p>
+        )}
+        {showData && (
+          <>
+            <FormField
+              label="Training data"
+              help="Where each device's training examples come from."
+            >
+              <Select
+                value={ownData ? 'LOCAL_SNAPSHOT' : 'FIXTURE'}
+                onChange={(e) => setOwnData(e.target.value === 'LOCAL_SNAPSHOT')}
+              >
+                <option value="FIXTURE">Built-in sample data (for trying it out)</option>
+                <option value="LOCAL_SNAPSHOT">Each phone's own dataset</option>
+              </Select>
+            </FormField>
+            {ownData && (
+              <p className="flex items-start gap-2 rounded-md border border-border bg-surface-muted px-3 py-2.5 text-label text-fg">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted" strokeWidth={1.5} />
+                Only phones can join. Each phone trains on a dataset it has imported, which must match this model's
+                inputs and classes; the data never leaves the phone.
+              </p>
+            )}
+          </>
+        )}
+
         {showSecure && (
           <>
             <FormField
@@ -274,7 +351,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
               required
             />
           </FormField>
-          <FormField label="Devices needed to start" help="The fewest a round can finish with if others drop out.">
+          <FormField label="Devices needed to start" help={isTree ? 'All these clients must finish every round.' : 'The fewest a round can finish with if others drop out.'}>
             <Input
               type="number"
               min="1"

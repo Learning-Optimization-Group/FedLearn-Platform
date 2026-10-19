@@ -1,0 +1,417 @@
+{
+  "project_id": "39776fec-aa59-4842-b490-0bf3d4a3fc61",
+  "run_id": "4b2d23b6-de8a-4482-b777-21cffc3a6064",
+  "rounds": 4,
+  "trees": 8,
+  "cohort_size": 2,
+  "source": "https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_iris.html",
+  "feature_mapping": {
+    "f0": "sepal length (cm)",
+    "f1": "sepal width (cm)",
+    "f2": "petal length (cm)",
+    "f3": "petal width (cm)"
+  },
+  "class_mapping": {
+    "0": "versicolor",
+    "1": "virginica"
+  },
+  "source_data_sha256": "879b81724528964779983358162a724401de00141f8cb9c922d27f908396b8c7",
+  "partitions": {
+    "client-0": {
+      "source_ids": [
+        50,
+        54,
+        59,
+        61,
+        66,
+        67,
+        71,
+        78,
+        85,
+        88,
+        89,
+        90,
+        91,
+        98,
+        103,
+        104,
+        106,
+        110,
+        113,
+        117,
+        122,
+        125,
+        130,
+        133,
+        134,
+        138,
+        141,
+        144,
+        148,
+        149
+      ],
+      "count": 30,
+      "label_counts": [
+        14,
+        16
+      ],
+      "dataset_sha256": "9e3a4f0b1a07b799724ec999d5176f549d74639baa0b04b9c04bc7bcb5045be3",
+      "csv_sha256": "9b0c610d08215eb969bb4058d7f072171f74d7078da7db6dd92460627b8800e3"
+    },
+    "client-1": {
+      "source_ids": [
+        51,
+        52,
+        53,
+        58,
+        62,
+        64,
+        68,
+        70,
+        73,
+        76,
+        79,
+        82,
+        93,
+        94,
+        100,
+        101,
+        102,
+        105,
+        107,
+        111,
+        112,
+        115,
+        116,
+        120,
+        121,
+        126,
+        135,
+        140,
+        142,
+        145,
+        147
+      ],
+      "count": 31,
+      "label_counts": [
+        14,
+        17
+      ],
+      "dataset_sha256": "b932173cc1478b7788eeb22102831e6c585d13bb6ef160817c1d9a9b80718937",
+      "csv_sha256": "ecac19caed83242a8cb252ee458ddbaf8d65bb91703b6c60a6d001fb174200fc"
+    },
+    "validation": {
+      "source_ids": [
+        55,
+        56,
+        57,
+        63,
+        65,
+        72,
+        75,
+        77,
+        80,
+        81,
+        86,
+        97,
+        99,
+        118,
+        119,
+        123,
+        124,
+        132,
+        137,
+        143
+      ],
+      "count": 20,
+      "label_counts": [
+        13,
+        7
+      ],
+      "dataset_sha256": "721740219f4bbcad725c433663b4cd8d9b0d6aa78a3aa878ea72217a1b39b3ff",
+      "csv_sha256": "90e4079cb8a768264a4b7c70797ed8fae14de60d17ba8cb5c9e5d600f8a9711f"
+    },
+    "test": {
+      "source_ids": [
+        60,
+        69,
+        74,
+        83,
+        84,
+        87,
+        92,
+        95,
+        96,
+        108,
+        109,
+        114,
+        127,
+        128,
+        129,
+        131,
+        136,
+        139,
+        146
+      ],
+      "count": 19,
+      "label_counts": [
+        9,
+        10
+      ],
+      "dataset_sha256": "4aa59afdcca26dae8d900b64b9ba21164d1e09ee1a2a0d734b8a08e2c9222457",
+      "csv_sha256": "b99ace00e50c8e869ce240aaf6d65775513721288b2cfe47cf4a32715336215e"
+    }
+  },
+  "feature_group_overlap": 0,
+  "official_test_split_exists": false,
+  "aggregate_replay_exact": true,
+  "mac_local_replay_exact": true,
+  "mac_wrong_label_controls_differ": true,
+  "g14_local_replay_exact": true,
+  "platform_inference_matches": true,
+  "registered_blob_sha256": "e4e5023455b1022da9bfd9b48525aa8cac20abb632439f85e472005ccc904eec",
+  "final_model_json_sha256": "ab6c19e81d085bd0a7769f218786739fa9eed812f90e939df6c5bee32d6e7cf4",
+  "metrics": {
+    "validation": {
+      "accuracy": 0.9,
+      "balanced_accuracy": 0.9230769230769231,
+      "auroc": 0.9890109890109889,
+      "average_precision": 0.9682539682539683,
+      "log_loss": 0.30643065197272495,
+      "confusion_matrix": [
+        [
+          11,
+          2
+        ],
+        [
+          0,
+          7
+        ]
+      ],
+      "majority_accuracy": 0.65
+    },
+    "test": {
+      "accuracy": 0.9473684210526315,
+      "balanced_accuracy": 0.9444444444444444,
+      "auroc": 0.9944444444444445,
+      "average_precision": 0.990909090909091,
+      "log_loss": 0.29230368824404,
+      "confusion_matrix": [
+        [
+          8,
+          1
+        ],
+        [
+          0,
+          10
+        ]
+      ],
+      "majority_accuracy": 0.5263157894736842
+    }
+  },
+  "round_receipts": [
+    {
+      "round": 1,
+      "client": 0,
+      "parent_sha256": "024b5a1401b97ba432d124aa6719ccd900e3a5c269654aa53c22c07e9a54415b",
+      "delta_sha256": "655b0df8578e23e34a23b97d35cea14482d377cc28708ec9354e4feb1b2327f3",
+      "uplink_bytes": 1349,
+      "downlink_bytes": 1629,
+      "compute_ms": 2.66
+    },
+    {
+      "round": 1,
+      "client": 1,
+      "parent_sha256": "024b5a1401b97ba432d124aa6719ccd900e3a5c269654aa53c22c07e9a54415b",
+      "delta_sha256": "9edf14b4e49a998f32711e595c0af1b391d54fd3760e705d8d87fbb4611f41c7",
+      "uplink_bytes": 1349,
+      "downlink_bytes": 1629,
+      "compute_ms": 20.256
+    },
+    {
+      "round": 2,
+      "client": 0,
+      "parent_sha256": "539363019e00cd4c1caac96c8e29232b0b4b1a8c11fd926fbfb74ad57ce1df9b",
+      "delta_sha256": "8fae45854b48180634a47c57289714bb2d804d01df5d0c20104acf1dc972b2fc",
+      "uplink_bytes": 1365,
+      "downlink_bytes": 2627,
+      "compute_ms": 1.776
+    },
+    {
+      "round": 2,
+      "client": 1,
+      "parent_sha256": "539363019e00cd4c1caac96c8e29232b0b4b1a8c11fd926fbfb74ad57ce1df9b",
+      "delta_sha256": "615129964958817abbd8a7a1a4f1a8991ce808b7ba80bb38ced42cbf3199a932",
+      "uplink_bytes": 1364,
+      "downlink_bytes": 2627,
+      "compute_ms": 21.501
+    },
+    {
+      "round": 3,
+      "client": 0,
+      "parent_sha256": "a416271b0d717e9230d8377ca21df3b9d0a9f0c76ad261319f5ea2f619ea5f5b",
+      "delta_sha256": "ec06376c6507050ec7aa6666f69fa818c6deb9b5a6e40eebdca3efb120ecd4bf",
+      "uplink_bytes": 1464,
+      "downlink_bytes": 3658,
+      "compute_ms": 4.951
+    },
+    {
+      "round": 3,
+      "client": 1,
+      "parent_sha256": "a416271b0d717e9230d8377ca21df3b9d0a9f0c76ad261319f5ea2f619ea5f5b",
+      "delta_sha256": "e23e847f41da2d003bbfeb6a3ccaf179bd5730404255d916d0fe782dca532543",
+      "uplink_bytes": 1363,
+      "downlink_bytes": 3658,
+      "compute_ms": 8.804
+    },
+    {
+      "round": 4,
+      "client": 0,
+      "parent_sha256": "74fa8b68b5c8f26a38442380b8dda8c9223d55ba8fa985f9978f8b7bd8caeca4",
+      "delta_sha256": "dcf8fa994b883fd11d1bd1200f803633982a12b2c52256c545cc07c1c01ba426",
+      "uplink_bytes": 1466,
+      "downlink_bytes": 4787,
+      "compute_ms": 4.159
+    },
+    {
+      "round": 4,
+      "client": 1,
+      "parent_sha256": "74fa8b68b5c8f26a38442380b8dda8c9223d55ba8fa985f9978f8b7bd8caeca4",
+      "delta_sha256": "b0d24d951017d1cbe1b07f7da95b7e9bcc60bcc96278755e87719aeef264ce50",
+      "uplink_bytes": 1364,
+      "downlink_bytes": 4787,
+      "compute_ms": 10.204
+    }
+  ],
+  "central_comparison": {
+    "xgboost_version": "3.4.1",
+    "seed": 42,
+    "training_rows": 61,
+    "test_used_for_training": false,
+    "validation_used_for_training": false,
+    "comparison": "Eight centralized sequential trees versus eight federated trees from four parallel two-client rounds; eta .15 matches per-client shrinkage, eta .3 is the unscaled control.",
+    "provenance_sha256": "ab2d47ad8064ee2db506a9aab46cd651da79712939f7af1bbbe9ac8adb5e5a32",
+    "controls": [
+      {
+        "learning_rate": 0.15,
+        "trees": 8,
+        "checkpoint_sha256": "7d96363562757f92b5de63e2f37f8def2e6feb6e9c64a836286d5f8b19642e93",
+        "reload_predictions_exact": true,
+        "validation": {
+          "accuracy": 0.95,
+          "balanced_accuracy": 0.9615384615384616,
+          "auroc": 0.9505494505494505,
+          "average_precision": 0.842687074829932,
+          "log_loss": 0.2875680456633414,
+          "confusion_matrix": [
+            [
+              12,
+              1
+            ],
+            [
+              0,
+              7
+            ]
+          ],
+          "majority_accuracy": 0.65
+        },
+        "test": {
+          "accuracy": 0.9473684210526315,
+          "balanced_accuracy": 0.9444444444444444,
+          "auroc": 0.9833333333333333,
+          "average_precision": 0.980909090909091,
+          "log_loss": 0.26784245816175706,
+          "confusion_matrix": [
+            [
+              8,
+              1
+            ],
+            [
+              0,
+              10
+            ]
+          ],
+          "majority_accuracy": 0.5263157894736842
+        }
+      },
+      {
+        "learning_rate": 0.3,
+        "trees": 8,
+        "checkpoint_sha256": "25e7de462f8d700912e376a6276120a6782269523ef3990a24a81ed4e61eb814",
+        "reload_predictions_exact": true,
+        "validation": {
+          "accuracy": 0.95,
+          "balanced_accuracy": 0.9615384615384616,
+          "auroc": 0.9395604395604396,
+          "average_precision": 0.8069727891156463,
+          "log_loss": 0.22603822007683866,
+          "confusion_matrix": [
+            [
+              12,
+              1
+            ],
+            [
+              0,
+              7
+            ]
+          ],
+          "majority_accuracy": 0.65
+        },
+        "test": {
+          "accuracy": 0.9473684210526315,
+          "balanced_accuracy": 0.9444444444444444,
+          "auroc": 0.9833333333333333,
+          "average_precision": 0.980909090909091,
+          "log_loss": 0.1786529393052563,
+          "confusion_matrix": [
+            [
+              8,
+              1
+            ],
+            [
+              0,
+              10
+            ]
+          ],
+          "majority_accuracy": 0.5263157894736842
+        }
+      }
+    ]
+  },
+  "limits": [
+    "Small two-species Iris execution benchmark; four numeric features and binary labels only.",
+    "Nineteen held-out test rows; no clinical or broad-schema qualification.",
+    "CPU CLI clients; packaged desktop application not qualified by this run.",
+    "Android tree training remains unavailable.",
+    "Development plaintext transport with enrollment-token authentication."
+  ],
+  "g14_wrong_label_controls_differ": true,
+  "g14_replay_receipts": [
+    {
+      "round": 1,
+      "exact": true,
+      "wrong_label_control_differs": true,
+      "delta_sha256": "9edf14b4e49a998f32711e595c0af1b391d54fd3760e705d8d87fbb4611f41c7"
+    },
+    {
+      "round": 2,
+      "exact": true,
+      "wrong_label_control_differs": true,
+      "delta_sha256": "615129964958817abbd8a7a1a4f1a8991ce808b7ba80bb38ced42cbf3199a932"
+    },
+    {
+      "round": 3,
+      "exact": true,
+      "wrong_label_control_differs": true,
+      "delta_sha256": "e23e847f41da2d003bbfeb6a3ccaf179bd5730404255d916d0fe782dca532543"
+    },
+    {
+      "round": 4,
+      "exact": true,
+      "wrong_label_control_differs": true,
+      "delta_sha256": "b0d24d951017d1cbe1b07f7da95b7e9bcc60bcc96278755e87719aeef264ce50"
+    }
+  ],
+  "artifact_id": "8d062bb8-3dcf-410c-b627-2f760a5105cc",
+  "platform_runtime_source_commit": "cc9a6c9b874cfc568247cc1a2e18bad8428b41c4"
+}

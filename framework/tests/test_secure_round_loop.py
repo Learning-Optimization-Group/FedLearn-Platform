@@ -21,6 +21,12 @@ from fedlearn.server.grpc_servicer import FederatedLearningServiceServicer
 from tests.test_secure_agg_client import _DirectStub
 
 
+@pytest.fixture(autouse=True)
+def _in_process_channels(monkeypatch):
+    """Preserve real client initialization and cleanup with an in-process transport."""
+    monkeypatch.setattr("fedlearn.client.grpc_client._build_channel", lambda *_: MagicMock())
+
+
 def _servicer(secure=True, threshold=2, K=1, P=2, clients_per_round=3):
     strategy = DeComFL(
         initial_parameters=OrderedDict({"w": torch.zeros(6)}),
@@ -38,8 +44,7 @@ def _servicer(secure=True, threshold=2, K=1, P=2, clients_per_round=3):
 
 def _comm(servicer, partition, client_id):
     """A GrpcClient wired to the in-process servicer -- no channel, real request construction."""
-    c = GrpcClient.__new__(GrpcClient)
-    c.client_id = client_id
+    c = GrpcClient(client_id, "in-process")
     c.stub = _DirectStub(servicer, partition)
     return c
 
@@ -254,10 +259,7 @@ def test_start_decomfl_client_runs_a_secure_round_end_to_end(monkeypatch):
 
     def fake_grpc_client(client_id, server_address):
         partition = int(client_id[1:])
-        c = GrpcClient.__new__(GrpcClient)
-        c.client_id = client_id
-        c.stub = _DirectStub(servicer, partition)
-        c.current_round = 0
+        c = _comm(servicer, partition, client_id)
         c.register = lambda: True
         c.start_heartbeat = lambda: None
         c.should_stop_training = lambda: False
@@ -298,6 +300,8 @@ def test_start_decomfl_client_runs_a_secure_round_end_to_end(monkeypatch):
     for th in threads:
         th.join(timeout=25)
 
+    assert not any(th.is_alive() for th in threads), "a client did not shut down"
+    assert outcomes == {1: "completed", 2: "completed"}
     assert coord.current_round == 2, "the secure round never completed through the real loop"
     assert not torch.equal(strategy.global_params_flat, before)
     assert all(f.fit_calls >= 1 for f in fakes.values())
@@ -353,8 +357,7 @@ def test_the_loop_runs_consecutive_secure_rounds(monkeypatch):
 
     def fake_grpc_client(client_id, server_address):
         p = int(client_id[1:])
-        c = GrpcClient.__new__(GrpcClient)
-        c.client_id, c.stub, c.current_round = client_id, _DirectStub(servicer, p), 0
+        c = _comm(servicer, p, client_id)
         c.register = lambda: True
         c.start_heartbeat = lambda: None
         c.should_stop_training = lambda: False
@@ -393,10 +396,11 @@ def test_the_loop_runs_consecutive_secure_rounds(monkeypatch):
                 pass
 
     fakes = {}
+    outcomes = {}
 
     def drive(p):
         fakes[p] = _FakeDeComFLClient(scalars[p])
-        decomfl_start.start_decomfl_client("ignored", fakes[p], f"c{p}")
+        outcomes[p] = decomfl_start.start_decomfl_client("ignored", fakes[p], f"c{p}")
 
     d = threading.Thread(target=driver, daemon=True)
     d.start()
@@ -408,6 +412,9 @@ def test_the_loop_runs_consecutive_secure_rounds(monkeypatch):
     stop_driver.set()
     d.join(timeout=5)
 
+    assert not any(th.is_alive() for th in threads), "a client did not shut down"
+    assert not d.is_alive(), "the round driver did not shut down"
+    assert outcomes == {1: "completed", 2: "completed"}
     assert coord.current_round == start + rounds, (
         f"stalled at round {coord.current_round}, expected {start + rounds}"
     )

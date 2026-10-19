@@ -1,23 +1,37 @@
 #pragma once
+
 //
 // IFedLearnClient.h — the gRPC-free seam FederatedLoop depends on.
 //
 // FederatedLoop must be unit-testable without gRPC/proto (the libtorch-free, gRPC-free ET test
 // suite). So it depends on THIS abstract interface returning CORE types (no v2::*, no grpcpp),
 // not on the concrete FedLearnClient. The real FedLearnClient implements it (proto<->core
-// marshaling); unit tests supply a mock. This header must include ONLY Types.h + <string>.
+// marshaling); unit tests supply a mock. This header uses only core types and standard headers.
 //
+#include <map>
+#include <mutex>
 #include <string>
 
 #include "fedlearn/Types.h"
 
 namespace fedlearn {
 
+struct ClientProgress {
+  std::string status = "IDLE";
+  int round = 0;
+  int64_t currentStep = 0;
+  int64_t totalSteps = 0;
+};
+
 // The DeComFL per-round server config, marshaled to core types (no proto).
 struct DeComFLConfig {
   bool shouldStop = false;       // server should_stop
   int currentRound = 0;
   RoundConfig config;            // learningRate, mu, method (P/K derived from seeds)
+  // Whether the server actually sent learning_rate / smoothing_param; when it did not, config holds a default. A round
+  // held to an execution contract refuses a value the server left out rather than train on a default.
+  bool learningRateSent = false;
+  bool muSent = false;
   Seeds2D seeds;                 // [K][P]
   RebuildHistory rebuildHistory; // missed rounds to replay (server-averaged g)
 };
@@ -28,6 +42,20 @@ struct DeComFLConfig {
 class IFedLearnClient {
  public:
   virtual ~IFedLearnClient() = default;
+  // Publish one coherent tuple to the independent heartbeat. Never hold this
+  // lock during model execution or a network call.
+  void updateProgress(const std::string& status, int round, int64_t currentStep, int64_t totalSteps) {
+    std::lock_guard<std::mutex> lock(progressMutex_);
+    progress_ = {status, round, currentStep, totalSteps};
+  }
+
+  ClientProgress progressSnapshot() const {
+    std::lock_guard<std::mutex> lock(progressMutex_);
+    return progress_;
+  }
+
+  // Terminal user/server Stop returns true. A transport that needs a fresh
+  // registration may throw a recoverable error instead of reporting clean Stop.
   virtual bool shouldStop() const = 0;
   virtual DeComFLConfig getDeComFLConfig(const std::string& runId, const std::string& clientId) = 0;
   // Unified scalar upload (Constraint 7): seeds + g-scalars + num_examples. For DeComFL the server
@@ -36,9 +64,10 @@ class IFedLearnClient {
   virtual void submitGradientScalars(const std::string& runId, const std::string& clientId,
                                      int trainedOnRound, const Seeds2D& seeds,
                                      const GradientScalars2D& gradients, int64_t numExamples) = 0;
-  // FedAvg global-model download: returns the verified safetensors blob; sets *outCurrentRound.
+  // Global-model download: returns the verified safetensors blob and the first chunk's round/config.
   virtual std::string getGlobalModelStream(const std::string& runId, const std::string& clientId,
-                                           int* outCurrentRound) = 0;
+                                           int* outCurrentRound,
+                                           std::map<std::string, std::string>* outConfig = nullptr) = 0;
   // FedAvg (first-order) weight-update upload: the client trained locally with real gradients and
   // uploads the resulting model weight blob (safetensors, ModelManager::serializeStateDict) for
   // server-side aggregation — the model-blob analogue of submitGradientScalars. Proto-free; the
@@ -46,6 +75,10 @@ class IFedLearnClient {
   virtual void submitModelUpdate(const std::string& runId, const std::string& clientId,
                                  int trainedOnRound, const std::string& modelBlob,
                                  int64_t numExamples) = 0;
+
+ private:
+  mutable std::mutex progressMutex_;
+  ClientProgress progress_;
 };
 
 }  // namespace fedlearn

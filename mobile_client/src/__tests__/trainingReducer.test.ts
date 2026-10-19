@@ -142,6 +142,24 @@ describe('trainingReducer — training lifecycle', () => {
     expect(s.logs[s.logs.length - 1]).toEqual({ level: 'WARN', text: 'gRPC unavailable' });
   });
 
+  // Stage 3 B2: the dataset a run trains is pinned while it trains, so it cannot be deleted from under the run.
+  it('TRAINING_START records the dataset the run trains, and TRAINING_END releases it', () => {
+    let s = trainingReducer(joined, { type: 'TRAINING_START', datasetId: 'snap-1' });
+    expect(s.datasetInUse).toBe('snap-1');
+    s = trainingReducer(s, { type: 'TRAINING_END' });
+    expect(s.datasetInUse).toBeNull();
+  });
+
+  it('a run on the built-in data holds no dataset', () => {
+    expect(trainingReducer(joined, { type: 'TRAINING_START' }).datasetInUse).toBeNull();
+  });
+
+  it('a stop releases the dataset', () => {
+    let s = trainingReducer(joined, { type: 'TRAINING_START', datasetId: 'snap-1' });
+    s = trainingReducer(s, { type: 'STOP_COMPLETE' });
+    expect(s.datasetInUse).toBeNull();
+  });
+
   it('TRAINING_END returns to joined while a run is still joined', () => {
     let s = trainingReducer(joined, { type: 'TRAINING_START' });
     s = trainingReducer(s, { type: 'TRAINING_END' });

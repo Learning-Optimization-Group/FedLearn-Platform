@@ -38,12 +38,16 @@ declare global {
         serverAddress: string;
         partitionId: string;
         modelType: string;
+  modelName?: string;
         datasetPath: string;
         connectionToken?: string;
         strategy?: string;
         trainingArm?: string;
         grpcTls?: boolean;
         grpcServerCertPem?: string;
+        runId?: string;
+        contractState?: string;
+        executionContract?: Record<string, unknown>;
       }) => Promise<{ success: boolean; error?: string }>;
       stopTraining: () => Promise<{ success: boolean; error?: string }>;
       getDockerStatus: () => Promise<{ success: boolean; status?: string }>;
@@ -66,7 +70,7 @@ declare global {
       saveCredentials: (username: string, password: string) => Promise<{ success: boolean }>;
       getSavedCredentials: () => Promise<{ success: boolean; username?: string; password?: string }>;
       clearSavedCredentials: () => Promise<{ success: boolean }>;
-      selectDatasetPath: () => Promise<{ success: boolean; path?: string; error?: string }>;
+      selectDatasetPath: (kind?: 'file' | 'directory') => Promise<{ success: boolean; path?: string; error?: string }>;
       listModels: () => Promise<{ success: boolean; models?: InferableModel[]; error?: string }>;
       runInference: (
         projectId: string,
@@ -316,12 +320,16 @@ const App: React.FC = () => {
       serverAddress: string;
       partitionId: string;
       modelType: string;
+  modelName?: string;
       datasetPath: string;
       connectionToken?: string;
       strategy?: string;
       trainingArm?: string;
       grpcTls?: boolean;
       grpcServerCertPem?: string;
+      runId?: string;
+      contractState?: string;
+      executionContract?: Record<string, unknown>;
     }) => {
       // Anchor the elapsed timer at the moment the user pressed Start — never
       // derived from the 3s status poll. Label falls back to the model type

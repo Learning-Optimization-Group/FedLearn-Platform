@@ -40,7 +40,9 @@ describe('joinRun (slice 1b connect/enroll/register)', () => {
     const out = await joinRun({ projectId: 'p1' });
     expect(mApi.get).toHaveBeenCalledWith('/api/client/projects/p1');
     expect(mApi.get).toHaveBeenCalledWith('/api/runs/r1/status');
-    expect(mApi.post).toHaveBeenCalledWith('/api/runs/r1/enroll');
+    // Stage 3 D1: the device's capability report rides along with enrollment (informational only).
+    expect(mApi.post).toHaveBeenCalledWith('/api/runs/r1/enroll',
+      { capabilityReport: expect.objectContaining({ platform: expect.any(String) }) });
     expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', false, '');
     expect(out.runId).toBe('r1');
     expect(out.partitionId).toBe(2);
@@ -82,6 +84,58 @@ describe('joinRun (slice 1b connect/enroll/register)', () => {
     expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', true, '');
   });
 
+  test('reconnect enrolls the pinned run even after the project starts a replacement run', async () => {
+    stubHappyPath();
+    mApi.get.mockImplementation((url: string) => Promise.resolve({ data:
+      url === '/api/runs/r1/status'
+        ? { status: 'RUNNING', grpcEndpoint: 'host:50001' }
+        : { activeRun: { runId: 'r2', status: 'RUNNING' } },
+    }));
+    mApi.post.mockResolvedValue({ data: {
+      runId: 'r1', projectId: 'p1', grpcEndpoint: 'host:50001', partitionId: 2,
+      connectionToken: 'tok-123', manifest: { ...MANIFEST, contractState: 'READY', contractId: 'a'.repeat(64) },
+    }});
+
+    const out = await joinRun({ projectId: 'p1', expectedRun: { runId: 'r1', contractId: 'a'.repeat(64) } });
+
+    expect(out.runId).toBe('r1');
+    expect(mApi.get).not.toHaveBeenCalledWith('/api/client/projects/p1');
+    expect(mApi.post).toHaveBeenCalledWith('/api/runs/r1/enroll', expect.anything());
+    expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', false, '');
+  });
+
+  test.each([
+    { contractState: 'READY', contractId: 'b'.repeat(64) },
+    { contractState: 'UNAVAILABLE', contractId: 'a'.repeat(64) },
+    { contractState: 'READY' },
+  ])('refuses a reconnect contract mismatch before native registration: %j', async (contract) => {
+    stubHappyPath();
+    mApi.post.mockResolvedValue({ data: {
+      runId: 'r1', projectId: 'p1', grpcEndpoint: 'host:50001', partitionId: 2,
+      connectionToken: 'tok-123', manifest: { ...MANIFEST, ...contract },
+    }});
+
+    await expect(joinRun({ projectId: 'p1', expectedRun: { runId: 'r1', contractId: 'a'.repeat(64) } }))
+      .rejects.toThrow(/contract/i);
+    expect(mCore.registerClient).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    { runId: 'r2' },
+    { projectId: 'p2' },
+    { manifest: { ...MANIFEST, runId: 'r2' } },
+    { manifest: { ...MANIFEST, projectId: 'p2' } },
+  ])('refuses enrollment belonging to another participation before native registration: %j', async (extra) => {
+    stubHappyPath();
+    mApi.post.mockResolvedValue({ data: {
+      runId: 'r1', projectId: 'p1', grpcEndpoint: 'host:50001', partitionId: 2,
+      connectionToken: 'tok-123', manifest: MANIFEST, ...extra,
+    }});
+
+    await expect(joinRun({ projectId: 'p1' })).rejects.toThrow(/identity/i);
+    expect(mCore.registerClient).not.toHaveBeenCalled();
+  });
+
   // MO-16: each join must RE-RESOLVE the project's current active run — never reuse a stale runId. The
   // live phone test failed to join a fresh run because a stale (completed) runId lingered; pin that a
   // second join, after the owner starts a new run, targets the NEW runId end-to-end.
@@ -112,7 +166,7 @@ describe('joinRun (slice 1b connect/enroll/register)', () => {
     active = 'r2'; // owner ends r1 and starts a new run
     const second = await joinRun({ projectId: 'p1' });
     expect(second.runId).toBe('r2'); // re-resolved to the CURRENT run, not the stale r1
-    expect(mApi.post).toHaveBeenCalledWith('/api/runs/r2/enroll'); // the second join enrolled the NEW run
+    expect(mApi.post).toHaveBeenCalledWith('/api/runs/r2/enroll', expect.anything()); // enrolled the NEW run
   });
 });
 
@@ -140,6 +194,20 @@ describe('joinRun — server trust from enrollment', () => {
     enrollWith({ grpcTls: false, grpcServerCertPem: null });
     await joinRun({ projectId: 'p1' });
     expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', false, '');
+  });
+
+  test('a release build refuses plaintext enrollment before native registration', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, '__DEV__');
+    Object.defineProperty(globalThis, '__DEV__', {value: false, writable: true, configurable: true});
+    try {
+      stubHappyPath();
+      enrollWith({grpcTls: false, grpcServerCertPem: null});
+      await expect(joinRun({projectId: 'p1'})).rejects.toThrow(/TLS.*release|release.*TLS/i);
+      expect(mCore.registerClient).not.toHaveBeenCalled();
+    } finally {
+      if (descriptor) Object.defineProperty(globalThis, '__DEV__', descriptor);
+      else Reflect.deleteProperty(globalThis, '__DEV__');
+    }
   });
 
   test('an explicit useTls still wins over the backend', async () => {

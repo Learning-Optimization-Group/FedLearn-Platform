@@ -23,7 +23,9 @@ import torch
 import torch.nn as nn
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # this dir -> pte_export
-from pte_export import export_trainable_pte, training_trainable_names
+import pte_export  # noqa: E402
+from pte_export import (export_functional_infer_pte, export_functional_pte, export_trainable_pte,
+                        training_trainable_names)
 
 
 class TinyNet(nn.Module):
@@ -39,6 +41,11 @@ class TinyNet(nn.Module):
 
     def forward(self, x):
         return self.fc2(torch.relu(self.fc1(x)))
+
+
+def probe_reference(net: nn.Module, rows: int, classes: int) -> dict:
+    """TinyNet's qualification probe: pte_export.probe_reference over its 4 input features."""
+    return pte_export.probe_reference(net, rows=rows, width=net.fc1.in_features, classes=classes)
 
 
 def main(golden_dir: str) -> None:
@@ -65,6 +72,21 @@ def main(golden_dir: str) -> None:
         fh.write(pte)
     sha = hashlib.sha256(pte).hexdigest()
 
+    # The programs a TinyNet run stages (scripts/stage_model_bundle.py): the same graphs with a dynamic example count
+    # (1..8), so a device can train its own dataset rather than only a batch of exactly 8, which the static
+    # programs refuse at runtime (ExecuTorch NotSupported). The static ones stay as the parity goldens.
+    dynbatch = {"max_batch": 8}
+    for key, filename, program in (
+        ("loss", "tinynet_loss_dynbatch.pte", export_functional_pte(net.eval(), (x, y), max_batch=8)),
+        ("infer", "tinynet_infer_dynbatch.pte", export_functional_infer_pte(net.eval(), x, max_batch=8)),
+        ("trainable", "tinynet_trainable_dynbatch.pte", export_trainable_pte(net, (x, y), max_batch=8)),
+    ):
+        with open(os.path.join(golden_dir, filename), "wb") as fh:
+            fh.write(program)
+        dynbatch[f"{key}_file"] = filename
+        dynbatch[f"{key}_sha256"] = hashlib.sha256(program).hexdigest()
+    dynbatch["probe"] = probe_reference(net, rows=8, classes=3)
+
     manifest = {
         "description": "Trainable (forward+backward) TinyNet .pte for the C++ FedAvg parity gtest. "
                        "fc2 frozen (baked); only fc1 (25 params) trainable via the ET training extension.",
@@ -73,6 +95,7 @@ def main(golden_dir: str) -> None:
         "pte_sha256": sha,
         # fully-qualified ET trainable names in canonical (framework named_parameters) flat order.
         "param_names_flat_order": training_trainable_names(net),
+        "dynbatch": dynbatch,
     }
     with open(os.path.join(golden_dir, "fedavg_pte_manifest.json"), "w") as fh:
         json.dump(manifest, fh, indent=2)

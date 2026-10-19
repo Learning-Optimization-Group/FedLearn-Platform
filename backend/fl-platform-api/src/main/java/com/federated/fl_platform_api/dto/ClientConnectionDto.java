@@ -1,11 +1,22 @@
 package com.federated.fl_platform_api.dto;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import java.util.UUID;
 
 public class ClientConnectionDto {
     private UUID projectId;
+    // The active run and its execution contract, as the run manifest reports them: the state always; the ProtoJSON
+    // contract and its ID only when READY; the reason only when UNAVAILABLE. A launcher hands a READY contract to
+    // fl-runtime/client.py (--execution-contract, --run-id), which refuses training it would not execute exactly.
+    private UUID runId;
+    private String contractState;
+    private String contractId;
+    private JsonNode executionContract;
+    private String contractUnavailableReason;
     private String name;
     private String modelType;
+    private String modelName;
     private String serverAddress;
     private Integer partitionId;
     private String status;
@@ -32,6 +43,8 @@ public class ClientConnectionDto {
     public void setName(String name) { this.name = name; }
     public String getModelType() { return modelType; }
     public void setModelType(String modelType) { this.modelType = modelType; }
+    public String getModelName() { return modelName; }
+    public void setModelName(String modelName) { this.modelName = modelName; }
     public String getServerAddress() { return serverAddress; }
     public void setServerAddress(String serverAddress) { this.serverAddress = serverAddress; }
     public Integer getPartitionId() { return partitionId; }
@@ -52,5 +65,17 @@ public class ClientConnectionDto {
     public String getGrpcServerCertFingerprint() { return grpcServerCertFingerprint; }
     public void setGrpcServerCertFingerprint(String grpcServerCertFingerprint) {
         this.grpcServerCertFingerprint = grpcServerCertFingerprint;
+    }
+    public UUID getRunId() { return runId; }
+    public void setRunId(UUID runId) { this.runId = runId; }
+    public String getContractState() { return contractState; }
+    public void setContractState(String contractState) { this.contractState = contractState; }
+    public String getContractId() { return contractId; }
+    public void setContractId(String contractId) { this.contractId = contractId; }
+    public JsonNode getExecutionContract() { return executionContract; }
+    public void setExecutionContract(JsonNode executionContract) { this.executionContract = executionContract; }
+    public String getContractUnavailableReason() { return contractUnavailableReason; }
+    public void setContractUnavailableReason(String contractUnavailableReason) {
+        this.contractUnavailableReason = contractUnavailableReason;
     }
 }

@@ -68,7 +68,7 @@ npm run dev
 runs `dev:electron`). Use `npm run dev:electron` on its own only when you want to
 re-attach Electron to bundles that are already built.
 
-The renderer dev server runs on `http://localhost:9000` with HMR. The Electron main
+The Vite renderer dev server runs on `http://localhost:9000` with HMR. The Electron main
 process loads from this URL in development mode.
 
 ### Environment variables

@@ -136,6 +136,53 @@ class FlServerManagerRunnerSeamTest {
     }
 
     @Test
+    void start_pointsTheChildAtThisBackendsOwnPort_whenNoInternalUrlIsConfigured() {
+        // Unset, the child falls back to :8081 whatever port this backend listens on, so its /api/internal
+        // callbacks -- carrying the run's internal token -- reach whichever process owns :8081, and this
+        // backend never hears the run finish (observed live: a correct run marked FAILED).
+        FakeRunner runner = new FakeRunner(FakeProcess.alive("ok\n"));
+        ReflectionTestUtils.setField(manager, "processRunner", runner);
+        ReflectionTestUtils.setField(manager, "environment",
+                new org.springframework.mock.env.MockEnvironment().withProperty("local.server.port", "8084"));
+        Project p = project();
+
+        manager.startServerForProject(p, "FedAvg", 5, 1);
+
+        assertEquals("http://localhost:8084", runner.lastEnv.get("FEDLEARN_BACKEND_URL"));
+        manager.stopServerForProject(p.getId());
+    }
+
+    @Test
+    void start_keepsAConfiguredInternalUrl_overTheLocalPort() {
+        FakeRunner runner = new FakeRunner(FakeProcess.alive("ok\n"));
+        ReflectionTestUtils.setField(manager, "processRunner", runner);
+        ReflectionTestUtils.setField(manager, "backendInternalUrl", "http://backend.internal:9000");
+        ReflectionTestUtils.setField(manager, "environment",
+                new org.springframework.mock.env.MockEnvironment().withProperty("local.server.port", "8084"));
+        Project p = project();
+
+        manager.startServerForProject(p, "FedAvg", 5, 1);
+
+        assertEquals("http://backend.internal:9000", runner.lastEnv.get("FEDLEARN_BACKEND_URL"));
+        manager.stopServerForProject(p.getId());
+    }
+
+    @Test
+    void start_leavesTheInternalUrlUnset_whenThisBackendsPortIsUnknown() {
+        // No web server (or no port published yet): nothing trustworthy to point at, so keep the old behavior
+        // rather than inventing a URL.
+        FakeRunner runner = new FakeRunner(FakeProcess.alive("ok\n"));
+        ReflectionTestUtils.setField(manager, "processRunner", runner);
+        ReflectionTestUtils.setField(manager, "environment", new org.springframework.mock.env.MockEnvironment());
+        Project p = project();
+
+        manager.startServerForProject(p, "FedAvg", 5, 1);
+
+        assertNull(runner.lastEnv.get("FEDLEARN_BACKEND_URL"));
+        manager.stopServerForProject(p.getId());
+    }
+
+    @Test
     void start_immediateChildExit_surfacesCapturedOutput_withoutARealProcess() {
         FakeRunner runner = new FakeRunner(FakeProcess.exitsWith(1, "STUB_CRASH boom\n"));
         ReflectionTestUtils.setField(manager, "processRunner", runner);

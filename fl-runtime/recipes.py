@@ -221,6 +221,20 @@ def trainable_prefixes(recipe_key, arm):
     return spec.get(arm, None)
 
 
+def federates_trainable_subset(recipe_key, arm):
+    """True when the federated wire carries only ``trainable_state(net)``, not the full state_dict.
+
+    Two ways a run federates a subset: the ARM freezes modules (FROZEN_HEAD / OVA_LP), or the
+    RECIPE freezes them by construction regardless of arm (TINYNET_GOLDEN's fc2). The second is
+    invisible to ``trainable_prefixes``, which is None for such a recipe on FULL -- which is how a
+    FedAvg CLI client came to upload 43 params and then fail to load the server's 25.
+    """
+    arm = validate_arm(recipe_key, arm)
+    if _METADATA_BY_KEY[recipe_key].get("frozen_by_construction", False):
+        return True
+    return trainable_prefixes(recipe_key, arm) is not None
+
+
 def arm_stamp(recipe_key, arm):
     """JSON-serializable provenance for a result's ``meta`` block.
 
@@ -242,6 +256,7 @@ RECIPE_METADATA = [
     {
         "key": "PNEUMONIA_CNN",
         "supported_arms": ["FULL", "FROZEN_HEAD"],
+        "supported_data_sources": ["FIXTURE", "LOCAL_SNAPSHOT"],
         "trainable_spec": {"FULL": None, "FROZEN_HEAD": ["classifier."]},
         "display_name": "Pneumonia Chest X-ray",
         "input_kind": "image",
@@ -254,6 +269,7 @@ RECIPE_METADATA = [
     {
         "key": "CNN",
         "supported_arms": ["FULL", "FROZEN_HEAD"],
+        "supported_data_sources": ["FIXTURE", "LOCAL_SNAPSHOT"],
         # CnnNet is conv1/conv2/fc1/fc2/fc3 — it has NO "classifier." module, so the prefix this
         # entry originally declared matched nothing and FROZEN_HEAD raised at model build. fc3 is
         # the final classification layer, i.e. the actual head.
@@ -276,6 +292,7 @@ RECIPE_METADATA = [
         # average, and each client keeps its own. running_mean/running_var are float32 and are
         # still federated, so this is a wire fix and not FedBN.
         "supported_arms": ["FULL", "FROZEN_HEAD", "OVA_LP"],
+        "supported_data_sources": ["FIXTURE", "LOCAL_SNAPSHOT"],
         # torchvision's ResNet head is `fc`; everything else is the ImageNet-pretrained backbone.
         # OVA_LP trains the same parameters as FROZEN_HEAD -- it differs only in the objective, so
         # the two are a controlled contrast.
@@ -303,12 +320,14 @@ RECIPE_METADATA = [
                     "dog", "frog", "horse", "ship", "truck"],
         "base_models": ["resnet18"],
         "optimizers": ["Adam", "SGD", "AdamW"],
-        "requirements": {"min_ram_gb": 4, "min_storage_gb": 0.2, "mobile_safe": False,
+        "requirements": {"min_ram_gb": 4, "min_storage_gb": 0.2, "mobile_safe": True,
                          "max_trainable_params": 12000000},
     },
     {
         "key": "MLP",
         "supported_arms": ["FULL"],
+        # The device trains its own ECG snapshot under an MLP contract (Stage 4); the fixture is the laptop's shard.
+        "supported_data_sources": ["FIXTURE", "LOCAL_SNAPSHOT"],
         "trainable_spec": {"FULL": None},
         "display_name": "ECG heartbeat (Normal/Abnormal)",
         "input_kind": "vector",
@@ -357,6 +376,14 @@ RECIPE_METADATA = [
         # on-device golden encodes.
         "supported_arms": ["FULL"],
         "trainable_spec": {"FULL": None},
+        # Frozen-by-construction means the wire carries trainable_state(net), not the full state,
+        # even on FULL. Declared here so the client and server read one fact instead of each
+        # matching on the recipe name (they had drifted: the server knew, the CLI client did not).
+        "frozen_by_construction": True,
+        # Where participants' training data may come from: the recipe's committed fixture batch, or each device's
+        # own dataset snapshot, checked on the device against the contract's data requirement. A recipe offers
+        # LOCAL_SNAPSHOT only with an execution plan that can state it. Absent means FIXTURE only.
+        "supported_data_sources": ["FIXTURE", "LOCAL_SNAPSHOT"],
         "display_name": "On-device DeComFL demo (TinyNet)",
         "input_kind": "vector",
         "classes": ["c0", "c1", "c2"],
@@ -364,6 +391,33 @@ RECIPE_METADATA = [
         "optimizers": ["SGD"],
         "requirements": {"min_ram_gb": 1, "min_storage_gb": 0.01, "mobile_safe": True,
                          "max_trainable_params": 25, "min_os_android": 27, "min_os_ios": "13.0"},
+    },
+    {
+        "key": "NIH_PNEUMONIA_CNN",
+        "supported_arms": ["FULL"],
+        "supported_data_sources": ["LOCAL_SNAPSHOT"],
+        "supported_strategies": ["FedAvg", "Robust"],
+        "trainable_spec": {"FULL": None},
+        "display_name": "NIH pneumonia finding (present / absent)",
+        "input_kind": "image",
+        "classes": ["PNEUMONIA_ABSENT", "PNEUMONIA_PRESENT"],
+        "base_models": ["nih_pneumonia_cnn"],
+        "optimizers": ["Adam"],
+        "requirements": {"min_ram_gb": 4, "min_storage_gb": 0.5, "mobile_safe": True,
+                         "max_trainable_params": 25783554, "min_os_android": 27},
+    },
+    {
+        "key": "XGBOOST",
+        "workload_kind": "tree",
+        "supported_arms": ["FULL"],
+        "supported_data_sources": ["LOCAL_SNAPSHOT"],
+        "trainable_spec": {"FULL": None},
+        "display_name": "XGBoost binary classifier (numeric features)",
+        "input_kind": "vector",
+        "classes": ["0", "1"],
+        "base_models": ["xgboost_binary", "xgboost_breast_cancer"],
+        "optimizers": ["TreeBoosting"],
+        "requirements": {"min_ram_gb": 2, "min_storage_gb": 0.1, "mobile_safe": False},
     },
 ]
 
@@ -459,6 +513,7 @@ def build_tinynet_golden():
 # ---------------------------------------------------------------------------
 PNEUMONIA_CLASSES = ["NORMAL", "PNEUMONIA"]
 PNEUMONIA_IMG_SIZE = 224
+PNEUMONIA_BATCH_SIZE = 16     # client.py's default (FEDLEARN_PNEUMONIA_BATCH overrides it on a laptop)
 
 
 def _subset_cap():
@@ -612,14 +667,9 @@ class _HFXrayDataset:
 def _hf_load_kwargs(hf_split, env=None):
     """Build the ``datasets.load_dataset`` kwargs for the HuggingFace pneumonia fallback.
 
-    SE-19: remote-code execution is OFF by default. ``load_dataset(repo, ..., trust_remote_code=True)``
-    downloads and RUNS the dataset repo's loader script on THIS (backend) host; the default repo is
-    unpinned, so a supply-chain compromise of it would be arbitrary code execution the moment a
-    PNEUMONIA_CNN run starts. We therefore:
-      * never enable ``trust_remote_code`` unless the operator explicitly sets
-        ``FEDLEARN_PNEUMONIA_TRUST_REMOTE_CODE=1`` (a deliberate, auditable choice), and
-      * pin the dataset to a commit when ``FEDLEARN_PNEUMONIA_REVISION`` is set, so even an opted-in
-        run executes a known, immutable revision rather than whatever the repo's HEAD becomes.
+    SE-19: dataset-loader scripts cannot execute. datasets 5 removed script-backed loaders, so
+    reject the former remote-code opt-in with migration guidance. ``FEDLEARN_PNEUMONIA_REVISION``
+    still pins a data-only dataset to a known revision.
     """
     env = os.environ if env is None else env
     kwargs = {"split": hf_split}
@@ -627,7 +677,11 @@ def _hf_load_kwargs(hf_split, env=None):
     if revision:
         kwargs["revision"] = revision
     if env.get("FEDLEARN_PNEUMONIA_TRUST_REMOTE_CODE", "").strip() == "1":
-        kwargs["trust_remote_code"] = True
+        raise ValueError(
+            "FEDLEARN_PNEUMONIA_TRUST_REMOTE_CODE=1 is unsupported: datasets 5 removed "
+            "script-backed dataset loaders. Unset this flag and use FEDLEARN_PNEUMONIA_DIR "
+            "for local image folders, or choose a data-only Hugging Face dataset such as Parquet."
+        )
     return kwargs
 
 
@@ -652,13 +706,13 @@ def _full_dataset(split):
     name = os.environ.get("FEDLEARN_PNEUMONIA_DATASET", "keremberke/chest-xray-classification")
     cfg = os.environ.get("FEDLEARN_PNEUMONIA_CONFIG", "full")
     hf_split = "test" if split == "test" else "train"
-    kwargs = _hf_load_kwargs(hf_split)  # SE-19: no remote-code exec unless explicitly opted in
+    kwargs = _hf_load_kwargs(hf_split)  # SE-19: reject script-loader execution
     ds = load_dataset(name, cfg, **kwargs) if cfg else load_dataset(name, **kwargs)
     return _HFXrayDataset(ds)
 
 
 def load_pneumonia_client_data(partition_id, num_clients, alpha=0.5, seed=42,
-                               batch_size=16, val_fraction=0.1):
+                               batch_size=PNEUMONIA_BATCH_SIZE, val_fraction=0.1):
     """Return (train_loader, val_loader) for one client's Dirichlet shard."""
     import numpy as np
     from torch.utils.data import DataLoader, Subset
@@ -1323,11 +1377,13 @@ class Recipe:
         CNN/MLP joined after the DA-14 Phase-1 collapse (model + client/server data now in the
         registry). TRANSFORMER is NOT here yet — its model + tokenizer are collapsed but its data
         loading still lives in client.py/data.py."""
-        return self.key in ("PNEUMONIA_CNN", "LLM_LORA", "BLOOD_CNN", "TINYNET_GOLDEN", "CNN", "MLP",
+        return self.key in ("PNEUMONIA_CNN", "NIH_PNEUMONIA_CNN", "LLM_LORA", "BLOOD_CNN", "TINYNET_GOLDEN", "CNN", "MLP",
                             "FROZEN_DEMO")
 
     def build_model(self, device="cpu", model_name=None, aggregation="FFA_LORA",
                     task_type="SEQ_CLASSIFICATION"):
+        if self.key == "XGBOOST":
+            raise ValueError("XGBoost uses the typed tree runtime, not the neural model builder")
         if self.key == "CIFAR_RESNET18":
             return build_cifar_resnet18(device)
         if self.key == "CNN":
@@ -1363,7 +1419,7 @@ class Recipe:
             return build_frozen_backbone_model(num_classes=len(self.classes), device=device)
         if self.key == "TINYNET_GOLDEN":
             return build_tinynet_golden().to(device)
-        if self.key == "PNEUMONIA_CNN":
+        if self.key in ("PNEUMONIA_CNN", "NIH_PNEUMONIA_CNN"):
             return build_pneumonia_cnn().to(device)
         if self.key == "BLOOD_CNN":
             return build_blood_cnn().to(device)
@@ -1383,7 +1439,7 @@ class Recipe:
         raise NotImplementedError(f"build_model not implemented in recipes.py for {self.key}")
 
     def input_transform(self, model_name=None):
-        if self.key == "PNEUMONIA_CNN":
+        if self.key in ("PNEUMONIA_CNN", "NIH_PNEUMONIA_CNN"):
             return pneumonia_transform()
         if self.key == "BLOOD_CNN":
             return blood_transform()
@@ -1400,6 +1456,8 @@ class Recipe:
         raise NotImplementedError(f"input_transform not implemented in recipes.py for {self.key}")
 
     def load_client_data(self, partition_id, num_clients, task_type="SEQ_CLASSIFICATION", **kw):
+        if self.key == "NIH_PNEUMONIA_CNN":
+            raise ValueError("NIH clients require a LOCAL_SNAPSHOT contract and explicit own dataset path")
         if self.key == "PNEUMONIA_CNN":
             return load_pneumonia_client_data(partition_id, num_clients, **kw)
         if self.key == "BLOOD_CNN":
@@ -1419,6 +1477,14 @@ class Recipe:
         raise NotImplementedError(f"load_client_data not implemented in recipes.py for {self.key}")
 
     def load_server_test_data(self, task_type="SEQ_CLASSIFICATION", **kw):
+        if self.key == "NIH_PNEUMONIA_CNN":
+            from nih_runtime import validation_loader
+            source, prepared = os.environ.get("FEDLEARN_NIH_SOURCE"), os.environ.get("FEDLEARN_NIH_PREPARED")
+            if not source or not prepared:
+                raise ValueError("NIH evaluation requires FEDLEARN_NIH_SOURCE and FEDLEARN_NIH_PREPARED")
+            limit = os.environ.get("FEDLEARN_NIH_EVAL_MAX_IMAGES")
+            return validation_loader(source, prepared, max_images=int(limit) if limit else None,
+                                     seed=int(os.environ.get("FEDLEARN_NIH_EVAL_SEED", "42")), **kw)
         if self.key == "PNEUMONIA_CNN":
             return load_pneumonia_server_test_data(**kw)
         if self.key == "BLOOD_CNN":

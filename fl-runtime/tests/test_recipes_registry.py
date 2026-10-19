@@ -21,7 +21,7 @@ import recipes  # noqa: E402
 # next to CNN because it is the same CIFAR-10 task and shard, differing only in the model and the
 # transform, which is what makes a frozen-vs-random-backbone comparison clean.
 CATALOG_KEYS = ["PNEUMONIA_CNN", "CNN", "CIFAR_RESNET18", "MLP", "TRANSFORMER", "LLM_LORA",
-                "TINYNET_GOLDEN"]
+                "TINYNET_GOLDEN", "NIH_PNEUMONIA_CNN", "XGBOOST"]
 
 
 def test_get_recipe_blood_cnn_does_not_raise():

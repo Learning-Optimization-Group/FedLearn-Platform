@@ -50,7 +50,9 @@ describe('LogViewerV2 — honest connection indicator (FE-8)', () => {
     vi.mocked(api.fetchProjectLogs).mockResolvedValue(resp([]));
     fakeClient = makeFakeClient();
     vi.mocked(StompClient).mockImplementation(
-      () => fakeClient as unknown as InstanceType<typeof StompClient>,
+      function () {
+        return fakeClient as unknown as InstanceType<typeof StompClient>;
+      },
     );
   });
 

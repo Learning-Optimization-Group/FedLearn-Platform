@@ -22,6 +22,8 @@ import { formatRoundDeadline } from '../lib/statusHeartbeat';
 import { contributionLedger, type ContributionEntry } from '../lib/contributionLedger';
 import { formatBytes, formatDurationMs } from '../lib/format';
 import { useTraining } from '../state/TrainingContext';
+import { useRunData } from '../state/useRunData';
+import { TrainingDataCard } from '../components/TrainingDataCard';
 import { StatusBadge, type StatusVariant } from '../components/StatusBadge';
 import { DeviceBanner } from '../components/DeviceBanner';
 import { ErrorBanner } from '../components/ErrorBanner';
@@ -39,6 +41,9 @@ export function HomeScreen() {
   const { state, startTraining, stopTraining } = useTraining();
   const { machine, joining, stopping, error, joined, logs, latestRound, serverStatus, session } =
     state;
+
+  // Stage 3 B2: a run on this device's own data needs a dataset chosen before Start.
+  const runData = useRunData(joined);
 
   const navigation = useNavigation<MainTabScreenProps<'Home'>['navigation']>();
   const isFocused = useIsFocused();
@@ -254,12 +259,29 @@ export function HomeScreen() {
             </>
           ) : (
             <>
+              {runData.plan && (
+                <TrainingDataCard
+                  plan={runData.plan}
+                  datasets={runData.datasets}
+                  selectedId={runData.selectedId}
+                  onSelect={runData.select}
+                  onImport={() => {
+                    void runData.importFile();
+                  }}
+                  importing={runData.importing}
+                  importError={runData.importError}
+                />
+              )}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Start training"
-                className="mx-4 mt-3 flex-row items-center justify-center bg-accent rounded-md py-3 active:opacity-80"
+                accessibilityState={{ disabled: !runData.readyToStart }}
+                disabled={!runData.readyToStart}
+                className={`mx-4 mt-3 flex-row items-center justify-center bg-accent rounded-md py-3 active:opacity-80 ${
+                  runData.readyToStart ? '' : 'opacity-50'
+                }`}
                 onPress={() => {
-                  void startTraining();
+                  void startTraining(runData.selected);
                 }}>
                 <Play color={colors['accent-fg']} size={18} strokeWidth={1.5} />
                 <Text className="text-accent-fg text-label font-sans ml-2">Start training</Text>

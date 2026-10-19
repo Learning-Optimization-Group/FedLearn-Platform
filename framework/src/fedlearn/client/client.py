@@ -79,7 +79,9 @@ def start_client(server_address: str, client: Client, client_id: str):
 
                     # 2. Train the model (fit). client.fit() should call
                     # comm_client.update_status() during training to drive heartbeats.
-                    new_parameters, num_examples = client.fit(parameters, config)
+                    # Batching and dropout use the streamed round, even when strategy settings are empty.
+                    training_config = {**config, "server_round": server_round}
+                    new_parameters, num_examples = client.fit(parameters, training_config)
 
                     # FR-10: if the server stopped mid-fit, fit() aborted early and the
                     # parameters are a partial round — do not submit them; shut down.

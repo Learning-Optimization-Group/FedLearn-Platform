@@ -1,0 +1,116 @@
+{
+  "date": "2026-10-14",
+  "verdict": "LOCAL_REGRESSIONS_AND_ANDROID_BUILD_PASS_PHYSICAL_RETEST_PENDING",
+  "source_commit": "f24e2cddf9192b0d2e2d9baaa8c02be86848eb92",
+  "source_sha256": {
+    "mobile_client/shared/CMakeLists.txt": "c8083698babcfa883ffd7c5917e5d4173c274a3d86adc6c18aaba4a10fbfe185",
+    "mobile_client/shared/include/fedlearn/FedLearnClient.h": "2837624fb0d1a8b22c1816cd9eb0d6fa1b2ba81180a216d0a7a667997920bf0f",
+    "mobile_client/shared/include/fedlearn/IFedLearnClient.h": "6d4ea042c85f667da14f57477e13e3a7b2443f653837abea2cfbb13782b9c8d5",
+    "mobile_client/shared/src/FedLearnClient.cpp": "a09de2649eb33865ca5dbbff15cde9a6d00f3e18bba2e77d00bfc2d725d80dda",
+    "mobile_client/shared/tests/grpc_recovery_test.cpp": "f704f92bcd3103072e4cec82b8fc6c6d61a38136047bb7ec87eb3f19020a8631",
+    "mobile_client/src/__tests__/resilientRoundLoop.test.ts": "587b68b836551fb8d1856930d660a8c14dfcc3789737a856635430e8150b83fd",
+    "mobile_client/src/lib/training.ts": "1424bee83292f566663a21cf50cc32e06fa3c966a65b9088250943e1e6f31ce4"
+  },
+  "changes": [
+    "Native participation state distinguishes recoverable heartbeat loss from terminal user/server Stop.",
+    "Heartbeat loss rejects status/round checks with RECONNECT_REQUIRED and enters existing bounded re-registration before another round.",
+    "Explicit Stop dominates a later heartbeat failure; stopped or heartbeat-dead clients cannot restart their heartbeat.",
+    "The production RPC deadline, same-run/contract checks, durable checkpoint and server deduplication rules are unchanged."
+  ],
+  "verification": {
+    "mobile_jest": {
+      "suites": 44,
+      "tests": 687,
+      "failed": 0
+    },
+    "native_core": {
+      "tests": 154,
+      "failed": 0
+    },
+    "native_transport_loopback": {
+      "grpc_version": "1.51.1",
+      "platform": "Linux",
+      "tests": 12,
+      "failed": 0,
+      "baseline_final_tests_failed": 4
+    },
+    "stop_precedence_mutation": {
+      "rejected": true,
+      "expected_failed_test": "GrpcRecovery.UserStopWinsOverConcurrentHeartbeatFailure",
+      "other_tests_passed": 11
+    },
+    "existing_server_boundary_tests": {
+      "tests": 37,
+      "failed": 0
+    },
+    "eslint": "PASS",
+    "typescript_no_emit": "PASS",
+    "android_debug_build": "PASS",
+    "android_jvm_task": {
+      "status": "UP_TO_DATE",
+      "retained_report_suites": 5,
+      "retained_report_tests": 61,
+      "failures_or_errors": 0
+    }
+  },
+  "android_candidate": {
+    "apk_sha256": "e31d467cba75fa4183b3a7820cad6e6a901f94ce55d0f22e98a16e4e6bc9ca51",
+    "core_archive_sha256": "e39bf1151b452541172d709fefe0052f978f04ecf12f1f00cbcf9a1336d3736b",
+    "installed_on_phone": false,
+    "physical_training_repeated": false
+  },
+  "preservation": {
+    "root_working_copy_unchanged": true,
+    "previous_evidence_bindings_verified": 516,
+    "historical_runtime_restored": true,
+    "historical_runtime_sha256": {
+      "app-debug.apk": "8f284fb4974cc926b4c4d7c7f3056770c19ce318d8d54b4f1219ef0d079cb91e",
+      "libfedlearn_core.a": "eda3234e16df1907e119a9c175010796901b98d2f59c80d029f589eb0ddd6f80"
+    }
+  },
+  "known_limitations": [
+    {
+      "status": "OPEN",
+      "area": "DeComFL continuation after round one",
+      "description": "The existing bridge recreates FederatedLoop on re-registration. Its empty trajectory state causes a contracted DeComFL round beyond one to fail closed. JavaScript routing tests do not qualify native DeComFL continuation.",
+      "evidence": [
+        "mobile_client/bridge/common/FedLearnCoreModule.cpp:295",
+        "mobile_client/shared/src/FederatedLoop.cpp:154"
+      ]
+    },
+    {
+      "status": "PENDING",
+      "area": "Physical powered Wi-Fi qualification",
+      "description": "The candidate has not been installed or trained on vivo. The previous ten-round attempt remains failed after seven rounds. USB access is absent; the prior development SSH master is also absent, while API and Metro remain present."
+    },
+    {
+      "status": "UNKNOWN",
+      "area": "Original network stall",
+      "description": "This correction fixes failure classification/re-registration. It does not establish or remove the underlying network stall cause."
+    }
+  ],
+  "private_evidence_sha256": {
+    "js-red.log": "a09eb6dc9f83a46f8954305f141832d54a518bf23d0fe58f24acf61b2bd096fd",
+    "js-green.log": "89b7efc66fda22ddc5902793609acf4aa92ec598e09ac33f14c549bda01c4906",
+    "js-suite-final.log": "166d062553d63cd500355897d879b0a853161535c06b1d6349a5ab6e80259e65",
+    "native-red.log": "7e721b89d64fa5b5abdc634e2cb87c26baaeb633888d4454654729b3e61aeac4",
+    "native-final-red.log": "9936d0784907f0b4ada17f6b5f96a2cb2635a55708224d8eca06b4701734384d",
+    "native-final-green.log": "88fa068413977880c283195c1a3d6143e25b821359a3a6c7b34b16ec78f6c9d5",
+    "native-stop-precedence-mutant.log": "4701276d47bcdaabd1301bf25e112fa915adc5f6fc8a9b1f470591ea6bb68281",
+    "native-core-build.log": "cd76442d9d06d312e0d3bc27e12db8043015400fff2ea6d2ca49e34051b9b6a4",
+    "native-core-test.log": "90707f3c31688f03b0c888ff17b58c304963a19c88f947f1c2eaca340631a293",
+    "server-boundaries.log": "843c4a3d30a4eb34f4ebf2c948b630a0d24fa0b9394af0368c1225174f0d25cd",
+    "lint-final.log": "68d396aa2ee4dc2b3dd54e5e32d08f9de5c7c64a80680b45903c06d0791b6dec",
+    "types-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "android-build.log": "7c17ccc2d9a573f1e6698af553db00ff951e06895ce18d4b968f3980322051c4",
+    "android-build.json": "15fdf590753c2e23981ab22faeab391dbeb8a85eacfd4fb2dd549d4c2945ccef",
+    "preservation.json": "bdfbe853345ac9936a42bf433bec01951eb86b23dab89d51a247db6090ec5686"
+  },
+  "private_driver_sha256": {
+    "prepare_host_grpc.py": "458620705a8c2ae813038806af1be1806f269367dbc8651348f9a0d6a8b449e6",
+    "run_host_grpc.py": "653616f18e76fef71ddb3924e614cc5c2225a63ec1d2319bed535dffc002d8aa",
+    "run_mutation.py": "7545478a86af379f2b39d8fa1846c15f588e2557ff557429b89dc9b04b955bb6",
+    "build_android.py": "6acd23fe26166e01b36c4f1e1d756be3439bc00c6aba0e5cb7d4c4e88fb803f7",
+    "curate_results.py": "09fcb1da902c8b617db32f11db20df6f35a267ec6d18de7c2e266e7a4b692f0a"
+  }
+}

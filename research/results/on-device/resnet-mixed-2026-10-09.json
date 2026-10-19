@@ -1,0 +1,332 @@
+{
+  "recipe": "CIFAR_RESNET18",
+  "strategy": "FedAvg",
+  "training_arm": "FULL",
+  "project_id": "67142ee5-ba15-492d-bb2f-5e3171760c08",
+  "run_id": "1d25ca94-e38a-4f5b-8e4b-d641912e0ee8",
+  "artifact_id": "2ccfc9a4-576b-4fcc-8a5b-46f57d28efdb",
+  "checkpoint_sha256": "8edf94a8c0ddc82901f6a76259dd8bb5a6c80226a5fc178a19d4de5cc92a855a",
+  "contract_id": "6e9484deed47bb5384f094a80c1897ad17cc428365b086afa6be7f48f4cfc95e",
+  "neural_runtime_source_commit": "cc9a6c9b874cfc568247cc1a2e18bad8428b41c4",
+  "native_runtime": {
+    "source_commit": "bdb8a9ec78ee4e58f9796ba83a0d0d6725529fe5",
+    "apk_sha256": "d1e5918415f759665b5c9d19406145d45d46bb48569d8628f42078457b45aeae",
+    "signer_sha256": "4a6dc31e7b840e5425462c2ccfe395295f0cb1d48460f39a030648620d2c86f6"
+  },
+  "local_rows": [
+    32,
+    32
+  ],
+  "rounds": 2,
+  "input_shape": [
+    3,
+    112,
+    112
+  ],
+  "partition_provenance": {
+    "dataset": "CIFAR10",
+    "recipe": "CIFAR_RESNET18",
+    "seed": 42,
+    "source_split": "train",
+    "evaluation_split": "official_test",
+    "official_test_rows": 10000,
+    "pairwise_processed_image_overlap": 0,
+    "clients": {
+      "phone": {
+        "indices": [
+          712,
+          24774,
+          45142,
+          27119,
+          21139,
+          19129,
+          6433,
+          38854,
+          22489,
+          31104,
+          21349,
+          29116,
+          10772,
+          18332,
+          1003,
+          22156,
+          26453,
+          17039,
+          7166,
+          48310,
+          12187,
+          20284,
+          1052,
+          13752,
+          37139,
+          29727,
+          41854,
+          40333,
+          33248,
+          9680,
+          16805,
+          14652
+        ],
+        "count": 32,
+        "snapshot_id": "822b9495167e54e4fb843f8129c785d623257491ae2d61bb9c38f8a06a51cdcb",
+        "package_sha256": "8bec276001056bc34640839757ea4f3dec19d2cf5551f05f8c0de964c25e1a62",
+        "label_counts": [
+          1,
+          4,
+          6,
+          4,
+          3,
+          2,
+          1,
+          3,
+          2,
+          6
+        ]
+      },
+      "desktop": {
+        "indices": [
+          15793,
+          30210,
+          47426,
+          20875,
+          4161,
+          40340,
+          28286,
+          13256,
+          48934,
+          11935,
+          48447,
+          15492,
+          32513,
+          36099,
+          39260,
+          46517,
+          33095,
+          3,
+          21683,
+          13446,
+          49515,
+          27943,
+          29059,
+          32738,
+          445,
+          32216,
+          18250,
+          1684,
+          2899,
+          39428,
+          40758,
+          29154
+        ],
+        "count": 32,
+        "snapshot_id": "9430fec88a3f86e46093a5c2446ab6602a5880233ff6c38bdd50fda77bc6be89",
+        "package_sha256": "17b38c22f26fd2e356ec6f2605e644c60d2b4b77798432cb566b99f11b7a049a",
+        "label_counts": [
+          2,
+          1,
+          1,
+          5,
+          5,
+          6,
+          2,
+          3,
+          3,
+          4
+        ]
+      }
+    }
+  },
+  "original_phone_replay": {
+    "rounds_exact": 2,
+    "float32_bitwise_equal": true,
+    "batchnorm_running_statistics_included": true,
+    "wrong_label_control_max_abs_diff": 0.00200009346,
+    "log_sha256": "1b5f4900d69951237f0a878f4490b20d74840398eae171c0e82ce0b9c19d5813"
+  },
+  "original_cpu_replay": {
+    "run_id": "1d25ca94-e38a-4f5b-8e4b-d641912e0ee8",
+    "torch": "2.12.0+cpu",
+    "rounds": [
+      {
+        "round": 1,
+        "examples": 32,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      },
+      {
+        "round": 2,
+        "examples": 32,
+        "max_abs_diff": 0.0,
+        "bitwise_equal": true
+      }
+    ],
+    "wrong_label_control_max_abs_diff": 0.002000093460083008
+  },
+  "aggregate_replay_exact": true,
+  "integer_batchnorm_counters_preserved": true,
+  "phone_probe_ms": 102629,
+  "phone_uplink_bytes": 44774166,
+  "dataset_preservation": {
+    "previous_files": 24,
+    "new_files": 3,
+    "total_files": 27,
+    "all_previous_hashes_unchanged": true
+  },
+  "server_evaluation": {
+    "recipe_key": "CIFAR_RESNET18",
+    "strategy": "FedAvg",
+    "rounds": 2,
+    "final_loss": 1.9227311415008352,
+    "final_accuracy": 34.89,
+    "torch_version": "2.12.0",
+    "seed": 1174101606,
+    "framework": "fedlearn",
+    "training_arm": "FULL",
+    "trainable_prefixes": null
+  },
+  "repeat_after_async_upload_fix": {
+    "run_id": "ded8c77f-8a20-4989-a66f-d4907d530eda",
+    "artifact_id": "d38ec760-6e13-4308-97f7-ddeb56212df6",
+    "checkpoint_sha256": "8d494f17cf3b935879462d02646305031f1ee92f5826b465ed4b37f3a7cef67a",
+    "accepted_updates": 4,
+    "aggregate_replay_exact": true,
+    "registry_reload_evaluation": {
+      "rows": 10000,
+      "correct": 3485,
+      "accuracy": 0.3485,
+      "mean_cross_entropy": 1.9231132545471192,
+      "majority_class_baseline": 0.1,
+      "confusion_matrix": [
+        [
+          82,
+          59,
+          18,
+          24,
+          3,
+          298,
+          3,
+          59,
+          160,
+          294
+        ],
+        [
+          0,
+          394,
+          0,
+          4,
+          0,
+          100,
+          0,
+          3,
+          3,
+          496
+        ],
+        [
+          14,
+          23,
+          13,
+          219,
+          21,
+          523,
+          0,
+          116,
+          33,
+          38
+        ],
+        [
+          0,
+          23,
+          2,
+          188,
+          4,
+          584,
+          0,
+          29,
+          18,
+          152
+        ],
+        [
+          0,
+          28,
+          5,
+          148,
+          95,
+          212,
+          0,
+          416,
+          13,
+          83
+        ],
+        [
+          0,
+          7,
+          0,
+          67,
+          1,
+          798,
+          0,
+          58,
+          9,
+          60
+        ],
+        [
+          1,
+          60,
+          15,
+          331,
+          65,
+          364,
+          2,
+          74,
+          36,
+          52
+        ],
+        [
+          0,
+          33,
+          0,
+          29,
+          1,
+          275,
+          0,
+          525,
+          3,
+          134
+        ],
+        [
+          4,
+          49,
+          0,
+          9,
+          0,
+          166,
+          0,
+          1,
+          455,
+          316
+        ],
+        [
+          0,
+          29,
+          0,
+          0,
+          0,
+          28,
+          0,
+          9,
+          1,
+          933
+        ]
+      ],
+      "server_accuracy_percent": 34.85,
+      "registry_sha256": "8d494f17cf3b935879462d02646305031f1ee92f5826b465ed4b37f3a7cef67a"
+    }
+  },
+  "limits": [
+    "Only 32 training images per client; this qualifies execution, not convergence.",
+    "Original run recovered from upload deadline and heartbeat interruption during slow synchronous evaluation.",
+    "Repeat completed after asynchronous upload acknowledgment; its full phone telemetry was not retained.",
+    "Original runtime contributions replay exactly; no bitwise equivalence between PyTorch and ExecuTorch is claimed.",
+    "Repeat contributions were aggregated independently but not individually replayed."
+  ]
+}

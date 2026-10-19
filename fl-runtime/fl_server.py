@@ -1,3 +1,7 @@
+if __name__ == "__main__":
+    from workload_dispatch import dispatch_tree_cli
+    dispatch_tree_cli("server")
+
 import sys
 import io
 import os
@@ -33,6 +37,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 import fedlearn as fl
 from fedlearn.server import DeComFL, FedLoRA, FedProx, FedOpt, RobustAggregator  # Import strategies from framework
+import strategy_client_settings
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from init_model import get_model
@@ -180,6 +185,12 @@ def build_eval_card(args, history, strategy=None) -> str:
         # different modules, and the name alone is not a checkable provenance claim.
         "trainable_prefixes": _prefixes,
     }
+    if args.model_type == "NIH_PNEUMONIA_CNN":
+        from nih_dataset import CLASSES
+        card["nih"] = {"classes": CLASSES, "evaluation": getattr(args, "nih_evaluation_provenance", None),
+            "metrics": {k: final[k] for k in ("balanced_accuracy", "auroc", "average_precision", "majority_accuracy",
+                "true_positive", "true_negative", "false_positive", "false_negative", "positive_images",
+                "negative_images", "record_count") if k in final}}
     if strategy is not None and getattr(strategy, "dp_enabled", False):
         card["dp"] = {
             "enabled": True,
@@ -217,7 +228,19 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ECG_DATASET_PATH = os.path.join(SCRIPT_DIR, "ecg_data", "ecg.csv")  # Hardcoded ECG dataset path
 ECG_DATASET_NAME = "ecg"
 ECG_NUM_CLIENTS = 3  # Hardcoded number of clients for ECG
-ECG_STRATEGY = "DeComFL"  # Hardcoded strategy for MLP
+
+
+def apply_ecg_run_settings(args):
+    """The MLP recipe's ECG dataset settings: (dataset path, client count), with ``args.dataset`` set to ECG.
+
+    Only the dataset is the recipe's. The strategy stays the run's: this used to force DeComFL onto every MLP run,
+    so an MLP FedAvg run aggregated zeroth-order scalars and a phone's weight upload failed. Other recipes get
+    (None, None) and are left untouched.
+    """
+    if (getattr(args, "model_type", None) or "").upper() != "MLP":
+        return None, None
+    args.dataset = ECG_DATASET_NAME
+    return ECG_DATASET_PATH, ECG_NUM_CLIENTS
 
 
 def perplexity_from_loss(avg_loss):
@@ -277,13 +300,61 @@ def evaluation_load_is_strict(model_type, training_arm, withheld=0):
         # BatchNorm models for FULL would immediately fail evaluation on the very keys the wire
         # was told not to carry.
         return False
-    if str(model_type).upper() == "TINYNET_GOLDEN":
-        # Syncs only its 25 trainable fc1 params; the frozen fc2 exists only in the fresh net.
-        return False
     try:
-        return recipes.trainable_prefixes(model_type, training_arm) is None
-    except ValueError:
+        # One definition shared with the client (recipes.federates_trainable_subset). It covers both
+        # a subset ARM and a recipe frozen by construction -- TINYNET_GOLDEN syncs only its 25
+        # trainable fc1 params, and the frozen fc2 exists only in the fresh net.
+        return not recipes.federates_trainable_subset(model_type, training_arm)
+    except (ValueError, KeyError):
         return True        # unknown recipe/arm: keep the stricter behaviour
+
+
+def load_evaluation_data(args, *, is_llm, num_clients, dataset_path):
+    """Load the run's evaluation data; the golden TinyNet has no evaluation dataset."""
+    if args.model_type.upper() == 'TINYNET_GOLDEN':
+        logging.info('TinyNet golden run skips dataset loading and server-side evaluation')
+        return None
+    if args.model_type == 'LLM_LORA':
+        return recipes.get_recipe('LLM_LORA').load_server_test_data(
+            model_name=args.model_name, task_type=args.task_type)
+    if args.model_type in ('PNEUMONIA_CNN', 'NIH_PNEUMONIA_CNN'):
+        return recipes.get_recipe(args.model_type).load_server_test_data(batch_size=32)
+    if args.model_type == 'MLP' and args.dataset == 'ecg':
+        return recipes.get_recipe('MLP').load_server_test_data(
+            num_clients=num_clients, dataset_path=dataset_path)
+    if args.model_type == 'CIFAR_RESNET18':
+        return recipes.get_recipe('CIFAR_RESNET18').load_server_test_data()
+    return load_server_test_data(is_llm, args.dataset if is_llm else None)
+
+
+def benchmark_accuracy_target(args):
+    """NIH's imbalanced binary labels have no generic dataset accuracy target."""
+    if args.model_type == "NIH_PNEUMONIA_CNN":
+        return None
+    return {"cb": 0.75, "sst2": 0.85, "ecg": 0.80}.get(getattr(args, "dataset", None))
+
+
+def nih_benchmark_metrics(metrics):
+    names = {"average_precision": "averagePrecision", "majority_accuracy": "majorityAccuracy",
+             "true_positive": "truePositive", "false_negative": "falseNegative",
+             "true_negative": "trueNegative", "false_positive": "falsePositive",
+             "positive_images": "positiveImages", "negative_images": "negativeImages"}
+    return {target: metrics[source] for source, target in names.items()}
+
+
+def resolve_fedopt_settings(args):
+    defaults = dict(variant="adam", server_learning_rate=1., beta1=.9, beta2=.99, tau=.001)
+    supplied = {name: getattr(args, "fedopt_" + name, None) for name in defaults}
+    if args.strategy.lower() != "fedopt" and any(value is not None for value in supplied.values()):
+        raise ValueError("FedOpt settings apply only to FedOpt")
+    settings = {name: defaults[name] if value is None else value for name, value in supplied.items()}
+    if (settings['variant'] not in ('adam', 'yogi')
+            or any(not np.isfinite(settings[name]) for name in ('server_learning_rate', 'beta1', 'beta2', 'tau'))
+            or not 0 < settings['server_learning_rate'] <= 10
+            or not 0 <= settings['beta1'] < 1 or not 0 <= settings['beta2'] < 1
+            or not 0 < settings['tau'] <= 1):
+        raise ValueError("invalid FedOpt server settings")
+    return settings
 
 
 def select_strategy(args, initial_parameters, evaluate_fn):
@@ -299,6 +370,10 @@ def select_strategy(args, initial_parameters, evaluate_fn):
     hyperparameters — full plumbing of those values from the run config / project UI is a
     separate follow-up.
     """
+    if getattr(args, "model_type", None) == "NIH_PNEUMONIA_CNN" and (
+            args.strategy.lower() not in ("fedavg", "robust")
+            or getattr(args, "dp_enabled", False) or getattr(args, "secure_aggregation", False)):
+        raise ValueError("NIH pneumonia requires FedAvg or Robust without DP or secure aggregation")
     # --clients-per-round: a round completes as soon as this many updates arrive, and the deadline still resolves it
     # with min_clients. Omitted, every strategy falls back to min_clients as before. getattr keeps hand-built
     # namespaces that predate the flag working.
@@ -417,8 +492,9 @@ def select_strategy(args, initial_parameters, evaluate_fn):
     elif args.strategy.lower() == 'fedprox':
         # FR-11: FedProx. Server aggregation is identical to FedAvg; the proximal term lives in
         # the client objective and is shipped via get_client_config. Default μ=0.1 gives a mild
-        # anti-drift pull (μ=0 would be bitwise-identical to FedAvg).
-        proximal_mu = 0.1
+        # anti-drift pull (μ=0 would be bitwise-identical to FedAvg). The execution contract states
+        # the same client settings, from the same recipe-aware resolver.
+        proximal_mu = strategy_client_settings.FEDPROX_CLIENT_PROXIMAL_MU
         logging.info(f"Using FedProx strategy (proximal μ={proximal_mu})")
         strategy = FedProx(
             initial_parameters=initial_parameters,
@@ -426,13 +502,16 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             min_fit_clients=args.min_clients,
             clients_per_round=clients_per_round,
             proximal_mu=proximal_mu,
+            learning_rate=strategy_client_settings.client_learning_rate('FedProx', getattr(args, 'model_type', None)),
+            local_epochs=strategy_client_settings.FEDPROX_CLIENT_LOCAL_EPOCHS,
         )
     elif args.strategy.lower() == 'fedopt':
         # FR-11: server-side adaptive optimisation (FedAdam by default). Standard FedAdam
         # hyperparameters (Reddi et al. 2021); moments persist across rounds inside the strategy.
-        fedopt_variant = "adam"
-        server_learning_rate = 1.0
-        beta1, beta2, tau = 0.9, 0.99, 1e-3
+        settings = resolve_fedopt_settings(args)
+        fedopt_variant = settings['variant']
+        server_learning_rate = settings['server_learning_rate']
+        beta1, beta2, tau = settings['beta1'], settings['beta2'], settings['tau']
         logging.info(f"Using FedOpt strategy (variant={fedopt_variant}, "
                      f"server_lr={server_learning_rate}, β1={beta1}, β2={beta2}, τ={tau})")
         strategy = FedOpt(
@@ -445,6 +524,13 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             beta2=beta2,
             tau=tau,
             variant=fedopt_variant,
+            # The client training the execution contract publishes for FedOpt runs; one source for both.
+            learning_rate=strategy_client_settings.client_learning_rate('FedOpt', getattr(args, 'model_type', None)),
+            local_epochs=strategy_client_settings.FEDOPT_CLIENT_LOCAL_EPOCHS,
+            # ResNet's floating BatchNorm statistics travel with model state but are not parameters.
+            buffer_names=(tuple(k for k in initial_parameters
+                                if k.endswith(('.running_mean', '.running_var')))
+                          if getattr(args, 'model_type', '').upper() == 'CIFAR_RESNET18' else ()),
         )
     elif args.strategy.lower() == 'robust':
         # FR-12: Byzantine-robust aggregation. The METHOD is selectable -- median and
@@ -547,6 +633,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
                              "return a summed share. Must be >= 2 (a threshold of 1 admits a "
                              "single-survivor round, whose aggregate IS that client's own "
                              "contribution) and <= the cohort. Default: 2")
+    parser.add_argument("--fedopt-variant", choices=['adam', 'yogi'], default=None)
+    for field in ('server-learning-rate', 'beta1', 'beta2', 'tau'):
+        parser.add_argument('--fedopt-' + field, type=float, default=None)
     parser.add_argument("--robust-method", type=str, default=None,
                         choices=["median", "trimmed_mean", "krum", "multi_krum", "bulyan",
                                  "centered_clip"],
@@ -613,6 +702,7 @@ def resolve_run_seed(args) -> int:
 
 def main():
     args = build_arg_parser().parse_args()
+    resolve_fedopt_settings(args)
     resolve_run_seed(args)  # DA-3: seed RNGs before any data loading/training; card records it
 
     # if args.model_type == 'TRANSFORMER' and args.strategy.lower() == 'decomfl':
@@ -620,14 +710,9 @@ def main():
     # print(f"[OVERRIDE] Setting min_clients to 1 for LLM+DeComFL testing")
 
     is_mlp = args.model_type == 'MLP'
+    dataset_path, num_clients = apply_ecg_run_settings(args)
 
     if is_mlp:
-        # Override with hardcoded ECG values
-        args.dataset = ECG_DATASET_NAME
-        args.strategy = ECG_STRATEGY
-        dataset_path = ECG_DATASET_PATH
-        num_clients = ECG_NUM_CLIENTS
-
         print(f"\n{'='*60}")
         print(f"MLP MODEL DETECTED - Using Hardcoded ECG Configuration")
         print(f"{'='*60}")
@@ -636,9 +721,6 @@ def main():
         print(f"  Strategy: {args.strategy}")
         print(f"  Num clients: {num_clients}")
         print(f"{'='*60}\n")
-    else:
-        dataset_path = None
-        num_clients = None
 
     logging.info(f"--- Starting gRPC FedLearn Server for Project: {args.project_id} ---")
 
@@ -799,35 +881,12 @@ def main():
         exit(1)
 
     # Load test data for server-side evaluation
-    is_pneumonia = args.model_type == 'PNEUMONIA_CNN'
+    is_pneumonia = args.model_type in ('PNEUMONIA_CNN', 'NIH_PNEUMONIA_CNN')
     is_llm_lora = args.model_type == 'LLM_LORA'
     is_causal = is_llm_lora and args.task_type.upper() == "CAUSAL_LM"
-    if is_llm_lora:
-        # NOTE: `recipes` and `json` are imported at MODULE scope. Re-importing either here
-        # would make the name local to all of main(), turning the arm filter's earlier
-        # use of `recipes` into an UnboundLocalError — which is exactly what stopped a
-        # FROZEN_HEAD server from ever starting. Guarded by tests/test_fl_server_arm_scope.py.
-        test_loader = recipes.get_recipe('LLM_LORA').load_server_test_data(model_name=args.model_name, task_type=args.task_type)
-        logging.info("Loaded LLM_LORA server test data via recipes.LLM_LORA")
-    elif is_pneumonia:
-        test_loader = recipes.get_recipe('PNEUMONIA_CNN').load_server_test_data(batch_size=32)
-        logging.info("Loaded chest X-ray test data via recipes.PNEUMONIA_CNN (NORMAL/PNEUMONIA)")
-    elif is_mlp and args.dataset == "ecg":
-        # DA-14 Phase 1: server ECG test set via the recipe registry (byte-identical). The recipe
-        # sources batch/alpha/frac/test_size/seed from the ecg config; num_clients is passed through
-        # (config.num_clients) so the split-cache key matches the legacy call site exactly.
-        test_loader = recipes.get_recipe("MLP").load_server_test_data(
-            num_clients=config.num_clients, dataset_path=dataset_path)
-        logging.info("Loaded ECG server test data via recipes.MLP")
-    elif args.model_type == 'CIFAR_RESNET18':
-        # Same CIFAR-10 test split as the CNN recipe, but under the ImageNet transform the frozen
-        # backbone expects. Evaluating pretrained features through CIFAR's [-1,1] normalisation
-        # would silently degrade every feature and understate the arm.
-        test_loader = recipes.get_recipe('CIFAR_RESNET18').load_server_test_data()
-        logging.info("Loaded CIFAR-10 server test data via recipes.CIFAR_RESNET18 (ImageNet transform)")
-    else:
-        # Load CIFAR-10 or LLM test data
-        test_loader = load_server_test_data(is_llm, args.dataset if is_llm else None)
+    test_loader = load_evaluation_data(args, is_llm=is_llm,
+                                       num_clients=config.num_clients if is_mlp else num_clients,
+                                       dataset_path=dataset_path)
 
     # --- Benchmark suite: per-round rich-metric capture. Additive side-channel;
     # the existing RoundResult flow (loss/accuracy POST) is left untouched. The
@@ -842,7 +901,7 @@ def main():
     _bench_num_classes = len(_bench_classes) if _bench_classes else None
     # Per-recipe accuracy target → time-to-target-accuracy (TTA) in the run
     # summary. Mirrors the dataset targets used in the training summary below.
-    _bench_target = {"cb": 0.75, "sst2": 0.85, "ecg": 0.80}.get(getattr(args, "dataset", None))
+    _bench_target = benchmark_accuracy_target(args)
 
     # Define server-side evaluation function
     def server_side_evaluate(server_round: int, parameters: OrderedDict[str, torch.Tensor]) -> tuple[float, dict]:
@@ -1093,6 +1152,13 @@ def main():
             all_labels, all_preds, y_score=_bench_scores,
             num_classes=_bench_num_classes, class_names=_bench_classes,
         )
+        nih_metrics = None
+        if args.model_type == "NIH_PNEUMONIA_CNN":
+            from nih_runtime import binary_metrics
+            nih_metrics = binary_metrics(all_labels, _bench_scores[:, 1])
+            _bq["balancedAccuracy"] = nih_metrics["balanced_accuracy"]
+            _bq["rocAuc"] = nih_metrics["auroc"]
+            args.nih_evaluation_provenance = test_loader.dataset.provenance
         _bq["loss"] = round(float(avg_loss), 6)
         _bs = benchmarks.model_size(parameters)
         _now = time.time()
@@ -1105,10 +1171,14 @@ def main():
             param_count=_bs["paramCount"], model_size_mb=_bs["modelSizeMb"],
             client_count=getattr(args, "min_clients", None),
             target_accuracy=_bench_target,
+            extra=nih_benchmark_metrics(nih_metrics) if nih_metrics is not None else None,
         ))
         round_clock["last"] = _now
 
-        return avg_loss, {"accuracy": accuracy}
+        metrics = {"accuracy": accuracy}
+        if nih_metrics is not None:
+            metrics.update({key: value for key, value in nih_metrics.items() if key != "accuracy"})
+        return avg_loss, metrics
 
     # LLM_LORA does not support DeComFL — the zeroth-order path requires a flat
     # float-vector parameter space that is incompatible with adapter-only sync.
@@ -1132,6 +1202,9 @@ def main():
         ),
         strategy=strategy,
     )
+
+    if not final_parameters:
+        raise RuntimeError('Federated training ended without a completed model; no artifact or completion callback will be emitted.')
 
     logging.info("--- Federated Learning session complete. ---")
 

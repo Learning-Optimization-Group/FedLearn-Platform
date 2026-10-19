@@ -172,7 +172,7 @@ There is **no `--client-id`**.
 |---|---|
 | `FEDLEARN_PNEUMONIA_DIR` | use a local `ImageFolder` layout: `<dir>/train` and `<dir>/test` (or `/val`), each with `NORMAL/` and `PNEUMONIA/`. Missing split ⇒ a clear `FileNotFoundError`, not a silent fallback |
 | `FEDLEARN_PNEUMONIA_DATASET` / `_CONFIG` / `_REVISION` | HuggingFace fallback repo, config, and a commit pin |
-| `FEDLEARN_PNEUMONIA_TRUST_REMOTE_CODE=1` | **SE-19** — remote dataset-loader execution is OFF by default. Enabling it downloads and runs the dataset repo's loader script on this host; pair it with `_REVISION` so an opted-in run executes a known immutable revision |
+| `FEDLEARN_PNEUMONIA_TRUST_REMOTE_CODE=1` | **SE-19** — obsolete: datasets 5 removed script-backed loaders. The HuggingFace fallback rejects this flag with a `ValueError`. Unset it and use `FEDLEARN_PNEUMONIA_DIR` for local image folders or a data-only HuggingFace dataset such as Parquet |
 | `FEDLEARN_PNEUMONIA_ALPHA` / `_BATCH` / `_SUBSET`, `FEDLEARN_NUM_CLIENTS` | Dirichlet non-IID α, batch size, subset cap, cohort size |
 
 ### `FEDLEARN_CONNECTION_TOKEN` (SE-14)

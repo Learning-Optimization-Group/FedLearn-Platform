@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-10",
+  "project_id": "a3e481da-5056-4d49-884a-c12ec5c5c962",
+  "run_id": "581a506c-7211-4c97-83b1-bbc9112a9949",
+  "contract_timeout_ms": 900000,
+  "registered_clients": 1,
+  "required_clients": 2,
+  "accepted_updates": 0,
+  "api_status": "FAILED",
+  "latest_artifact_http_status": 404,
+  "initial_model_unchanged": true,
+  "server_port": 50000,
+  "server_port_released": true,
+  "server_port_unreachable_at_check": true,
+  "server_exit_code": 1,
+  "client_exit_failure": "gRPC CANCELLED during server shutdown",
+  "live_deadline_trigger": "server polling thread detected deadline first; RPC-first ordering not claimed for this run",
+  "rpc_first_race_regression": "test_tree_server_exits_when_rpc_already_failed_cohort: real deadline marks FAILED before server loop; RED then GREEN",
+  "fix_commit": "2c89d5b",
+  "server_started_before_fix_commit": true,
+  "server_source_bytes_match_fix": true,
+  "server_source_file_sha256": "06fa75c8330a6c2c30fe83ebb418c1afa3c57d63bb59621b26e51a6e267239cb",
+  "initial_ubj_sha256": "ef532e4712c250a501baad2b26a64c23fec62a808b555b6ee3dff153abf0a92c",
+  "private_backend_log_excerpt_sha256": "fa12e2f2fd7c43c3fbb048ec35115fb3b5f55fa50ce635ef2e9388ec7b2bf4bb",
+  "checks": {
+    "tree_tests": 61,
+    "runtime_tests": 654
+  },
+  "limits": [
+    "One registered participant, so the fixed cohort never starts training; no partial contribution was accepted.",
+    "The specific RPC-first race is covered by the deterministic regression; live verification covers deadline failure reconciliation and cleanup."
+  ]
+}

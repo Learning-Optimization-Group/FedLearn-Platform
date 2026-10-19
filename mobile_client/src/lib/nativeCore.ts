@@ -9,6 +9,7 @@ export type {
   Strategy,
   GradEstimateMethod,
   RegisterResult,
+  RuntimeCompatibility,
   ServerStatus,
   RoundConfig,
   RoundResult,
@@ -17,6 +18,8 @@ export type {
   InferResult,
   ParamSpec,
   ModelManifest,
+  TrainableProbe,
+  QualificationReport,
 } from '../../bridge/specs/NativeFedLearnCore';
 
 export const nativeCore = NativeFedLearnCore;

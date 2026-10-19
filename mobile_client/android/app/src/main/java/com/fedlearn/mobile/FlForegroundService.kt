@@ -11,10 +11,9 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 
-// Foreground service for the lifetime of a training run (task 16 / E5). Keeps the process at
-// foreground priority so the JS round loop survives Doze, and samples device state on a timer so
-// per-round telemetry (thermal/battery) is fresh. Backgrounding the app no longer silently kills
-// the run; stopping the service is the clean stop path.
+// Foreground service for the lifetime of a training run. Gives the process foreground
+// priority and samples device state; round pacing uses TrainingDelayScheduler because
+// the activity's React Native timers pause in the background. This is not a Doze exemption.
 class FlForegroundService : Service() {
   private val handler = Handler(Looper.getMainLooper())
   private val sampleIntervalMs = 5000L
@@ -27,13 +26,17 @@ class FlForegroundService : Service() {
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    if (intent?.action == ACTION_STOP) {
-      stop()
+    // The training loop lives in this process and cannot survive its death. A
+    // system restart must not advertise training or restart the sampler, including
+    // a start delivery interrupted before onStartCommand returned.
+    val systemRestart = flags and (START_FLAG_RETRY or START_FLAG_REDELIVERY) != 0
+    if (intent == null || systemRestart || intent.action == ACTION_STOP) {
+      stop(startId)
       return START_NOT_STICKY
     }
     startForeground(NOTIFICATION_ID, buildNotification())
     handler.post(sampler)
-    return START_STICKY
+    return START_NOT_STICKY
   }
 
   override fun onDestroy() {
@@ -41,10 +44,10 @@ class FlForegroundService : Service() {
     super.onDestroy()
   }
 
-  private fun stop() {
+  private fun stop(startId: Int) {
     handler.removeCallbacks(sampler)
     stopForeground(STOP_FOREGROUND_REMOVE)
-    stopSelf()
+    stopSelf(startId)
   }
 
   private fun buildNotification(): Notification {

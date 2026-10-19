@@ -1,0 +1,202 @@
+{
+  "date": "2026-10-15",
+  "time_basis": "UTC",
+  "verdict": "PASS_SAME_PROCESS_DECOMFL_RECONNECT",
+  "project_id": "7ec296d1-d098-47e8-80c0-045fc21f516d",
+  "run_id": "07d46ed6-5521-44e2-a48d-d92be9bb9579",
+  "source_commit": "c3bdb29570bd0b72018c34a3024112211a21b2e3",
+  "model": "TINYNET_GOLDEN",
+  "strategy": "DeComFL",
+  "training_arm": "FULL",
+  "examples_per_client": 8,
+  "dimensions": 25,
+  "rounds": 3,
+  "source_sha256": {
+    "mobile_client/shared/src/FederatedLoop.cpp": "5c2cc0cdb30a0e3c9f9cf1af2205a08f980e916124aaa82f48c110612ff02c2e",
+    "mobile_client/shared/include/fedlearn/FederatedLoop.h": "21c4008b065869f91a08c7663e4e6199d9860c6d784b3bbe6dbfe94f39155d86",
+    "mobile_client/shared/tests/federated_loop_test.cpp": "25c287d65e3658d901fe6c3d6e756c045d2097c66a48f94b1d75f34e6ddaa43e",
+    "mobile_client/bridge/common/FedLearnCoreModule.cpp": "bd01209ba319a6d6aebba891bf0320303c0891dfb1dec3e78ac69fa1e76ba36a",
+    "mobile_client/bridge/common/FedLearnCoreModule.h": "0919d6d330c6644afc84e157c8aa321dfc1524b38adf9a03fef2e91a41212546"
+  },
+  "android_candidate": {
+    "app-debug.apk": "cdab9ffbd8017186cfdcc994987b349d24041b77de662bd59ed36535bc655730",
+    "libfedlearn_core.a": "9948ab3f284c9096b7f600591839b8af21dd1cc89b41552ce9923dfe9c84b98a"
+  },
+  "verification": {
+    "verdict": "PASS_SAME_PROCESS_DECOMFL_RECONNECT",
+    "rounds": 3,
+    "unique_accepted_updates": 6,
+    "completed_checkpoint": 3,
+    "injected_heartbeat_failures": 3,
+    "rejected_scalar_attempts": 4,
+    "identical_round2_scalar_requests": 5,
+    "accepted_registrations": 3,
+    "initial_model_downloads": 1,
+    "registered_aggregate_bitwise_equal": true,
+    "saved_dataset_files_unchanged": 33,
+    "previous_bindings_verified": 679,
+    "sampled_app_pid": 27804,
+    "active_device_samples": 4,
+    "sampled_battery_temperature_min_c": 27.0,
+    "sampled_battery_temperature_max_c": 27.0,
+    "exercise_seconds": 76.145831,
+    "process_restart_recovery_qualified": false,
+    "physical_client_numerical_replay_repeated": false
+  },
+  "aggregate": {
+    "aggregate_bitwise_equal": true,
+    "accepted_rows_in_unfiltered_window": 6,
+    "initial_state_matches_contract": true,
+    "finite_state": true,
+    "server_history_matches_accepted_averages": true,
+    "registered_npz_sha256": "e4c6f86c2bda9bfdb3fca79536b27793ab41c63f398db85fc98e5b2aa97a6f65",
+    "reconstructed_parent_sha256": {
+      "1": "1122ba73e49f6df981861bb76d3dcff46666abb5f41e3a6a4d510db9fddd965c",
+      "2": "f0e1da3fa43893fd887b7985fd5a7a5fb844ac773ee5615bc4831d39bd270c7c",
+      "3": "296e8b85ffb0cdf17f1c1411b5fb443e94e5e64c0724816b180e0eae524e7920"
+    },
+    "recorder_window": {
+      "start_byte": 78913,
+      "end_byte": 80882,
+      "sha256": "376bbed9b6feeda252b4f541ab44049aa907827a8500699c7a05db89ee511219"
+    },
+    "physical_client_numerical_replay_repeated": false
+  },
+  "tests": {
+    "native_core": 163,
+    "mobile": 687,
+    "mobile_suites": 44,
+    "lint_passed": true,
+    "types_passed": true,
+    "android_debug_build_passed": true,
+    "android_jvm_task": "UP-TO-DATE; five retained reports contain61 passing tests",
+    "initial_regressions_failed_on_original_code": 3,
+    "defect_mutations_detected": {
+      "reapply_history": {
+        "exit_code": 1,
+        "regression_detected": true
+      },
+      "discard_reconnect_state": {
+        "exit_code": 1,
+        "regression_detected": true
+      }
+    }
+  },
+  "scope": {
+    "same_process_reconnect": true,
+    "usb_powered": true,
+    "physical_usb_transport": true,
+    "awake_debug_test": true,
+    "real_upstream_registration_and_submissions": true,
+    "scalar_failures_before_upstream_submission": true,
+    "protocol_changed": false,
+    "server_behavior_changed": false,
+    "previous_bindings_verified": 679
+  },
+  "limitations": [
+    "The in-memory trajectory survives transport replacement, not app process death or restart. A fresh late join still refuses after round one.",
+    "This is a three-round TinyNet fixture qualification with8 examples per client, not real-model DeComFL recovery, clinical quality or a background/endurance result.",
+    "The controlled application-level gRPC proxy forwards successful raw protobuf payloads and the connection token, drops other metadata/trailers and caps upstream deadlines at60seconds. It is not fully wire-transparent.",
+    "Heartbeat failures and four round-two scalar failures are injected before forwarding. This does not qualify an ambiguous submission accepted by the server whose response is lost.",
+    "Accepted scalars reproduce the final aggregate exactly; an independent numerical replay of every physical phone training step was not repeated. Frozen Python trajectory parity and replay atomicity have host regressions.",
+    "The UI session totals cover successful rounds and omit failed-attempt compute/traffic. Neither a new progress UI nor comprehensive wire-cost accounting was added.",
+    "Earlier physical receipts remain bound to their earlier app versions. The previous ten-round FedAvg screen-off result is not extended to this new APK.",
+    "Production signing/deployed TLS, prolonged partitions, server restart, process-death recovery, battery-only survival, natural deep Doze, mobile XGBoost and secure aggregation remain open."
+  ],
+  "private_physical_evidence_sha256": {
+    "run.json": "e35d87e8fdc89f63c4fa5c5d41ac6d5fa37674d454d5d438422713e10e14d929",
+    "source-binding.json": "2f7973357b1396849fa5107bbcfc4e22f3bfbe48d0042203d044436f9314660f",
+    "source-sync.json": "72e946c9f53b74e95f0ed99e1e0e7af54bba07df37ff96caf8d7feb23ba631d5",
+    "contract.json": "73afba091d289f9f6fc8f0e65749b23a279a44ddf806913c91a7d9654db258de",
+    "manifest.json": "c45566cf61ab17b84f640f55e05b40c6ee8c75bc8c30ca7ad0149ad2882429eb",
+    "initial.npz": "83888d77e2082aa4fbfdf7f9ef946f3756e591e392b0be9f78ab0d22ef4530b4",
+    "record-offset.txt": "0efdbb993c68dbc1c9c8e8c73e2904cf3b82a2ac53ff800afb7037d4b387f20c",
+    "record-end.txt": "12d53b78c5674f165219c998fcec745187d8301f4623cb8c9b45ab8308be8ef6",
+    "accepted-updates.json": "eaa857e4979b5489db84e8e7326c1ae1828d8a7669215ca3d5856dab06a03dfe",
+    "events.json": "cff9c5c6fe3787cf210862bc1f92b0d27643573853c8c75b48c7f47a979456d0",
+    "exercise.log": "7bddaa23eb6ebb049e2828906ab1c4803733fba6ebef40cc93fb2610d7079579",
+    "proxy-events.jsonl": "aee49f6c638bbb25e7d7faaba8cb860753c7353c9167d9da197a02ececfacff1",
+    "device-samples.jsonl": "787745a76816074486e13cc55baa5505bc6f0738cfa6b3d6e6bbd22458029e85",
+    "desktop.log": "0f9c79354ee299cec5f774dd3b8e5377768e3e69ab61c8579b1bcd258f0376cc",
+    "proxy.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "monitor.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "phone-diagnostics.txt": "fb174cf12b172efa5895994a61080b10582ad605e50029513f0211d0c025b8a0",
+    "preflight.json": "10d7dd7c851ead30f3a3cd7f9a7ba9398d2a77d740a10ab8b894e7bc93474f85",
+    "phone-preservation-before.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+    "phone-preservation-after.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+    "phone-preservation-final.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+    "postflight.json": "1651540a957a6bcd80179f62202d1ef05d930a05cfe15295c2bde9b9940f52da",
+    "postflight-initial.py": "8ebc62db2e9c0d826d813853fee2127debbc2907b3b3fb7317ad65103fe8469f",
+    "helper-absence.json": "ae84348159f6004fe452671f8af0a0637b0910ad0da0b4cc113ef264b566d924",
+    "guard-cleanup.json": "ca02830d14740c67d599ca87f84c9787020d8739826cba420f32252eb2a87ff9",
+    "guards.json": "966c48aa6fd0adf7e47d9a9e9a23f7f41d30b52481f09a44e2587823266aaf03",
+    "deadline.log": "aaeea1b3379f69961d7400e1caa5af67934c83f1323bd40eadb939804e8f916e",
+    "usb-postcheck.json": "8e688c90a98183950c361f4527dfbc0d7db2853ae95633830902c6bc97c759b7",
+    "install-preservation.json": "120ba4b2f28942b7ddd42b63f4321f25bcc365758218c7a33cbfeff0c94f0b60",
+    "install.log": "781a31c82430c97897af612ece5e0ca2205e301cb5ff121ce2660541ea5182c7",
+    "app-readiness.json": "3b94400a198883afcc5a4c0f5ba0b027a4d9f934a5e2c4a522a203eaf8e588cb",
+    "aggregate-verification.json": "a389568b9ff3de0638c57592d26cc230db7a959881872b8c71b3125784e37156",
+    "artifact.json": "18e6822cb709af183fee43d96b71b761e0ce8c2a9725ad4cd4d6cda812ec3970",
+    "registered.npz": "e4c6f86c2bda9bfdb3fca79536b27793ab41c63f398db85fc98e5b2aa97a6f65",
+    "provider-final.json": "244cac25c45f8721d65b449249ac16a8631c989b07b3516cac148cb6d5104ce8",
+    "project-completed.json": "38737d7f5552e84cf8fc02b4c411b964b8f492892e10fcc9b392290d34c04a26",
+    "preservation-before.json": "e2947191a5f6be7f221cafb74a3e1b086ce9c4e18bbcb2a52c6d92ee62dcabb0",
+    "preservation-after.json": "8e6ba8e61cbc2e5d745e4f82aa8098074a83e9cfb98b5dcf4db9ac8b5229d419",
+    "verification.json": "eedd1644528c1e28d1b7c143c3bb1e8c39cec2cab48d2285376b206d125f8256",
+    "verification.log": "eedd1644528c1e28d1b7c143c3bb1e8c39cec2cab48d2285376b206d125f8256"
+  },
+  "private_local_verification_sha256": {
+    "native-baseline-build.log": "8c35b1682f73592d30612d7b0fabdb384fcfff35cb5a076cb48b85b1368aa794",
+    "native-baseline.log": "93073c74f8853da16d7a453f953d802ab2284587542f46276e063e9ec4c61d1d",
+    "native-red-build.log": "57b3d360f49a8d35b82bd85b79ce135513cd51bec5ed70505223cb555a462a42",
+    "native-red.log": "7ee3696df9d7c0532ed3c60c261f00c3c7f4f64e04b7614c30796e0bde18cabc",
+    "native-final.log": "0f5fcc5ba7fe46e25c093dc134c4603b943c2b6e7b00669f0f2829e459d09374",
+    "native-results.json": "856e0f402805fabf8f20015cac6d56565e3c39d37023645d94779ece8186bd94",
+    "native-restored-build.log": "251684e76bde8d0aadf5dfb82bc361f6456a2df0eb02de1b8623b0c05081d53e",
+    "reapply_history-build.log": "251684e76bde8d0aadf5dfb82bc361f6456a2df0eb02de1b8623b0c05081d53e",
+    "reapply_history-test.log": "c0d98934f4150be37383b72d3d0b150698fc31a5b61061cfea05dc95f149798a",
+    "discard_reconnect_state-build.log": "251684e76bde8d0aadf5dfb82bc361f6456a2df0eb02de1b8623b0c05081d53e",
+    "discard_reconnect_state-test.log": "d2056f0cd9b917d08f28600d65c50d740a0cce00f19566f116e669be9d5a7531",
+    "mutation-results.json": "5f1579eae53ba049bd811151be6145c45f227869cf4dee464cbe5ccc89d875dd",
+    "js-suite.log": "2223d9ae7933a724317c89fce8e2aa460c82b50912a13c843ba6d3f400c07c0d",
+    "lint.log": "68d396aa2ee4dc2b3dd54e5e32d08f9de5c7c64a80680b45903c06d0791b6dec",
+    "types.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "android-build.log": "a8a5dd836512349481147c5276394b823b2bd67aaf06a1816c574bd9d4b5144d",
+    "android-build.json": "62c4799391e5c9afc40e390014d7eaa95762e15ec565db7b8f7a3f6c70f91d54",
+    "runtime-before.json": "200f8e6625a030a5ae387dbc3e60292b91107932263ed120c441d736de167d72",
+    "android-sandbox-blocked.log": "a544b5e421e8c2df6ecc843bb5aef8a00841e71035d0b53b064808f9931a981d"
+  },
+  "private_driver_sha256": {
+    "decomfl_recovery_setup.py": "23bf06fdba27f4e236111c88120d867e077f3417dffb5e75c5877abe875982a7",
+    "decomfl_recovery_desktop.py": "f0b362d6b4fb2a1f6e966e6ab3d14e99c69d7ff09444b7bccebdfdfd747b628c",
+    "decomfl_recovery_proxy.py": "a118950c7d9ae3e12c4da0080e4801dcf919b7d9301622cbf5c84e05d84f1434",
+    "decomfl_recovery_remote.py": "2ed01be420627486931fc4e2044962fbd9c342f1da864b458a8f63bf065e300a",
+    "decomfl_recovery_exercise.py": "b76af9c2497224f82c6835e6d976de1878505ae180c719469fdbb35fa7847a06",
+    "decomfl_recovery_deadline.py": "b7cb213741d37c033fe432283405a6214aabcbe31c00a2fc88b5575ced527dc0",
+    "decomfl_recovery_install.py": "1651f1dc2c2879b68840521619e6cd74b51deab7f769438c7b30fe622265ffa4",
+    "decomfl_recovery_readiness.py": "81049976a17987a26172987a8c91ebfa6eb5ba2db286185207127c05bd8c2d03",
+    "decomfl_recovery_sync.py": "33481ba757cb3efa3783bed9ae80fcfcbed5dadc9758b656be6a2a7ece313b0e",
+    "decomfl_recovery_aggregate.py": "f5bd42102e01e910e590fc71c003e4c19a90028a0af2c1b3a228bfc4f9618b09",
+    "decomfl_recovery_postflight.py": "fbb5766c9991d34875b997ba31c3e99c6a617388db8dbd4309ecffa1256f4be2",
+    "decomfl_recovery_preservation.py": "3fa335ebb02c3f0d566286ea76c019ce079696f3014f538c09a03d9bda088961",
+    "decomfl_recovery_journal.py": "0f6f42974b2e5488975b28b8eb452b7e225183076eb0f519d197e22eccb89e6a",
+    "verify_decomfl_recovery.py": "f6b692e1eb20fbb6ab51e8791c6ce33c03949970996f0af27dcc07d9041dfa73",
+    "curate_decomfl_recovery.py": "bfd2b0c0e78187ad451706779b1f0ffbc21b40213f06688f20ba96e9079c0f52"
+  },
+  "private_build_driver_sha256": {
+    "build_android.py": "6acd23fe26166e01b36c4f1e1d756be3439bc00c6aba0e5cb7d4c4e88fb803f7",
+    "run_mutations.py": "9434cdd75b18c65e0f5eef29771a293fe231c634ad3cb1a3ce1b43c0bf6042a7"
+  },
+  "shared_driver_sha256": {
+    "cdp.cjs": "76ed4346e2594a57312bbb6fd1c43c82825ac7b2de78eee5f6801c7ebd28b87a",
+    "mounted-auth-driver.js": "01c2269595279917840d3099d55b9c1b2159548285c63f3123154466f8052897",
+    "lifecycle-network/provider-driver.js": "fbce02b7e93178afc038e184359d4fae554f6abea8396efe4b39732ddad966aa",
+    "lifecycle/provider-state.js": "371099fcf1a175feb3afe268e7dfaf27bb33fef66a372dc2a1460ef628f1784c"
+  },
+  "frozen_python_fixture_sha256": {
+    "zo_flat.f32": "50cae5912e3214aadd093f201c89ebe4a094cc4678d98e1637ef5b8812da7500",
+    "zo_multiround_final.f32": "650943142f859d29e2a9737828516064ab77177f534e5b9c9548d6647c2d93a3",
+    "zo_multiround_seeds.i64": "add9805196fa3daa5864e8207625bc21e657c09d09906bfea3cdebf1c901b37f",
+    "zo_multiround_g.f64": "d3cc9957a0993f9a00be6a96850d4cf7e2161dad3f04c904c5b4a91ad1135988"
+  }
+}

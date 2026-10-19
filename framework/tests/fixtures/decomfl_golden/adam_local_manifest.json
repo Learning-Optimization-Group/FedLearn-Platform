@@ -1,0 +1,28 @@
+{
+  "description": "Adam local-update goldens (Stage 4 S2): torch.optim.Adam, fresh, full-batch steps on the committed TinyNet batch from zo_flat.f32.",
+  "torch_version": "2.12.0",
+  "learning_rate": 0.01,
+  "steps": 5,
+  "beta1": 0.9,
+  "beta2": 0.999,
+  "goldens": {
+    "adam_local_final.f32": {
+      "epsilon": 1e-08,
+      "sha256": "111220ed558db83f4b5e8fa6bb3d4b28116a3c36eeec863b140384dacdd9ca31",
+      "control_separation": {
+        "no_bias_correction": 0.18506070971488953,
+        "eps_inside_sqrt": 3.159046173095703e-06,
+        "betas_swapped": 0.002346232533454895
+      }
+    },
+    "adam_eps_local_final.f32": {
+      "epsilon": 0.1,
+      "sha256": "d73993d97dd0ede05bf0a981cbf1ef587d5dcbc174b136d6b2e9782031194ce9",
+      "control_separation": {
+        "no_bias_correction": 0.012518415227532387,
+        "eps_inside_sqrt": 0.009903520345687866,
+        "betas_swapped": 5.240738391876221e-05
+      }
+    }
+  }
+}

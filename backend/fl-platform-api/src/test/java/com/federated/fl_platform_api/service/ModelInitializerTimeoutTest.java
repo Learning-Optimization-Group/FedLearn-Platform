@@ -40,4 +40,28 @@ class ModelInitializerTimeoutTest {
             Files.deleteIfExists(script);
         }
     }
+
+    // The real wrapper forks python; the timeout must end that python, not only the wrapper.
+    @Test
+    void initializeModelFile_timeoutKillsWhatTheScriptForked() throws Exception {
+        Path pidFile = Files.createTempFile("init-child", ".pid");
+        Files.delete(pidFile);
+        Path script = Files.createTempFile("hang-init-fork", ".sh");
+        Files.writeString(script, "#!/bin/bash\nsleep 300 &\necho $! > " + pidFile + "\nwait\n");
+        try {
+            ModelInitializer init = new ModelInitializer();
+            ReflectionTestUtils.setField(init, "initModelWrapperPath", script.toString());
+            ReflectionTestUtils.setField(init, "initTimeoutSeconds", 1L);
+
+            assertThrows(ServerProcessException.class, () ->
+                    init.initializeModelFile("CNN", "m", "Adam", "/tmp/ba1-out.npz", 0, null));
+
+            ProcessHandle child = ProcessHandle.of(Long.parseLong(Files.readString(pidFile).trim())).orElse(null);
+            org.awaitility.Awaitility.await().atMost(10, java.util.concurrent.TimeUnit.SECONDS).untilAsserted(() ->
+                    assertTrue(child == null || !child.isAlive(), "the forked init process survived the timeout"));
+        } finally {
+            Files.deleteIfExists(script);
+            Files.deleteIfExists(pidFile);
+        }
+    }
 }

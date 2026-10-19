@@ -3,6 +3,7 @@ package com.federated.fl_platform_api.service;
 import com.federated.fl_platform_api.audit.Auditable;
 import com.federated.fl_platform_api.dto.*;
 import com.federated.fl_platform_api.exception.ProjectStateException;
+import com.federated.fl_platform_api.model.TrainingDataSource;
 import com.federated.fl_platform_api.model.TrainingArm;
 import com.federated.fl_platform_api.model.RobustAggregationSettings;
 import com.federated.fl_platform_api.model.RobustMethod;
@@ -194,6 +195,38 @@ public class ProjectService {
     static final int MIN_SECURE_AGG_THRESHOLD = 2;
 
     /**
+     * Where a start's participants take their training data from: the fixture unless the start asks otherwise. The
+     * recipe is looked up only for a start that asks for participants' own data.
+     *
+     * <p>Refuses, with a 400, a run on participants' own data for a recipe whose catalog entry does not offer it
+     * (only a recipe with an execution plan that states a local snapshot can tell a device what data to bring), and a
+     * secure-aggregation run on participants' own data, which only phones train and phones cannot join yet.
+     */
+    static TrainingDataSource resolveDataSource(StartProject request,
+                                                java.util.function.Supplier<Optional<ModelRecipeDto>> recipe,
+                                                String modelType) {
+        if (request == null || request.getDataSource() == null) {
+            return TrainingDataSource.FIXTURE;
+        }
+        TrainingDataSource source = TrainingDataSource.valueOf(request.getDataSource());
+        if (source != TrainingDataSource.LOCAL_SNAPSHOT) {
+            return source;
+        }
+        List<String> offered = recipe.get().map(ModelRecipeDto::supportedDataSources).orElse(null);
+        if (offered == null || !offered.contains(source.name())) {
+            throw new IllegalArgumentException(String.format(
+                    "Recipe %s can't train on participants' own data: it has no on-device plan that states what "
+                            + "data a device must bring. Start it on the fixture data instead.", modelType));
+        }
+        if (Boolean.TRUE.equals(request.getSecureAggregation())) {
+            throw new IllegalArgumentException(
+                    "Secure aggregation can't be combined with participants' own data yet. Only phones train on "
+                            + "their own snapshots, and phones can't join a secure run, so no round could complete.");
+        }
+        return source;
+    }
+
+    /**
      * The secure-aggregation reconstruction threshold for a start, or null when secure aggregation is off.
      *
      * <p>Refuses, with a 400, a start that would claim secure aggregation without delivering it: a threshold without
@@ -275,6 +308,22 @@ public class ProjectService {
     }
 
     static String resolveStrategy(String modelType, String requestedStrategy) {
+        if ("NIH_PNEUMONIA_CNN".equalsIgnoreCase(modelType)) {
+            String strategy = requestedStrategy == null || requestedStrategy.isEmpty() ? "FedAvg" : requestedStrategy;
+            if (!"FedAvg".equals(strategy) && !"Robust".equals(strategy)) {
+                throw new IllegalArgumentException("NIH pneumonia requires FedAvg or Robust");
+            }
+            return strategy;
+        }
+        if ("XGBOOST".equals(modelType)) {
+            if (requestedStrategy != null && !requestedStrategy.isEmpty() && !"XgbBagging".equals(requestedStrategy)) {
+                throw new IllegalArgumentException("XGBoost requires the XgbBagging strategy");
+            }
+            return "XgbBagging";
+        }
+        if ("XgbBagging".equals(requestedStrategy)) {
+            throw new IllegalArgumentException("XgbBagging requires the XGBOOST recipe");
+        }
         if ("LLM_LORA".equalsIgnoreCase(modelType)) {
             return "FedLoRA";
         }
@@ -321,6 +370,30 @@ public class ProjectService {
         // anything is persisted.
         validateDpConfig(request);
 
+        if ("XGBOOST".equals(request.getModelType()) &&
+                ((!"xgboost_binary".equals(request.getModelName()) && !"xgboost_breast_cancer".equals(request.getModelName())) || !"TreeBoosting".equals(request.getOptimizer())
+                || request.getPretrainEpochs() == null || request.getPretrainEpochs() != 0
+                || (request.getTrainingArm() != null && !"FULL".equals(request.getTrainingArm()))
+                || Boolean.TRUE.equals(request.getDpEnabled()) || Boolean.TRUE.equals(request.getRegulated())
+                || Boolean.TRUE.equals(request.getInitFromPretrained())
+                || (request.getTaskType() != null && !"SEQ_CLASSIFICATION".equals(request.getTaskType())))) {
+            throw new IllegalArgumentException("XGBoost requires a supported binary preset, TreeBoosting, zero pretraining and FULL; DP and derivation are unsupported");
+        }
+
+        if ("NIH_PNEUMONIA_CNN".equalsIgnoreCase(request.getModelType())
+                && !"NIH_PNEUMONIA_CNN".equals(request.getModelType())) {
+            throw new IllegalArgumentException("NIH pneumonia requires the canonical NIH_PNEUMONIA_CNN recipe key");
+        }
+        if ("NIH_PNEUMONIA_CNN".equals(request.getModelType()) &&
+                (!"nih_pneumonia_cnn".equals(request.getModelName()) || !"Adam".equals(request.getOptimizer())
+                || request.getPretrainEpochs() == null || request.getPretrainEpochs() != 0
+                || (request.getTrainingArm() != null && !"FULL".equals(request.getTrainingArm()))
+                || Boolean.TRUE.equals(request.getDpEnabled()) || Boolean.TRUE.equals(request.getRegulated())
+                || Boolean.TRUE.equals(request.getInitFromPretrained())
+                || (request.getTaskType() != null && !"SEQ_CLASSIFICATION".equals(request.getTaskType())))) {
+            throw new IllegalArgumentException("NIH pneumonia requires nih_pneumonia_cnn, Adam, zero pretraining and FULL; DP and derivation are unsupported");
+        }
+
         User owner = authz.currentUser();
 
         Project project = new Project();
@@ -364,7 +437,8 @@ public class ProjectService {
         Project savedProject = projectRepository.save(project);
         log.debug("Persisted project shell with id={}", savedProject.getId());
 
-        File modelFile = new File("models/" + savedProject.getId().toString() + ".npz");
+        File modelFile = new File("models/" + savedProject.getId().toString()
+                + ("XGBOOST".equals(savedProject.getModelType()) ? ".ubj" : ".npz"));
         if (!modelFile.getParentFile().exists() && !modelFile.getParentFile().mkdirs()) {
             throw new ServerProcessException(
                     "Could not create model output directory: " + modelFile.getParentFile().getAbsolutePath());
@@ -439,6 +513,10 @@ public class ProjectService {
                 project.getModelType(),
                 request != null ? request.getStrategy() : null);
 
+        if (request != null && request.getFedOpt() != null && !"FedOpt".equals(strategyToUse)) {
+            throw new IllegalArgumentException("fedOpt settings apply only to FedOpt");
+        }
+
         Integer minClients = (request != null && request.getMinClients() != null)
                 ? request.getMinClients()
                 : 1;
@@ -451,6 +529,19 @@ public class ProjectService {
         // Secure aggregation: null means off; otherwise the one threshold is persisted on the run and spawned.
         Integer secureAggThreshold = resolveSecureAggThreshold(strategyToUse, minClients, clientsPerRound, request,
                 flServerManager::isClientAuthRequired);
+
+        TrainingDataSource dataSource = resolveDataSource(request, () -> project.getModelType() != null
+                ? modelRecipeService.findByKey(project.getModelType()) : Optional.empty(), project.getModelType());
+
+        if ("XGBOOST".equals(project.getModelType()) && (dataSource != TrainingDataSource.LOCAL_SNAPSHOT
+                || clientsPerRound != minClients || project.isDpEnabled() || secureAggThreshold != null)) {
+            throw new IllegalArgumentException("XGBoost requires LOCAL_SNAPSHOT and a fixed non-DP cohort");
+        }
+
+        if ("NIH_PNEUMONIA_CNN".equalsIgnoreCase(project.getModelType()) &&
+                (dataSource != TrainingDataSource.LOCAL_SNAPSHOT || project.isDpEnabled() || secureAggThreshold != null)) {
+            throw new IllegalArgumentException("NIH pneumonia requires LOCAL_SNAPSHOT without DP or secure aggregation");
+        }
 
         Integer numRoundsToUse;
         if (request != null && request.getNumRounds() != null && request.getNumRounds() > 0) {
@@ -478,8 +569,14 @@ public class ProjectService {
 
             Run run = null;
             try {
-                run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
-                        robustSettings, secureAggThreshold);
+                if ("FedOpt".equals(strategyToUse)) {
+                    run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
+                            robustSettings, secureAggThreshold, dataSource,
+                            request != null ? request.getFedOpt() : null);
+                } else {
+                    run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
+                            robustSettings, secureAggThreshold, dataSource);
+                }
                 project.setActiveRunId(run.getId());
                 projectRepository.save(project);
 

@@ -1,0 +1,743 @@
+{
+  "date": "2026-10-09",
+  "dataset": {
+    "dataset": "CIFAR10",
+    "recipe": "CIFAR_RESNET18",
+    "seed": 42,
+    "source_split": "train",
+    "evaluation_split": "official_test",
+    "official_test_rows": 10000,
+    "pairwise_processed_image_overlap": 0,
+    "clients": {
+      "phone": {
+        "indices": [
+          712,
+          24774,
+          45142,
+          27119,
+          21139,
+          19129,
+          6433,
+          38854,
+          22489,
+          31104,
+          21349,
+          29116,
+          10772,
+          18332,
+          1003,
+          22156,
+          26453,
+          17039,
+          7166,
+          48310,
+          12187,
+          20284,
+          1052,
+          13752,
+          37139,
+          29727,
+          41854,
+          40333,
+          33248,
+          9680,
+          16805,
+          14652,
+          15793,
+          30210,
+          47426,
+          20875,
+          4161,
+          40340,
+          28286,
+          13256,
+          48934,
+          11935,
+          48447,
+          15492,
+          32513,
+          36099,
+          39260,
+          46517,
+          33095,
+          3,
+          21683,
+          13446,
+          49515,
+          27943,
+          29059,
+          32738,
+          445,
+          32216,
+          18250,
+          1684,
+          2899,
+          39428,
+          40758,
+          29154
+        ],
+        "count": 64,
+        "snapshot_id": "517a3a7b4ef5d892d47d920960737a5936c9a5cba739889bd4d583e58372b2d3",
+        "package_sha256": "66284fa4e30445747c6a40c80235b7f5696f49ffaf4c081b8c74c060f00452f7",
+        "label_counts": [
+          3,
+          5,
+          7,
+          9,
+          8,
+          8,
+          3,
+          6,
+          5,
+          10
+        ]
+      },
+      "desktop": {
+        "indices": [
+          43958,
+          33814,
+          34153,
+          43609,
+          10762,
+          17898,
+          43653,
+          14233,
+          39520,
+          18138,
+          9212,
+          6456,
+          22948,
+          7591,
+          29996,
+          10378,
+          27337,
+          19965,
+          24405,
+          45135,
+          11274,
+          1941,
+          48940,
+          36794,
+          21994,
+          49944,
+          43442,
+          45096,
+          42430,
+          42255,
+          5771,
+          8320,
+          48807,
+          2675,
+          37658,
+          45710,
+          15813,
+          7135,
+          31775,
+          31772,
+          25160,
+          36108,
+          1260,
+          37885,
+          41535,
+          44889,
+          28184,
+          25319,
+          11010,
+          33880,
+          19307,
+          12236,
+          13805,
+          5814,
+          48485,
+          12248,
+          458,
+          319,
+          21496,
+          20390,
+          33691,
+          33872,
+          46987,
+          26772
+        ],
+        "count": 64,
+        "snapshot_id": "98244872eea82ac56a6c274a7b354bfe0de38b8b3afa9454f9f7ef9a6c8c11b6",
+        "package_sha256": "064cc9cc140aea19fa92787883bb92ebdd0b989604ab9bd90911485df6cb6406",
+        "label_counts": [
+          8,
+          4,
+          7,
+          5,
+          8,
+          9,
+          4,
+          6,
+          5,
+          8
+        ]
+      }
+    }
+  },
+  "model": "CIFAR_RESNET18",
+  "arm": "FULL",
+  "rounds": 2,
+  "examples_per_client": 64,
+  "server_source_commit": "6fbdb6a98d37e75e35a6ffa7acdf01055ef5e79f",
+  "desktop_source_commit": "ac1a4950af8367283f40c76c4f9fc2e4f47acce5",
+  "native_apk_source_commit": "eb8b7f2884397db7a68a7b2367fad0ce3436575e",
+  "native_apk_sha256": "72f047a1c33e260a3c9dd30fb6f832294e5fcb86e57442f620c2f41301b42308",
+  "native_core_archive_sha256": "4cc1c7bdc054fcc55f76936a1f2ebb2cf6f4a0233c11a33a141df580a9baff2a",
+  "native_replay_binary_sha256": "ab4d182f57b82fd2088b36bbe50b9be35d9ffd26e974106fde6f45dc155e302f",
+  "native_replay_source_sha256": "b62c86f6006592dc5390f9af7e3f6eb19d634aa510d1c1e1d092ffd97993fc9e",
+  "original_device": "vivo1805 Android10 arm64 Snapdragon845",
+  "desktop_runtime": "g14 Python3.12 Torch2.12 CPU; OMP/MKL1",
+  "native_replay_scope": "Original float32 parameter and BatchNorm buffer arrays compared bitwise against actual accepted phone updates; each isolated process uses the installed APK core archive. Cross-runtime equality is not claimed.",
+  "phone_preservation": {
+    "original_files": 27,
+    "added_files": 3,
+    "total_files": 30,
+    "original_hashes_unchanged": true
+  },
+  "runs": [
+    {
+      "strategy": "FedOpt",
+      "project_id": "45111db0-8c54-4b65-bcbe-786fe497d702",
+      "run_id": "528b2460-6501-4401-b240-dd7f650656b1",
+      "contract_id": "c3f770308f3277a6bf318904d963c34a7ef549e1f86ef6cd4c106dd9dc780ae2",
+      "contract_initial_state_sha256": "3287ad7c8a6e5b674a81049f052f879ef0262cddf44fcdb46c4d786df8d59bea",
+      "initial_checkpoint_sha256": "7841208ea107636db7a210d8266a821b6d5e5e63640f1e3ee21570387e3ee5ef",
+      "registered_checkpoint_sha256": "003bc2ba7fb77d8eb451a4c0beba0ef9e232f9293526523e10a77f233e02eda4",
+      "server_settings": {
+        "variant": "adam",
+        "serverLearningRate": 0.01,
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "tau": 0.001
+      },
+      "client_learning_rate": 0.01,
+      "local_epochs": 1,
+      "batch_size": 32,
+      "batches_per_round": 2,
+      "proximal_mu": 0,
+      "phone_rounds": [
+        {
+          "round": 1,
+          "loss": 32108.271362304688,
+          "accuracy": 0.109375,
+          "scalarsTransmitted": 0,
+          "uplinkBytes": 44774166,
+          "downlinkBytes": 44774081,
+          "computeMs": 389060,
+          "reverted": false
+        },
+        {
+          "round": 2,
+          "loss": 48104680.875,
+          "accuracy": 0.140625,
+          "scalarsTransmitted": 0,
+          "uplinkBytes": 44774166,
+          "downlinkBytes": 44774081,
+          "computeMs": 385256,
+          "reverted": false
+        }
+      ],
+      "phone_completed": true,
+      "original_native_replay": [
+        {
+          "round": 1,
+          "control": 0,
+          "max_abs_diff": 0.0,
+          "bitwise_equal": true,
+          "uplink_bytes": 44774166,
+          "downlink_bytes": 44774165
+        },
+        {
+          "round": 1,
+          "control": 1,
+          "max_abs_diff": 0.01739057153,
+          "bitwise_equal": false,
+          "uplink_bytes": 44774166,
+          "downlink_bytes": 44774165
+        },
+        {
+          "round": 1,
+          "control": 2,
+          "max_abs_diff": 0.574452877,
+          "bitwise_equal": false,
+          "uplink_bytes": 44774166,
+          "downlink_bytes": 44774165
+        },
+        {
+          "round": 2,
+          "control": 0,
+          "max_abs_diff": 0.0,
+          "bitwise_equal": true,
+          "uplink_bytes": 44774166,
+          "downlink_bytes": 44774165
+        }
+      ],
+      "native_controls": {
+        "changed_label": 1,
+        "changed_client_rate": 2,
+        "zero_proximal_mu": null
+      },
+      "original_desktop_replay": {
+        "run_id": "528b2460-6501-4401-b240-dd7f650656b1",
+        "torch": "2.12.0+cpu",
+        "torch_num_threads": 1,
+        "rounds": [
+          {
+            "round": 1,
+            "examples": 64,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          },
+          {
+            "round": 2,
+            "examples": 64,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          }
+        ],
+        "wrong_label_control_max_abs_diff": 0.01736975461244583
+      },
+      "aggregate_exact": true,
+      "batchnorm_variances_nonnegative": true,
+      "integer_counters_unchanged": true,
+      "accepted_updates": [
+        {
+          "client": "desktop",
+          "round": 1,
+          "num_examples": 64,
+          "state_sha256": "8c2c4e696ee6fe8e9b211e01f8dab4f2486830ab4deb6c8c7a98da15d35b4048"
+        },
+        {
+          "client": "phone",
+          "round": 1,
+          "num_examples": 64,
+          "state_sha256": "2ca382a2e4c9dcaf3baab86bdc6d9ed64311bf4f32ff308ee1446b3bfa73c3f6"
+        },
+        {
+          "client": "desktop",
+          "round": 2,
+          "num_examples": 64,
+          "state_sha256": "79d9667c9043b65b4feb1080aa4d0cf3dfb157ef76e434a29bfc25bf0829b0c5"
+        },
+        {
+          "client": "phone",
+          "round": 2,
+          "num_examples": 64,
+          "state_sha256": "7f1dbd0589970bc616173a2e5b5be87cefa86679c01e8fbc2960aa0724c6dcc2"
+        }
+      ],
+      "heldout": {
+        "rows": 10000,
+        "correct": 1000,
+        "accuracy": 0.1,
+        "mean_cross_entropy": 785.8674689453125,
+        "majority_class_baseline": 0.1,
+        "confusion_matrix": [
+          [
+            0,
+            0,
+            3,
+            0,
+            0,
+            997,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            16,
+            0,
+            0,
+            984,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            6,
+            0,
+            0,
+            994,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            0,
+            999,
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        "server_accuracy_percent": 10.0,
+        "registry_sha256": "003bc2ba7fb77d8eb451a4c0beba0ef9e232f9293526523e10a77f233e02eda4"
+      },
+      "native_log_sha256": "cb2e711551a820ecda9939ac3e18ba7fdff1509d09ef470ef95b2cfe50678fdd"
+    },
+    {
+      "strategy": "FedProx",
+      "project_id": "5a45e160-c423-4cb4-a03f-2f0fa2247a1e",
+      "run_id": "07827dcb-aa1d-48d5-9b3e-fe28bd5386d2",
+      "contract_id": "0df3169d7d4289f4c102765659d0bc31e235f40bde605cbb3ee4f38d86844475",
+      "contract_initial_state_sha256": "3287ad7c8a6e5b674a81049f052f879ef0262cddf44fcdb46c4d786df8d59bea",
+      "initial_checkpoint_sha256": "7841208ea107636db7a210d8266a821b6d5e5e63640f1e3ee21570387e3ee5ef",
+      "registered_checkpoint_sha256": "f42201721b410ef9a950ce844241ff93214e3042944777a43f509b8584676666",
+      "server_settings": null,
+      "client_learning_rate": 0.01,
+      "local_epochs": 1,
+      "batch_size": 32,
+      "batches_per_round": 2,
+      "proximal_mu": 0.1,
+      "phone_rounds": [
+        {
+          "round": 1,
+          "loss": 9387.846466064453,
+          "accuracy": 0.125,
+          "scalarsTransmitted": 0,
+          "uplinkBytes": 44774166,
+          "downlinkBytes": 44774081,
+          "computeMs": 402045,
+          "reverted": false
+        },
+        {
+          "round": 2,
+          "loss": 30350731.5,
+          "accuracy": 0.078125,
+          "scalarsTransmitted": 0,
+          "uplinkBytes": 44774166,
+          "downlinkBytes": 44774133,
+          "computeMs": 485073,
+          "reverted": false
+        }
+      ],
+      "phone_completed": true,
+      "original_native_replay": [
+        {
+          "round": 1,
+          "control": 0,
+          "max_abs_diff": 0.0,
+          "bitwise_equal": true,
+          "uplink_bytes": 44774166,
+          "downlink_bytes": 44774165
+        },
+        {
+          "round": 1,
+          "control": 1,
+          "max_abs_diff": 0.225110054,
+          "bitwise_equal": false,
+          "uplink_bytes": 44774166,
+          "downlink_bytes": 44774165
+        },
+        {
+          "round": 1,
+          "control": 2,
+          "max_abs_diff": 0.5458626747,
+          "bitwise_equal": false,
+          "uplink_bytes": 44774166,
+          "downlink_bytes": 44774165
+        },
+        {
+          "round": 1,
+          "control": 3,
+          "max_abs_diff": 0.01740336418,
+          "bitwise_equal": false,
+          "uplink_bytes": 44774166,
+          "downlink_bytes": 44774165
+        },
+        {
+          "round": 2,
+          "control": 0,
+          "max_abs_diff": 0.0,
+          "bitwise_equal": true,
+          "uplink_bytes": 44774166,
+          "downlink_bytes": 44774133
+        }
+      ],
+      "native_controls": {
+        "changed_label": 1,
+        "changed_client_rate": 2,
+        "zero_proximal_mu": 3
+      },
+      "original_desktop_replay": {
+        "run_id": "07827dcb-aa1d-48d5-9b3e-fe28bd5386d2",
+        "torch": "2.12.0+cpu",
+        "torch_num_threads": 1,
+        "rounds": [
+          {
+            "round": 1,
+            "examples": 64,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          },
+          {
+            "round": 2,
+            "examples": 64,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          }
+        ],
+        "wrong_label_control_max_abs_diff": 0.13829565048217773
+      },
+      "aggregate_exact": true,
+      "batchnorm_variances_nonnegative": true,
+      "integer_counters_unchanged": true,
+      "accepted_updates": [
+        {
+          "client": "desktop",
+          "round": 1,
+          "num_examples": 64,
+          "state_sha256": "1a867b064c25a23c874a29029b8ffb08751dabebb9a570c7c60a38cc3af872cc"
+        },
+        {
+          "client": "phone",
+          "round": 1,
+          "num_examples": 64,
+          "state_sha256": "5e00c6d76f214b5016c0a5e8853da81c812a5518bb2ad7ae860fdc3fc8162eae"
+        },
+        {
+          "client": "desktop",
+          "round": 2,
+          "num_examples": 64,
+          "state_sha256": "3e0da6fec940af17fdf8e181b3505664ee4694e78924858c39ab3fa43837dcb3"
+        },
+        {
+          "client": "phone",
+          "round": 2,
+          "num_examples": 64,
+          "state_sha256": "b599813d9d58e9c72c3c2d8c7939b0652d8a51a6792971aa398d3efada3e0e5d"
+        }
+      ],
+      "heldout": {
+        "rows": 10000,
+        "correct": 1000,
+        "accuracy": 0.1,
+        "mean_cross_entropy": 11077133.1968,
+        "majority_class_baseline": 0.1,
+        "confusion_matrix": [
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1000,
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        "server_accuracy_percent": 10.0,
+        "registry_sha256": "f42201721b410ef9a950ce844241ff93214e3042944777a43f509b8584676666"
+      },
+      "native_log_sha256": "3ed10e0f1a329ff519c3705721eadb20accb8027f8938161ff025c41af74fd7f"
+    }
+  ],
+  "limitations": [
+    "Two rounds and 64 training images per client prove execution, not convergence or algorithm superiority.",
+    "Current client Adam rate .01 yields very large finite losses; reducing FedOpt server rate to .01 did not establish useful learning.",
+    "Pretrained backbone in this FULL recipe is updated, unlike the frozen NIH research baseline.",
+    "Same prepared data is reused across strategies; this is not independent data replication.",
+    "Qualification probe reported by the app is cached; no fresh probe timing claim.",
+    "An unused staged FedProx run was stopped before enrollment and excluded from completed-run evidence."
+  ],
+  "same_initial_state_across_runs": true,
+  "same_round_seed_across_runs": false,
+  "native_replay_scheduling": "Isolated replay main threads were pinned to CPU5/FedOpt and CPU6/FedProx after their initial comparisons; no timing or throughput comparison is claimed."
+}

@@ -544,6 +544,10 @@ class FedOpt(Strategy):
     ``eta`` is the SERVER learning rate; ``tau`` is the adaptivity/degeneracy constant. Moments
     initialise to zero and accumulate, so a round's step depends on the whole history — a later
     round's update differs from an earlier one on the same aggregated input.
+
+    Explicit ``buffer_names`` identify non-parameter state, such as BatchNorm running statistics.
+    These retain the weighted client mean and never enter optimizer moments. Adapting a variance
+    as a parameter can turn valid positive client variances negative.
     """
 
     def __init__(
@@ -560,6 +564,7 @@ class FedOpt(Strategy):
             learning_rate: float = 0.01,
             local_epochs: int = 1,
             bias_correction: bool = False,
+            buffer_names=(),
     ):
         variant = str(variant).lower()
         if variant not in ("adam", "yogi"):
@@ -569,6 +574,9 @@ class FedOpt(Strategy):
         self.evaluate_fn = evaluate_fn
         self.min_fit_clients = min_fit_clients
         self.clients_per_round = clients_per_round if clients_per_round is not None else min_fit_clients
+        self.buffer_names = frozenset(buffer_names)
+        if not self.buffer_names.issubset(initial_parameters):
+            raise ValueError('FedOpt buffer names must be present in the initial state')
 
         # Server optimiser hyperparameters.
         self.eta = float(server_learning_rate)
@@ -638,8 +646,10 @@ class FedOpt(Strategy):
                     self._v = OrderedDict((k, v.to(agg_device)) for k, v in self._v.items())
 
         if self._m is None:
-            self._m = OrderedDict((k, torch.zeros_like(v)) for k, v in self._global.items())
-            self._v = OrderedDict((k, torch.zeros_like(v)) for k, v in self._global.items())
+            self._m = OrderedDict((k, torch.zeros_like(v)) for k, v in self._global.items()
+                                  if k not in self.buffer_names)
+            self._v = OrderedDict((k, torch.zeros_like(v)) for k, v in self._global.items()
+                                  if k not in self.buffer_names)
 
         # Adam-only, matching Flower's asymmetry (its FedYogi uses raw eta).
         eta = self.eta
@@ -649,6 +659,9 @@ class FedOpt(Strategy):
         new_global = OrderedDict()
         for key, old in self._global.items():
             x_bar = aggregated[key].to(device=old.device, dtype=old.dtype)  # device too, not just dtype
+            if key in self.buffer_names:
+                new_global[key] = x_bar.clone()
+                continue
             g = old - x_bar                                    # pseudo-gradient (== -Delta_t)
 
             m = self.beta1 * self._m[key] + (1.0 - self.beta1) * g

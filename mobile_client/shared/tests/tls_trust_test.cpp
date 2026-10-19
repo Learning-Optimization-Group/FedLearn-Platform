@@ -75,3 +75,9 @@ TEST(TlsTrust, AnUnreadableClientKeypairIsRefused) {
   EXPECT_THROW(fedlearn::resolveTlsMaterial(kEnrollmentPem, "", "/missing.pem", "/missing.key", fs.reader()),
                std::runtime_error);
 }
+
+TEST(TlsTrust, ReleaseTransportRefusesPlaintextBeforeCreatingAChannel) {
+  EXPECT_THROW(fedlearn::requireTlsTransport(false, false), std::runtime_error);
+  EXPECT_NO_THROW(fedlearn::requireTlsTransport(true, false));
+  EXPECT_NO_THROW(fedlearn::requireTlsTransport(false, true));
+}

@@ -27,6 +27,12 @@ if [ -n "$MODEL_TYPE" ]; then
     echo "[entrypoint] MODEL_TYPE=$MODEL_TYPE"
     EXTRA_ARGS+=(--model-type "$MODEL_TYPE")
 fi
+if [ -n "$MODEL_NAME" ]; then
+    EXTRA_ARGS+=(--model-name "$MODEL_NAME")
+fi
+if [ -n "$DATASET_PATH" ]; then
+    EXTRA_ARGS+=(--dataset-path "$DATASET_PATH")
+fi
 if [ -n "$STRATEGY" ]; then
     echo "[entrypoint] STRATEGY=$STRATEGY"
     EXTRA_ARGS+=(--strategy "$STRATEGY")
@@ -36,6 +42,13 @@ if [ -n "$TRAINING_ARM" ]; then
     # parameter while a FROZEN_HEAD server expects only the head.
     echo "[entrypoint] TRAINING_ARM=$TRAINING_ARM"
     EXTRA_ARGS+=(--training-arm "$TRAINING_ARM")
+fi
+
+if [ -n "$EXECUTION_CONTRACT" ] && [ -n "$RUN_ID" ]; then
+    # The run's published execution contract, mounted read-only by the launcher. The client refuses to train
+    # unless it would execute exactly what the contract states.
+    echo "[entrypoint] EXECUTION_CONTRACT=$EXECUTION_CONTRACT RUN_ID=$RUN_ID"
+    EXTRA_ARGS+=(--execution-contract "$EXECUTION_CONTRACT" --run-id "$RUN_ID")
 fi
 
 echo "[entrypoint] Launching python3 client.py ..."

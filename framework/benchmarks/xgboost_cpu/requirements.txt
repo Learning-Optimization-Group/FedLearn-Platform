@@ -1,0 +1,4 @@
+xgboost==3.4.1
+numpy==2.1.2
+scipy==1.18.1
+pytest==9.1.1

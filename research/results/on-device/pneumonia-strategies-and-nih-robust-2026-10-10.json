@@ -1,0 +1,1009 @@
+{
+  "date": "2026-10-10",
+  "scope": "Original pneumonia and separately labelled NIH image execution; model-quality claims excluded.",
+  "native_apk_source_commit": "f627a9871915dd6936cadbab6ac78293bbc633ad",
+  "native_apk_sha256": "5459bafb3312c1ce0762a3a4d6445ef968e926a3688b674a4362ff47e319dd2c",
+  "numerical_core_archive_sha256": "4cc1c7bdc054fcc55f76936a1f2ebb2cf6f4a0233c11a33a141df580a9baff2a",
+  "runs": [
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "FedAvg",
+      "training_arm": "FULL",
+      "project_id": "816d525d-c35d-4b13-af74-c59f264e8000",
+      "run_id": "4c33b5b3-a1b0-4539-9680-225c785af754",
+      "rounds": 2,
+      "local_rows": [
+        16,
+        16
+      ],
+      "client_adam_rate": 0.001,
+      "proximal_mu": 0,
+      "server_settings": {},
+      "contract_sha256": "b942ab66041092fc66fb51d8176bbfb6c030f9563c3a444d959feac01b2bd5cd",
+      "initial_npz_sha256": "797244fddab6fbed62368519b6c374db05decc15ce608abf395f7f360ce1dbad",
+      "data_partition": {
+        "dataset": "keremberke/chest-xray-classification",
+        "source_revision": "4f6a71e0aec175c8c6adbe579c5f4c5da67ae6fb",
+        "source_split": "train",
+        "source_arrow_sha256": "eb92507e3af4b33ea06c6804d90968a92e014502cc3ad20b6a3d750727054863",
+        "source_dataset_info_sha256": "db94980d4d6f2e742a888dfe0f767cca4e9d034fbab0d291966eeca22ae7658e",
+        "seed": 81,
+        "classes": [
+          "NORMAL",
+          "PNEUMONIA"
+        ],
+        "older_64_training_indices_excluded": true,
+        "pairwise_prepared_image_overlap": 0,
+        "patient_ids_available": false,
+        "scope": "Small balanced execution qualification; no patient or server-evaluation disjointness claim",
+        "clients": {
+          "phone": {
+            "indices": [
+              513,
+              435,
+              222,
+              950,
+              514,
+              649,
+              65,
+              625,
+              2666,
+              3577,
+              1938,
+              1593,
+              3425,
+              1664,
+              3517,
+              1254
+            ],
+            "count": 16,
+            "label_counts": [
+              8,
+              8
+            ],
+            "snapshot_id": "195fd49e3f08f215a1f925d9699f655fbb2dff153ef2ddf0cffae7437636c5c7",
+            "package_sha256": "03b6e8960ae80d76410b0d82f7871cb724ff0a5ef3246a3c1afe933dc1e8114c"
+          },
+          "desktop": {
+            "indices": [
+              456,
+              490,
+              437,
+              1102,
+              267,
+              501,
+              347,
+              571,
+              1368,
+              2328,
+              1687,
+              1611,
+              3721,
+              2903,
+              3670,
+              2140
+            ],
+            "count": 16,
+            "label_counts": [
+              8,
+              8
+            ],
+            "snapshot_id": "59c2a7ac914d51378d485b6e7183adf2c7495f68db1909fdc7bfda82e2850cb3",
+            "package_sha256": "0b78ede069b937df804686c86b01d8dd9585561710c0e452b794d7d6754c4d64"
+          }
+        }
+      },
+      "phone": {
+        "machine": "joined",
+        "joining": false,
+        "stopping": false,
+        "error": null,
+        "joined": {
+          "runId": "4c33b5b3-a1b0-4539-9680-225c785af754",
+          "projectId": "816d525d-c35d-4b13-af74-c59f264e8000",
+          "partitionId": 1
+        },
+        "session": {
+          "rounds": 2,
+          "scalarsTransmitted": 0,
+          "bytesUp": 206270194,
+          "bytesDown": 206270230,
+          "computeMs": 302795
+        },
+        "latestRound": {
+          "round": 2,
+          "loss": 0.8667214624583721,
+          "accuracy": 0.5,
+          "scalarsTransmitted": 0,
+          "uplinkBytes": 103135097,
+          "downlinkBytes": 103135134,
+          "computeMs": 153778,
+          "reverted": false
+        },
+        "serverStatus": null,
+        "logs": [
+          {
+            "text": "Execution contract 15bce3bb2bce\u2026 accepted."
+          },
+          {
+            "text": "Provisioning model + on-device data\u2026"
+          },
+          {
+            "text": "Model loaded \u2014 25783554 trainable params (tier 10M)."
+          },
+          {
+            "text": "Model qualified on this device (probe 137189 ms)."
+          },
+          {
+            "text": "On-device data staged. Training starts \u2014 your data never leaves this device."
+          },
+          {
+            "text": "Round 1: loss 0.4348 \u00b7 0 scalars up \u00b7 149017ms"
+          },
+          {
+            "text": "Round 2: loss 0.8667 \u00b7 0 scalars up \u00b7 153778ms"
+          },
+          {
+            "text": "Run ended."
+          }
+        ]
+      },
+      "original_python_replay": {
+        "run_id": "4c33b5b3-a1b0-4539-9680-225c785af754",
+        "torch": "2.12.0+cpu",
+        "torch_num_threads": 1,
+        "rounds": [
+          {
+            "round": 1,
+            "examples": 16,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          },
+          {
+            "round": 2,
+            "examples": 16,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          }
+        ],
+        "wrong_label_control_max_abs_diff": 0.001999996602535248
+      },
+      "original_phone_replay": {
+        "rounds_bitwise_exact": 2,
+        "changed_label_control_differs": true,
+        "log": "Pneumonia replay round=1 wrong_label=0 max_abs_diff=0 bitwise_equal=1 uplink=103135097 downlink=103135096\nPneumonia replay round=1 wrong_label=1 max_abs_diff=0.001999996603 bitwise_equal=0 uplink=103135097 downlink=103135096\nPneumonia replay round=2 wrong_label=0 max_abs_diff=0 bitwise_equal=1 uplink=103135097 downlink=103135134\n"
+      },
+      "aggregate_replay_exact": true,
+      "finite_state": true,
+      "artifact_id": "e06a524f-649f-4d9f-8484-f987ea211a31",
+      "registered_checkpoint_sha256": "5bb136dcf34a914e191623bb72b5f6d6cc3b546d88b9befe82ab7e1469e4bc80",
+      "accepted_update_receipts": [
+        {
+          "round": 1,
+          "client_id": "project_816d525d-c35d-4b13-af74-c59f264e8000_client_0",
+          "examples": 16,
+          "sha256": "512497a125154c27eb0f61eac7de17039d2b28337f5dd86c72f4ac2872a0db4e"
+        },
+        {
+          "round": 1,
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "examples": 16,
+          "sha256": "77c018583d937fc62115cb83ab6921a92a9c7e3b3a6367ae2c002e3bff3f82d6"
+        },
+        {
+          "round": 2,
+          "client_id": "project_816d525d-c35d-4b13-af74-c59f264e8000_client_0",
+          "examples": 16,
+          "sha256": "21376519de238c658a9792ba7ed69a891de098125957f9c1068b38cf571c4681"
+        },
+        {
+          "round": 2,
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "examples": 16,
+          "sha256": "db3007bfd89d664c2a2f79607c850005d4a3a5e46ffe02bade21ca13995a8d53"
+        }
+      ],
+      "limits": [
+        "Debug APK and mounted production provider functions, not touch automation for these training cases.",
+        "Authenticated development plaintext over USB/SSH routes.",
+        "Small fixed execution samples; no convergence or clinical efficacy claim."
+      ]
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "Robust",
+      "training_arm": "FULL",
+      "project_id": "7b00c5f8-b404-42ed-b6e9-490405942b2d",
+      "run_id": "2ada9d28-5ced-4788-ae24-dd1634ee1c9e",
+      "rounds": 2,
+      "local_rows": [
+        16,
+        16
+      ],
+      "client_adam_rate": 0.001,
+      "proximal_mu": 0,
+      "server_settings": {},
+      "contract_sha256": "85914ec952f35d1a5c3fae4d44189faad6cd668f07d6c44449084a5aef264c8d",
+      "initial_npz_sha256": "0cc505b052ddd5d4105e6e1a0f58f6c10ed9396c04f73cf334115664d912207e",
+      "data_partition": {
+        "dataset": "keremberke/chest-xray-classification",
+        "source_revision": "4f6a71e0aec175c8c6adbe579c5f4c5da67ae6fb",
+        "source_split": "train",
+        "source_arrow_sha256": "eb92507e3af4b33ea06c6804d90968a92e014502cc3ad20b6a3d750727054863",
+        "source_dataset_info_sha256": "db94980d4d6f2e742a888dfe0f767cca4e9d034fbab0d291966eeca22ae7658e",
+        "seed": 81,
+        "classes": [
+          "NORMAL",
+          "PNEUMONIA"
+        ],
+        "older_64_training_indices_excluded": true,
+        "pairwise_prepared_image_overlap": 0,
+        "patient_ids_available": false,
+        "scope": "Small balanced execution qualification; no patient or server-evaluation disjointness claim",
+        "clients": {
+          "phone": {
+            "indices": [
+              513,
+              435,
+              222,
+              950,
+              514,
+              649,
+              65,
+              625,
+              2666,
+              3577,
+              1938,
+              1593,
+              3425,
+              1664,
+              3517,
+              1254
+            ],
+            "count": 16,
+            "label_counts": [
+              8,
+              8
+            ],
+            "snapshot_id": "195fd49e3f08f215a1f925d9699f655fbb2dff153ef2ddf0cffae7437636c5c7",
+            "package_sha256": "03b6e8960ae80d76410b0d82f7871cb724ff0a5ef3246a3c1afe933dc1e8114c"
+          },
+          "desktop": {
+            "indices": [
+              456,
+              490,
+              437,
+              1102,
+              267,
+              501,
+              347,
+              571,
+              1368,
+              2328,
+              1687,
+              1611,
+              3721,
+              2903,
+              3670,
+              2140
+            ],
+            "count": 16,
+            "label_counts": [
+              8,
+              8
+            ],
+            "snapshot_id": "59c2a7ac914d51378d485b6e7183adf2c7495f68db1909fdc7bfda82e2850cb3",
+            "package_sha256": "0b78ede069b937df804686c86b01d8dd9585561710c0e452b794d7d6754c4d64"
+          }
+        }
+      },
+      "phone": {
+        "machine": "joined",
+        "joining": false,
+        "stopping": false,
+        "error": null,
+        "joined": {
+          "runId": "2ada9d28-5ced-4788-ae24-dd1634ee1c9e",
+          "projectId": "7b00c5f8-b404-42ed-b6e9-490405942b2d",
+          "partitionId": 1
+        },
+        "session": {
+          "rounds": 2,
+          "scalarsTransmitted": 0,
+          "bytesUp": 206270194,
+          "bytesDown": 206270192,
+          "computeMs": 311710
+        },
+        "latestRound": {
+          "round": 2,
+          "loss": 3.632569772300485,
+          "accuracy": 0.5,
+          "scalarsTransmitted": 0,
+          "uplinkBytes": 103135097,
+          "downlinkBytes": 103135096,
+          "computeMs": 152765,
+          "reverted": false
+        },
+        "serverStatus": null,
+        "logs": [
+          {
+            "text": "Execution contract 736ff7c402fb\u2026 accepted."
+          },
+          {
+            "text": "Provisioning model + on-device data\u2026"
+          },
+          {
+            "text": "Model loaded \u2014 25783554 trainable params (tier 10M)."
+          },
+          {
+            "text": "Model qualified on this device (probe 137189 ms)."
+          },
+          {
+            "text": "On-device data staged. Training starts \u2014 your data never leaves this device."
+          },
+          {
+            "text": "Round 1: loss 0.5070 \u00b7 0 scalars up \u00b7 158945ms"
+          },
+          {
+            "text": "Round 2: loss 3.6326 \u00b7 0 scalars up \u00b7 152765ms"
+          },
+          {
+            "text": "Run ended."
+          }
+        ]
+      },
+      "original_python_replay": {
+        "run_id": "2ada9d28-5ced-4788-ae24-dd1634ee1c9e",
+        "torch": "2.12.0+cpu",
+        "torch_num_threads": 1,
+        "rounds": [
+          {
+            "round": 1,
+            "examples": 16,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          },
+          {
+            "round": 2,
+            "examples": 16,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          }
+        ],
+        "wrong_label_control_max_abs_diff": 0.001999995671212673
+      },
+      "original_phone_replay": {
+        "rounds_bitwise_exact": 2,
+        "changed_label_control_differs": true,
+        "log": "Pneumonia replay round=1 wrong_label=0 max_abs_diff=0 bitwise_equal=1 uplink=103135097 downlink=103135096\nPneumonia replay round=1 wrong_label=1 max_abs_diff=0.001999995671 bitwise_equal=0 uplink=103135097 downlink=103135096\nPneumonia replay round=2 wrong_label=0 max_abs_diff=0 bitwise_equal=1 uplink=103135097 downlink=103135096\n"
+      },
+      "aggregate_replay_exact": true,
+      "finite_state": true,
+      "artifact_id": "ecc17186-749d-4469-b489-246cb3126269",
+      "registered_checkpoint_sha256": "27428e45ed70c16b98ecd965845eff45f81c3ca677c17a0df14f7c59e673bac9",
+      "accepted_update_receipts": [
+        {
+          "round": 1,
+          "client_id": "project_7b00c5f8-b404-42ed-b6e9-490405942b2d_client_0",
+          "examples": 16,
+          "sha256": "17696fa9c05e022e421ee93d3d11329347b26a8ed929f5b6d43f5166afe33bfc"
+        },
+        {
+          "round": 1,
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "examples": 16,
+          "sha256": "89f27cbece189073f6b40fa91de9f00cd22c5aba09fb4a1095a8273a912ef3ce"
+        },
+        {
+          "round": 2,
+          "client_id": "project_7b00c5f8-b404-42ed-b6e9-490405942b2d_client_0",
+          "examples": 16,
+          "sha256": "cd3092d223784a0478511f5d027068c0d894e2a2893f9ee61dc83a21a366c0cc"
+        },
+        {
+          "round": 2,
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "examples": 16,
+          "sha256": "91dd7fca71a7b1cc5196ec00797f4e74dc778de7a4a785270d8a01ae95c4dded"
+        }
+      ],
+      "limits": [
+        "Debug APK and mounted production provider functions, not touch automation for these training cases.",
+        "Authenticated development plaintext over USB/SSH routes.",
+        "Small fixed execution samples; no convergence or clinical efficacy claim.",
+        "Two-client median execution, not Byzantine-tolerance evidence."
+      ]
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "FedProx",
+      "training_arm": "FULL",
+      "project_id": "1136993a-d7e6-4646-babb-30d473e0f443",
+      "run_id": "b9d72847-b303-4f84-9ed6-9f082d4ac755",
+      "rounds": 2,
+      "local_rows": [
+        16,
+        16
+      ],
+      "client_adam_rate": 0.01,
+      "proximal_mu": 0.1,
+      "server_settings": {},
+      "contract_sha256": "0e7712c47178dc1043b689edd624fe720f1b5f08514e48767c6def2084356e12",
+      "initial_npz_sha256": "f5ba1ac10a1feb2983202745ad2c425bc6de615133d939ae5bdfeb7ce503b5ed",
+      "data_partition": {
+        "dataset": "keremberke/chest-xray-classification",
+        "source_revision": "4f6a71e0aec175c8c6adbe579c5f4c5da67ae6fb",
+        "source_split": "train",
+        "source_arrow_sha256": "eb92507e3af4b33ea06c6804d90968a92e014502cc3ad20b6a3d750727054863",
+        "source_dataset_info_sha256": "db94980d4d6f2e742a888dfe0f767cca4e9d034fbab0d291966eeca22ae7658e",
+        "seed": 81,
+        "classes": [
+          "NORMAL",
+          "PNEUMONIA"
+        ],
+        "older_64_training_indices_excluded": true,
+        "pairwise_prepared_image_overlap": 0,
+        "patient_ids_available": false,
+        "scope": "Small balanced execution qualification; no patient or server-evaluation disjointness claim",
+        "clients": {
+          "phone": {
+            "indices": [
+              513,
+              435,
+              222,
+              950,
+              514,
+              649,
+              65,
+              625,
+              2666,
+              3577,
+              1938,
+              1593,
+              3425,
+              1664,
+              3517,
+              1254
+            ],
+            "count": 16,
+            "label_counts": [
+              8,
+              8
+            ],
+            "snapshot_id": "195fd49e3f08f215a1f925d9699f655fbb2dff153ef2ddf0cffae7437636c5c7",
+            "package_sha256": "03b6e8960ae80d76410b0d82f7871cb724ff0a5ef3246a3c1afe933dc1e8114c"
+          },
+          "desktop": {
+            "indices": [
+              456,
+              490,
+              437,
+              1102,
+              267,
+              501,
+              347,
+              571,
+              1368,
+              2328,
+              1687,
+              1611,
+              3721,
+              2903,
+              3670,
+              2140
+            ],
+            "count": 16,
+            "label_counts": [
+              8,
+              8
+            ],
+            "snapshot_id": "59c2a7ac914d51378d485b6e7183adf2c7495f68db1909fdc7bfda82e2850cb3",
+            "package_sha256": "0b78ede069b937df804686c86b01d8dd9585561710c0e452b794d7d6754c4d64"
+          }
+        }
+      },
+      "phone": {
+        "machine": "joined",
+        "joining": false,
+        "stopping": false,
+        "error": null,
+        "joined": {
+          "runId": "b9d72847-b303-4f84-9ed6-9f082d4ac755",
+          "projectId": "1136993a-d7e6-4646-babb-30d473e0f443",
+          "partitionId": 1
+        },
+        "session": {
+          "rounds": 2,
+          "scalarsTransmitted": 0,
+          "bytesUp": 206270194,
+          "bytesDown": 206270230,
+          "computeMs": 297828
+        },
+        "latestRound": {
+          "round": 2,
+          "loss": 54.60068464279175,
+          "accuracy": 0.5,
+          "scalarsTransmitted": 0,
+          "uplinkBytes": 103135097,
+          "downlinkBytes": 103135134,
+          "computeMs": 149507,
+          "reverted": false
+        },
+        "serverStatus": null,
+        "logs": [
+          {
+            "text": "Execution contract 3171ac37f31f\u2026 accepted."
+          },
+          {
+            "text": "Provisioning model + on-device data\u2026"
+          },
+          {
+            "text": "Model loaded \u2014 25783554 trainable params (tier 10M)."
+          },
+          {
+            "text": "Model qualified on this device (probe 137189 ms)."
+          },
+          {
+            "text": "On-device data staged. Training starts \u2014 your data never leaves this device."
+          },
+          {
+            "text": "Round 1: loss 108.1655 \u00b7 0 scalars up \u00b7 148321ms"
+          },
+          {
+            "text": "Round 2: loss 54.6007 \u00b7 0 scalars up \u00b7 149507ms"
+          },
+          {
+            "text": "Run ended."
+          }
+        ]
+      },
+      "original_python_replay": {
+        "run_id": "b9d72847-b303-4f84-9ed6-9f082d4ac755",
+        "torch": "2.12.0+cpu",
+        "torch_num_threads": 1,
+        "rounds": [
+          {
+            "round": 1,
+            "examples": 16,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          },
+          {
+            "round": 2,
+            "examples": 16,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          }
+        ],
+        "wrong_label_control_max_abs_diff": 0.01999998465180397
+      },
+      "original_phone_replay": {
+        "rounds_bitwise_exact": 2,
+        "changed_label_control_differs": true,
+        "log": "Pneumonia replay round=1 wrong_label=0 max_abs_diff=0 bitwise_equal=1 uplink=103135097 downlink=103135096\nPneumonia replay round=1 wrong_label=1 max_abs_diff=0.01999998465 bitwise_equal=0 uplink=103135097 downlink=103135096\nPneumonia replay round=2 wrong_label=0 max_abs_diff=0 bitwise_equal=1 uplink=103135097 downlink=103135134\n"
+      },
+      "aggregate_replay_exact": true,
+      "finite_state": true,
+      "artifact_id": "f696e35d-2b84-4e9a-87d6-be3be6c234cb",
+      "registered_checkpoint_sha256": "d251e9a5244a29f53d9afc6a27190f179db8bce414bd923475d2558429084c14",
+      "accepted_update_receipts": [
+        {
+          "round": 1,
+          "client_id": "project_1136993a-d7e6-4646-babb-30d473e0f443_client_0",
+          "examples": 16,
+          "sha256": "ce58d8a3cc6d1b3d22847d7b520b4a51353a18ad4624104b7583595742f7a4a6"
+        },
+        {
+          "round": 1,
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "examples": 16,
+          "sha256": "895286fbbf8b5ab8febfdc148c650a2ab2cd065cbba30d2875c2373d80f078ec"
+        },
+        {
+          "round": 2,
+          "client_id": "project_1136993a-d7e6-4646-babb-30d473e0f443_client_0",
+          "examples": 16,
+          "sha256": "ca566ad81f8a5c7db9843b750136a70a9820e7ffaf35a559065a2877eab9b23d"
+        },
+        {
+          "round": 2,
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "examples": 16,
+          "sha256": "a24b0769506b2c7397b0a3c2444fdf77a1d5f4fdcb7c4eb31a6019d41cd9a354"
+        }
+      ],
+      "limits": [
+        "Debug APK and mounted production provider functions, not touch automation for these training cases.",
+        "Authenticated development plaintext over USB/SSH routes.",
+        "Small fixed execution samples; no convergence or clinical efficacy claim.",
+        "Sixteen examples form one batch per local epoch: the first-step proximal term is zero; this case does not discriminate a proximal effect."
+      ]
+    },
+    {
+      "recipe": "PNEUMONIA_CNN",
+      "strategy": "FedOpt",
+      "training_arm": "FULL",
+      "project_id": "34539100-71bf-4ba6-a536-edef916aed74",
+      "run_id": "4b0bffba-5157-48b8-b5ac-27af1c999321",
+      "rounds": 2,
+      "local_rows": [
+        16,
+        16
+      ],
+      "client_adam_rate": 0.01,
+      "proximal_mu": 0,
+      "server_settings": {
+        "variant": "adam",
+        "serverLearningRate": 1.0,
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "tau": 0.001
+      },
+      "contract_sha256": "7f58e5e629c5081901d0aaa1b03769d8a9483003c90386d90e9c46e68a591898",
+      "initial_npz_sha256": "c46229e025a17007b125f1dab4f52112a5dec9dcf9eb741d83a5622c5bb9fd7f",
+      "data_partition": {
+        "dataset": "keremberke/chest-xray-classification",
+        "source_revision": "4f6a71e0aec175c8c6adbe579c5f4c5da67ae6fb",
+        "source_split": "train",
+        "source_arrow_sha256": "eb92507e3af4b33ea06c6804d90968a92e014502cc3ad20b6a3d750727054863",
+        "source_dataset_info_sha256": "db94980d4d6f2e742a888dfe0f767cca4e9d034fbab0d291966eeca22ae7658e",
+        "seed": 81,
+        "classes": [
+          "NORMAL",
+          "PNEUMONIA"
+        ],
+        "older_64_training_indices_excluded": true,
+        "pairwise_prepared_image_overlap": 0,
+        "patient_ids_available": false,
+        "scope": "Small balanced execution qualification; no patient or server-evaluation disjointness claim",
+        "clients": {
+          "phone": {
+            "indices": [
+              513,
+              435,
+              222,
+              950,
+              514,
+              649,
+              65,
+              625,
+              2666,
+              3577,
+              1938,
+              1593,
+              3425,
+              1664,
+              3517,
+              1254
+            ],
+            "count": 16,
+            "label_counts": [
+              8,
+              8
+            ],
+            "snapshot_id": "195fd49e3f08f215a1f925d9699f655fbb2dff153ef2ddf0cffae7437636c5c7",
+            "package_sha256": "03b6e8960ae80d76410b0d82f7871cb724ff0a5ef3246a3c1afe933dc1e8114c"
+          },
+          "desktop": {
+            "indices": [
+              456,
+              490,
+              437,
+              1102,
+              267,
+              501,
+              347,
+              571,
+              1368,
+              2328,
+              1687,
+              1611,
+              3721,
+              2903,
+              3670,
+              2140
+            ],
+            "count": 16,
+            "label_counts": [
+              8,
+              8
+            ],
+            "snapshot_id": "59c2a7ac914d51378d485b6e7183adf2c7495f68db1909fdc7bfda82e2850cb3",
+            "package_sha256": "0b78ede069b937df804686c86b01d8dd9585561710c0e452b794d7d6754c4d64"
+          }
+        }
+      },
+      "phone": {
+        "machine": "joined",
+        "joining": false,
+        "stopping": false,
+        "error": null,
+        "joined": {
+          "runId": "4b0bffba-5157-48b8-b5ac-27af1c999321",
+          "projectId": "34539100-71bf-4ba6-a536-edef916aed74",
+          "partitionId": 1
+        },
+        "session": {
+          "rounds": 2,
+          "scalarsTransmitted": 0,
+          "bytesUp": 206270194,
+          "bytesDown": 206270192,
+          "computeMs": 299950
+        },
+        "latestRound": {
+          "round": 2,
+          "loss": 92189685,
+          "accuracy": 0.5,
+          "scalarsTransmitted": 0,
+          "uplinkBytes": 103135097,
+          "downlinkBytes": 103135096,
+          "computeMs": 150268,
+          "reverted": false
+        },
+        "serverStatus": null,
+        "logs": [
+          {
+            "text": "Execution contract 64df80f43b91\u2026 accepted."
+          },
+          {
+            "text": "Provisioning model + on-device data\u2026"
+          },
+          {
+            "text": "Model loaded \u2014 25783554 trainable params (tier 10M)."
+          },
+          {
+            "text": "Model qualified on this device (probe 137189 ms)."
+          },
+          {
+            "text": "On-device data staged. Training starts \u2014 your data never leaves this device."
+          },
+          {
+            "text": "Round 1: loss 75.3531 \u00b7 0 scalars up \u00b7 149682ms"
+          },
+          {
+            "text": "Round 2: loss 92189685.0000 \u00b7 0 scalars up \u00b7 150268ms"
+          },
+          {
+            "text": "Run ended."
+          }
+        ]
+      },
+      "original_python_replay": {
+        "run_id": "4b0bffba-5157-48b8-b5ac-27af1c999321",
+        "torch": "2.12.0+cpu",
+        "torch_num_threads": 1,
+        "rounds": [
+          {
+            "round": 1,
+            "examples": 16,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          },
+          {
+            "round": 2,
+            "examples": 16,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          }
+        ],
+        "wrong_label_control_max_abs_diff": 0.01999995857477188
+      },
+      "original_phone_replay": {
+        "rounds_bitwise_exact": 2,
+        "changed_label_control_differs": true,
+        "log": "Pneumonia replay round=1 wrong_label=0 max_abs_diff=0 bitwise_equal=1 uplink=103135097 downlink=103135096\nPneumonia replay round=1 wrong_label=1 max_abs_diff=0.01999995857 bitwise_equal=0 uplink=103135097 downlink=103135096\nPneumonia replay round=2 wrong_label=0 max_abs_diff=0 bitwise_equal=1 uplink=103135097 downlink=103135096\n"
+      },
+      "aggregate_replay_exact": true,
+      "finite_state": true,
+      "artifact_id": "c1947893-127b-471a-bdba-9fbf368b1bf1",
+      "registered_checkpoint_sha256": "ad89cef8b395c3de4816a64a4044b68f1fa081cc4d48eb89911d4ce12ceabab1",
+      "accepted_update_receipts": [
+        {
+          "round": 1,
+          "client_id": "project_34539100-71bf-4ba6-a536-edef916aed74_client_0",
+          "examples": 16,
+          "sha256": "1606274528d3e3063ceaa3566d38f276ae02fae0f095b7bf5dc82b706a564f9d"
+        },
+        {
+          "round": 1,
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "examples": 16,
+          "sha256": "5cae6675111f9f93905cf2b355b4d534c56adfeeed04c0773e3b1d0a8c55e8ca"
+        },
+        {
+          "round": 2,
+          "client_id": "project_34539100-71bf-4ba6-a536-edef916aed74_client_0",
+          "examples": 16,
+          "sha256": "551e03e84bad71ea4d0ecc8f0348fb27fb043eaabdc837807c24c7f164fb69b0"
+        },
+        {
+          "round": 2,
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "examples": 16,
+          "sha256": "5c576f4322d743b817932231a780915e6e29b38513e3c492094ff8cbca2e5d5e"
+        }
+      ],
+      "limits": [
+        "Debug APK and mounted production provider functions, not touch automation for these training cases.",
+        "Authenticated development plaintext over USB/SSH routes.",
+        "Small fixed execution samples; no convergence or clinical efficacy claim."
+      ]
+    },
+    {
+      "recipe": "NIH_PNEUMONIA_CNN",
+      "strategy": "Robust",
+      "training_arm": "FULL",
+      "project_id": "d3e2e76c-5a56-4b65-805d-46a04d2f6392",
+      "run_id": "dc5bfc16-cf2a-430f-ae06-a870af94703a",
+      "rounds": 2,
+      "local_rows": [
+        32,
+        32
+      ],
+      "client_adam_rate": 0.001,
+      "proximal_mu": 0,
+      "server_settings": {},
+      "contract_sha256": "9dffa588a900b5218ceed4314017362e7efeaafd09ec88020f916630975ffde3",
+      "initial_npz_sha256": "41afcb79e46cc3ca51766ce73b1343fa86841269d6dcf96ab277ca888366be32",
+      "data_partition": {
+        "phone_rows": 32,
+        "desktop_rows": 32,
+        "classes": [
+          "PNEUMONIA_ABSENT",
+          "PNEUMONIA_PRESENT"
+        ],
+        "client_splits": [
+          "client-0",
+          "client-1"
+        ],
+        "patient_overlap": 0,
+        "image_content_overlap": 0,
+        "phone_snapshot_id": "90d5ef3b3ba9027aad107ef1aec16305461d12c0861ae4d12ac9f612c356d18c",
+        "desktop_snapshot_id": "d19ab9eb490c5619663aaf8988df3f819342064da350ba2916f637c17b888a2e",
+        "training_balance": [
+          16,
+          16
+        ],
+        "initial_state_sha256": "4045ce4dcc042554e3d7b2ce8cee8b0e35ec07c76614b53f0e79b3d864c30ef4"
+      },
+      "phone": {
+        "machine": "joined",
+        "joining": false,
+        "stopping": false,
+        "error": null,
+        "joined": {
+          "runId": "dc5bfc16-cf2a-430f-ae06-a870af94703a",
+          "projectId": "d3e2e76c-5a56-4b65-805d-46a04d2f6392",
+          "partitionId": 1
+        },
+        "session": {
+          "rounds": 2,
+          "scalarsTransmitted": 0,
+          "bytesUp": 206270194,
+          "bytesDown": 206270192,
+          "computeMs": 558690
+        },
+        "latestRound": {
+          "round": 2,
+          "loss": 0.6923910304903984,
+          "accuracy": 0.5,
+          "scalarsTransmitted": 0,
+          "uplinkBytes": 103135097,
+          "downlinkBytes": 103135096,
+          "computeMs": 278325,
+          "reverted": false
+        },
+        "serverStatus": null,
+        "logs": [
+          {
+            "text": "Execution contract d0964c237f93\u2026 accepted."
+          },
+          {
+            "text": "Provisioning model + on-device data\u2026"
+          },
+          {
+            "text": "Model loaded \u2014 25783554 trainable params (tier 10M)."
+          },
+          {
+            "text": "Model qualified on this device (probe 137189 ms)."
+          },
+          {
+            "text": "On-device data staged. Training starts \u2014 your data never leaves this device."
+          },
+          {
+            "text": "Round 1: loss 2.6765 \u00b7 0 scalars up \u00b7 280365ms"
+          },
+          {
+            "text": "Round 2: loss 0.6924 \u00b7 0 scalars up \u00b7 278325ms"
+          },
+          {
+            "text": "Run ended."
+          }
+        ]
+      },
+      "original_python_replay": {
+        "run_id": "dc5bfc16-cf2a-430f-ae06-a870af94703a",
+        "torch": "2.12.0+cpu",
+        "torch_num_threads": 1,
+        "rounds": [
+          {
+            "round": 1,
+            "examples": 32,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          },
+          {
+            "round": 2,
+            "examples": 32,
+            "max_abs_diff": 0.0,
+            "bitwise_equal": true
+          }
+        ],
+        "wrong_label_control_max_abs_diff": 0.004001517780125141
+      },
+      "original_phone_replay": {
+        "rounds_bitwise_exact": 2,
+        "changed_label_control_differs": true,
+        "log": "NIH replay round=1 wrong_label=0 max_abs_diff=0 bitwise_equal=1 uplink=103135097 downlink=103135096\nNIH replay round=1 wrong_label=1 max_abs_diff=0.00399813056 bitwise_equal=0 uplink=103135097 downlink=103135096\nNIH replay round=2 wrong_label=0 max_abs_diff=0 bitwise_equal=1 uplink=103135097 downlink=103135096\n"
+      },
+      "aggregate_replay_exact": true,
+      "finite_state": true,
+      "artifact_id": "e062e2b9-9bf0-4702-a6a7-8e6c034e0c34",
+      "registered_checkpoint_sha256": "439fb0d3861bfaf2e512522bdb5eccce9a088ed7b43233f43336418e569cc409",
+      "accepted_update_receipts": [
+        {
+          "round": 1,
+          "client_id": "project_d3e2e76c-5a56-4b65-805d-46a04d2f6392_client_0",
+          "examples": 32,
+          "sha256": "eb5a59f8cce38fa2865d3aea4b979da84cf2c84fd177c6501c3b7a266db448cf"
+        },
+        {
+          "round": 1,
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "examples": 32,
+          "sha256": "63e9cf0a2b7641f96d8671931228d38242f374e821cf706d9666fba86e734a1a"
+        },
+        {
+          "round": 2,
+          "client_id": "project_d3e2e76c-5a56-4b65-805d-46a04d2f6392_client_0",
+          "examples": 32,
+          "sha256": "4c62e45cbb6e6e311652c907e013aefd15be7d6528cca9ab4040696b88958ae5"
+        },
+        {
+          "round": 2,
+          "client_id": "72a9115b-6cf6-4d70-92c8-75b3a87afb77",
+          "examples": 32,
+          "sha256": "3f1ea8c323242b9b0f0790e2cf508940b95df74ca7095449e5db6ac53017847f"
+        }
+      ],
+      "limits": [
+        "Debug APK and mounted production provider functions, not touch automation for these training cases.",
+        "Authenticated development plaintext over USB/SSH routes.",
+        "Small fixed execution samples; no convergence or clinical efficacy claim.",
+        "Two-client median execution, not Byzantine-tolerance evidence."
+      ]
+    }
+  ],
+  "retained_validation_driver_failures": [
+    {
+      "case": "Pneumonia FedAvg",
+      "failure": "Token-only login did not mount signed-in context after process recreation; normal Sign in restored it before training."
+    },
+    {
+      "case": "Pneumonia FedAvg",
+      "failure": "Temporary launch helper used enum spelling FEDAVG instead of FedAvg; desktop guard refused it before any update; corrected and enrollment refreshed."
+    },
+    {
+      "case": "Pneumonia FedAvg",
+      "failure": "Native replay rejected32NIHinputs where16original-pneumonia inputs were required; temporary selector shadowing corrected, actual imported bytes rebound and replay rerun."
+    },
+    {
+      "case": "Pneumonia FedProx",
+      "failure": "Temporary join polling read two different snapshots before enrollment finished; wait now requires one snapshot for the exact new run and partition."
+    },
+    {
+      "case": "Pneumonia FedProx",
+      "failure": "Offline replay transport omitted proximal_mu; native guard refused before training. Actual adaptive settings were supplied and the replay rerun."
+    }
+  ]
+}

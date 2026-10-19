@@ -18,7 +18,7 @@ import os
 import re
 
 # Floor-checked packages. cryptography joined the list in P0-2b when the flwr cap was removed.
-_FLAGGED = ("aiohttp", "pillow", "requests", "cryptography")
+_FLAGGED = ("aiohttp", "pillow", "requests", "cryptography", "fsspec")
 
 
 def _repo_root():
@@ -101,6 +101,18 @@ def test_flwr_stays_out_of_the_lockfiles():
         "flwr is back in a lockfile, which re-caps cryptography<45.0.0 and protobuf<5.0.0: "
         + "; ".join(offenders)
     )
+
+
+def test_packaged_client_meets_framework_security_floors():
+    root = _repo_root()
+    framework = os.path.join(root, "framework", "requirements.txt")
+    packaged = os.path.join(root, "client-docker", "packaging", "requirements-client.txt")
+    assert _min_version(framework, "fsspec") >= (2026, 6, 0)
+    for pkg in _FLAGGED:
+        floor = _min_version(framework, pkg)
+        got = _min_version(packaged, pkg)
+        assert floor is not None and got is not None, f"missing security floor for {pkg}"
+        assert got >= floor, f"packaged client {pkg} {got} is below the framework floor {floor}"
 
 
 def test_protobuf_reaches_the_committed_gencode_floor():

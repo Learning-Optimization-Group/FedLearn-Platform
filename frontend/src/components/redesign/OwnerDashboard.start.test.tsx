@@ -66,13 +66,15 @@ async function renderAndOpenStartModal() {
 describe('OwnerDashboard — a failed start propagates into the modal (FE-4)', () => {
   beforeEach(() => {
     // Inert STOMP client so the dashboard never opens a real socket.
-    vi.mocked(StompClient).mockImplementation(() => ({
-      onConnect: null,
-      active: false,
-      activate: vi.fn(),
-      deactivate: vi.fn(),
-      subscribe: vi.fn(),
-    }) as unknown as InstanceType<typeof StompClient>);
+    vi.mocked(StompClient).mockImplementation(function () {
+      return {
+        onConnect: null,
+        active: false,
+        activate: vi.fn(),
+        deactivate: vi.fn(),
+        subscribe: vi.fn(),
+      } as unknown as InstanceType<typeof StompClient>;
+    });
     mockedUseAuth.mockReturnValue(
       makeAuth({
         currentUser: { username: 'olive', email: 'olive@example.com', role: 'PROJECT_OWNER' },

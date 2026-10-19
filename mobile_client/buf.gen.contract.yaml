@@ -1,0 +1,14 @@
+# Generates the TypeScript execution-contract reader from the canonical proto (npm run proto:contract).
+# The output under src/gen/ is committed so Metro and Jest need no generator; CI regenerates it and fails
+# on any difference. protoc-gen-es comes from devDependencies, pinned to the version proto/buf.gen.yaml
+# uses for its TypeScript target.
+version: v2
+inputs:
+  - directory: ../proto
+    paths:
+      - ../proto/fedlearn/contract
+plugins:
+  - local: protoc-gen-es
+    out: src/gen
+    opt:
+      - target=ts

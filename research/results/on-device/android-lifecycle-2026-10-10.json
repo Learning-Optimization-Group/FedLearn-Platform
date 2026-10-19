@@ -1,0 +1,409 @@
+{
+  "date": "2026-10-10",
+  "recipe": "TINYNET_GOLDEN",
+  "strategy": "FedAvg",
+  "scope": "Three-round eight-example shared fixture lifecycle checks on USB-powered Android API29 with Python CPU peer",
+  "native_fix": {
+    "source_commit": "c2c589f893bc17fb0214620bc881d56841adcb9e",
+    "apk_sha256": "576c1bbf8f660926c9bdb95b66b527374d79745007f86f827aeb5507d5293e53",
+    "native_core_archive_sha256": "4cc1c7bdc054fcc55f76936a1f2ebb2cf6f4a0233c11a33a141df580a9baff2a",
+    "core_unchanged": true
+  },
+  "failed_attempt_native_apk_sha256": "72f047a1c33e260a3c9dd30fb6f832294e5fcb86e57442f620c2f41301b42308",
+  "terminal_telemetry_fix_source": "05c8fe5c",
+  "cases": [
+    {
+      "project_id": "65650a29-4983-49b9-bfcc-a488402f18c7",
+      "run_id": "1ae4c570-1e76-4aa1-90d0-04c3be7ae73e",
+      "result": "failed_background",
+      "accepted_updates": [
+        {
+          "round": 1,
+          "participant": "android",
+          "num_examples": 8,
+          "state_sha256": "8333ad0420b3031244baab9748c7516befba4a2c32277662b7b48affc18fad4f",
+          "state_bytes": 237
+        },
+        {
+          "round": 1,
+          "participant": "python_cpu",
+          "num_examples": 8,
+          "state_sha256": "38c1ab65af845c3bb193675b46593cb884df2cfd29f9945476d6503ddc23c03e",
+          "state_bytes": 237
+        },
+        {
+          "round": 2,
+          "participant": "android",
+          "num_examples": 8,
+          "state_sha256": "399bfc54d5b33af819f784c264c5938677d99b48720996f11c9f06ad8da47aa9",
+          "state_bytes": 237
+        }
+      ],
+      "record_window": {
+        "start_byte": 26318,
+        "end_byte": 27358,
+        "accepted_records_sha256": "ff7aaf58c900c5158b27f3ea2b033f48b0a65b290afbf60954d7ff9c0bf692d5"
+      },
+      "events": [
+        {
+          "at_utc": "2026-10-10T12:21:21.669118+00:00",
+          "name": "phone_round_1_accepted",
+          "machine": "training"
+        },
+        {
+          "at_utc": "2026-10-10T12:21:22.217673+00:00",
+          "name": "app_backgrounded"
+        },
+        {
+          "at_utc": "2026-10-10T12:21:23.022982+00:00",
+          "name": "screen_off_confirmed"
+        },
+        {
+          "at_utc": "2026-10-10T12:21:23.154519+00:00",
+          "name": "desktop_round_released",
+          "round": 1
+        }
+      ],
+      "raw_event_sha256": "11bbdfd7431d7e7f3805163ec7cc154dd87d2128a08c2ae1c025c60bed40ea27",
+      "contract_sha256": "f23b491d616da167460d5281fe5e39fbbc56f5bcba24707e44a1ea3e2b221d3b",
+      "terminal_api_state": "STOPPED",
+      "entry_path": "physical Join/Start UI"
+    },
+    {
+      "project_id": "83265a0b-b3ce-4890-94b7-ba7fd40b2740",
+      "run_id": "aabd951b-9e95-4d33-b861-96d02dfd9c51",
+      "result": "passed_background_ineffective_network_probe",
+      "accepted_updates": [
+        {
+          "round": 1,
+          "participant": "android",
+          "num_examples": 8,
+          "state_sha256": "8333ad0420b3031244baab9748c7516befba4a2c32277662b7b48affc18fad4f",
+          "state_bytes": 237
+        },
+        {
+          "round": 1,
+          "participant": "python_cpu",
+          "num_examples": 8,
+          "state_sha256": "38c1ab65af845c3bb193675b46593cb884df2cfd29f9945476d6503ddc23c03e",
+          "state_bytes": 237
+        },
+        {
+          "round": 2,
+          "participant": "android",
+          "num_examples": 8,
+          "state_sha256": "399bfc54d5b33af819f784c264c5938677d99b48720996f11c9f06ad8da47aa9",
+          "state_bytes": 237
+        },
+        {
+          "round": 2,
+          "participant": "python_cpu",
+          "num_examples": 8,
+          "state_sha256": "17aa82e9e8283c872ff47bd779f7204372d7c61f24379df79fdf21c7da9a8ae2",
+          "state_bytes": 237
+        },
+        {
+          "round": 3,
+          "participant": "android",
+          "num_examples": 8,
+          "state_sha256": "d5c5bf24912909b2da14cb454c376d28214688406244c81d0e08aa7e69cf031e",
+          "state_bytes": 237
+        },
+        {
+          "round": 3,
+          "participant": "python_cpu",
+          "num_examples": 8,
+          "state_sha256": "1c6be8bebb58a524d622738c6d94f3a29b82453417aae0f5738472789b1ded40",
+          "state_bytes": 237
+        }
+      ],
+      "record_window": {
+        "start_byte": 27358,
+        "end_byte": 29455,
+        "accepted_records_sha256": "b836e045b0d3149c7ea2fe28813a88b02bda441763faea382d13296f9d8fbf2d"
+      },
+      "events": [
+        {
+          "at_utc": "2026-10-10T12:41:59.321090+00:00",
+          "name": "phone_round_1_accepted",
+          "machine": "training"
+        },
+        {
+          "at_utc": "2026-10-10T12:41:59.846724+00:00",
+          "name": "app_backgrounded"
+        },
+        {
+          "at_utc": "2026-10-10T12:42:00.635189+00:00",
+          "name": "screen_off_confirmed"
+        },
+        {
+          "at_utc": "2026-10-10T12:42:00.765181+00:00",
+          "name": "desktop_round_released",
+          "round": 1
+        },
+        {
+          "at_utc": "2026-10-10T12:42:01.775203+00:00",
+          "name": "phone_round_2_accepted_while_screen_off"
+        },
+        {
+          "at_utc": "2026-10-10T12:42:02.184904+00:00",
+          "name": "phone_grpc_route_removed"
+        },
+        {
+          "at_utc": "2026-10-10T12:42:02.315847+00:00",
+          "name": "desktop_round_released",
+          "round": 2
+        },
+        {
+          "at_utc": "2026-10-10T12:42:14.609486+00:00",
+          "name": "phone_grpc_route_restored"
+        }
+      ],
+      "raw_event_sha256": "372c18ce75b0ad581afbf16780cf8c372b5afc860cb614b6fa0317ba0b965fb0",
+      "contract_sha256": "5e400286a1ed655d28c79796b76e2ddbb2e8161bf354e7e9f651f7ddbc99c703",
+      "terminal_api_state": "COMPLETED",
+      "entry_path": "physical Join/Start UI"
+    },
+    {
+      "project_id": "b2fed41e-ef98-4065-9414-507f54c379df",
+      "run_id": "112df41b-cd92-4cf6-bcb2-d230a59bb4a0",
+      "result": "passed_actual_socket_recovery",
+      "accepted_updates": [
+        {
+          "round": 1,
+          "participant": "android",
+          "num_examples": 8,
+          "state_sha256": "8333ad0420b3031244baab9748c7516befba4a2c32277662b7b48affc18fad4f",
+          "state_bytes": 237
+        },
+        {
+          "round": 1,
+          "participant": "python_cpu",
+          "num_examples": 8,
+          "state_sha256": "38c1ab65af845c3bb193675b46593cb884df2cfd29f9945476d6503ddc23c03e",
+          "state_bytes": 237
+        },
+        {
+          "round": 2,
+          "participant": "android",
+          "num_examples": 8,
+          "state_sha256": "399bfc54d5b33af819f784c264c5938677d99b48720996f11c9f06ad8da47aa9",
+          "state_bytes": 237
+        },
+        {
+          "round": 2,
+          "participant": "python_cpu",
+          "num_examples": 8,
+          "state_sha256": "17aa82e9e8283c872ff47bd779f7204372d7c61f24379df79fdf21c7da9a8ae2",
+          "state_bytes": 237
+        },
+        {
+          "round": 3,
+          "participant": "android",
+          "num_examples": 8,
+          "state_sha256": "d5c5bf24912909b2da14cb454c376d28214688406244c81d0e08aa7e69cf031e",
+          "state_bytes": 237
+        },
+        {
+          "round": 3,
+          "participant": "python_cpu",
+          "num_examples": 8,
+          "state_sha256": "1c6be8bebb58a524d622738c6d94f3a29b82453417aae0f5738472789b1ded40",
+          "state_bytes": 237
+        }
+      ],
+      "record_window": {
+        "start_byte": 29455,
+        "end_byte": 31552,
+        "accepted_records_sha256": "fc0130214da015c97216e32cdfa8c1274af8a37d14ce5dc071e28b337cb975c4"
+      },
+      "events": [
+        {
+          "at_utc": "2026-10-10T12:58:07.081635+00:00",
+          "name": "phone_round_1_accepted",
+          "machine": "training"
+        },
+        {
+          "at_utc": "2026-10-10T12:58:07.611464+00:00",
+          "name": "app_backgrounded"
+        },
+        {
+          "at_utc": "2026-10-10T12:58:08.379575+00:00",
+          "name": "screen_off_confirmed"
+        },
+        {
+          "at_utc": "2026-10-10T12:58:08.496524+00:00",
+          "name": "desktop_round_released",
+          "round": 1
+        },
+        {
+          "at_utc": "2026-10-10T12:58:10.006017+00:00",
+          "name": "phone_round_2_accepted_while_screen_off"
+        },
+        {
+          "at_utc": "2026-10-10T12:58:10.387675+00:00",
+          "name": "phone_proxy_connections_dropped"
+        },
+        {
+          "at_utc": "2026-10-10T12:58:10.512440+00:00",
+          "name": "desktop_round_released",
+          "round": 2
+        },
+        {
+          "at_utc": "2026-10-10T12:58:16.707325+00:00",
+          "name": "actual_transient_error_observed",
+          "rounds": 2
+        },
+        {
+          "at_utc": "2026-10-10T12:58:16.822597+00:00",
+          "name": "phone_proxy_resumed"
+        },
+        {
+          "at_utc": "2026-10-10T12:58:19.364060+00:00",
+          "name": "phone_round_3_accepted_after_recovery"
+        },
+        {
+          "at_utc": "2026-10-10T12:58:19.486211+00:00",
+          "name": "desktop_round_released",
+          "round": 3
+        },
+        {
+          "at_utc": "2026-10-10T12:58:24.378350+00:00",
+          "name": "completed",
+          "accepted_updates": 6,
+          "phone_rounds": 3,
+          "foreground_service_stopped": true
+        }
+      ],
+      "raw_event_sha256": "dc5895b0e7bf63f90b1be74d7d80d5575a4f19990872510fc23ca6a9e410dd02",
+      "contract_sha256": "88e4ea18d029e7f36d552253e153b381598f34b9409d07cf7325211fa945ec11",
+      "terminal_api_state": "COMPLETED",
+      "entry_path": "mounted production TrainingProvider methods; hooks unchanged"
+    },
+    {
+      "project_id": "b00826aa-e332-4866-98c7-d345203697f4",
+      "run_id": "8699c250-ee1e-4230-9da8-d2d42c2b466d",
+      "result": "passed_stop_rejoin",
+      "accepted_updates": [
+        {
+          "round": 1,
+          "participant": "android",
+          "num_examples": 8,
+          "state_sha256": "8333ad0420b3031244baab9748c7516befba4a2c32277662b7b48affc18fad4f",
+          "state_bytes": 237
+        },
+        {
+          "round": 1,
+          "participant": "python_cpu",
+          "num_examples": 8,
+          "state_sha256": "38c1ab65af845c3bb193675b46593cb884df2cfd29f9945476d6503ddc23c03e",
+          "state_bytes": 237
+        },
+        {
+          "round": 2,
+          "participant": "android",
+          "num_examples": 8,
+          "state_sha256": "399bfc54d5b33af819f784c264c5938677d99b48720996f11c9f06ad8da47aa9",
+          "state_bytes": 237
+        },
+        {
+          "round": 2,
+          "participant": "python_cpu",
+          "num_examples": 8,
+          "state_sha256": "17aa82e9e8283c872ff47bd779f7204372d7c61f24379df79fdf21c7da9a8ae2",
+          "state_bytes": 237
+        },
+        {
+          "round": 3,
+          "participant": "android",
+          "num_examples": 8,
+          "state_sha256": "d5c5bf24912909b2da14cb454c376d28214688406244c81d0e08aa7e69cf031e",
+          "state_bytes": 237
+        },
+        {
+          "round": 3,
+          "participant": "python_cpu",
+          "num_examples": 8,
+          "state_sha256": "1c6be8bebb58a524d622738c6d94f3a29b82453417aae0f5738472789b1ded40",
+          "state_bytes": 237
+        }
+      ],
+      "record_window": {
+        "start_byte": 31552,
+        "end_byte": 33649,
+        "accepted_records_sha256": "08ae33d2d2be1801b45aabb0d2d897b0ce92cd4387786379f75c538c8bcaad1c"
+      },
+      "events": [
+        {
+          "at_utc": "2026-10-10T13:04:09.083842+00:00",
+          "name": "first_round_checkpointed"
+        },
+        {
+          "at_utc": "2026-10-10T13:04:10.041386+00:00",
+          "name": "stop_completed",
+          "elapsed_ms": 69,
+          "checkpoint": 1,
+          "foreground_service_absent": true
+        },
+        {
+          "at_utc": "2026-10-10T13:04:14.163515+00:00",
+          "name": "same_round_skipped_after_rejoin",
+          "checkpoint": 1,
+          "accepted_phone_round_1": 1
+        },
+        {
+          "at_utc": "2026-10-10T13:04:14.274375+00:00",
+          "name": "desktop_round_released",
+          "round": 1
+        },
+        {
+          "at_utc": "2026-10-10T13:04:14.797584+00:00",
+          "name": "desktop_round_released",
+          "round": 2
+        },
+        {
+          "at_utc": "2026-10-10T13:04:16.378669+00:00",
+          "name": "desktop_round_released",
+          "round": 3
+        },
+        {
+          "at_utc": "2026-10-10T13:04:20.403748+00:00",
+          "name": "completed",
+          "accepted_updates": 6,
+          "resumed_session_rounds": 2,
+          "checkpoint": 3
+        }
+      ],
+      "raw_event_sha256": "44d60f9f3996a50e035ea47a8d5c1d0701ed7221337565206177c1d24b73963b",
+      "contract_sha256": "5e88daab860c9b68960c4416ee7ce5ec59135316385ab395e46bad25886f7732",
+      "terminal_api_state": "COMPLETED",
+      "entry_path": "mounted production TrainingProvider methods; hooks unchanged"
+    }
+  ],
+  "preservation": {
+    "files": 30,
+    "all_hashes_match": true,
+    "receipt_sha256": "76976a38c8d6e7471ddb73d8583876d9871ec11fc8a8a762949ef679143b5349"
+  },
+  "limitations": [
+    "Brief background and screen-off; forced Doze and prolonged suspension unqualified",
+    "Shared golden fixture is not independent real-data learning evidence",
+    "ADB reverse removal did not interrupt established sockets; recovery claimed only for socket-closing proxy",
+    "No mid-upload acknowledgement-loss, unplugged-battery or image-duration interruption qualification",
+    "Native APK includes c2c589f; later 05c8fe5 JavaScript served through Metro"
+  ],
+  "outage": {
+    "duration_seconds": 6,
+    "reconnect_rejections": 3,
+    "proxy_event_sha256": "9f43ac6bceb4db45bebbb09dcc7385d49b5fdcc2b17bf1fc561b75ec57f7c8d6",
+    "normal_route_restored": true,
+    "owned_proxy_stopped": true
+  },
+  "stop_rejoin": {
+    "stop_ms": 69,
+    "checkpoint_before_and_after_stop": 1,
+    "accepted_first_round_count": 1,
+    "final_checkpoint": 3,
+    "foreground_service_stopped": true
+  }
+}

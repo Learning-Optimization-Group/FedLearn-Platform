@@ -25,7 +25,7 @@ class MainApplication : Application(), ReactApplication {
         }
 
       override fun getJSMainModuleName(): String = "index"
-      override fun getUseDeveloperSupport(): Boolean = BuildConfig.DEBUG
+      override fun getUseDeveloperSupport(): Boolean = BuildConfig.DEBUG && BuildConfig.FEDLEARN_METRO_ENABLED
       override val isNewArchEnabled: Boolean = true
       override val isHermesEnabled: Boolean = true
     }

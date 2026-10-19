@@ -1,0 +1,58 @@
+syntax = "proto3";
+package fedlearn.tree.v1;
+
+// CPU XGBoost protocol 3. Enrollment and run lifecycle use the platform's REST
+// endpoints. This service deliberately cannot accept neural tensor payloads.
+service FederatedTreeService {
+  rpc RegisterClient (TreeRegistration) returns (TreeRegistrationAck);
+  rpc GetTreeModel (TreeModelRequest) returns (TreeModel);
+  rpc SubmitTreeUpdate (TreeContribution) returns (TreeContributionAck);
+}
+
+message TreeRegistration {
+  string client_id = 1;
+  string run_id = 2;
+  string contract_id = 3;
+  uint32 protocol_version = 4;
+  // Asserted partition must match the verified enrollment. Dev-only servers use it directly.
+  uint32 partition_id = 5;
+}
+message TreeRegistrationAck { uint32 protocol_version = 1; }
+message TreeModelRequest {
+  string client_id = 1;
+  string run_id = 2;
+  string contract_id = 3;
+}
+message TreeModel {
+  enum State {
+    STATE_UNSPECIFIED = 0;
+    WAITING = 1;
+    TRAINING = 2;
+    FINALIZING = 3;
+    COMPLETE = 4;
+    FAILED = 5;
+  }
+  State state = 1;
+  uint32 server_round = 2;
+  string parent_sha256 = 3;
+  bytes model_json = 4;
+  string contract_id = 5;
+  uint64 deadline_unix_ms = 6;
+  // The immutable initial registry/init artifact, hash-bound by the contract.
+  // Present on every response carrying a model, allowing resumed clients to verify it.
+  bytes initial_model_ubj = 7;
+}
+message TreeContribution {
+  string client_id = 1;
+  string run_id = 2;
+  string contract_id = 3;
+  uint32 server_round = 4;
+  string parent_sha256 = 5;
+  string delta_sha256 = 6;
+  bytes new_trees_json = 7;
+  uint64 num_examples = 8;
+}
+message TreeContributionAck {
+  enum Result { RESULT_UNSPECIFIED = 0; ACCEPTED = 1; ALREADY_ACCEPTED = 2; }
+  Result result = 1;
+}

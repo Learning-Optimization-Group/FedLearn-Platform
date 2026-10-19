@@ -1,0 +1,122 @@
+{
+  "project_id": "6c7d43ec-8568-45f5-8135-f2f3466c06e1",
+  "run_id": "adf7860c-9566-4777-9fc3-fdacc851ca83",
+  "status": "COMPLETED",
+  "source_commit": "0b279a7",
+  "native_apk_source_commit": "bdb8a9ec78ee4e58f9796ba83a0d0d6725529fe5",
+  "native_apk_sha256": "d1e5918415f759665b5c9d19406145d45d46bb48569d8628f42078457b45aeae",
+  "recipe": "NIH_PNEUMONIA_CNN",
+  "classes": [
+    "PNEUMONIA_ABSENT",
+    "PNEUMONIA_PRESENT"
+  ],
+  "strategy": "FedAvg",
+  "training_arm": "FULL",
+  "rounds": 2,
+  "clients": [
+    "vivo Android portable CPU",
+    "g14 PyTorch CPU"
+  ],
+  "accepted_updates": 4,
+  "trainable_parameters": 25783554,
+  "local_rows": [
+    32,
+    32
+  ],
+  "positive_rows_per_client": [
+    16,
+    16
+  ],
+  "client_manifest_partitions": [
+    0,
+    1
+  ],
+  "patient_overlap": 0,
+  "image_content_overlap": 0,
+  "validation_rows": 512,
+  "full_validation_rows": 17565,
+  "validation_positive_rows": 6,
+  "official_test_used": false,
+  "phone_probe_ms": 137189,
+  "phone_compute_ms": [
+    276219,
+    277243
+  ],
+  "phone_payload_bytes": [
+    {
+      "round": 1,
+      "uplink": 103135097,
+      "downlink": 103135096
+    },
+    {
+      "round": 2,
+      "uplink": 103135097,
+      "downlink": 103135134
+    }
+  ],
+  "phone_original_runtime_replay_bitwise": true,
+  "desktop_original_runtime_replay_bitwise": true,
+  "aggregate_replay_bitwise": true,
+  "wrong_label_controls_differ": true,
+  "registry_artifact_id": "6c31bec3-c0d8-4a49-80cd-023a803a9ec2",
+  "registry_sha256": "8b49463eaa4d87ae9f9d742b427de59c97ed070ab4e69d07ee1f9e61a8742f45",
+  "metrics": {
+    "accuracy": 0.01171875,
+    "balanced_accuracy": 0.5,
+    "auroc": 0.4384057971014493,
+    "average_precision": 0.011809725900320495,
+    "majority_accuracy": 0.98828125,
+    "true_positive": 6,
+    "false_negative": 0,
+    "true_negative": 0,
+    "false_positive": 506,
+    "positive_images": 6,
+    "negative_images": 506,
+    "record_count": 512
+  },
+  "evaluation_provenance": {
+    "dataset": "NIH_ChestXray14",
+    "classes": [
+      "PNEUMONIA_ABSENT",
+      "PNEUMONIA_PRESENT"
+    ],
+    "split": "validation",
+    "label_definition": "Pneumonia present in report-derived Finding Labels versus absent; absent is not normal",
+    "manifest_sha256": "df47e2552eaac8642dbaf94328615f0786c94a8a2be363f111d8d04d6f9f4424",
+    "preparation_sha256": "1e0e2e54851619e19ba4aba1c299c31c40ed7af3bdcb8975508029beda818521",
+    "preparation_seed": 42,
+    "total_split_images": 17565,
+    "source_metadata_hashes": {
+      "Data_Entry_2017.csv": "88f75094e25ccc0c6f1f9cdfd4b2f94f9379a0ae07d5ff4dcf94242707b07462",
+      "test_list.txt": "38ca5ef7f756092946f57c1a59faca882ed589a1ab1f72590b45dc06c6d5e1cc",
+      "train_val_list.txt": "61fbe896321c1c1c8b75f3e4f3a08e4fef6486d95ef8a667c31d4d60dca6cb81"
+    },
+    "record_count": 512,
+    "positive_images": 6,
+    "negative_images": 506,
+    "selection_seed": 42,
+    "balanced": false,
+    "patient_unique": false,
+    "selected_rows_sha256": "79072438f3c18dff8e9a9f25d41ca0747433f7e19e51e3473bff805c6f3a8fbb",
+    "image_content_sha256": "0c96af5d94d645fb9be1dabe2f6e2f0aafe44ae7db5b9c6245682fd57c2c6448"
+  },
+  "original_phone_dataset_files_preserved": 21,
+  "new_phone_dataset_files": 3,
+  "tests": {
+    "runtime": 569,
+    "framework": 1345,
+    "framework_coverage_percent": 78.52,
+    "backend": 1159,
+    "mobile": 647,
+    "frontend": 137,
+    "g14_nih": 32
+  },
+  "limits": [
+    "Two-round engineering qualification on explicit balanced32-image patient-unique client samples, not full NIH training.",
+    "Validation is a fixed512-image proportional sample; the untouched official test set was not used.",
+    "Final predictions are all positive; model quality is poor and supports no diagnostic claim.",
+    "Installed native debugAPK retained; current JavaScript production functions invoked through the live debugger, without a full UI-flow qualification.",
+    "Authenticated development transport was plaintext; release signing, deployedTLS, packaged desktop and iOS remain unqualified.",
+    "Each update was replayed on its original runtime; no exact numerical agreement between different runtimes is claimed."
+  ]
+}

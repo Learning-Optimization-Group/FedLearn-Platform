@@ -51,6 +51,8 @@ export interface TrainingState {
   latestRound: RoundResult | null;
   serverStatus: ServerStatus | null;
   session: SessionSummary;
+  /** The dataset snapshot the running training uses, pinned against deletion; null on the built-in data or idle. */
+  datasetInUse: string | null;
 }
 
 export const emptySession: SessionSummary = {
@@ -72,13 +74,14 @@ export const initialTrainingState: TrainingState = {
   latestRound: null,
   serverStatus: null,
   session: emptySession,
+  datasetInUse: null,
 };
 
 export type TrainingAction =
   | { type: 'JOIN_START' }
   | { type: 'JOIN_SUCCESS'; joined: JoinedRun; projectName?: string }
   | { type: 'JOIN_FAILURE'; error: string }
-  | { type: 'TRAINING_START' }
+  | { type: 'TRAINING_START'; datasetId?: string }
   | { type: 'ROUND_RESULT'; round: RoundResult }
   | { type: 'TRAINING_ERROR'; error: string }
   | { type: 'TRAINING_END' }
@@ -123,6 +126,7 @@ export function trainingReducer(state: TrainingState, action: TrainingAction): T
         error: null,
         latestRound: null,
         session: emptySession,
+        datasetInUse: action.datasetId ?? null,
       };
     case 'ROUND_RESULT':
       return {
@@ -141,7 +145,7 @@ export function trainingReducer(state: TrainingState, action: TrainingAction): T
       return { ...state, error: action.error, logs: appendLogLines(state.logs, action.error, 'WARN') };
     case 'TRAINING_END':
       // finally-block: back to the joined view — unless a stop already tore the run down.
-      return { ...state, machine: state.joined ? 'joined' : 'notJoined' };
+      return { ...state, machine: state.joined ? 'joined' : 'notJoined', datasetInUse: null };
     case 'STOP_START':
       return { ...state, stopping: true };
     case 'STOP_COMPLETE':

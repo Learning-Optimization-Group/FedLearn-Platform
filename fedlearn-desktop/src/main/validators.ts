@@ -53,7 +53,7 @@ export function sanitizeDatasetPath(raw: unknown): string | null {
   } catch {
     return null;
   }
-  if (!stat.isDirectory()) {
+  if (!stat.isDirectory() && !(stat.isFile() && ['.csv', '.zip'].includes(path.extname(resolved).toLowerCase()))) {
     return null;
   }
   return resolved;

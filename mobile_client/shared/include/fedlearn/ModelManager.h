@@ -52,6 +52,14 @@ class ModelManager {
   std::string serializeStateDict(int64_t numExamples) const;
   void loadStateDict(const std::string& blob);
 
+  // Validate names, exact shapes and finite values without changing the owned state.
+  std::vector<float> decodeStateDict(const std::string& blob) const;
+
+  // The canonical digest of the owned params (execution_plan.state_sha256): SHA-256 of their float32 safetensors
+  // encoding with no metadata, tensors in layout order. Comparable with an execution contract's state digests.
+  std::string canonicalStateSha256() const;
+  std::string canonicalStateSha256(const std::vector<float>& flat) const;
+
   // Forward through the loaded model: loss(flat, x, y).
   float loss(const std::vector<float>& flat, const float* x,
              const std::vector<int64_t>& xShape, const int64_t* y, int64_t n) const;

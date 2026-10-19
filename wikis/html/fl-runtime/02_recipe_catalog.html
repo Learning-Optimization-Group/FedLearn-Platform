@@ -400,7 +400,7 @@ Frontend CreateProjectModal  →  recipe picker (+ the arm selector when
 </tbody>
 </table>
 <blockquote>
-<p><strong>SE-19 — remote code execution is off by default.</strong> The <code>PNEUMONIA_CNN</code> HuggingFace fallback used to call <code>load_dataset(..., trust_remote_code=True)</code>, which downloads and <em>runs</em> the dataset repo's loader script on the host. The repo is unpinned, so a supply-chain compromise of it would be arbitrary code execution on the backend the moment a run started. <code>_hf_load_kwargs</code> now makes remote-code execution opt-in via an explicit operator flag (ideally alongside a pinned <code>revision</code>), and <code>tests/test_pneumonia_hf_load_kwargs.py</code> pins that.</p>
+<p><strong>SE-19 — script-backed dataset loaders are unsupported.</strong> datasets 5 removed dataset-loader script execution. The <code>PNEUMONIA_CNN</code> HuggingFace fallback rejects the obsolete <code>FEDLEARN_PNEUMONIA_TRUST_REMOTE_CODE=1</code> flag with migration guidance. Unset it and use <code>FEDLEARN_PNEUMONIA_DIR</code> for local image folders or a data-only HuggingFace dataset such as Parquet. <code>FEDLEARN_PNEUMONIA_REVISION</code> still pins a data-only dataset to a commit; <code>tests/test_pneumonia_hf_load_kwargs.py</code> covers these contracts.</p>
 </blockquote></article>
     <nav class="toc"></nav>
   </div>

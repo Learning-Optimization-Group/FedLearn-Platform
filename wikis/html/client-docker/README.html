@@ -362,7 +362,7 @@ docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </
 </tr>
 <tr>
 <td><code>FEDLEARN_PNEUMONIA_TRUST_REMOTE_CODE=1</code></td>
-<td><strong>SE-19</strong> — remote dataset-loader execution is OFF by default. Enabling it downloads and runs the dataset repo's loader script on this host; pair it with <code>_REVISION</code> so an opted-in run executes a known immutable revision</td>
+<td><strong>SE-19</strong> — obsolete: datasets 5 removed script-backed loaders. The HuggingFace fallback rejects this flag with a <code>ValueError</code>. Unset it and use <code>FEDLEARN_PNEUMONIA_DIR</code> for local image folders or a data-only HuggingFace dataset such as Parquet</td>
 </tr>
 <tr>
 <td><code>FEDLEARN_PNEUMONIA_ALPHA</code> / <code>_BATCH</code> / <code>_SUBSET</code>, <code>FEDLEARN_NUM_CLIENTS</code></td>

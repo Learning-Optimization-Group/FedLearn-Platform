@@ -38,7 +38,8 @@ describe('TrainSection — setup state', () => {
     const html = renderTrain();
     expect(html).toContain('Set up training');
     expect(html).toContain('Model to train');
-    expect(html).toContain('Dataset folder');
+    expect(html).toContain('Dataset');
+    expect(html).toContain('Select CSV / ZIP');
     expect(html).toContain('Readiness');
     // Before any IPC resolves every readiness row is pending → Start disabled.
     expect(html).toContain('Contacting server…');

@@ -1,8 +1,11 @@
 #include "fedlearn/ModelManager.h"
 
+#include <cmath>
 #include <stdexcept>
+#include <unordered_map>
 
 #include "fedlearn/Safetensors.h"
+#include "fedlearn/Sha256.h"
 
 namespace fedlearn {
 
@@ -53,6 +56,42 @@ void ModelManager::setFlatParams(const std::vector<float>& flat) {
 
 int64_t ModelManager::trainableParamCount() const { return static_cast<int64_t>(params_.size()); }
 
+namespace {
+
+std::vector<NamedTensor> namedTensors(const std::vector<ParamSpec>& layout, const std::vector<float>& params) {
+  std::vector<NamedTensor> tensors;
+  tensors.reserve(layout.size());
+  size_t off = 0;
+  for (const auto& spec : layout) {
+    int64_t k = 1;
+    for (int64_t d : spec.shape) k *= d;
+    if (off + static_cast<size_t>(k) > params.size()) {
+      throw std::runtime_error("ModelManager: layout overruns params");
+    }
+    NamedTensor nt;
+    nt.name = spec.name;
+    nt.shape = spec.shape;
+    nt.data.assign(params.begin() + static_cast<std::ptrdiff_t>(off),
+                   params.begin() + static_cast<std::ptrdiff_t>(off + static_cast<size_t>(k)));
+    tensors.push_back(std::move(nt));
+    off += static_cast<size_t>(k);
+  }
+  return tensors;
+}
+
+}  // namespace
+
+std::string ModelManager::canonicalStateSha256() const {
+  return canonicalStateSha256(params_);
+}
+
+std::string ModelManager::canonicalStateSha256(const std::vector<float>& flat) const {
+  if (flat.size() != params_.size()) {
+    throw std::runtime_error("ModelManager: canonical state size mismatch");
+  }
+  return Sha256::hexDigest(saveSafetensors(namedTensors(layout_, flat), {}));
+}
+
 std::string ModelManager::serializeStateDict(int64_t numExamples) const {
   std::vector<NamedTensor> tensors;
   tensors.reserve(layout_.size());
@@ -74,28 +113,47 @@ std::string ModelManager::serializeStateDict(int64_t numExamples) const {
 }
 
 void ModelManager::loadStateDict(const std::string& blob) {
+  params_ = decodeStateDict(blob);
+}
+
+std::vector<float> ModelManager::decodeStateDict(const std::string& blob) const {
   const std::vector<NamedTensor> tensors = loadSafetensors(blob);
   if (tensors.size() != layout_.size()) {
     throw std::runtime_error("ModelManager::loadStateDict: tensor count != layout size");
   }
+  std::unordered_map<std::string, const NamedTensor*> byName;
+  byName.reserve(tensors.size());
+  for (const auto& tensor : tensors) {
+    if (!byName.emplace(tensor.name, &tensor).second) {
+      throw std::runtime_error("ModelManager::loadStateDict: duplicate tensor '" + tensor.name + "'");
+    }
+  }
   std::vector<float> next;
   next.reserve(params_.size());
-  for (size_t i = 0; i < layout_.size(); ++i) {
-    if (tensors[i].name != layout_[i].name) {
-      throw std::runtime_error("ModelManager::loadStateDict: name mismatch at index " +
-                               std::to_string(i) + " ('" + tensors[i].name + "' != '" +
-                               layout_[i].name + "')");
+  for (const auto& spec : layout_) {
+    const auto it = byName.find(spec.name);
+    if (it == byName.end()) {
+      throw std::runtime_error("ModelManager::loadStateDict: missing tensor '" + spec.name + "'");
     }
-    if (tensors[i].data.size() != static_cast<size_t>(numelOf(layout_[i]))) {
+    const auto& tensor = *it->second;
+    if (tensor.shape != spec.shape) {
+      throw std::runtime_error("ModelManager::loadStateDict: shape mismatch for '" + spec.name + "'");
+    }
+    if (tensor.data.size() != static_cast<size_t>(numelOf(spec))) {
       throw std::runtime_error("ModelManager::loadStateDict: size mismatch for '" +
-                               layout_[i].name + "'");
+                               spec.name + "'");
     }
-    next.insert(next.end(), tensors[i].data.begin(), tensors[i].data.end());
+    for (float value : tensor.data) {
+      if (!std::isfinite(value)) {
+        throw std::runtime_error("ModelManager::loadStateDict: non-finite value for '" + spec.name + "'");
+      }
+    }
+    next.insert(next.end(), tensor.data.begin(), tensor.data.end());
   }
   if (next.size() != params_.size()) {
     throw std::runtime_error("ModelManager::loadStateDict: total size mismatch");
   }
-  params_ = std::move(next);
+  return next;
 }
 
 float ModelManager::loss(const std::vector<float>& flat, const float* x,

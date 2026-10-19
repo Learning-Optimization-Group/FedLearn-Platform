@@ -30,15 +30,15 @@ export default defineConfig({
         'src/vite-env.d.ts',
         '**/*.config.*',
       ],
-      // Regression floor — set a few points below the measured baseline
-      // (stmts/lines 58.08%, branches 70.95%, funcs 38.07% as of this commit).
-      // Green on current code; the intent is to catch coverage drops, not to
-      // pin an aspirational target. Ratchet up as the suite grows.
+      // Vitest 4's AST remapping changes the baseline on the same 64 files / 138 tests:
+      // branches 723/959 (v3) -> 804/1856 (v4); statements now 52.94%, branches 43.31%.
+      // https://v4.vitest.dev/guide/migration.html#v8-code-coverage-major-changes
+      // Recalibrate those two floors; retain the existing line/function floors.
       thresholds: {
         lines: 54,
-        statements: 54,
+        statements: 52,
         functions: 34,
-        branches: 66,
+        branches: 42,
       },
     },
   },

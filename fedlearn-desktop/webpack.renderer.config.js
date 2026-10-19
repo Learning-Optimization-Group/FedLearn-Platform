@@ -60,18 +60,4 @@ module.exports = {
       },
     }),
   ],
-  devServer: {
-    port: 9000,
-    hot: true,
-    static: {
-      directory: path.resolve(__dirname, 'dist/renderer'),
-    },
-    headers: {
-      // Applies when the dev server is hit directly in a browser tab (bypassing
-      // Electron's own onHeadersReceived injection in src/main/main.ts). Fonts
-      // are bundled locally (src/renderer/fonts.css) so no remote host is needed.
-      'Content-Security-Policy':
-        "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' ws://localhost:9000 http://localhost:9000;",
-    },
-  },
 };

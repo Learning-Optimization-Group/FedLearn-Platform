@@ -1,5 +1,21 @@
 # FedLearn Mobile — Wiki
 
+## Current status — 18 October 2026
+
+Start with the [current Android run guide](15-current-android-runbook.md),
+[qualification matrix](13-qualification-matrix.md) and
+[Release/TLS procedure](16-release-tls-qualification.md). Android arm64 portable
+CPU/FULL training has 24 declared plans across TinyNet, ECG, CIFAR CNN/ResNet18,
+original pneumonia and NIH. Own-data import, contract-bound real model exports,
+standalone internal Debug and bounded CNN FedAvg/DeComFL manual recovery have
+retained device evidence. The matrix states the limits of every older runtime.
+
+Production Release training, a retained signing identity and same-key Release
+updates remain open. Android XGBoost, iOS training, secure aggregation and the
+other unsupported plans remain outside this scope. Model execution and useful
+learning are separate claims.
+
+
 > **Part of:** [FedLearn Platform Docs](../README.md)  
 > **Stack:** React Native 0.80, TypeScript, native C++ (ExecuTorch on the shared core + Android; the iOS native wiring is still a **libtorch** scaffold and its ExecuTorch migration is pending — MO-14) via a TurboModule (JSI) bridge, Android + iOS  
 > **Version:** `2.1.0` (`mobile_client/package.json`) — the UI renders the **Ledger** design system
@@ -7,6 +23,20 @@
 The mobile client (`mobile_client/`) is an **on-device** federated-learning participant for phones and tablets. The React Native / TypeScript layer owns the UI, authentication, join/enrol flow and round orchestration; the heavy lifting — the **DeComFL zeroth-order (ZO) training path** and, where the backend provisions a trainable graph, a **first-order (backprop) path** — runs **natively in C++ on the ExecuTorch runtime**, reached through a TurboModule bridge. Training data never leaves the device.
 
 The single product name is **FedLearn** (the v1 `FedMob` / `com.mobileclientnew` names are retired).
+
+The approved path from the current TinyNet-focused Android implementation to capability-negotiated
+algorithm and modality parity with laptop clients is documented in
+[Android Federated-Learning Parity Design](02-android-federated-learning-parity-design.md).
+The Stage 2 wire and publication rules are specified in
+[Execution Contract v1 — Focused Design](03-android-execution-contract-v1-design.md), and its
+progress is tracked in the [implementation plan](06-execution-contract-v1-implementation-plan.md).
+Bringing FedOpt and Robust into the contract is planned in [07](07-fedopt-robust-contract-plan.md).
+DeComFL's zeroth-order training is designed and recorded in [08](08-decomfl-contract-design.md).
+FedProx, the last strategy the phone refused, is planned and tracked in [09](09-fedprox-contract-plan.md).
+The procedure for a live phone + laptop run on one contract is the [live-run runbook](10-live-run-runbook.md).
+Stage 3 (artifact delivery, on-device datasets, portable-CPU qualification) is designed and delivered, slice by slice,
+in [11](11-stage3-artifact-dataset-qualification-design.md). Stage 4 (the MLP, CNN, ResNet-18 and
+pneumonia CNN recipes on phones) is designed, with its decisions taken, in [12](12-stage4-vector-and-image-recipes-design.md).
 
 > **Design system: Ledger, not Ember.** `src/theme/tokens.generated.ts` and `src/theme/global.css` are **generated** by `design/build-tokens.mjs` from `design/tokens.json` and both carry the Ledger palette (canvas `#F6F3EE`, surface `#FFFFFF`, ink `#191A1C`, muted `#6B6760`, navy accent `#1C314D` / hover `#14243A`; dark family `#0B1622` / `#4F8AC9`). Ledger landed in `2c50672` and rolled onto mobile in `3d54484`, superseding **Ember**, which had superseded *Instrument*. `src/theme/tokens.ts` is now a thin re-export kept only so older import paths resolve — do not hand-edit either generated file; CI's "Design tokens in sync with source of truth" step (`scripts/check_design_tokens.sh`, unconditional in `ci.yml`) fails on drift. The shipped brand fonts are **Hanken Grotesk** (sans *and* display) + **JetBrains Mono** (`src/assets/fonts/`); Bricolage Grotesque was Ember-era and is gone.
 
@@ -137,11 +167,19 @@ The bundle is now **per-run and served by the backend**, not a hard-coded client
 
 Both paths write the identical served shape, staging is idempotent, and failure is best-effort: the phone treats a missing bundle as a graceful 404 rather than an error.
 
-**What that means in practice today.** The demo path a phone actually completes is still the fixture one: `TINYNET_GOLDEN` — `Linear(4,5) → ReLU → Linear(5,3)` with `fc2` frozen, **43 total parameters, 25 trainable** (`flat_dim = 25`), the same fixture that backs the C++ parity gate (`framework/tests/fixtures/decomfl_golden/zo_manifest.json`, `golden_loss ≈ 1.0973`). The fixture's `zo_inputs.f32` / `zo_targets.i64` are staged *as the device's local partition*, so they stand in for genuine per-device data. That is a deliberate MVP shortcut and **not representative federation**; real per-device data remains an explicit post-MVP step. The fixture now also ships `tinynet_trainable.pte`, which is what lets the first-order path be exercised at all.
+**Current data and export path.** TinyNet fixtures remain available for explicitly
+fixture-backed contracts. LOCAL_SNAPSHOT runs instead use vector/image data
+imported on the phone, with recipe/class/preprocessing checks before Start.
+Repository-root `scripts/export_model.py` constructs real recipe models from
+`fl-runtime/recipes.py` and exports the contract-bound programs; it no longer
+uses the removed backend resources directory. These exports require the matching
+torch/ExecuTorch host toolchain. Check the run's READY contract and program hashes;
+a staging error must not be mistaken for device support.
 
-The real-export path is the documented seam for every other recipe, but **it does not currently run**: `scripts/export_model.py` resolves `recipes.py` from `backend/fl-platform-api/src/main/resources/scripts/`, a directory that no longer exists (the catalog lives in `fl-runtime/recipes.py`), so the import fails and the stager logs a non-zero exit. Until that path is fixed, a non-fixture recipe produces no bundle and the phone 404s.
-
-The full plumbing, phases, and manual acceptance runbook are in [`mobile_client/ON_DEVICE_TRAINING_E2E.md`](../../mobile_client/ON_DEVICE_TRAINING_E2E.md).
+The [September TinyNet runbook](10-live-run-runbook.md) and the original
+[`ON_DEVICE_TRAINING_E2E.md`](../../mobile_client/ON_DEVICE_TRAINING_E2E.md) remain
+historical implementation/topology references. Use the
+[current run guide](15-current-android-runbook.md) for new experiments.
 
 ---
 
@@ -172,10 +210,18 @@ mobile_client/
 
 Both app projects are **buildable**: the two prior template-scaffolding blockers were resolved and committed — the Android **Gradle wrapper** (`./gradlew` bootstraps Gradle 8.14.1) and the iOS **`FedLearn.xcodeproj`** (regenerate with `ios/generate_xcodeproj.sh`).
 
-- **Android is the real native target.** `app/build.gradle`'s `externalNativeBuild` builds `libfedlearn_jni.so` from `bridge/android/jni/CMakeLists.txt`, which forces `FEDLEARN_BUILD_GRPC=ON` and `FEDLEARN_BUILD_TRAINING=ON` and links `fedlearn_core` + `fedlearn_grpc` + the React Native `jsi`/`reactnative` prefab. `arm64-v8a` is the only shipped ABI. It needs `-PET_SRC`, `-PET_BUILD`, `-PTORCH_INCLUDE`, `-PGRPC_DIR`, `-PGENERATED_PROTO_DIR` — the cross-compiled artefacts plus `buf generate` output.
+- **Android is the native training target.** `app/build.gradle` points at
+  `android/app/src/main/jni/CMakeLists.txt`, which links the training core and
+  gRPC into `libappmodules.so`. `arm64-v8a` is the only shipped ABI. Supply
+  `-PET_SRC`, `-PET_BUILD`, `-PTORCH_INCLUDE`, `-PGRPC_DIR` and
+  `-PGENERATED_PROTO_DIR` for matching cross-compiled artifacts and generated stubs.
 - **iOS native is a scaffold, and the podspec says so.** `ios/FedLearnCore.podspec` vendors a cross-compiled **libtorch** xcframework while `shared/` targets the **ExecuTorch** runtime. Those are different, incompatible runtimes, so the iOS native wiring will not link/run as-is; the podspec's own build guard says do **not** enable `FEDLEARN_NATIVE_IOS` in CI or default builds. Swapping the vendored framework for an ExecuTorch iOS runtime and reconciling the bridge is tracked as MO-14. Until then iOS builds the JS shell, `canImport(FedLearnCore)` is false, and `isNativeCoreAvailable()` returns false so the training entry point is disabled rather than crashing. `scripts/build_libtorch_arm64.sh` is retained solely for that pending path.
 
-What still gates a shippable release: the cross-compiled **ARM64 ExecuTorch + gRPC** artefacts and buf-generated stubs, the iOS ExecuTorch migration above, real **signing configs** for both platforms (the release APK is debug-signed today — the release workflow says so in the release notes), and real on-device training data.
+Android Release signing validation is implemented and refuses the Debug signer.
+A persistent backed-up signing identity, actual authenticated Release training
+through HTTPS/gRPC TLS, and a same-key Release update preserving data still gate
+distribution. Standalone Debug and local native TLS fixtures do not qualify those
+steps. The iOS native migration is a separate unimplemented target.
 
 ### Host parity gate (run the C++ core tests in isolation)
 

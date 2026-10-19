@@ -19,6 +19,7 @@ export interface ClientProject {
   projectId: string;
   name: string;
   modelType: string;
+  modelName?: string;
   status: string;
   visibility: string | null;
   requirements?: import('../shared/deviceCapabilities.types').DeviceRequirements;
@@ -28,6 +29,7 @@ export interface ProjectConnection {
   projectId: string;
   name: string;
   modelType: string;
+  modelName?: string;
   serverAddress: string;
   partitionId: number;
   status: string;
@@ -43,6 +45,10 @@ export interface ProjectConnection {
   // certificate to verify it with; null when there is none to send.
   grpcTls?: boolean;
   grpcServerCertPem?: string | null;
+  // Execution contract v1 (ClientConnectionDto.runId / contractState / executionContract).
+  runId?: string | null;
+  contractState?: string | null;
+  executionContract?: Record<string, unknown> | null;
 }
 
 export class ClientProjectService {

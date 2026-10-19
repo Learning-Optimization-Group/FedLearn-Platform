@@ -31,3 +31,29 @@ targetRules = ["generic-api-key"]
 regexes = [
   '''^CIFAR_RESNET18$''',
 ]
+
+[[allowlists]]
+# mobile_client/src/__tests__/diagnosticJournal.test.ts checks that the diagnostics journal redacts a JWT before it
+# persists anything, so it needs a JWT-shaped string. It uses the public example token from jwt.io (payload
+# {"sub":"1234567890"}), which signs nothing real. Anchored to that exact token and the jwt rule only.
+description = "The public jwt.io example token in the diagnostics-redaction test"
+targetRules = ["jwt"]
+regexes = [
+  '''^eyJhbGciOiJIUzI1NiJ9\.eyJzdWIiOiIxMjM0NTY3ODkwIn0\.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c$''',
+]
+
+[[allowlists]]
+# These are SHA-256 evidence-file digests, not the named files' contents.
+# Match both the evidence path and the exact filename/digest pair so another
+# value assigned to a credential-shaped name is still scanned.
+description = "Exact file checksums in retained Android qualification evidence"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(?:^|/)research/results/on-device/android-[^/]+\.json$''']
+regexTarget = "match"
+regexes = [
+  '''^mounted-auth-driver\.js": "01c2269595279917840d3099d55b9c1b2159548285c63f3123154466f8052897"$''',
+  '''^desktop-expired-token\.log": "406865cf312afbb56b8d9f8d10f179ac2c4bf6b6af8b792a8a8e6ea7b6daad28"$''',
+  '''^credentials-ready\.xml": "ab2b0e4b788f3c7fe710217ccdc45e3521e2f508aeabe888a6a8993c5e1a75af"$''',
+  '''^restored-credentials\.xml": "67f6b5f8959e225db6f06e5dcd78b5312b7c2b68c021eed27d6e460fd84c8418"$''',
+]

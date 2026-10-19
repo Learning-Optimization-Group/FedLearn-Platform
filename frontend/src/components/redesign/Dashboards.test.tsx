@@ -20,15 +20,16 @@ const renderWithRouter = (ui: React.ReactElement) => render(<MemoryRouter>{ui}</
 
 describe('role dashboards mount and render for their role', () => {
   beforeEach(() => {
-    // Re-establish the STOMP client stub after restoreMocks resets factory implementations, so
-    // OwnerDashboard's `new StompClient(...)` returns an inert client that never opens a socket.
-    vi.mocked(StompClient).mockImplementation(() => ({
-      onConnect: null,
-      active: false,
-      activate: vi.fn(),
-      deactivate: vi.fn(),
-      subscribe: vi.fn(),
-    }) as unknown as InstanceType<typeof StompClient>);
+    // Give each case an inert STOMP constructor so OwnerDashboard never opens a socket.
+    vi.mocked(StompClient).mockImplementation(function () {
+      return {
+        onConnect: null,
+        active: false,
+        activate: vi.fn(),
+        deactivate: vi.fn(),
+        subscribe: vi.fn(),
+      } as unknown as InstanceType<typeof StompClient>;
+    });
   });
 
   it('ClientDashboard renders the client overview', async () => {

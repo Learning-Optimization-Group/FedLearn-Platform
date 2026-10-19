@@ -1,0 +1,353 @@
+{
+  "date": "2026-10-14",
+  "verdict": "TEN_ROUND_CHARGER_POWERED_QUALIFICATION_NOT_PASSED",
+  "scope": "Two charger-powered Wi-Fi Debug vivo/Linux original-pneumonia FedAvg screen-off attempts with recorded app background permission",
+  "source": {
+    "native_progress_commit": "c331e5948e87bdb57eead91633f308168e0dad1c",
+    "javascript_and_linux_commit": "50a01ca9ad80f586b7944cc8fc6ee434f31a2b82",
+    "qualification_base_commit": "990de6246b89c7bf5b1609d41b364dfe12935ac3",
+    "application_changed": false
+  },
+  "runtime": {
+    "apk_sha256": "8f284fb4974cc926b4c4d7c7f3056770c19ce318d8d54b4f1219ef0d079cb91e",
+    "core_archive_sha256": "eda3234e16df1907e119a9c175010796901b98d2f59c80d029f589eb0ddd6f80",
+    "installed_apk_and_source_unchanged": true
+  },
+  "power_condition": {
+    "ac_powered": true,
+    "host_usb_powered": false,
+    "wireless_charging": false,
+    "weak_battery_reported": true,
+    "battery_only_retest_started": false
+  },
+  "power_policy": {
+    "fedlearn_high_background_allowed": true,
+    "only_fedlearn_oem_switch_changed": true,
+    "allowed_apps_header_transition": "0 to1",
+    "persisted_after_leaving_and_reopening": true,
+    "standard_idle_allowlist_before": false,
+    "standard_idle_allowlist_after": true,
+    "derived_from_same_oem_control": true,
+    "direct_allowlist_command_used": false,
+    "global_modes_unchanged": {
+      "Normal mode": true,
+      "Low power mode": false,
+      "Super power-saving mode": false
+    },
+    "retained_for_continued_use": true
+  },
+  "attempts": [
+    {
+      "identity": {
+        "project_id": "2ef5d2bc-de3c-4d62-8dee-ff44314a835d",
+        "run_id": "434e96e0-6991-4a2b-9fa1-6d45e3dd3511"
+      },
+      "verdict": "INTERRUPTED_DIAGNOSTIC_TRANSPORT",
+      "planned_rounds": 10,
+      "completed_rounds": 1,
+      "accepted_updates": 2,
+      "checkpoint": 1,
+      "monitor_error": "ADB dumpsys power command timed out after15seconds",
+      "failure_utc": "2026-10-14T17:22:36.808947+00:00",
+      "same_app_pid_observed_after_failure": 14514,
+      "matching_app_kill_event_in_retained_background_window": false,
+      "temporary_reverse_routes_empty_at_collection": true,
+      "underlying_wifi_interruption_cause_established": false,
+      "numerical_client_replay_repeated": false,
+      "final_aggregate_qualified": false,
+      "background_sample_count": 15,
+      "initial_readiness_record_overwritten_by_recovery_probe": true
+    },
+    {
+      "identity": {
+        "project_id": "291d493e-2316-4c3a-8ad9-b9f4eab95db2",
+        "run_id": "678d180d-1268-44c3-9c54-02b3190d5481"
+      },
+      "verdict": "FAILED_HEARTBEAT_STALL_DURING_DOWNLOAD",
+      "planned_rounds": 10,
+      "completed_rounds": 0,
+      "accepted_updates": 0,
+      "checkpoint": null,
+      "acknowledged_heartbeat_count": 10,
+      "last_acknowledged_heartbeat_utc": "2026-10-14T18:05:36.526903+00:00",
+      "failed_detection_utc": "2026-10-14T18:06:46.258805+00:00",
+      "seconds_since_last_ack_at_failure": 69.731902,
+      "background_sample_count": 7,
+      "monitor_timeout_retries_used": 0,
+      "same_app_pid_observed_after_failure": 14514,
+      "matching_app_kill_event_in_retained_background_window": false,
+      "linux_model_download_error": "Stream removed (ping timeout)",
+      "initial_model_stream_payload_mib": 98.36,
+      "underlying_transport_failure_cause_established": false,
+      "final_aggregate_qualified": false,
+      "physical_numerical_client_replay_repeated": false
+    }
+  ],
+  "network_checks": {
+    "at_utc": "2026-10-14T18:12:04.231916+00:00",
+    "non_training_synthetic_transfer": true,
+    "records": [
+      {
+        "direction": "mac_to_g14",
+        "seconds": 25.00521979201585,
+        "completed": false,
+        "timeout_seconds": 25
+      },
+      {
+        "direction": "g14_to_mac",
+        "bytes": 10485760,
+        "seconds": 17.563494417001493,
+        "mib_per_second": 0.569362779557124,
+        "completed": true
+      }
+    ]
+  },
+  "network_round_trips": {
+    "at_utc": "2026-10-14T18:10:22.406511+00:00",
+    "existing_control_round_trips": [
+      {
+        "seconds": 0.1029229590203613,
+        "exit_code": 0
+      },
+      {
+        "seconds": 0.09202345798257738,
+        "exit_code": 0
+      },
+      {
+        "seconds": 0.10110100003657863,
+        "exit_code": 0
+      }
+    ],
+    "training_stopped": true
+  },
+  "previous_evidence_preserved": {
+    "android-heartbeat-progress-2026-10-11.json": 38,
+    "android-wireless-background-2026-10-13.json": 62,
+    "android-training-stop-2026-10-12.json": 50,
+    "android-screenoff-longrun-2026-10-11.json": 42,
+    "android-image-acknowledgement-loss-2026-10-11.json": 47,
+    "android-image-upload-interruption-2026-10-11.json": 41,
+    "android-image-reconnect-final-2026-10-11.json": 25
+  },
+  "final_aggregate_qualified": false,
+  "physical_numerical_client_replay_repeated": false,
+  "production_release_or_tls_qualified": false,
+  "limitations": [
+    "Neither attempt completes ten rounds; no successful final aggregate or local numerical replay is claimed.",
+    "Only one completed round in the first attempt; the second fails during model download before any accepted update.",
+    "Charger power, OEM app opt-in and fresh initial weights differ from the earlier battery-only failure. These attempts do not establish the setting alone prevents an OS kill.",
+    "The same app PID was observed after each attempt; no matching kill event is present in their retained background event windows. This does not prove uninterrupted process behavior between samples or exclude every native fault.",
+    "ADB diagnostic traffic and charger power prevent natural deep Doze and battery-only reliability qualification.",
+    "The transfer check is a bounded synthetic test after training stopped. It measures the current shared connection, not the definitive cause of either earlier failure.",
+    "Initial readiness evidence in the first attempt was overwritten by a successful post-outage readiness probe; the receipt labels that recovery record honestly.",
+    "Prior code checks remain source-bound to their own receipts; no new application code/build or full regression rerun for these attempts."
+  ],
+  "private_attempt_evidence_sha256": {
+    "wireless-powered": {
+      "run.json": "b1c7dc2f4c0849d2bb942770054d7407d9279ee08a346b49b264eb42c1a94c6e",
+      "manifest.json": "20042adc306069f5d7b840c2ffe330caa7265e2d9e1609d3532c9fe63cb3f298",
+      "events.json": "e4b66628235abbb7e45823b7a1e8d02aabb34f8fe9edf2e5c26ca331fb2cec0c",
+      "proxy-events.jsonl": "88a14dd7a691791229e5b3d13e8447d5207f1e368a21447bfb44d81c40032f79",
+      "device-samples.jsonl": "ae091418d509fe79b5518efb4c3f9f47f2c26289010f9e024be6d30ab6922317",
+      "debugger-audit.json": "331dbb0fb7e201fde0bdc9ecfe71ae539e33006f781396c459d4e6f0e426f53c",
+      "exercise.log": "1c73ad600f911242d6f7cbb401b1a936829ea834fc07d749eb086c2866ae649d",
+      "desktop.log": "4447e5ac36403c677fbf8d3b79f771b6ea799bf24234f3306875eab5e6122126",
+      "monitor.log": "603b77e6f9bcddb1e8d391a8d02d5305ab5c164f1c662a2f2d865929fd63a737",
+      "monitor-error.json": "549515d23a1c97ebd74f567104c676e619886465c8b18bf478148e18aff665e9",
+      "preflight.json": "cac0cc6c284cae7709e75c9761a64e5373ef56881272c630ee3513340b6648a6",
+      "runtime-after.json": "87fc8196ee142a21a83d60dd94c72a7fbd54d3c16f72a02ef0ab0224e4a36c83",
+      "phone-preservation-before.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+      "phone-preservation-after-failure.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+      "snapshot-after-failure.json": "424f6494f971415a730971074ae00480b4e72d7d74b97352a82f587892d316c3",
+      "accepted-updates-failure.json": "a2a136403965a2f98481f56596f5a3e17710eb8dca03556a8aa79ce8a63697e4",
+      "record-offset.txt": "c9aeda156ea65376df5d950f2f04ca794fdd6787820a316cada511cc0c6b29ec",
+      "record-end-failure.txt": "1baaa28323ecfb670bbae4051b6551b4acfa51bae7d31d520cb126f8b7641326",
+      "project-after-failure.json": "c43fc7a286deed5a6fc1296282a82facee1cb6b8cc99b9df32653a56dcb272c5",
+      "checkpoint-after-failure.json": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "provider-after-failure.json": "a1d22f2931550044aa8f7c4c1b4088cd9f97ea7ed852501ea3e1e9e9f1912a9e",
+      "failure-route-provider-restoration.json": "8ed1c4c878c58f0d639dda700f55b5a04b89035dd0c094a8c45869760d100e0c",
+      "pause-helper-cleanup.json": "8f811780bea7d814c373e0844c6f0f66ff66b7b13d18b693732510281e2b403f",
+      "guard-cleanup.json": "6d6608d3e434ed85935db4944444897c02eb35d41360d48950eb23713d4ff7f4",
+      "event-log.txt": "bfc3b25159adbcbb919f13dabcfe8864479e5080c5f663ccaa9a793d603bf2ee",
+      "system-log.txt": "7d09d6be1d11be8b508fc94b127410eb3b308e413a15cf0898c8ce33ccaa2678",
+      "runtime-log.txt": "3aa7da3c67f729040130bcb8320be16de1742a6939d7db0fabcb8c5fa173ce7b",
+      "crash-log.txt": "2c00462ea27fa279f73714181bd0da2ec3e00689dcde2ce327f4dc9cb74791ff",
+      "wireless-routes-after.txt": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "server-log-export.txt": "61f0062448d3235199bf32fb9c3492334b8013fb781d02e35fca6d96d191c471",
+      "interruption-verification.json": "2f0615cce6b99504ab06559f5448d74be5c675483569922d471ede14d5b247e4",
+      "interruption-verification.log": "7eb0c5055bb8ca639692177b82dca86a8145b7abe27766d893cc1ca3f6f493b7",
+      "app-readiness.json": "f3aa95b1a949924a25238dfe2e37797a253af67aa88c029180a35ac2e9ec0c79",
+      "readiness-after-outage.log": "f81e94bfb269db25b752f970d36945e65c1749672e9a7f9dfbc007679350efb4",
+      "workspace-after-failure.json": "fbf15a29d40aa1b3f69524b2d0dd79a27849ab9e8cf0489bcb290daeb56af65d"
+    },
+    "wireless-powered-retry": {
+      "run.json": "242d7eb595c5a2a8ef72ebb852b015175304e93f6c0dde50c6e1a074a853cf8d",
+      "manifest.json": "c1ccaf165b5c7c3e29e7880d3bbaa3e660f14fa06cff56bddb5d1c72e2a173a6",
+      "events.json": "d0a7ea20db673ff84d84f245a1704dba9974453af15e3eb4059d1e3c74cee434",
+      "proxy-events.jsonl": "7cf9ceaf84578108646d16b1650b5a473d8e352d30db555644241589e3339a8e",
+      "device-samples.jsonl": "78c73e073b1d57790d9ef277a597d45fdc791057218c319ebf60b452adf9411d",
+      "debugger-audit.json": "ce6ab1dc218aec12907dda591e6a10b11eae9be407d05b195c8c8573c0e49264",
+      "exercise.log": "bbe8d998f22aabd33462cd43cdaa14d1b9083e7e00f9c1191a5f0ae6cadbd09e",
+      "desktop.log": "e3fb4350f4b1130292eb2ba9d20a66b5c74abf4f874c6f6089220e57ff7e04bd",
+      "monitor.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "preflight.json": "95b0d153aa4678527b70b22efbbdb031f1b5c07249dc8fa7296a679a04360873",
+      "runtime-after.json": "66fc81ce71b85811219ce039b79eda47a62dc2f8a67bb9b53a880f3944e1c2f5",
+      "phone-preservation-before.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+      "phone-preservation-after-failure.json": "d2c901ad612909dd4f21bdc41c5e23328cc65252062d1e9c8ee364ad4ca0d78b",
+      "snapshot-after-failure.json": "da770c6e8e23df3eccc57a92440da7a3c83ac2882a8d5e482c09d2955a54f59f",
+      "accepted-updates-failure.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "record-offset.txt": "1baaa28323ecfb670bbae4051b6551b4acfa51bae7d31d520cb126f8b7641326",
+      "record-end-failure.txt": "1baaa28323ecfb670bbae4051b6551b4acfa51bae7d31d520cb126f8b7641326",
+      "project-after-failure.json": "34589d2342f7724a2abb1c0c7f94cde869e57edc0865171189d64e21b4c039c2",
+      "checkpoint-after-failure.json": "38e0b9de817f645c4bec37c0d4a3e58baecccb040f5718dc069a72c7385a0bed",
+      "provider-after-failure.json": "064947d6d8b743b89b3eae899ba94503024002affb4f03d533cb7c37d3bf6fe7",
+      "failure-route-provider-restoration.json": "c046dcd16cef150d56b8211ffce62f3756cb2395bddccdceb2474474af1f7a80",
+      "failure-helper-cleanup.json": "8f811780bea7d814c373e0844c6f0f66ff66b7b13d18b693732510281e2b403f",
+      "guard-start.json": "f6bd12248ef2b3483c808ce6ac446308a6e205f1ca17bb0660f4233817dcbb28",
+      "guard-cleanup.json": "f8508f3ebfe80c18a01072f05e74c8f7d66c60b630c761c34e5e0b33fe45bb3a",
+      "event-log.txt": "ee55442eee85333f912274929d03b580fe6301188e657750b73e63401d27e72b",
+      "system-log.txt": "7d09d6be1d11be8b508fc94b127410eb3b308e413a15cf0898c8ce33ccaa2678",
+      "runtime-log.txt": "67b346592d8e81b35937148165759f5870c96182129d87d6fd8d22c782f19442",
+      "crash-log.txt": "2c00462ea27fa279f73714181bd0da2ec3e00689dcde2ce327f4dc9cb74791ff",
+      "server-log-export.txt": "f5b74a8c3ff54d754f48b4ac9452b4ef600cbd840ae6f3b2aa0a3b479191107b",
+      "failure-verification.json": "fa9a81971cfa2d0f4a3b74bde03eacc3b368004c6fa99f0dfae75708e6c5ab48",
+      "failure-verification.log": "d0170390c9c02da39dad0d4cbcbfb8e4e30e945fcbff9fb91ec3145ef6db1558",
+      "app-readiness.json": "900e1c3b4dd28a860bc300c26c4715c35877dd0c59121edfd6b07c33e187be3a",
+      "policy-ready.json": "15a78f78c6a3e460dc65241d9fbc93f61c459ef9c6708e3684043fc3e7ca6199",
+      "policy-preflight.json": "695f4bf89d2f88c7f8f93e2e907c60b16cf8feb9739ff9e65d42b70d9578ed3b",
+      "root-preservation-before.json": "08544f929ea6924195cf0f56b1cf85a04f5a6c09548f3ad620bdc32acf2c9efb",
+      "workspace-after-failure.json": "53cb46f55aca9a4e2079b36b488ad8ec561458f880ba45d2a2730e2943b9b7f3",
+      "network-command-latency.json": "1805cb987d0e0f5abb29af0d9f6079ab7e475d81a83e8a56c79c855b0ce38a61",
+      "network-transfer-check.json": "41fec1babaca8253a226ede7f301db781605e65b7219becd0ea34bff0341cb58",
+      "transport-before.json": "5d15a9a15bb4abb2535de490c1b0d951fb485feb2dc6dad542cc242db1b23579",
+      "transport.json": "2e34df8c0fbe5dda626eb4d8a02583b6b2b36203c92ff39c0d2e7f89a612d848",
+      "initial-baseline-comparison.json": "546aa02ec2b6c8cb44548ff9fca012f956a4865e38673c8b38e68e04859640ce"
+    }
+  },
+  "private_driver_sha256": {
+    "wireless_powered_setup.py": "3aa5cde564091f904c1e2841037117184d2ef39c803886879d42df1dc643f08c",
+    "wireless_powered_desktop.py": "bf59591fcb7f53e448158d7b0ed816c409c93f928c7cb24b2c88b19e3d57256b",
+    "wireless_powered_proxy.py": "d2117855bfb064145eda39d3feede7d77d711f158e530b5e600e62232c80e1ff",
+    "wireless_powered_remote.py": "4163c95f95a942d216d6e792004da2251c001b8d9c5b759137a47b03d16f8b04",
+    "wireless_powered_exercise.py": "e506e20c749b881834d3a21d0b22fa47bb41c2a2ab2eec5b9cea583ae1b54463",
+    "wireless_powered_transport.py": "1b1b28ff60e5ac19f138de46e0448cdc64b331594707105891c39f95f4c2eeaa",
+    "wireless_powered_readiness.py": "ee6891df1549104f295dd31d8cb1c5c8ef33ccebe45e06cb57a5de08b525792d",
+    "wireless_powered_postflight.py": "0c1d0b2a7648ef59ef151d9d722ce011b564a4b794a3b04f10fc52d377238cd8",
+    "wireless_powered_guard_cleanup.py": "4b2d813020f51022ea7c85947fc9f0314bf759f946ca39df59a0f6340852e020",
+    "wireless_powered_failure_collect.py": "a2031e37e3c46f5cd0cc30c22395d18bc6855b5dc7418958824edc636c6fdda8",
+    "wireless_powered_failure_provider.py": "37d194b99af60354dbde64f4b0f863ea94b0bf156759db8d6cf864e74767e1e1",
+    "verify_wireless_powered_interruption.py": "cc9fb1af222c203c8bd06526b452eafba8347329a9c07a286375aeac148a3d1c",
+    "wireless_powered_retry_setup.py": "fd81da7c9acda5d390513c937032486ca2a98bf2eab433732f52496336be7b5e",
+    "wireless_powered_retry_desktop.py": "54f7ecc91f50be90bf8f0ff7fc849073498dda082fd914700149f888f4946ad8",
+    "wireless_powered_retry_proxy.py": "d6d1ba2abcdfb84a06d0bdae228c7ab9a87d3a9cc8b829b96f6d920dbf729aa8",
+    "wireless_powered_retry_remote.py": "a37e701058a37ea576428224f0ec9dc8ec5d8e704da7b04397434de4fe4d29ff",
+    "wireless_powered_retry_exercise.py": "a48cbfd0dd3d1886dcfebe95095b26e8309c76f052d0dcf678ee72d1f06f58ad",
+    "wireless_powered_retry_transport.py": "62675334e6f59a150966e93533b8c4a5c8e2012b6b4aa8dec731d2e8f7ee5242",
+    "wireless_powered_retry_readiness.py": "6598af51b36b094080ca2d2a2c772cf7898ffa605edef8c86ae041fbe09afc37",
+    "wireless_powered_retry_postflight.py": "f5fa2cd047877f645ae2c09ff98a0aa364597c8300d4064b02ff673b7f3eb5dd",
+    "wireless_powered_retry_deadline.py": "b2ea9bfd72dd6a5cce151892d03dcd6a319bbff64bd0cae7dbb0741c15ada53f",
+    "wireless_powered_retry_guard_cleanup.py": "c3f31bf7ac10c0fba26221a21e026df44d2c4d3a4d1a28779eb162b7218a3372",
+    "wireless_powered_retry_failure_collect.py": "8c3d9eb9c38827948202ff6e0a7b70b302199687f6b10c3976477811fb270fc2",
+    "wireless_powered_retry_failure_provider.py": "4d904185fdab534d3d552d0a54ec07b22457a55ee4a8326c234bbbb31e5c2c8c",
+    "verify_wireless_powered_retry_failure.py": "71801dd256ccc1cd82a9f3c80c934d538d1ccfaaa0d84509e7eeba0d960dc2a0",
+    "wireless_powered_retry_usb_restore.py": "b5367b7d1d862ceb5c41b8ee52fc5d0955b8b3b1cd77f455ad18fe66e960b0e7",
+    "measure_g14_transport.py": "db2caae2bb5d996fd2c38373716dc33e64cd56209f07e38d1856774fca44b42a",
+    "curate_wireless_powered_attempts.py": "2d9ec398098b99e519cf02518c969cead8dbd5de75a4756a31cd70fbd48ff47a",
+    "compare_g14_connections.py": "211cbcf4476cac7a71d8f25fc6bde1c85176d6664bde2a7e182f8a6482b58c51",
+    "refresh_development_tunnel.py": "49a575328cceada6d26c9a267f44627834141cb6ee37f7bdba6eb9e2d65a5d9b",
+    "refresh_development_tunnel_retry.py": "f7f1f3000f38e5828e49853fcdf44fc7a8ec1564e9b39da9f880f03f1927f624"
+  },
+  "shared_driver_sha256": {
+    "image_upload_observer.py": "531f543781613b126b2ed4f9eac24bd2924377ad39fe18f3af85565275d87423",
+    "cdp.cjs": "76ed4346e2594a57312bbb6fd1c43c82825ac7b2de78eee5f6801c7ebd28b87a",
+    "mounted-auth-driver.js": "01c2269595279917840d3099d55b9c1b2159548285c63f3123154466f8052897",
+    "lifecycle-network/provider-driver.js": "fbce02b7e93178afc038e184359d4fae554f6abea8396efe4b39732ddad966aa",
+    "lifecycle/provider-state.js": "371099fcf1a175feb3afe268e7dfaf27bb33fef66a372dc2a1460ef628f1784c",
+    "power_policy_enable.py": "e9c475997f080d6cc4da369d2f10c27d58a5ce456d063d3325f59df2c8bb1d6f",
+    "power_policy_verify.py": "d1c9865d2a0b0c1aa1fdc29fc9c327c0f3a2b7620473c28b37be87ef437e2f0a"
+  },
+  "private_policy_evidence_sha256": {
+    "policy-change.json": "88089cf1916fa69eb250721b58deafca79b266dfaf3dba6d30e5462af7237450",
+    "policy-ready.json": "15a78f78c6a3e460dc65241d9fbc93f61c459ef9c6708e3684043fc3e7ca6199",
+    "policy-final.xml": "20a0d4ba23fc21a1e33b3827eb4e9517d9a0d4b8bb8c4dd88a9ccd160ede4108",
+    "policy-final.png": "c8ff27522900096bc328a32990c106d52cde550ab9cddc536b5f98b73c1ae4c2",
+    "battery-mode-final.xml": "cf982f23355f0cb60338d410cd96e941662e8ac641ad7ffd630ad564550af9c5",
+    "enable-initial-driver.py": "f2f2227861dd6bd15fd9c9929beb81112aa1de679de5f70e074f21e67fd2cc60",
+    "enable-initial-error.txt": "11d97a821ac1d0009da6208c74853912e5481ecbc351e1432dbddb907ebe04f8",
+    "verify-initial-driver.py": "92e53163a40b2c437572b1b46d57e55f4f302149224fa777863e1a1874988ab1",
+    "verify-initial-error.txt": "96ad9ef309658f816b45229ae96c055e249fb7f493ff43fd67896c66b0c88a10"
+  },
+  "connection_comparison": {
+    "at_utc": "2026-10-14T18:21:18.425700+00:00",
+    "sequential_same_direction_comparison": true,
+    "training_stopped": true,
+    "records": [
+      {
+        "connection": "existing",
+        "bytes_requested": 10485760,
+        "seconds": 25.04451620799955,
+        "timeout_seconds": 25,
+        "completed": false
+      },
+      {
+        "connection": "fresh",
+        "bytes_requested": 10485760,
+        "seconds": 1.7524347080034204,
+        "exit_code": 0,
+        "completed": true
+      }
+    ]
+  },
+  "development_recovery": {
+    "old_owned_tunnel_replaced": true,
+    "api_and_metro_processes_preserved": true,
+    "actual_api_and_metro_responses": {
+      "8081": {
+        "status": 200,
+        "expected_body_verified": true
+      },
+      "8082": {
+        "status": 200,
+        "expected_body_verified": true
+      }
+    },
+    "training_requalification_repeated": false,
+    "initial_refresh_driver_error_rolled_back": true
+  },
+  "private_development_recovery_sha256": {
+    "paired-connection-transfer-check.json": "bb4fadcafdec26e09c034aabf3fd6b482d56a51b86bcec6e19171f940620c345",
+    "fresh-connection-transfer-check.json": "63e3113cd6abb0e5cb4454194bf97d09273fb1ba70e52f4b078c60886044ec90",
+    "successful-transport-refresh.json": "6e5c4fc30ef93584850537f7ffca5680db912406dfe88b47535bd02120a9b7d1",
+    "initial-refresh-rollback.json": "735c6cfe61344dc451655e434c50ffbdbb68f13b22f64fe9536861f585d4cb65",
+    "initial-refresh-launch.log": "4c13cf710f93f033daed1222aeb5c7e9dc8fd6b5adf7d28b7bf7ecec245ff7df",
+    "corrected-refresh-launch.log": "60eb327823388886f7f82e80ad204414d5acda27f671b6d43059a32fc0104168"
+  },
+  "attempt_artifact_sha256": {
+    "wireless-powered": {
+      "contract": "249d8c9ac627890ea25f07914f4e209a659c991774a2b5b9c68173e3e2374097",
+      "initial_npz": "f1f25b0eb7aebcebd3228cb53800b12c9feb33c166b859e4078d8981f65af30a",
+      "desktop_zip": "0b78ede069b937df804686c86b01d8dd9585561710c0e452b794d7d6754c4d64"
+    },
+    "wireless-powered-retry": {
+      "contract": "72966fccbf5c8ebd84e2a32f73e1fadb232e3aa3ca2bb4f44b313f34a0c229d9",
+      "initial_npz": "b9f9438be5677c6d82c27682d69b1c1bbb8cc1525fb7f3500aa08263cf3ff31e",
+      "desktop_zip": "0b78ede069b937df804686c86b01d8dd9585561710c0e452b794d7d6754c4d64"
+    }
+  },
+  "usb_restoration": null,
+  "cleanup_status": "AWAITING_PHYSICAL_USB_RECONNECTION",
+  "evidence_review": {
+    "read_only": true,
+    "material_findings": 0,
+    "new_bindings_verified": 135,
+    "historical_bindings_verified": 305,
+    "initial_state_contract_and_pte_hashes_verified": true,
+    "unfiltered_recorder_windows_verified": true,
+    "phone_upload_metadata_state_link_verified": true,
+    "heartbeat_request_ack_pairs_verified": true,
+    "minor_wording_corrected_to_acknowledgments": true,
+    "pending_usb_restoration_honestly_disclosed": true,
+    "physical_device_or_network_repeated": false,
+    "limits": "Phone/source/process absence and rollback/health checks accept retained session proofs. Review did not repeat device/network operations, physical training or numerical client replay."
+  }
+}

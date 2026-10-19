@@ -58,13 +58,15 @@ async function renderAndOpenProjectMenu() {
 describe('OwnerDashboard/ProjectCard — deletion routes by role (FE-2)', () => {
   beforeEach(() => {
     // Inert STOMP client so the dashboard never opens a real socket.
-    vi.mocked(StompClient).mockImplementation(() => ({
-      onConnect: null,
-      active: false,
-      activate: vi.fn(),
-      deactivate: vi.fn(),
-      subscribe: vi.fn(),
-    }) as unknown as InstanceType<typeof StompClient>);
+    vi.mocked(StompClient).mockImplementation(function () {
+      return {
+        onConnect: null,
+        active: false,
+        activate: vi.fn(),
+        deactivate: vi.fn(),
+        subscribe: vi.fn(),
+      } as unknown as InstanceType<typeof StompClient>;
+    });
     vi.mocked(api.fetchOwnedProjects).mockResolvedValue(resp([PROJECT]));
     vi.mocked(api.fetchProjectResults).mockResolvedValue(resp([]));
     // 204 ⇒ axios yields '' — the real isEmptyBody must read this as
