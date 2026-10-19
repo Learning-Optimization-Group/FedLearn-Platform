@@ -83,6 +83,76 @@ work before scaling to 1,000 clients or adding privacy/attacks. The next gate is
 a 1,000-client, two-round execution/cost check, explicitly distinct from a utility
 claim. Measure elapsed time and memory before expanding the matrix.
 
+## NIH manifest qualification — 19 October
+
+The source/manifest foundation is implemented. Preparation reads the original
+dataset without moving images and assigns the No Finding/any-finding label
+explicitly. A separate verification invocation reconstructs every declared split
+and client assignment; a separate CSV/metadata audit checks labels, complete row
+coverage, official-test membership and patient ownership against original inputs.
+
+| Split | Images | Patients | Finding images | Finding prevalence |
+| --- | ---: | ---: | ---: | ---: |
+| Training | 68,758 | 22,407 | 28,554 | 41.53% |
+| Validation | 17,766 | 5,601 | 7,470 | 42.05% |
+| Official test | 25,596 | 2,797 | 15,735 | 61.47% |
+
+Seed 42, 20% patient validation within patient-level any-finding strata, and ten
+whole-patient IID clients. Independent splits have zero patient/image overlap;
+clients are pairwise disjoint and their union is exactly training. Clients have
+2,240–2,241 patients but 6,492–7,244 images. Equal patient counts do not mean equal
+sample counts. The preparation records actual counts and source/manifest/assignment
+hashes; the initial assignment SHA-256 is
+`1f2979922e4ae5af7130c007603d9546d040015c8a516bde0b3b75b728bb8593`.
+
+**Practical consequence:** the majority class reverses between training/validation
+and official test. Do not silently balance evaluation or choose a new threshold on
+official test. Preserve prevalence, select thresholds on validation, and report
+discrimination, balanced accuracy, confusion counts and calibration. These are
+metadata findings, not evidence of classifier performance or a complete explanation
+of distribution shift. Test prevalence was inspected during this data audit,
+before the phase-two protocol; disclose that fact in the protocol.
+
+**Still unverified:** decoding/corruption and cross-split content duplication. The
+report explicitly says `image_content_verified: false`. Patient-ID checks do not
+establish content integrity, NIH learning or a privacy guarantee.
+
+From the capstone worktree, set `NIH_DATA_ROOT` to the existing dataset directory and
+`NIH_PREPARATION` to a fresh directory outside that dataset, then run:
+
+```bash
+export CAPSTONE_PYTHON="$(git rev-parse --git-common-dir)/../.venv/bin/python"
+export PYTHONPATH=framework/src:framework
+"$CAPSTONE_PYTHON" -m benchmarks.nih_data --data-root "$NIH_DATA_ROOT" \
+  --output "$NIH_PREPARATION" --clients 10 --validation-fraction 0.2 --seed 42
+"$CAPSTONE_PYTHON" -m benchmarks.nih_data --data-root "$NIH_DATA_ROOT" \
+  --output "$NIH_PREPARATION" --verify-only
+```
+
+Existing outputs are never overwritten. An interrupted output without a completed
+report refuses verification; choose a fresh output path. Keep real-data manifests
+and local qualification reports outside git.
+
+## Practical research outputs
+
+The capstone should produce evidence for project decisions, alongside the report:
+
+- Privacy settings: show the measured privacy/utility frontier and declared
+  client-level accounting assumptions; avoid presenting one epsilon as universally safe.
+- Robust aggregation: quantify attack resistance and clean-data cost under matched
+  clipping, cohort and privacy settings.
+- Head size: compare trainable dimensions on the same frozen representation so
+  backbone quality does not explain a claimed dimension effect.
+- Cohort size: distinguish reduced aggregate noise from changed per-client data,
+  communication cost and execution time. Simulated clients are not verified institutions.
+- Evaluation under shift: retain official prevalence and examine the transfer of a
+  validation-selected threshold; include patient-aware sensitivity checks because
+  repeated images per patient are uneven across splits.
+
+Expand experiments when a pilot or uncertainty requires them. Keep each resulting
+recommendation linked to configurations, uncertainty, measured costs and limits;
+avoid adding an unrestricted Cartesian experiment matrix.
+
 ## Protocol decisions to freeze
 
 - Primary cohort, rounds, local optimizer/steps, learning rate, clipping norm,

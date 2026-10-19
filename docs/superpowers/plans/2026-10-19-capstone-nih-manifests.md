@@ -8,7 +8,7 @@
 
 **Spec:** [NIH workload design](../specs/2026-10-18-capstone-nih-workload-design.md).
 
-**Execution:** Sequential implementation with a failing regression before each behavior change and verification after each task. This plan is ready for review; implementation has not started.
+**Execution:** Sequential implementation with a failing regression before each behavior change and verification after each task. Direct execution authorized on 19 October; progress and verification are recorded in the worktree execution ledger.
 
 ## Scope and global constraints
 
@@ -87,8 +87,8 @@ Targeted pytest examples below disable coverage aggregation; the final full-suit
 
 **Produces:** `NihSource` and `NihRow` as defined above. Patient IDs are canonical positive decimal strings; filenames must match ASCII `[0-9]{8}_[0-9]{3}\.png` and agree with the patient column.
 
-- [ ] Write a synthetic NIH fixture helper using `tmp_path`, `csv.DictWriter` and small PNGs. Include negative, positive and mixed-label patients; reserve separate patients for official test. No real patient records enter tests.
-- [ ] Add the first failing label-policy test:
+- [x] Write a synthetic NIH fixture helper using `tmp_path`, `csv.DictWriter` and small PNGs. Include negative, positive and mixed-label patients; reserve separate patients for official test. No real patient records enter tests.
+- [x] Add the first failing label-policy test:
 
 ```python
 def test_any_finding_is_positive_even_when_pneumonia_is_absent(nih_tree):
@@ -99,12 +99,12 @@ def test_any_finding_is_positive_even_when_pneumonia_is_absent(nih_tree):
     assert by_image["00000003_000.png"].label == 1  # Effusion|Pneumonia
 ```
 
-- [ ] Run `"$CAPSTONE_PYTHON" -m pytest -q -o addopts='' framework/tests/test_capstone_nih_data.py`; confirm the missing source implementation causes the expected failure.
-- [ ] Implement parsing with the 14 recognized findings from the NIH metadata. Read/hash the exact metadata/list bytes being parsed; accept a UTF-8 BOM in CSV headers. Reject duplicate required headers and malformed/missing fields.
-- [ ] Index relative PNG paths; reject duplicate basenames, non-files, resolved paths outside root and metadata/image mismatches. Preserve source data and do not decode images in this task.
-- [ ] Validate exact official list coverage and disjoint image/patient membership. Sort returned rows independently of input order.
-- [ ] Add parameterized refusals for `No Finding|Mass`, unknown labels, repeated findings, empty labels, duplicate metadata/list entries, bad patient IDs, missing/extra images, incomplete lists and official patient overlap. Add escaping-symlink and duplicate-directory cases.
-- [ ] Run the source tests, inspect the refusal reasons and confirm hashes match independently computed SHA-256 values. Commit only the module and tests with `feat(capstone): validate NIH finding labels and source identities`.
+- [x] Run `"$CAPSTONE_PYTHON" -m pytest -q -o addopts='' framework/tests/test_capstone_nih_data.py`; confirm the missing source implementation causes the expected failure.
+- [x] Implement parsing with the 14 recognized findings from the NIH metadata. Read/hash the exact metadata/list bytes being parsed; accept a UTF-8 BOM in CSV headers. Reject duplicate required headers and malformed/missing fields.
+- [x] Index relative PNG paths; reject duplicate basenames, non-files, resolved paths outside root and metadata/image mismatches. Preserve source data and do not decode images in this task.
+- [x] Validate exact official list coverage and disjoint image/patient membership. Sort returned rows independently of input order.
+- [x] Add parameterized refusals for `No Finding|Mass`, unknown labels, repeated findings, empty labels, duplicate metadata/list entries, bad patient IDs, missing/extra images, incomplete lists and official patient overlap. Add escaping-symlink and duplicate-directory cases.
+- [x] Run the source tests, inspect the refusal reasons and confirm hashes match independently computed SHA-256 values. Commit only the module and tests with `feat(capstone): validate NIH finding labels and source identities`.
 
 ## Task 2: Allocate complete patient groups to clients
 
@@ -114,7 +114,7 @@ def test_any_finding_is_positive_even_when_pneumonia_is_absent(nih_tree):
 
 **Produces:** Sorted int64 row-index arrays, one nonempty array per client. Groups are uniformly shuffled and divided by patient count; image counts and label distributions need not be balanced.
 
-- [ ] Add a failing test with uneven group sizes and repeated patients:
+- [x] Add a failing test with uneven group sizes and repeated patients:
 
 ```python
 def test_patient_iid_never_splits_groups_and_covers_every_row():
@@ -128,11 +128,11 @@ def test_patient_iid_never_splits_groups_and_covers_every_row():
             assert owner.setdefault(ids[i], client) == client
 ```
 
-- [ ] Run the new test and confirm it fails because the patient partitioner is absent.
-- [ ] Implement a sorted unique-patient list, a local `np.random.default_rng(seed)` permutation, `np.array_split` over whole patients, and a mapping back to original row indices. Require `num_clients <= number_of_patients`; do not repair empty clients by splitting a patient.
-- [ ] Test repeatability, seed dependence on a sufficiently large fixture, arbitrary row order, single-client behavior, exact-one-patient-per-client behavior, empty inputs and too many clients. Assert patient counts differ by at most one while uneven image counts are permitted.
-- [ ] Run `"$CAPSTONE_PYTHON" -m pytest -q -o addopts='' framework/tests/test_simulation_partition.py framework/tests/test_simulation_workloads.py framework/tests/test_engine_reproduces_capstone.py`. Existing row-based behavior and engine/harness parity must stay unchanged.
-- [ ] Commit with `feat(capstone): partition simulation rows by whole patients`.
+- [x] Run the new test and confirm it fails because the patient partitioner is absent.
+- [x] Implement a sorted unique-patient list, a local `np.random.default_rng(seed)` permutation, `np.array_split` over whole patients, and a mapping back to original row indices. Require `num_clients <= number_of_patients`; do not repair empty clients by splitting a patient.
+- [x] Test repeatability, seed dependence on a sufficiently large fixture, arbitrary row order, single-client behavior, exact-one-patient-per-client behavior, empty inputs and too many clients. Assert patient counts differ by at most one while uneven image counts are permitted.
+- [x] Run `"$CAPSTONE_PYTHON" -m pytest -q -o addopts='' framework/tests/test_simulation_partition.py framework/tests/test_simulation_workloads.py framework/tests/test_engine_reproduces_capstone.py`. Existing row-based behavior and engine/harness parity must stay unchanged.
+- [x] Commit with `feat(capstone): partition simulation rows by whole patients`.
 
 ## Task 3: Prepare, verify and exercise split/client manifests
 
