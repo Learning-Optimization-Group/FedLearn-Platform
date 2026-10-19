@@ -33,8 +33,9 @@ research commits and integrates this verified main baseline at `660576a`.
 - NIH metadata has 112,120 unique image IDs: 60,361 No Finding and 51,759 with
   findings. Official train/validation has 86,524 images from 28,008 patients;
   official test has 25,596 images from 2,797 patients. The lists cover metadata,
-  with zero image-ID or patient overlap. Image-content/corruption checks are still
-  required; metadata checks alone do not establish content integrity.
+  with zero image-ID or patient overlap. All images decode, but the later full-content audit found exact RGB overlap
+  across splits; the original cohort fails content qualification. Metadata checks
+  alone do not establish content integrity.
 - The existing workload repartitions feature rows and lacks patient ownership.
   The current feature-preparation CLI expects ImageFolder data. Setting its
   dataset label to `nih` does not implement an NIH loader.
@@ -66,7 +67,7 @@ official-test performance to select settings.
 The [first implementation plan](../../docs/superpowers/plans/2026-10-19-capstone-nih-manifests.md)
 is implemented and verified. It covers source validation, patient-separated manifests,
 whole-patient client allocation and independent verification. Feature extraction,
-content auditing and engine evaluation-split integration remain a later slice.
+engine evaluation-split integration and features remain later slices. The complete content audit is implemented; its failed cohort qualification requires explicit quarantine before extraction.
 
 After integrating main, 60 targeted workload/config/engine tests pass, with the
 synthetic scale test deselected; another 40 reproduction/strategy/behavior/privacy
@@ -74,7 +75,7 @@ tests pass. A fresh bounded comparison reproduces all eight stored cells from
 repetition 0 of `main_n80_eps1` exactly under torch 2.12.0. The original 160-cell
 torch 2.9.1 verification remains historical evidence; this new eight-cell check
 does not replace or expand its scope. The full integrated framework suite passes:
-1,632 tests, 14 deselected, 80.99% coverage after the NIH manifest slice, with unhandled thread exceptions
+1,664 tests, 14 deselected, 81.04% coverage after the NIH content-audit slice, with unhandled thread exceptions
 treated as errors. These checks do not establish NIH learning or content integrity.
 
 The first useful run is a small, no-DP/no-attack validation pilot with real NIH
@@ -113,9 +114,18 @@ metadata findings, not evidence of classifier performance or a complete explanat
 of distribution shift. Test prevalence was inspected during this data audit,
 before the phase-two protocol; disclose that fact in the protocol.
 
-**Still unverified:** decoding/corruption and cross-split content duplication. The
-report explicitly says `image_content_verified: false`. Patient-ID checks do not
-establish content integrity, NIH learning or a privacy guarantee.
+**Content audit result:** all 112,120 images decode, but three exact RGB-content
+groups cross independent splits. The original preparation report correctly remains
+`image_content_verified: false`; the separate completed audit is `qualified: false`.
+Across the complete cohort there are 25 RGB duplicate groups, eight crossing
+declared patient IDs and six with contradictory labels (categories overlap).
+A separate direct pixel/metadata check confirmed every reported group. See the
+[NIH audit](../../docs/artifacts/capstone/nih-data-audit-2026-10-19.md) for evidence
+and the [quarantine design](../../docs/superpowers/specs/2026-10-19-capstone-nih-cohort-curation-design.md)
+for the next gate. The proposed separate development cohort would exclude 111
+images from nine non-test patients, retaining the complete official test set.
+No source files or original manifests have been changed. Do not extract features
+from the failed original cohort or label it content-separated.
 
 From the capstone worktree, set `NIH_DATA_ROOT` to the existing dataset directory and
 `NIH_PREPARATION` to a fresh directory outside that dataset, then run:

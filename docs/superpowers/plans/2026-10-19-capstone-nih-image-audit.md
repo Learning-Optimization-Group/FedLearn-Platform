@@ -32,6 +32,7 @@
 ## File map and interfaces
 
 - Create `framework/benchmarks/nih_image_audit.py`: audit, full re-verification and CLI.
+- Create `framework/src/fedlearn/simulation/image_identity.py`: stable-import spawned reader accepting primitive dictionaries, independent of benchmark namespace collisions.
 - Create `framework/tests/test_capstone_nih_image_audit.py`: synthetic image and filesystem contracts.
 - Reuse the `nih_tree` fixture from `test_capstone_nih_data` through an explicit import; do not change the original fixture or parser.
 - Update `wikis/capstone/README.md` after real-data audit with counts, duplicate/failure status and remaining gates.
@@ -48,7 +49,7 @@ def main(argv: list[str] | None = None) -> None: ...
 
 ## Task 1: Implement and qualify the image audit
 
-- [ ] Write real-image tests first. The positive fixture has 24 unique RGB images and verified manifests. Assert all rows and source hashes, zero duplicates/failures, `qualified` true and identical rerun bytes.
+- [x] Write real-image tests first. The positive fixture has 24 unique RGB images and verified manifests. Assert all rows and source hashes, zero duplicates/failures, `qualified` true and identical rerun bytes.
 
 ```python
 def test_complete_audit_decodes_every_prepared_image(nih_tree, tmp_path):
@@ -60,14 +61,14 @@ def test_complete_audit_decodes_every_prepared_image(nih_tree, tmp_path):
     assert report["qualified"] is True
 ```
 
-- [ ] Add duplicate tests by copying an image into a different independent split and by re-encoding it with a PNG text chunk. Assert both byte-identical and pixel-identical collision groups, preserved output rows and false qualification. Test within-split groups separately; client CSV membership must not inflate counts.
-- [ ] Add corruption, PNG-format, animation, byte/pixel limit, refusal, source mutation, forged-payload and interrupted-write tests. Existing outputs contain a sentinel that must remain unchanged.
-- [ ] Run `PYTHONPATH=framework/src:framework <python> -m pytest -q -o addopts= framework/tests/test_capstone_nih_image_audit.py`. Expected RED: missing module/public functions before implementation.
-- [ ] Implement bounded PNG reading, SHA-256 over original bytes, RGB fingerprint over a versioned namespace plus dimensions and canonical RGB bytes. Use Pillow `verify` then reopen and `load`; refuse unexpected format/frames and oversized content before conversion. Build independent split identity from verified manifests. Do not scan client CSVs as independent splits.
-- [ ] Publish all deterministic payloads exclusively, then fsync/replace the report. Implement verification by recomputing fingerprints, duplicate groups and the report against current source; compare all file bytes and refuse extra/missing files. Provide `--data-root --preparation --output --verify-only --workers`; return nonzero if audit is unqualified while preserving completed failure evidence.
-- [ ] Run targeted NIH/partition/workload/reproduction checks and the full framework suite with coverage and unhandled thread exceptions treated as errors. Expected GREEN. Record counts and logs.
-- [ ] Run the audit on all 112,120 original NIH files into a new ignored output. Record elapsed time, counts, failures and exact duplicates. Independently inspect any groups against source files; do not change cohort policy merely to pass the audit.
-- [ ] Update the capstone plan with evidence and practical consequences. Commit as `feat(capstone): audit NIH image integrity before feature extraction`.
+- [x] Add duplicate tests by copying an image into a different independent split and by re-encoding it with a PNG text chunk. Assert both byte-identical and pixel-identical collision groups, preserved output rows and false qualification. Test within-split groups separately; client CSV membership must not inflate counts.
+- [x] Add corruption, PNG-format, animation, byte/pixel limit, refusal, source mutation, forged-payload and interrupted-write tests. Existing outputs contain a sentinel that must remain unchanged.
+- [x] Run `PYTHONPATH=framework/src:framework <python> -m pytest -q -o addopts= framework/tests/test_capstone_nih_image_audit.py`. Expected RED: missing module/public functions before implementation.
+- [x] Implement bounded PNG reading, SHA-256 over original bytes, RGB fingerprint over a versioned namespace plus dimensions and canonical RGB bytes. Use Pillow `verify` then reopen and `load`; refuse unexpected format/frames and oversized content before conversion. Build independent split identity from verified manifests. Do not scan client CSVs as independent splits.
+- [x] Publish all deterministic payloads exclusively, then fsync/replace the report. Implement verification by recomputing fingerprints, duplicate groups and the report against current source; compare all file bytes and refuse extra/missing files. Provide `--data-root --preparation --output --verify-only --workers`; return nonzero if audit is unqualified while preserving completed failure evidence.
+- [x] Run targeted NIH/partition/workload/reproduction checks and the full framework suite with coverage and unhandled thread exceptions treated as errors. Expected GREEN. Record counts and logs.
+- [x] Run the audit on all 112,120 original NIH files into a new ignored output. Record elapsed time, counts, failures and exact duplicates. Independently inspect any groups against source files; do not change cohort policy merely to pass the audit.
+- [x] Update the capstone plan with evidence and practical consequences. Commit as `feat(capstone): audit NIH image integrity before feature extraction`.
 
 ## Verification commands
 
