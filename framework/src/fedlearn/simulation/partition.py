@@ -9,7 +9,7 @@ Every partitioner here returns ``List[np.ndarray]`` of *index arrays into the da
 data — so a partitioner is independent of how the dataset is stored, is cheap to hold for
 thousands of clients, and can be recorded verbatim in a result's ``meta`` block.
 
-All four satisfy the same three-part contract, enforced by ``tests/test_simulation_partition.py``:
+All satisfy the same three-part contract, enforced by ``tests/test_simulation_partition.py``:
 
 * **complete** — the union of client index sets is exactly ``range(n_samples)``;
 * **disjoint** — no index is held by two clients;
@@ -22,6 +22,7 @@ of them and a result is only comparable to a paper that used the same one:
 partitioner                   how heterogeneity is controlled
 ============================  =========================================================
 ``iid_partition``             none — the IID control arm
+``patient_iid_partition``     IID over whole patients; patient counts, not image counts, are balanced
 ``dirichlet_partition``       ``alpha``: smaller is more skewed (the common modern default)
 ``shard_partition``           sort-and-shard; ``shards_per_client`` bounds classes per client
 ``pathological_partition``    exactly ``classes_per_client`` classes per client
@@ -31,11 +32,14 @@ partitioner                   how heterogeneity is controlled
 from __future__ import annotations
 
 from typing import Dict, List, Sequence
+from numbers import Integral
+import re
 
 import numpy as np
 
 __all__ = [
     "iid_partition",
+    "patient_iid_partition",
     "dirichlet_partition",
     "shard_partition",
     "pathological_partition",
@@ -74,6 +78,33 @@ def iid_partition(n_samples: int, num_clients: int, seed: int) -> List[np.ndarra
     rng = np.random.default_rng(seed)
     idx = rng.permutation(n_samples)
     return [np.sort(part) for part in np.array_split(idx, num_clients)]
+
+
+def patient_iid_partition(patient_ids: Sequence[str], num_clients: int, seed: int) -> List[np.ndarray]:
+    """Shuffle canonical positive-decimal patient IDs and keep each group intact.
+
+    Every client gets at least one patient. Patient counts differ by at most one;
+    image counts and label distributions can differ. Ownership is independent of
+    input row order, and returned sorted int64 indices address the original rows.
+    """
+    if isinstance(num_clients, bool) or not isinstance(num_clients, Integral) or num_clients < 1:
+        raise ValueError("num_clients must be a positive integer")
+    if isinstance(seed, bool) or not isinstance(seed, Integral) or seed < 0:
+        raise ValueError("seed must be a nonnegative integer")
+    ids = np.asarray(patient_ids, dtype=object)
+    if ids.ndim != 1 or ids.size == 0:
+        raise ValueError("patient_ids must be a nonempty one-dimensional sequence")
+    groups = {}
+    for index, patient in enumerate(ids):
+        if not isinstance(patient, str) or not re.fullmatch(r"[1-9][0-9]*", patient):
+            raise ValueError("patient IDs must be canonical positive decimal strings")
+        groups.setdefault(patient, []).append(index)
+    if num_clients > len(groups):
+        raise ValueError(f"{num_clients} clients exceed {len(groups)} patients")
+    ordered = np.asarray(sorted(groups), dtype=object)
+    np.random.default_rng(int(seed)).shuffle(ordered)
+    return [np.sort(np.concatenate([np.asarray(groups[p], dtype=np.int64) for p in chunk]))
+            for chunk in np.array_split(ordered, int(num_clients))]
 
 
 # --------------------------------------------------------------------------------------

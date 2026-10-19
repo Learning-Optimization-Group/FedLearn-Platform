@@ -29,6 +29,7 @@ from fedlearn.simulation.partition import (
     pathological_partition,
     shard_partition,
     partition_report,
+    patient_iid_partition,
 )
 
 
@@ -65,6 +66,68 @@ def _mean_max_class_share(parts, labels, n_classes):
         counts = np.bincount(labels[np.asarray(p, dtype=np.int64)], minlength=n_classes)
         shares.append(counts.max() / counts.sum())
     return float(np.mean(shares))
+
+
+class TestPatientIidPartition:
+    def test_preserves_groups_and_exact_row_coverage(self):
+        ids = ["1", "1", "1", "2", "3", "3", "4", "5", "5", "6"]
+        parts = patient_iid_partition(ids, num_clients=3, seed=42)
+        _assert_partition_valid(parts, len(ids))
+        owner = {}
+        for client, indices in enumerate(parts):
+            assert len(indices) > 0 and indices.dtype == np.int64
+            assert np.array_equal(indices, np.sort(indices))
+            for index in indices:
+                assert owner.setdefault(ids[index], client) == client
+        assert set(owner) == set(ids)
+        assert all(len({ids[i] for i in part}) == 2 for part in parts)
+
+    def test_patient_counts_are_balanced_without_splitting_large_patients(self):
+        ids = ["1"] * 100 + [str(p) for p in range(2, 12)]
+        parts = patient_iid_partition(ids, num_clients=3, seed=9)
+        counts = [len({ids[i] for i in part}) for part in parts]
+        assert max(counts) - min(counts) == 1
+        assert sum(any(ids[i] == "1" for i in part) for part in parts) == 1
+        assert max(map(len, parts)) >= 100 and min(map(len, parts)) < 10
+
+    def test_seed_and_row_order_have_declared_effects(self):
+        ids = [str(p) for p in range(1, 21) for _ in range(p % 3 + 1)]
+
+        def owners(rows, seed):
+            return {rows[i]: cid for cid, part in enumerate(patient_iid_partition(rows, 4, seed)) for i in part}
+
+        assert owners(ids, 7) == owners(ids, 7)
+        assert owners(ids, 7) == owners(list(reversed(ids)), 7)
+        assert owners(ids, 7) != owners(ids, 8)
+
+    def test_single_client_and_one_patient_per_client(self):
+        ids = ["2", "1", "2", "3", "1"]
+        assert patient_iid_partition(ids, 1, 0)[0].tolist() == list(range(5))
+        parts = patient_iid_partition(ids, 3, 0)
+        assert {tuple(sorted({ids[i] for i in part})) for part in parts} == {("1",), ("2",), ("3",)}
+
+    @pytest.mark.parametrize("ids", [[], [None], [""], [" "], ["01"], ["0"], ["-1"],
+                                          ["1", 1], [["1"]], "123"])
+    def test_missing_or_noncanonical_patient_ids_refuse(self, ids):
+        with pytest.raises(ValueError, match="patient"):
+            patient_iid_partition(ids, 1, 42)
+
+    @pytest.mark.parametrize("clients,seed", [(0, 42), (-1, 42), (True, 42), (1.0, 42),
+                                              (1, True), (1, -1), (1, 1.0)])
+    def test_invalid_counts_and_seeds_refuse(self, clients, seed):
+        with pytest.raises(ValueError):
+            patient_iid_partition(["1", "2"], clients, seed)
+
+    def test_more_clients_than_patients_refuses_even_with_many_images(self):
+        with pytest.raises(ValueError, match="patients"):
+            patient_iid_partition(["1"] * 100, 2, 42)
+
+    def test_global_random_state_is_unchanged(self):
+        before = np.random.get_state()
+        patient_iid_partition(["1", "2", "3"], 2, 42)
+        after = np.random.get_state()
+        assert before[0] == after[0] and np.array_equal(before[1], after[1])
+        assert before[2:] == after[2:]
 
 
 # --------------------------------------------------------------------------------------
