@@ -140,6 +140,8 @@ def _validate(r: Dict[str, Any]) -> None:
     wl, fed, cl, sv, pv = r["workload"], r["federation"], r["client"], r["server"], r["privacy"]
     nih = wl["dataset"] == "nih"
     if nih:
+        _require(wl["auc_score"] in ("probability_v1", "margin_v2"), "workload.auc_score",
+                 "must be 'probability_v1' or 'margin_v2'")
         _require(wl["evaluation_split"] in ("validation", "test"), "workload.evaluation_split",
                  "NIH requires an explicit validation or test evaluation split")
         _require(isinstance(wl["features_report_sha256"], str)
@@ -213,7 +215,7 @@ def resolve(cfg: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(workload, dict) and workload.get("dataset") == "nih":
         defaults = copy.deepcopy(DEFAULTS)
         defaults["workload"].update(features_report_sha256=None, evaluation_split=None,
-                                     allow_random_features=False)
+                                     allow_random_features=False, auc_score="margin_v2")
     out = _merge(defaults, {k: v for k, v in cfg.items() if k != "matrix"}, "")
     fed = out["federation"]
     if fed["clients_per_round"] is None:

@@ -1,10 +1,14 @@
 # Explicit NIH evaluation and patient-preserving simulation plan
 
-Status: both tasks implemented and exercised; final whole-slice review pending.
-Full suite:1,787passes,14deselected,81.21%coverage. All11pilot cells/102rounds and
+Status: both tasks implemented and exercised; whole-slice review complete. Its
+Important probability-saturation defect is fixed by versioned NIH margin scoring
+and explicit v1 compatibility;1799full-suite passes,14deselected,81.26%coverage.
+The source-identity hardening minor is deferred before confirmatory execution.
+All11pilot cells/102rounds and
 the separate three-replay score diagnostic independently verified. The pilot
-exposed poor calibration and a real probability-saturation AUROC defect; these
-are study-readiness blockers, not reasons to discard or edit v1 results. See the
+exposed poor calibration and a real probability-saturation AUROC defect. Scoring
+is corrected prospectively; optimization remains a study-readiness blocker,
+not a reason to discard or edit v1 results. See the
 [report](../../artifacts/capstone/nih-validation-pilot-v1-report.md). The preceding
 frozen-feature slice passed complete qualification and review.
 

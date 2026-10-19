@@ -111,6 +111,9 @@ class FeatureHeadWorkload:
     def trigger_rows(self, idx: torch.Tensor) -> Optional[torch.Tensor]:
         return self.trigger_train_x[idx] if self.trigger_train_x is not None else None
 
+    def _metrics(self, logits: torch.Tensor, labels: torch.Tensor):
+        return classification_metrics(logits, labels)
+
     def evaluate_fn(self, backdoor_target: Optional[int] = None) -> Callable:
         model = self.build_model()
 
@@ -120,7 +123,7 @@ class FeatureHeadWorkload:
             with torch.no_grad():
                 logits = model(self.test_x)
                 trig = model(self.trigger_test_x) if (backdoor_target is not None and self.has_trigger) else None
-            out = classification_metrics(logits, self.test_y)
+            out = self._metrics(logits, self.test_y)
             out["backdoor_success"] = (backdoor_success(trig, self.test_y, backdoor_target)
                                        if trig is not None else None)
             # SimulatedFederation's RoundRecord applies float() to every metric, so a metric that
@@ -145,6 +148,7 @@ class NihFeatureHeadWorkload(FeatureHeadWorkload):
 
     def __init__(self, resolved: dict):
         wl, fed = resolved["workload"], resolved["federation"]
+        self.auc_score = wl["auc_score"]
         cache = load_nih_cache(wl["features_path"], expected_report_sha256=wl["features_report_sha256"])
         report = cache["provenance"]
         if not report["pretrained"] and not wl["allow_random_features"]:
@@ -172,6 +176,9 @@ class NihFeatureHeadWorkload(FeatureHeadWorkload):
             assignments.append({"client_id": cid, "image_ids": [self.train_image_ids[i] for i in indices]})
         assignment = {"algorithm": "nih-client-assignment-v1", "clients": assignments}
         self.info = {
+            "auc_score": self.auc_score,
+            "auc_score_definition": ("float64(logit_1)-float64(logit_0)" if self.auc_score == "margin_v2"
+                                     else "softmax(logits)[:,1] in model dtype"),
             "dataset": "nih", "source_dataset": report["dataset"], "backbone": report["backbone"],
             "training_device": str(self.train_x.device), "torch_num_threads": torch.get_num_threads(),
             "pretrained": report["pretrained"], "allow_random_features": wl["allow_random_features"],
@@ -185,3 +192,6 @@ class NihFeatureHeadWorkload(FeatureHeadWorkload):
             "assignment_sha256": hashlib.sha256(json_bytes(assignment)).hexdigest(),
             "assignment_version": "nih-client-assignment-v1",
         }
+
+    def _metrics(self, logits: torch.Tensor, labels: torch.Tensor):
+        return classification_metrics(logits, labels, auc_score=self.auc_score)

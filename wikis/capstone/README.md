@@ -286,9 +286,15 @@ matched original final model digests and every ten-round utility metric. In pool
 LR 0.1, 15,729 of 17,763 probabilities saturated at exactly 1: probability AUROC
 0.564571 versus decision-margin AUROC 0.718015 on identical logits. The selected
 federated case's scoring difference was negligible; its poor calibration remains
-real. Explicit stable scoring and a bounded optimization/conditioning diagnostic
-are now higher priority than the privacy/attack matrix. Preserve v1 and all earlier
-records unchanged; historical impact outside these replays is unknown.
+real. NIH now defaults to versioned `margin_v2` scoring and retains
+`auc_probability` as a diagnostic. Explicit `probability_v1` preserves v1's metric
+semantics; original records and source-locked configs remain unchanged. All three
+saved real-logit comparisons exactly match the independent margin calculations,
+with unchanged loss, predictions and calibration. Kermany defaults/hashes and
+numerical reproduction checks are unchanged. Historical impact outside these
+replays is unknown. A bounded optimization diagnostic remains higher priority
+than the privacy/attack matrix. Before confirmatory execution, harden source
+identity beyond the exploratory runner's HEAD-only check.
 
 The 1,000-client/two-round execution check completed in 7.063 seconds end-to-end
 (3.560 seconds inside simulation), peak process RSS 735,051,776 bytes. This is a

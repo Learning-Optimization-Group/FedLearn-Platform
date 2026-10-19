@@ -26,6 +26,7 @@ def _config(name, cache, pin, clients, lr, *, seed=BASE_SEED, rounds=10, clip=No
     return resolve({"name": name, "seed": seed,
         "workload": {"dataset": "nih", "features_path": str(cache), "features_report_sha256": pin,
                      "evaluation_split": "validation", "balance": False, "allow_random_features": False,
+                     "auc_score": "probability_v1",
                      "head": {"type": "linear"}},
         "federation": {"num_clients": clients, "rounds": rounds, "partition": {"type": "patient_iid"}},
         "client": {"local_epochs": 3, "lr": lr, "batch_size": 256},

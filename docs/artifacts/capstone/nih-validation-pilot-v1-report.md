@@ -122,11 +122,20 @@ predictions or confidence.
 
 Binary decision values are an accepted AUROC input in the
 [scikit-learn documentation](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html).
-The next scoring version should use the double-precision difference
-`logit_1 - logit_0`, retain probability AUROC as a labelled diagnostic if useful,
-and preserve historical behavior behind an explicit compatibility path. Do not
-silently rewrite v1 or earlier Milestone 2 records. The historical magnitude of
-this issue is unknown without their logits or controlled replays.
+The reviewed correction now defaults NIH to `workload.auc_score = "margin_v2"`:
+`float64(logit_1) - float64(logit_0)` is the primary AUROC score. Each round also
+retains the original probability ranking as `auc_probability`; config and workload
+metadata bind the score version and definition. Loss, predictions and calibration
+are unchanged. The corrected function matched all three independent replay
+margin calculations exactly, without retraining or evaluating official test.
+
+Explicit `probability_v1` preserves the historical metric calculation and omits
+the extra diagnostic field. The v1 pilot runner now requests that mode explicitly.
+Its old records/configs remain immutable and reproduce under their recorded source
+commit `27e10bb`; newly resolved NIH configs include the version and therefore have
+new hashes. Kermany defaults, config hashes and numerical anchors are unchanged.
+The historical magnitude outside these three replays remains unknown without
+their logits or controlled replays. No v1 or Milestone 2 record is rewritten.
 
 ## Execution costs and practical consequences
 
@@ -162,8 +171,14 @@ Practical outputs for FedLearn so far:
 5. **Keep research logs separate from protected deployment releases.** The
    [output audit](privacy-output-boundary-audit.md) remains a release-design gate.
 
-Next: explicitly version stable NIH scoring with unchanged legacy anchors, then
-freeze a bounded optimization/conditioning diagnostic with loss/calibration
+Next: freeze a bounded optimization/conditioning diagnostic with loss/calibration
 criteria before launching it. Any normalization must preserve row ownership and
 avoid silently fitting shared statistics on private client data. Confirmatory
 privacy/robustness runs and official-test inspection remain on hold.
+
+For a future confirmatory runner, require a clean fixed source tree or bind the
+actual executed source bytes throughout the run. The exploratory runner currently
+checks HEAD equality, which alone cannot detect uncommitted edits. No such edit
+was observed in these committed pilot runs; the three diagnostic replays also
+verified source-byte identity. Hardening that general runner is deferred and is
+a gate before confirmatory execution.

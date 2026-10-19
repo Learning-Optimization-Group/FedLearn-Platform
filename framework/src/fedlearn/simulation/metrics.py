@@ -28,7 +28,12 @@ def binary_auc(scores: torch.Tensor, labels: torch.Tensor) -> Optional[float]:
     return (rank_pos - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg)
 
 
-def classification_metrics(logits: torch.Tensor, labels: torch.Tensor, bins: int = 10) -> Dict[str, Optional[float]]:
+def classification_metrics(logits: torch.Tensor, labels: torch.Tensor, bins: int = 10,
+                           *, auc_score: str = "probability_v1") -> Dict[str, Optional[float]]:
+    if auc_score not in ("probability_v1", "margin_v2"):
+        raise ValueError("unknown AUROC score version")
+    if auc_score == "margin_v2" and logits.shape[1] != 2:
+        raise ValueError("margin_v2 requires binary logits")
     probs = torch.softmax(logits, dim=1)
     preds = logits.argmax(1)
     out: Dict[str, Optional[float]] = {
@@ -37,7 +42,14 @@ def classification_metrics(logits: torch.Tensor, labels: torch.Tensor, bins: int
         "auc": None, "sensitivity": None, "specificity": None, "balanced_accuracy": None,
     }
     if logits.shape[1] == 2:
-        out["auc"] = binary_auc(probs[:, 1], labels)
+        if auc_score == "margin_v2":
+            # Convert before subtraction; float32 softmax can collapse distinct ranks.
+            cpu_logits = logits.detach().to(device="cpu", dtype=torch.float64)
+            cpu_labels = labels.detach().cpu()
+            out["auc"] = binary_auc(cpu_logits[:, 1] - cpu_logits[:, 0], cpu_labels)
+            out["auc_probability"] = binary_auc(probs[:, 1].detach().cpu(), cpu_labels)
+        else:
+            out["auc"] = binary_auc(probs[:, 1], labels)
         pos, neg = labels == 1, labels == 0
         sens = (preds[pos] == 1).float().mean().item() if pos.any() else None
         spec = (preds[neg] == 0).float().mean().item() if neg.any() else None

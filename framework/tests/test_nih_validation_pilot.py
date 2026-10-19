@@ -39,6 +39,7 @@ def test_exact_initial_and_conditional_cells_preserve_protocol():
     for c in initial + follow:
         assert c["workload"]["evaluation_split"] == "validation" and c["workload"]["balance"] is False
         assert c["workload"]["allow_random_features"] is False and c["privacy"]["mode"] == "none"
+        assert c["workload"]["auc_score"] == "probability_v1"
         assert c["client"]["batch_size"] == 256 and c["client"]["local_epochs"] == 3
         assert not c["behaviors"]
     with pytest.raises(ValueError):

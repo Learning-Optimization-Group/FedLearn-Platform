@@ -268,6 +268,8 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
             "updates": extra.get("updates"),
             "refusal": refusal,
         }
+        if r["workload"].get("auc_score") == "margin_v2":
+            line["auc_probability"] = None if refusal is not None else m.get("auc_probability")
         lines.append(line)
         if on_round is not None:
             on_round(line)
