@@ -36,9 +36,10 @@ research commits and integrates this verified main baseline at `660576a`.
   with zero image-ID or patient overlap. All images decode, but the later full-content audit found exact RGB overlap
   across splits; the original cohort fails content qualification. Metadata checks
   alone do not establish content integrity.
-- The existing workload repartitions feature rows and lacks patient ownership.
-  The current feature-preparation CLI expects ImageFolder data. Setting its
-  dataset label to `nih` does not implement an NIH loader.
+- The existing engine workload repartitions feature rows and lacks patient ownership.
+  Its legacy feature CLI expects ImageFolder data. A separate NIH cache command
+  is now implemented; explicit engine integration remains outstanding. Setting
+  the legacy dataset label to `nih` does not implement that integration.
 
 ## Schedule and completion gates
 
@@ -75,7 +76,7 @@ tests pass. A fresh bounded comparison reproduces all eight stored cells from
 repetition 0 of `main_n80_eps1` exactly under torch 2.12.0. The original 160-cell
 torch 2.9.1 verification remains historical evidence; this new eight-cell check
 does not replace or expand its scope. The full integrated framework suite passes:
-1,695 tests, 14 deselected, 81.04% coverage after the NIH curated-cohort slice, with unhandled thread exceptions
+1,750 tests, 14 deselected, 81.09% coverage after the frozen-feature implementation, with unhandled thread exceptions
 treated as errors. These checks do not establish NIH learning or content integrity.
 
 The first useful run is a small, no-DP/no-attack validation pilot with real NIH
@@ -189,14 +190,48 @@ completed original audit. Keep `NIH_PREPARATION` pointing to the original manife
 
 Both commands require the full original source tree; verification rechecks the
 original audit and reconstructs the policy. There is no ignore/force flag.
-Frozen feature extraction, explicit engine split selection and useful learning
-remain unverified. The [feature plan](../../docs/superpowers/plans/2026-10-19-capstone-nih-frozen-features.md)
-now consumes this explicit cohort and keeps quarantined development rows out.
+Frozen feature extraction now consumes this explicit cohort and keeps quarantined
+development rows out. Explicit engine split selection and useful learning remain
+unverified. See the [feature plan](../../docs/superpowers/plans/2026-10-19-capstone-nih-frozen-features.md)
+and the qualification below.
 
 A private second-device checkpoint through `bf1c9cc`, including the curated
 cohort implementation, 98 NIH evidence files/source-metadata files and the retained
 1,021-file historical capstone archive, has been hash-verified after transfer.
 Raw NIH image files are not included. This is separate from branch publication.
+
+## Qualified NIH frozen features — 19 October
+
+The source-bound pretrained ResNet-18 cache is complete: **68,650 training, 17,763
+validation and 25,596 official-test vectors**, each 512 float32 values. Preparation
+freshly reverified the full audit/cohort and exited zero after 641.24 seconds on
+MPS (batch 64, four image/audit workers, four CPU threads). The cache is about
+228 MiB; the OS child maximum RSS excludes GPU allocation and whole-tree peak memory.
+
+Independent reload checked every retained label/identity against original metadata,
+unchanged official-test membership, all quarantined patients absent and disjoint
+patient ownership. A separately constructed model and direct MPS reference matched
+all 192 sampled feature vectors exactly within `rtol=1e-5, atol=1e-6`; no cross-device
+equality is claimed. **No official-test classifier performance has been inspected.**
+
+Feature report SHA-256:
+`6c9e6969c6fd762156ef2246323fbdbc5e9cb272c9910a8b1c9b691ab33783fd`.
+The [qualification note](../../docs/artifacts/capstone/nih-frozen-features-2026-10-19.md)
+records the actual model state, versions, integrity checks, measured cost and limits.
+
+For a fresh cache directory outside all source/evidence inputs:
+
+```bash
+"$CAPSTONE_PYTHON" -m benchmarks.prepare_nih_features --data-root "$NIH_DATA_ROOT" \
+  --original-preparation "$NIH_PREPARATION" --image-audit "$NIH_IMAGE_AUDIT" \
+  --curated-cohort "$NIH_CURATED_COHORT" --output "$NIH_FEATURE_CACHE" \
+  --device mps --batch-size 64 --image-workers 4 --audit-workers 4
+```
+
+Choose an explicitly available device; no silent fallback. Real caches/manifests
+stay private and ignored. The [next implementation plan](../../docs/superpowers/plans/2026-10-19-capstone-nih-engine-integration.md)
+requires an explicit evaluation split and pinned cache digest, whole-patient
+clients, unchanged legacy reproduction, and a bounded validation-only learning pilot.
 
 ## Practical research outputs
 
@@ -234,7 +269,7 @@ The [methods source register](../../docs/artifacts/capstone/phase-2-methods-sour
   confirmatory test evaluation; never choose a favorable intermediate round.
 - Exact cell list and repetitions, resource/time cap, stop/refusal criteria and
   reporting of incomplete/failed cells. Avoid an unrestricted Cartesian product.
-- Release scope must distinguish the privatized model trajectory from research diagnostics. The engine currently records pre-noise clipping/shrink statistics, raw-update summaries, training-based fairness and an initial upload digest. The model accountant does not establish privacy for that entire diagnostic record. Inventory/label those outputs before a public-export or production-privacy claim; retain original public-dataset research logs as evidence.
+- Release scope must distinguish a protected model release from research diagnostics and published randomness. The engine records the noise seed (also derived from public base seeds), pre-noise clipping/shrink statistics, raw-update summaries, training-based fairness and an initial upload digest. A [code-backed output audit](../../docs/artifacts/capstone/privacy-output-boundary-audit.md) inventories the paths and demonstrates seeded-noise reconstruction in one synthetic round. The current JSON has no raw model parameters; do not imply that seed disclosure alone exposes an aggregate from that JSON. The model accountant does not establish privacy for the entire diagnostic record or a future model released with reconstructible noise. Label research outputs accordingly, and design independently secret production randomness and an export allowlist before a deployment guarantee. Retain original public-dataset logs unchanged.
 - DP unit is a simulated client under replace-one adjacency. Patient-disjoint
   allocation does not by itself turn that into a patient-level DP guarantee.
   Keep the existing conservative no-subsampling-credit accounting explicit.
