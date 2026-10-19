@@ -1,6 +1,6 @@
 # NIH workload for capstone phase 2
 
-Date: 18 October 2026. Status: proposed for review before implementation.
+Date: 18 October 2026. Status: implementation authorized by the continuous-work instruction on 19 October 2026; manifests complete, remaining slices in progress.
 Parent plan: [current capstone plan](../../../wikis/capstone/README.md).
 
 ## Purpose

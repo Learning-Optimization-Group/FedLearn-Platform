@@ -64,7 +64,7 @@ pneumonia recipe, reuse its class mapping, overwrite an old feature cache or ins
 official-test performance to select settings.
 
 The [first implementation plan](../../docs/superpowers/plans/2026-10-19-capstone-nih-manifests.md)
-is ready for review. It covers source validation, patient-separated manifests,
+is implemented and verified. It covers source validation, patient-separated manifests,
 whole-patient client allocation and independent verification. Feature extraction,
 content auditing and engine evaluation-split integration remain a later slice.
 
@@ -74,7 +74,7 @@ tests pass. A fresh bounded comparison reproduces all eight stored cells from
 repetition 0 of `main_n80_eps1` exactly under torch 2.12.0. The original 160-cell
 torch 2.9.1 verification remains historical evidence; this new eight-cell check
 does not replace or expand its scope. The full integrated framework suite passes:
-1,542 tests, 14 deselected, 80.94% coverage, with unhandled thread exceptions
+1,632 tests, 14 deselected, 80.99% coverage after the NIH manifest slice, with unhandled thread exceptions
 treated as errors. These checks do not establish NIH learning or content integrity.
 
 The first useful run is a small, no-DP/no-attack validation pilot with real NIH
@@ -173,7 +173,7 @@ avoid adding an unrestricted Cartesian experiment matrix.
 
 The recommended head-size comparison holds frozen ResNet-18 features fixed and
 uses a linear head plus MLP hidden widths 8, 128 and 512: 1,026, 4,122, 65,922 and
-263,682 trainable parameters. This is awaiting the author's decision. A ResNet-50
+263,682 trainable parameters. This is the working comparison under the continuous-work mandate; freeze it in the prospective protocol after the pilot. A ResNet-50
 linear head has 4,098 parameters but also changes feature dimension/backbone;
 retain it only as a separately named representation comparison.
 

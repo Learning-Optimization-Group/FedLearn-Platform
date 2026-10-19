@@ -142,7 +142,7 @@ def test_patient_iid_never_splits_groups_and_covers_every_row():
 
 **Produces:** `train.csv`, `validation.csv`, `test.csv`, `client-0000.csv` through the requested client count, and `report.json`. CSV columns are `image_index,patient_id,image_path,label,findings`; labels remain numeric 0/1 and findings use the original validated pipe-delimited spelling. Rows are ordered by image ID.
 
-- [ ] Add a failing mixed-patient split test:
+- [x] Add a failing mixed-patient split test:
 
 ```python
 def test_split_membership_is_patient_disjoint_and_keeps_official_test(nih_tree):
@@ -156,22 +156,22 @@ def test_split_membership_is_patient_disjoint_and_keeps_official_test(nih_tree):
     assert {r.image_index for r in splits["train"] + splits["validation"]} == source.official_train
 ```
 
-- [ ] Stratify official train/validation patients by any positive image. Within each nonempty stratum, order by `(SHA256("capstone-nih-split-v1:{seed}:{patient_id}"), patient_id)`. Select `max(1, floor(n * fraction))` validation patients; refuse strata too small to retain both training and validation. Empty strata are allowed; report realized class counts rather than asserting image-level stratification.
-- [ ] Validate finite fraction strictly between zero and one, integer non-boolean seed/client count, nonempty train/validation and feasible whole-patient client allocation before creating output.
-- [ ] Reserve output with exclusive directory creation. Write CSV files, then publish a temporary report with `os.replace` as the completion marker. Existing outputs, including symlinks, must never be replaced; incomplete output without a complete report must never verify.
-- [ ] Record schema/preparation version, dataset/label definition, seed/fraction, split and allocation algorithm IDs, source hashes, manifest hashes, a canonical assignment digest, and actual image/patient/positive counts per split/client. Set `image_content_verified` to false and state the missing decoding/content-duplication checks.
-- [ ] Implement `verify_preparation` to require the report, verify hashes against source and CSV payloads, and compare reconstructed identities/labels/splits/client ownership against the declared deterministic settings. Unknown schema/algorithm IDs refuse.
-- [ ] Test same-settings byte repeatability in two fresh outputs, reordering invariance of membership, source/payload tampering, missing report, interruption before completion, existing output preservation and every invalid numerical setting. Independently assert the disjoint client union equals training exactly.
-- [ ] Add a CLI with `--data-root`, `--output`, `--clients` (default 10), `--validation-fraction` (default 0.2), `--seed` (default 42) and `--verify-only`. Verification does not create or modify output. CLI failures return nonzero with a useful error.
-- [ ] Run targeted tests, then the full framework suite with coverage and thread exceptions as errors:
+- [x] Stratify official train/validation patients by any positive image. Within each nonempty stratum, order by `(SHA256("capstone-nih-split-v1:{seed}:{patient_id}"), patient_id)`. Select `max(1, floor(n * fraction))` validation patients; refuse strata too small to retain both training and validation. Empty strata are allowed; report realized class counts rather than asserting image-level stratification.
+- [x] Validate finite fraction strictly between zero and one, integer non-boolean seed/client count, nonempty train/validation and feasible whole-patient client allocation before creating output.
+- [x] Reserve output with exclusive directory creation. Write CSV files, then publish a temporary report with `os.replace` as the completion marker. Existing outputs, including symlinks, must never be replaced; incomplete output without a complete report must never verify.
+- [x] Record schema/preparation version, dataset/label definition, seed/fraction, split and allocation algorithm IDs, source hashes, manifest hashes, a canonical assignment digest, and actual image/patient/positive counts per split/client. Set `image_content_verified` to false and state the missing decoding/content-duplication checks.
+- [x] Implement `verify_preparation` to require the report, verify hashes against source and CSV payloads, and compare reconstructed identities/labels/splits/client ownership against the declared deterministic settings. Unknown schema/algorithm IDs refuse.
+- [x] Test same-settings byte repeatability in two fresh outputs, reordering invariance of membership, source/payload tampering, missing report, interruption before completion, existing output preservation and every invalid numerical setting. Independently assert the disjoint client union equals training exactly.
+- [x] Add a CLI with `--data-root`, `--output`, `--clients` (default 10), `--validation-fraction` (default 0.2), `--seed` (default 42) and `--verify-only`. Verification does not create or modify output. CLI failures return nonzero with a useful error.
+- [x] Run targeted tests, then the full framework suite with coverage and thread exceptions as errors:
 
 ```bash
 cd framework
 PYTHONPATH=src "$CAPSTONE_PYTHON" -m pytest -q -W error::pytest.PytestUnhandledThreadExceptionWarning
 ```
 
-- [ ] Prepare the real NIH metadata into a fresh ignored directory under `.temp/`, using the existing repository dataset root. Run verification in a second invocation. Record counts, hashes, timing and content-audit limitations without opening test-set model performance or copying images.
-- [ ] Update the capstone guide with the verified preparation command/results and what remains. Keep generated manifests private/ignored. Commit source, tests and guide with `feat(capstone): prepare verifiable patient-separated NIH manifests`.
+- [x] Prepare the real NIH metadata into a fresh ignored directory under `.temp/`, using the existing repository dataset root. Run verification in a second invocation. Record counts, hashes, timing and content-audit limitations without opening test-set model performance or copying images.
+- [x] Update the capstone guide with the verified preparation command/results and what remains. Keep generated manifests private/ignored. Commit source, tests and guide with `feat(capstone): prepare verifiable patient-separated NIH manifests`.
 
 ## Completion and next boundary
 
