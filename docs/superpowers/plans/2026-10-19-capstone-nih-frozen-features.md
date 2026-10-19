@@ -1,6 +1,6 @@
 # NIH frozen feature cache implementation plan
 
-Status: implemented and qualified on the full curated cohort; final whole-slice review pending. The original failed audit remains unchanged. See the [qualification note](../../artifacts/capstone/nih-frozen-features-2026-10-19.md) for actual counts, identities and limits.
+Status: implemented, qualified on the full curated cohort and reviewed with no blocking findings. Deferred minor: the loader does not strictly validate the recorded library-version map; the real cache has complete versions and its pinned report identity is verified. The original failed audit remains unchanged. See the [qualification note](../../artifacts/capstone/nih-frozen-features-2026-10-19.md) for actual counts, identities and limits.
 
 **Goal:** Create a source-bound, independently loadable frozen ResNet-18 cache for the verified patient-separated NIH cohort without examining test performance.
 

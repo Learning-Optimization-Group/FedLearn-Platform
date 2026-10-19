@@ -115,3 +115,10 @@ This sample equality is not a claim of cross-device or cross-version equality.
 The private cache, exact manifests, execution log, independent audit and source
 metadata remain outside git. The checked-in code, aggregate findings and report
 identity define the reproducible preparation contract.
+
+Final review found no blocking issue. One minor validation gap is deferred: the
+loader does not require the recorded library-version map to have all four keys
+with nonempty string values. This qualified cache has the complete valid map, and
+its pinned digest detects any changed report. A future hardening change should
+reject malformed version provenance without requiring the reader's installed
+versions to equal those recorded by preparation.
