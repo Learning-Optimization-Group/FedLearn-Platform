@@ -301,6 +301,35 @@ The 1,000-client/two-round execution check completed in 7.063 seconds end-to-end
 sequential CPU tiny-head simulator over cached features, not 1,000 physical devices,
 CNN training, convergence or deployment latency. Large-head costs remain unmeasured.
 
+## Optimization pilot v2 — 19 October
+
+The [separately frozen v2 budget](../../docs/artifacts/capstone/nih-optimization-pilot-v2-protocol.md)
+ran six initial cells and 120 rounds in 50.496 seconds. All execution/source/cache
+checks qualified, but no eighty-client case passed the joint ranking, balanced
+accuracy, loss and ECE gates. The four conditional repeat/clipping cases remained
+explicitly unrun; no LR was selected. Preserve this planned negative result.
+
+The [report and all six curves](../../docs/artifacts/capstone/nih-optimization-pilot-v2-report.md)
+show a useful ten-client LR 0.003 candidate: AUROC 0.705962, loss 0.618022,
+balanced accuracy 0.628419 and ECE 0.007593, in one seed only. Its sensitivity
+0.425301 is not a clinical-quality result. Ranking alone would again prefer
+overconfident LR 0.01. The eighty-client LR 0.003 is less overconfident but weak
+(AUROC 0.640542); it does not justify starting the privacy/attack matrix yet.
+
+The smaller shards give 3–5 local SGD steps per client/round at eighty clients,
+versus 26–30 at ten, despite the same nominal image passes. Total minibatch calls
+increase, so the confound is the local trajectory/averaging schedule, not simply
+less total computation. Next freeze a bounded LR 0.003 schedule probe: eighty
+clients at seven local epochs/twenty rounds versus one epoch/140 rounds. Keep
+all v2 results unchanged and test this hypothesis before more feature tuning.
+
+The reviewed runner enforces the fixed cache pin and isolated child source
+origins/byte fingerprints; a separate checker independently verified all records,
+140 source/protocol fingerprints, assignments, counts and the failed selection
+gate. Full framework:1,817passed,14deselected,81.26%coverage. Deferred minor:
+source-check/control overhead can exceed a strict global wall deadline; actual
+v2 execution is far below its 1,800-second cap. Official-test performance is unseen.
+
 ## Practical research outputs
 
 The capstone should produce evidence for project decisions, alongside the report:
