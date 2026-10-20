@@ -29,7 +29,9 @@ end-to-end research log or 1,000 physical-client deployment.
 | R1 | Float32 probability saturation can materially understate binary AUROC | [V1 pilot and three source-locked logit replays](nih-validation-pilot-v1-report.md); pooled high-LR gap0.153445 | Historical magnitude outside three replays unknown; preserve old records, use versioned margins prospectively |
 | R2 | Highest AUROC can select a poor confidence/threshold operating point | [V1](nih-validation-pilot-v1-report.md) and [v2](nih-optimization-pilot-v2-report.md), all cases/curves | ECE is a ten-bin aggregate diagnostic, not clinical or subgroup calibration |
 | R3 | Ten-client LR0.003 is a one-seed stable candidate under the v2 research gates; eighty-client v2 gate failed | [V2 report](nih-optimization-pilot-v2-report.md), independent records/config/source/assignment reconciliation | No selected eighty-client LR; no v2 repeats/clipping follow-ons; no clinical readiness |
-| R4 | Client-count comparisons change local minibatch trajectories even with the same nominal image passes | [V2 step-budget audit and report](nih-optimization-pilot-v2-report.md):26–30 versus3–5 steps/client/round | Not proof this alone causes utility loss; [prospective v3 schedule probe](nih-schedule-pilot-v3-protocol.md) tests the hypothesis |
+| R4 | Client-count comparisons change local minibatch trajectories even with the same nominal image passes | [V2 step-budget audit and report](nih-optimization-pilot-v2-report.md):26–30 versus3–5 steps/client/round | Not proof this alone causes utility loss; the separately frozen v3 probe supplies later evidence |
+| R5 | Eighty-client E7/R20 schedule passes across three declared seeds; matched-exposure E1/R140 gives similar validation utility with seven times the modeled payload | [V3 report](nih-schedule-pilot-v3-report.md), six independently reconciled cells/240rounds, source proofs and cost/clipping audit | Exploratory, no clinical/DP/attack claim; shuffle streams and local trajectories differ; modeled payload is not physical traffic |
+| R6 | A raw-honest-update IPM oracle can invalidate reuse of a single-final-upload sensitivity bound through the upstream pipeline | [Attack-knowledge audit](attack-knowledge-privacy-boundary-audit.md), production-code scalar counterexample and fixed-attacker control | No demonstrated NIH data-neighbor breach, ALIE/trimmed-mean bound violation or replacement-noise theorem; enforce accepted-set and permitted-information conditions before the core study |
 | C1 | A1,000-client/two-round tiny-head NIH simulation executed in7.063s end-to-end | [V1 cost check](nih-validation-pilot-v1-report.md) with actual counts, CPU/RSS scope | Execution only; not convergence, clinical validity, physical-device latency or large-head performance |
 | P1 | Current diagnostic JSON is a research record, not a DP-safe deployment export | [Output-boundary audit](privacy-output-boundary-audit.md), seeded-noise reconstruction proof | Model accountant alone does not protect disclosed randomness/pre-noise diagnostics or patient identity |
 | H1 | Fixed512-feature heads contain1,026/4,122/65,922/263,682 trainable parameters | Current plan and model construction tests | Capacity/optimization change with width; measure cost and match each head's no-DP baseline |
@@ -37,8 +39,9 @@ end-to-end research log or 1,000 physical-client deployment.
 
 ## Conclusions still requiring evidence
 
-- A stable selected core NIH schedule across the declared seed repeats, and the
-  clean clipping/aggregation behavior needed to interpret the matrix.
+- The selected core NIH schedule now passes all three declared seed gates, and
+  clean clipped mean/trimmed mean pass in the base seed. Confirmatory privacy and
+  attack contrasts remain unrun; these checks do not substitute for them.
 - A bounded larger-head runtime/memory qualification, including failure/stop
   handling. Tiny-head execution cannot support a large-head cost claim.
 - A frozen confirmatory hypothesis, primary endpoint/contrast, exact matched

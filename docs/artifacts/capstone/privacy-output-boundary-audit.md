@@ -86,3 +86,10 @@ The capstone can still compare utility under fixed seeded research mechanisms.
 Those empirical curves and the production release guarantee are different outputs.
 The immediate project recommendation is to make the research/deployment boundary
 visible, rather than equating the presence of an epsilon field with private logs.
+
+The separate [attack-knowledge audit](attack-knowledge-privacy-boundary-audit.md)
+adds an upstream accounting gate: IPM/ALIE consume raw honest updates, so one
+raw-client change can affect multiple attacker uploads. A protected output
+allowlist and secret randomness do not establish that pipeline's one-upload
+sensitivity premise. Keep oracle stress-test utility separate from a justified
+end-to-end honest-client mechanism/release claim.

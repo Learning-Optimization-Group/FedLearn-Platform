@@ -13,7 +13,7 @@ gates and an eight-page working outline. It is not a finished final report.
 
 Study how client-level differential privacy, robust aggregation, adversarial
 clients and trainable head size interact in a reproducible federated simulation.
-The next dataset is NIH ChestX-ray14 with **0 = No Finding** and **1 = any of the
+The current dataset is NIH ChestX-ray14 with **0 = No Finding** and **1 = any of the
 listed findings**. These are report-derived labels, not verified clinical diagnoses.
 Pneumonia-only results from the mobile project answer a different task.
 
@@ -63,7 +63,7 @@ runs rather than mislabeling their status. Advisor title approval remains open;
 the [title/scope message](../../docs/artifacts/capstone/advisor-title-confirmation-draft.md)
 is drafted for review and has not been sent. The working title is not approved.
 
-## Next work: NIH adapter
+## NIH adapter and historical integration checks
 
 The [NIH workload design](../../docs/superpowers/specs/2026-10-18-capstone-nih-workload-design.md)
 defines the proposed implementation boundary and acceptance checks. Preserve the
@@ -73,8 +73,8 @@ official-test performance to select settings.
 
 The [first implementation plan](../../docs/superpowers/plans/2026-10-19-capstone-nih-manifests.md)
 is implemented and verified. It covers source validation, patient-separated manifests,
-whole-patient client allocation and independent verification. Feature extraction,
-engine integration and feature extraction are now implemented in later slices.
+whole-patient client allocation and independent verification. Feature extraction
+and engine integration are implemented and qualified in later slices.
 The original failed content audit remains preserved; only the qualified curated
 cohort enters the new cache and engine.
 
@@ -83,16 +83,18 @@ synthetic scale test deselected; another 40 reproduction/strategy/behavior/priva
 tests pass. A fresh bounded comparison reproduces all eight stored cells from
 repetition 0 of `main_n80_eps1` exactly under torch 2.12.0. The original 160-cell
 torch 2.9.1 verification remains historical evidence; this new eight-cell check
-does not replace or expand its scope. The full integrated framework suite passes:
-1,787 tests, 14 deselected, 81.21% coverage after the fixed-budget pilot runner, with unhandled thread exceptions
-treated as errors. These checks do not establish NIH learning or content integrity.
+does not replace or expand its scope. That integrated suite passed 1,787 tests,
+14 deselected, 81.21% coverage. The latest reviewed schedule-runner suite passes
+1,832 tests, 14 deselected, 81.26% coverage, with unhandled thread exceptions
+treated as errors. Tests alone do not establish NIH learning or content integrity.
 
 The no-DP/no-attack NIH validation pilot and the separate 1,000-client/two-round
-execution check are complete. The workload/ownership path works and ranking signal
-is useful, but the selected optimizer has poor confidence calibration. A bounded
-replay also proved a probability-saturation AUROC defect. Correct/version scoring
-and establish stable optimization before adding privacy/attacks or expanding the
-matrix; successful execution alone is not study readiness.
+execution check are complete. V1 found useful ranking but poor calibration and
+probability-saturation AUROC error. Scoring is now versioned and corrected;
+the separately frozen v3 schedule probe establishes a stable eighty-client
+baseline across three seeds. The attack-knowledge/accounting audit, larger-head
+cost and prospective confirmatory protocol still precede the privacy/attack
+matrix; successful baseline execution alone does not complete the study.
 
 ## NIH manifest qualification — 19 October
 
@@ -323,11 +325,10 @@ overconfident LR 0.01. The eighty-client LR 0.003 is less overconfident but weak
 The smaller shards give 3–5 local SGD steps per client/round at eighty clients,
 versus 26–30 at ten, despite the same nominal image passes. Total minibatch calls
 increase, so the confound is the local trajectory/averaging schedule, not simply
-less total computation. Next freeze a bounded LR 0.003 schedule probe: eighty
-clients at seven local epochs/twenty rounds versus one epoch/140 rounds. The
+less total computation. This led to a separate bounded LR 0.003 schedule probe:
+eighty clients at seven local epochs/twenty rounds versus one epoch/140 rounds. The
 [v3 protocol](../../docs/artifacts/capstone/nih-schedule-pilot-v3-protocol.md) is now
-frozen before any v3 training. Keep
-all v2 results unchanged and test this hypothesis before more feature tuning.
+completed with its budget frozen before training; all v2 results remain unchanged.
 
 The reviewed runner enforces the fixed cache pin and isolated child source
 origins/byte fingerprints; a separate checker independently verified all records,
@@ -335,6 +336,37 @@ origins/byte fingerprints; a separate checker independently verified all records
 gate. Full framework:1,817passed,14deselected,81.26%coverage. Deferred minor:
 source-check/control overhead can exceed a strict global wall deadline; actual
 v2 execution is far below its 1,800-second cap. Official-test performance is unseen.
+
+## Stable eighty-client schedule — 19 October
+
+The [v3 report and exposure-aligned curves](../../docs/artifacts/capstone/nih-schedule-pilot-v3-report.md)
+reconcile all six cells and 240 rounds. Seven local epochs/twenty rounds at
+LR 0.003 pass the joint baseline gate across all three declared seeds:
+AUROC mean 0.703844 (0.699003–0.706996), loss 0.616709–0.621308 and ECE
+0.008377–0.019428. Clean clipped mean and trimmed mean also pass in the base seed.
+These are exploratory research results, not clinical acceptance or a confidence
+interval. Finding sensitivity is only about 0.47–0.50 across the core seeds.
+
+At the same 140 nominal image passes, one epoch/140 rounds has similar validation
+utility but seven times the modeled payload: 47.6 MB each direction versus
+6.8 MB for twenty rounds. These are application-payload estimates, not measured
+network traffic or battery cost. Recorded training time is nearly equal; the
+longer schedule spends more time evaluating and orchestrating. Child execution
+is 14.024 versus 30.379 seconds. All children together take 98.405573 seconds,
+plus separately measured parent overhead 3.594475 seconds.
+
+At C 0.4 no update was clipped. Clipped mean matches the unclipped model digest
+and all round utility metrics; clean trimmed-mean AUROC is 0.705190 versus
+0.705532. This supports matched clean controls, not an optimal clipping setting
+or attack resistance. Independent checks bind 142 source/protocol fingerprints,
+both per-child proof phases, all assignments/counts, selection and timing totals.
+The interrupted-child proof and timing-accounting review findings are fixed.
+
+Next complete the [attack-knowledge/privacy boundary audit](../../docs/artifacts/capstone/attack-knowledge-privacy-boundary-audit.md)
+and bound larger-head costs, then freeze the confirmatory protocol. IPM/ALIE
+read raw honest updates, so their oracle stress results cannot silently inherit
+a one-final-upload sensitivity claim at the raw-client data boundary. V3 has no
+attacks or noise and is unaffected. Official-test performance remains unseen.
 
 ## Practical research outputs
 

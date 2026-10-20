@@ -61,6 +61,14 @@ Local IPM runs remained near chance throughout this epsilon range, including for
 
 A utility comparison alone does not choose the privacy architecture: local and central mechanisms have different trust assumptions. A production recommendation must state who is trusted, the protected unit, adjacency, release mechanism and accounting assumptions. Neither these experiments nor patient-disjoint NIH preparation provides a patient-level privacy claim.
 
+A subsequent [attack-knowledge boundary audit](attack-knowledge-privacy-boundary-audit.md)
+also traces IPM/ALIE to current raw honest updates, including before local noise.
+That oracle can make multiple final uploads depend on one honest client's input;
+the one-final-upload sensitivity argument does not establish end-to-end client-data
+privacy for this preprocessing. The epsilon values above are retained configured
+calibration settings for exploratory utility comparisons, not newly established
+privacy guarantees through that oracle. No raw run or table value is rewritten.
+
 ### Cost and scale require separate interpretation
 
 The linear head's serialized upload was 4,250 bytes per client per round. The historical training-compute estimate was 0.69 MFLOP per client. These figures exclude full image feature extraction and real device/network overhead.
