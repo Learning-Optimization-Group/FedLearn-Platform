@@ -46,6 +46,9 @@ selecting a condition or scoring models.
    different threat models are not automatically equivalent comparisons. Standard
    secure summation does not provide ordinary coordinate trimming, and secure
    aggregation alone does not supply differential privacy.
+   The [implementation-readiness audit](privacy-security-readiness-2026-10-20.md)
+   identifies the required local-DP reporting/qualification work and the separate
+   DeComFL secure channel; it is not a new utility study or an approved combined path.
 4. **Add bounded attacks after clean mechanism controls.** Predefine attacker
    access, fractions, budgets and valid defense combinations. Repeat selected cells
    across declared seeds; retain failed, partial and incompatible outcomes. Compare

@@ -34,6 +34,14 @@ pneumonia task. Preserve the completed study separately.
   representation/optimization/federation effects remain unresolved. No new fitting
   or test scoring has been performed; the prospective diagnostic is next.
 - [ ] Qualify a matched federated baseline without DP or attacks.
+- [x] Audit privacy/security readiness against source and fresh controls:
+  [readiness report](privacy-security-readiness-2026-10-20.md), 218 checks passed.
+  Local DP exists in the generic engine but is excluded from the qualified NIH
+  path; secure aggregation is on DeComFL's scalar channel. No new NIH runs.
+- [ ] After the learning gate, qualify local DP with separate client/server noise
+  fields and explicit clipping/release accounting. Preserve historical record semantics.
+- [ ] Choose and qualify a matched secure/plain training path before attributing
+  performance differences to secure aggregation; mark incompatible combinations unavailable.
 - [ ] Freeze a supported follow-up comparison of central DP, local DP and secure
   aggregation, including clean controls and explicit privacy/trust/compatibility scope.
 - [ ] Run the bounded attack study across declared seeds, retaining all outcomes.

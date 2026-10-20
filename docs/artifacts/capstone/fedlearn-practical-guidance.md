@@ -3,8 +3,10 @@
 20 October 2026. The fixed NIH study completed all 360 cells and passed independent
 model/score/accounting reconciliation. The [study report](nih-phase2-study-v1-report.md)
 and retained tables support the conditional recommendations below. The additional
-source-bound reader reproduced the full analysis exactly. Final review remains pending; the dashboard implementation
-and final assessed deliverables remain open.
+source-bound reader reproduced the full analysis exactly. Study review and its
+validation correction are verified. The worker and persistent API now pass their
+execution gates; the dashboard UI/browser evidence and final assessed deliverables
+remain open.
 
 ## Decisions supported by completed work
 
@@ -18,7 +20,7 @@ and final assessed deliverables remain open.
 | Enforce permitted information through the whole attack pipeline | The source-backed IPM counterexample changes multiple attacker uploads when one raw honest update changes; a downstream single-upload bound does not cover that dependence. | Keep raw-honest-update oracle stress tests separate from protected-release claims. For the qualified core use own-data/own-update attackers and fixed accepted cardinality. | This demonstrates a raw-update-domain IPM/mean counterexample, not a measured NIH patient attack or a proof that every rule/ALIE fails the same way. |
 | Separate experiment seeds from protected-release randomness | The experiment deliberately shares standard draws across matched cells. The [first-round algebraic example](matched-noise-release-boundary.md) shows that shared noise at different amplitudes can cancel jointly, even if its seed is hidden. | Use matched random numbers for declared public-data experiments. For a protected deployment, design secret per-release randomness, conditional/joint accounting and an explicit export boundary. Do not simply add marginal budgets for correlated releases. | Algebraic first-round/upload-domain clarification; no demonstrated recovery from final-only NIH checkpoints. A source-bound scalar production check is complete; no final-only NIH reconstruction is demonstrated. |
 | Treat diagnostic export as research data | Seeds, identities and pre-noise diagnostics sit outside a model-only privacy accountant. | Label research exports honestly. A deployment needs a reviewed allowlist and protected randomness/accounting for everything released. | Current records are not DP-safe deployment exports; no patient-level, whole-matrix or clinical guarantee follows. |
-| Make provenance/failure recovery inspectable | Source proofs, strict config/cache/model/score bindings and exact reforward checks expose stale or edited evidence. The completed study retains all 360 outcomes and a hash-verified terminal backup. | Retain recipe identity, source/runtime, actual final state, metric version and complete/partial/error status. Stop/drain real owned processes before freeing resources. | Final artifact/core/runner checks are implemented. The new dashboard's ownership/cancellation/restart workflow is designed and still requires implementation/browser evidence. |
+| Make provenance/failure recovery inspectable | Source proofs, strict config/cache/model/score bindings and exact reforward checks expose stale or edited evidence. The completed study retains all 360 outcomes and a hash-verified terminal backup. | Retain recipe identity, source/runtime, actual final state, metric version and complete/partial/error status. Stop/drain real owned processes before freeing resources. | Final artifact/core/runner and persistent API checks pass. Actual dashboard ownership/cancellation/restart/browser acceptance remains open. |
 
 Supporting reports: [data qualification](nih-frozen-features-2026-10-19.md),
 [scoring/pilot](nih-validation-pilot-v1-report.md),
@@ -48,5 +50,8 @@ a production privacy-budget choice, clinical recommendation or universal rule ra
 
 All comparisons refer to the pinned frozen-feature NIH workload. The mobile
 pneumonia task and production image-training recipes require their own qualification.
-The Simulation Lab should expose these comparisons and limitations; its actual
-ownership/cancellation/restart/browser workflow remains to be implemented and tested.
+The Simulation Lab should expose these comparisons and limitations. Its persistent
+API has passed the execution gate; the React workflow and actual browser acceptance
+remain open. The [follow-up readiness audit](privacy-security-readiness-2026-10-20.md)
+separates central DP, generic local DP and DeComFL secure aggregation, with the
+remaining qualification/reporting gates. It supplies no new disease-model result.
