@@ -52,10 +52,11 @@ React/Vite/Recharts, existing cookie auth/Ember components, homelab Playwright s
 
 ### Task 1: Bounded Python worker and evidence contract
 
-**Files:** create `framework/src/fedlearn/simulation/lab_worker.py`,
+**Files:** create `framework/src/fedlearn/lab_worker.py`,
 `framework/src/fedlearn/simulation/lab_contract.py`,
 `framework/tests/test_simulation_lab_worker.py`,
-`framework/tests/test_simulation_lab_contract.py`.
+`framework/tests/test_simulation_lab_contract.py`,
+`framework/tests/test_simulation_lab_release_boundaries.py`.
 
 **Consumes:** existing `prepare_core_config`, `run_core(on_round,should_stop)`,
 cache loader and existing finite/tagged encoding contract; no numerical change.
@@ -72,7 +73,9 @@ Keep the production worker independent of the uninstalled benchmark package.
   enclosing object, with spec defaults and epsilon 4 even when noDP. Reject any other
   key. The resolved config name is fixed`simulation-lab`; runUUID is separate so
   repeated identical choices have the same config hash.
-- CLI resolve/run modes use trusted server-configured paths, never browser commands.
+- CLI `python -m fedlearn.lab_worker` resolve/run modes use trusted server-configured
+  paths, never browser commands. The lightweight entrypoint starts monitors before
+  importing the simulation package/Torch; historical package imports remain unchanged.
   Run requires `--run-id`canonicalUUID and a fresh`execution/`directory beneath the
   API-owned UUID job directory. Input config remains beside it, outside its fresh
   output. Fixed output files: `progress.json`,`record.json`,`execution.json`, plus
@@ -88,25 +91,25 @@ Keep the production worker independent of the uninstalled benchmark package.
 - Record encodings `json` and `nonfinite_tagged_v1`; terminal completed only after
   complete core qualification. Exit0completed,2failed,3stopped,124deadline.
 
-- [ ] Write failing contract tests: defaults/each allowed choice, reject unknown keys,
+- [x] Write failing contract tests: defaults/each allowed choice, reject unknown keys,
   booleans-as-integers, NaN/Infinity/ranges, test split/path/matrix/oracle/localDP
   injection; same choices resolve same hash and all mandated core fields match.
-- [ ] Run focused tests with `PYTHONPATH=src python -m pytest -q --no-cov
+- [x] Run focused tests with `PYTHONPATH=src python -m pytest -q --no-cov
   tests/test_simulation_lab_contract.py`; Expected: absent API RED.
-- [ ] Implement the typed resolver/display projection and tests GREEN. Server workload
+- [x] Implement the typed resolver/display projection and tests GREEN. Server workload
   path/pin never come from submitted choices. Do not hash a display-only substitute.
-- [ ] Write real subprocess worker regressions with explicit small synthetic cache:
+- [x] Write real subprocess worker regressions with explicit small synthetic cache:
   real2 round run/progress/marker; preflight rejection before engine; cancellation
   after actualround1; postflight failure retains record; parent pipe EOF and deadline;
   failure beforefirst/afterlast callback; abrupt kill retains start/completed events;
   nonfinite tagged evidence and no successful marker for stopped/timeout paths.
-- [ ] Run worker tests to observe RED, then implement atomic evidence, core callbacks,
+- [x] Run worker tests to observe RED, then implement atomic evidence, core callbacks,
   independent deadline/parent detection, bounded diagnostics and precise terminal
   classification. Reuse exact integer/finite/config/cache/core checks.
-- [ ] Verify focused GREEN, one read-only code review and RED→GREEN substantive fixes;
+- [x] Verify focused GREEN, one read-only code review and RED→GREEN substantive fixes;
   full framework tests/coverage with thread exceptions as errors. Expected: allpass,
   coverage≥existing73%gate and no actual NIH classifier claim from synthetic tests.
-- [ ] Commit `feat(simulation): add bounded dashboard worker contract`.
+- [x] Commit `feat(simulation): add bounded dashboard worker contract`.
 
 ### Task 2: Owned persistent Spring simulation jobs
 

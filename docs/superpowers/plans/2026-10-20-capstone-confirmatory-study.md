@@ -129,7 +129,7 @@ matching/costs, primary analysis or explicit incomplete status, practical guidan
 - [x] Create report and scientific figures with exact evidence-linked practical
   recommendations, assumptions and limits. Render/inspect exports and reconcile
   public numbers against independently checked records before committing.
-- [ ] Update capstone status/claim register and preserve execution ledger/checks/logs;
+- [x] Update capstone status/claim register and preserve execution ledger/checks/logs;
   verify fresh private Orin Gitbundle plus per-file hashes before workspace cleanup.
 
 The full capstone goal remains active afterward: integrate verified findings into

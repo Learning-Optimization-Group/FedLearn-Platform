@@ -13,9 +13,9 @@ correction are complete; assessed deliverables and the working dashboard remain 
 | --- | --- |
 | Working branch | `capstone`, isolated worktree |
 | Tested source | `3baea7d` — fixed NIH study runner and score analysis |
-| Full framework verification | 2,076 passed; 14 deselected; 81.66% coverage; unhandled thread exceptions treated as errors |
+| Full framework verification | Study source: 2,076 passed/81.66%; later worker: 2,183 passed/79.82%; 14 deselected; thread exceptions treated as errors |
 | Focused runner/analysis verification | 68 passed; both Important review findings reproduced before correction |
-| Backup | Exact source commit/Git bundle and 518 private evidence files hash-verified on Orin |
+| Backup | Delivery commit `4e80033`, exact Git bundle and 4,729 source/evidence files hash-verified on Orin; original raw-study backup retained |
 | Main study | **360/360 qualified**, 7,200 rounds; 0 failed, timed out or unrun |
 | Run status | Original process exited normally; all four fixed families completed once |
 | Study verification | 360 models/both splits replayed, 148 source files and 16 allocations verified; primary D=+0.002266150, paired 95% CI [+0.000704398,+0.003827901], conditional on fixed cohorts |
@@ -23,15 +23,16 @@ correction are complete; assessed deliverables and the working dashboard remain 
 
 The terminal original study now has a separate second-device backup: all 3,964
 files hash-verified, including final models/scores/proofs/configs/logs. Earlier source,
-cache, historical and first 80-cell checkpoints remain preserved. Audit/report/figure
-and final source-checkpoint backup is still pending. Charging resumed during capture
+cache, historical and first 80-cell checkpoints remain preserved. The reviewed
+audit/report/figures and exact delivery source checkpoint now also have a verified
+4,729-file private backup. Charging resumed during capture
 after battery operation; observed timing interpretation discloses that transition
 and the in-flight backup as background load.
 
 The study index and verification receipts are authoritative. The overview and
 claim register now reflect the completed execution and reconciled outcomes; older
 implementation entries are explicitly historical. Original execution source stays
-pinned at 3baea7d. Delivery documents will be committed with the reviewed checkpoint.
+pinned at 3baea7d. Reviewed delivery documents are committed at 4e80033.
 
 ## Completed — preservation, scope and existing research
 
@@ -141,6 +142,16 @@ Evidence: [artifact contract](final-state-score-artifact-contract.md),
   the Python worker, persistent Spring ownership/lifecycle, React workflow and
   actual browser evidence. Implementation/testing follows the audited study report.
 
+Implementation has begun: the bounded worker, choice resolver and canonical
+finite/tagged record writer pass **107 focused tests**. Two lifecycle review findings
+were reproduced and corrected; an installed-wheel control completed two real
+synthetic-cache rounds. The full framework gate passed **2,183 tests**, 14 deselected, with 79.82% coverage.
+Backend/API, React and browser verification remain open.
+
+- [x] Implement and qualify the [bounded Simulation Lab worker](simulation-lab-worker-contract.md),
+  including actual subprocess lifecycle and isolated installed-wheel verification.
+  One minor oversized-integer CLI error-formatting issue remains documented.
+
 ## Study checks and remaining reporting
 
 - [x] **Finish the single 360-cell execution:** all four families qualified once.
@@ -161,7 +172,7 @@ Evidence: [artifact contract](final-state-score-artifact-contract.md),
   tables against the independently checked evidence.
 - [x] Produce practical FedLearn recommendations with measured effect, cost,
   uncertainty, applicable assumptions and concrete implementation implications.
-- [ ] Update the current plan/evidence map and this checklist from actual outcomes;
+- [x] Update the current plan/evidence map and this checklist from actual outcomes;
   back up the new raw study, audit, figures and source checkpoint.
 
 ## Planned — complete the capstone deliverables

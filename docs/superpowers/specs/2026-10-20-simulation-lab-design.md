@@ -161,7 +161,8 @@ The service's global admission lock is independent of any React component lifecy
 
 ## Python worker and process lifecycle
 
-A new narrow worker calls `prepare_core_config`/`run_core` with explicit declared
+The lightweight `python -m fedlearn.lab_worker` entrypoint starts ownership and
+deadline monitoring before heavy imports. It calls `prepare_core_config`/`run_core` with explicit declared
 client count, validation split, expected pretrained cache pin and CPU4 threads.
 It uses the existing `on_round`/`should_stop` interfaces; no numerical engine change
 is needed. Emit/persist only real completed rounds and final returned evidence.
