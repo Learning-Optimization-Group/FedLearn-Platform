@@ -27,7 +27,7 @@ end-to-end research log or 1,000 physical-client deployment.
 | M1 | Frozen pretrained ResNet-18 features are source/model/transform/manifest-bound and match direct reference forwards | [Feature qualification](nih-frozen-features-2026-10-19.md), cache report SHA6c9e…83fd | Frozen representation, not end-to-end radiology training; preparation timing overlapped regressions |
 | M2 | NIH simulation preserves whole-patient clients, natural prevalence and explicit validation/test identity | [Engine implementation plan and verification](../../superpowers/plans/2026-10-19-capstone-nih-engine-integration.md), config/workload/engine tests and independent allocation checks | Patient IID only; clients are synthetic groups, not verified institutions |
 | M3 | A separate core wrapper enforces permitted-information recipes before engine access and complete fixed-cohort execution afterward | [Core execution qualification](core-execution-qualification.md), real coordinator/strategy regressions and malformed-record tests | Execution premises only; persistent source-bound runner, protocol freeze, feature/learning readiness and protected exports remain separate |
-| M4 | Qualified final-state capture and reloadable model/score artifacts preserve cache/model/record/row identity, including float64 subtraction before margins | [Artifact contract](final-state-score-artifact-contract.md), synthetic linear/MLP roundtrips, 24 reproduced identity regressions and payload-rehash corruption checks | Verified infrastructure on synthetic controls; no actual official-test score, completed main runner/analysis, private export or cross-hardware floating-point guarantee |
+| M4 | Qualified final-state capture and reloadable model/score artifacts preserve cache/model/record/row identity, including float64 subtraction before margins | [Artifact contract](final-state-score-artifact-contract.md), synthetic linear/MLP roundtrips, 24 reproduced identity regressions and payload-rehash corruption checks | Verified infrastructure on synthetic controls; no actual official-test score, independent real-study reconciliation, private export or cross-hardware floating-point guarantee |
 | R1 | Float32 probability saturation can materially understate binary AUROC | [V1 pilot and three source-locked logit replays](nih-validation-pilot-v1-report.md); pooled high-LR gap0.153445 | Historical magnitude outside three replays unknown; preserve old records, use versioned margins prospectively |
 | R2 | Highest AUROC can select a poor confidence/threshold operating point | [V1](nih-validation-pilot-v1-report.md) and [v2](nih-optimization-pilot-v2-report.md), all cases/curves | ECE is a ten-bin aggregate diagnostic, not clinical or subgroup calibration |
 | R3 | Ten-client LR0.003 is a one-seed stable candidate under the v2 research gates; eighty-client v2 gate failed | [V2 report](nih-optimization-pilot-v2-report.md), independent records/config/source/assignment reconciliation | No selected eighty-client LR; no v2 repeats/clipping follow-ons; no clinical readiness |
@@ -54,8 +54,10 @@ end-to-end research log or 1,000 physical-client deployment.
   final-round contrast, ten matched new seeds and bounded head/cohort/clipping
   families (360 cells total). Exact settings, release assumptions and inference/
   failure/resource rules are fixed; final model/score artifact API is verified on
-  synthetic controls. The source-bound study runner and independent analysis still
-  need implementation before official-test scoring.
+  synthetic controls. The source-bound study runner and independent score analysis
+  are implemented and verified (68 focused checks;2,076 full-suite passes,
+  14 deselected,81.66% coverage). A committed source checkpoint must precede
+  execution. See the [runner contract](nih-phase2-runner-contract.md).
 - Paired privacy/robustness results against matched no-DP clean/attacked baselines.
   Do not attribute every raw head-size/cohort difference solely to dimension/noise.
 - Official-test classifier evaluation only after the confirmatory protocol is

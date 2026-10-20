@@ -3,10 +3,10 @@
 This is the current schedule and completion checklist. Earlier milestone decks,
 reports and design notes remain historical evidence. The
 [phase-2 protocol](../../docs/artifacts/capstone/nih-phase2-study-v1-protocol.md)
-is prospectively frozen; its final-state artifact API is verified, while the
-study runner and execution remain pending. The NIH validation
-pilot and Milestone 2 grids are exploratory; the remaining runner/artifact gates
-below must be resolved before official-test classifier evaluation.
+is prospectively frozen. Its final-state artifact API and fixed study runner/
+analysis are implemented and verified; a committed source checkpoint precedes
+the actual study. The NIH validation pilot and Milestone 2 grids remain
+exploratory. Official-test classifier evaluation has not started.
 
 The [final-report evidence map](../../docs/artifacts/capstone/final-report-evidence-map.md)
 tracks which claims are currently supported, the remaining study/report/demo
@@ -87,8 +87,8 @@ tests pass. A fresh bounded comparison reproduces all eight stored cells from
 repetition 0 of `main_n80_eps1` exactly under torch 2.12.0. The original 160-cell
 torch 2.9.1 verification remains historical evidence; this new eight-cell check
 does not replace or expand its scope. That integrated suite passed 1,787 tests,
-14 deselected, 81.21% coverage. The latest reviewed final-artifact suite passes
-2,008 tests, 14 deselected, 81.66% coverage, with unhandled thread exceptions
+14 deselected, 81.21% coverage. The latest reviewed fixed-study runner/analysis suite passes
+2,076 tests, 14 deselected, 81.66% coverage, with unhandled thread exceptions
 treated as errors. Tests alone do not establish NIH learning or content integrity.
 
 The no-DP/no-attack NIH validation pilot and the separate 1,000-client/two-round
@@ -410,15 +410,17 @@ Independent review found a record/cache identity gap; 24 failing regressions
 reproduced it before correction. All116 artifact/core checks and the full2,008-test
 suite pass. Test classifier scoring has occurred only on synthetic controls.
 
-Next integrate this API into the frozen confirmatory protocol's persistent runner
-and independent AUROC, threshold-transfer and patient-aware analysis, then execute
+The [fixed runner and analysis](../../docs/artifacts/capstone/nih-phase2-runner-contract.md)
+now integrate this API with independent AUROC, validation threshold transfer and
+patient-aware diagnostics. All68 focused checks pass, including reproduced
+parent-thread and malformed-evidence integrity regressions. The full2,076-test
+suite passes with81.66% coverage; the source checkpoint precedes execution of
 the fixed study. The public 360-cell protocol
 specifies ten new matched seeds, one primary contrast, three bounded secondary
 families and exact failure/inference/resource rules. It was frozen after an
 independent implementability check and before official-test classifier scoring.
 The nine-image ambiguous-content sensitivity mask is bound by hash; primary
-official-test membership remains unchanged. Neither the runner nor this study
-is complete yet.
+official-test membership remains unchanged. The real study is not complete yet.
 Avoid further utility-selected pilots. IPM/ALIE
 read raw honest updates, so their oracle stress results cannot silently inherit
 a one-final-upload sensitivity claim at the raw-client data boundary. V3 has no

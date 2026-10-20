@@ -88,25 +88,25 @@ margins/labels/IDs for validation/test. Research output is explicitly non-privat
 **Produces:** all360fixed config hashes and records, study index/source proofs,
 analysis JSON with per-seed effects and correctly scoped summaries/failures.
 
-- [ ] Write failing cell-enumeration/order/count/control/seed tests with literal
+- [x] Write failing cell-enumeration/order/count/control/seed tests with literal
   expected cases and selected exact recipes. Test child refusals before training
   for protocol mismatch, altered mask/pin and test-selection inconsistencies.
-- [ ] Implement bounded source-bound sequential children using `run_core`, actual
+- [x] Implement bounded source-bound sequential children using `run_core`, actual
   declared cohort10/80/1000 and explicit evaluation split. Persist raw records,
   final-state/artifact errors and before/after source proofs. Requalify in parent;
   bind final artifacts to exact record and source. Initial360index/configs/hashes
   before launch, no overwrites/retries, ordinary failure continuation and integrity
   stop/global-budget behavior, correct child/core/loop/artifact timing scopes.
-- [ ] Write independent metric tests with hand-checked tied-score/weighted AUC and
+- [x] Write independent metric tests with hand-checked tied-score/weighted AUC and
   confusion fixtures, default positive iffmargin>0, validation recall threshold
   ceil(.8*Npositive) with>=ties, unchanged threshold transfer, inverse-patient weights
   and exact bound mask alignment. Include single-class/empty/nonfinite failures.
-- [ ] Implement analysis directly from saved scores, not production metric helpers.
+- [x] Implement analysis directly from saved scores, not production metric helpers.
   Report all endpoint components and complete pairs. Ten-seed primary D mean,
   SD/range/t interval df9 only when all80required components qualify; all other
   summaries descriptive. Missing component/duplicate/wrong-split/hash/seed/stale
   checkpoint cannot produce a formal primary interval. No unadjusted winner test.
-- [ ] Synthetic full CLI/failure/tamper/interrupt integration checks; one independent
+- [x] Synthetic full CLI/failure/tamper/interrupt integration checks; one independent
   code review, fixes with RED→GREEN; complete framework suite and commit before data.
 
 ### Task 3: Execute, reconcile and report the fixed study
