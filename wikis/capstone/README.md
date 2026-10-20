@@ -1,9 +1,11 @@
-# Capstone plan — current as of 19 October 2026
+# Capstone plan — current as of 20 October 2026
 
 This is the current schedule and completion checklist. Earlier milestone decks,
-reports and design notes remain historical evidence. Confirmatory phase 2 has not
-been pre-registered or run. The NIH validation pilot and Milestone 2 grids are
-exploratory; pilot readiness issues below must be resolved before test evaluation.
+reports and design notes remain historical evidence. The
+[phase-2 protocol](../../docs/artifacts/capstone/nih-phase2-study-v1-protocol.md)
+is prospectively frozen; its runner and execution remain pending. The NIH validation
+pilot and Milestone 2 grids are exploratory; the remaining runner/artifact gates
+below must be resolved before official-test classifier evaluation.
 
 The [final-report evidence map](../../docs/artifacts/capstone/final-report-evidence-map.md)
 tracks which claims are currently supported, the remaining study/report/demo
@@ -95,7 +97,7 @@ the separately frozen v3 schedule probe establishes a stable eighty-client
 baseline across three seeds. The attack-knowledge audit, participation correction,
 core execution checks, short four-head cost qualification and twelve-cell
 full-schedule validation mechanism qualification are complete. The confirmatory
-protocol is not yet frozen, and its matrix has not run; exploratory validation
+protocol is frozen, and its matrix has not run; exploratory validation
 and successful execution alone do not complete the study.
 
 ## NIH manifest qualification — 19 October
@@ -399,10 +401,15 @@ trimmed mean is lower than mean by 0.010914/0.014281. Its sensitivity/noise SD i
 general ranking, clinical result or confirmatory interaction. Child execution
 totals160.964s; largest engine-completion observed RSS698.31MiB.
 
-Next freeze the confirmatory protocol, implement its persistent runner with
+Next implement the frozen confirmatory protocol's persistent runner with
 final score/model artifacts for independent AUROC, threshold transfer and
-patient-aware checks, then execute the fixed study. A private 360-cell design
-draft specifies new seeds and one primary contrast; it is not frozen or executable.
+patient-aware checks, then execute the fixed study. The public 360-cell protocol
+specifies ten new matched seeds, one primary contrast, three bounded secondary
+families and exact failure/inference/resource rules. It was frozen after an
+independent implementability check and before official-test classifier scoring.
+The nine-image ambiguous-content sensitivity mask is bound by hash; primary
+official-test membership remains unchanged. Neither the runner nor this study
+is complete yet.
 Avoid further utility-selected pilots. IPM/ALIE
 read raw honest updates, so their oracle stress results cannot silently inherit
 a one-final-upload sensitivity claim at the raw-client data boundary. V3 has no

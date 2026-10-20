@@ -49,9 +49,11 @@ end-to-end research log or 1,000 physical-client deployment.
   confirmatory contrasts remain unrun and these checks do not substitute for them.
 - Larger-head learning and privacy contrasts under matched no-DP baselines.
   The completed short cost qualification cannot establish convergence or usefulness.
-- A frozen confirmatory hypothesis, primary endpoint/contrast, exact matched
-  configurations/seeds, privacy/release assumptions, attack knowledge/strength,
-  failure policy, resource budget and uncertainty/multiplicity method.
+- Execution of the [frozen protocol](nih-phase2-study-v1-protocol.md): one primary
+  final-round contrast, ten matched new seeds and bounded head/cohort/clipping
+  families (360 cells total). Exact settings, release assumptions and inference/
+  failure/resource rules are fixed; the verified source-bound runner and final
+  model/score artifacts still need implementation before official-test scoring.
 - Paired privacy/robustness results against matched no-DP clean/attacked baselines.
   Do not attribute every raw head-size/cohort difference solely to dimension/noise.
 - Official-test classifier evaluation only after the confirmatory protocol is
