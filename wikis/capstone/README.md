@@ -84,17 +84,18 @@ tests pass. A fresh bounded comparison reproduces all eight stored cells from
 repetition 0 of `main_n80_eps1` exactly under torch 2.12.0. The original 160-cell
 torch 2.9.1 verification remains historical evidence; this new eight-cell check
 does not replace or expand its scope. That integrated suite passed 1,787 tests,
-14 deselected, 81.21% coverage. The latest core-qualification suite passes
-1,889 tests, 14 deselected, 81.60% coverage, with unhandled thread exceptions
+14 deselected, 81.21% coverage. The latest reviewed head-cost runner suite passes
+1,918 tests, 14 deselected, 81.60% coverage, with unhandled thread exceptions
 treated as errors. Tests alone do not establish NIH learning or content integrity.
 
 The no-DP/no-attack NIH validation pilot and the separate 1,000-client/two-round
 execution check are complete. V1 found useful ranking but poor calibration and
 probability-saturation AUROC error. Scoring is now versioned and corrected;
 the separately frozen v3 schedule probe establishes a stable eighty-client
-baseline across three seeds. The attack-knowledge/accounting audit, larger-head
-cost and prospective confirmatory protocol still precede the privacy/attack
-matrix; successful baseline execution alone does not complete the study.
+baseline across three seeds. The attack-knowledge audit, participation correction,
+core execution checks and short four-head cost qualification are complete. The
+confirmatory protocol is not yet frozen, and the privacy/attack matrix has not run;
+successful baseline/resource execution alone does not complete the study.
 
 ## NIH manifest qualification — 19 October
 
@@ -305,7 +306,8 @@ identity beyond the exploratory runner's HEAD-only check.
 The 1,000-client/two-round execution check completed in 7.063 seconds end-to-end
 (3.560 seconds inside simulation), peak process RSS 735,051,776 bytes. This is a
 sequential CPU tiny-head simulator over cached features, not 1,000 physical devices,
-CNN training, convergence or deployment latency. Large-head costs remain unmeasured.
+CNN training, convergence or deployment latency. Larger-head costs were unmeasured
+at v1; the subsequent four-head qualification below now supplies bounded cost evidence.
 
 ## Optimization pilot v2 — 19 October
 
@@ -377,8 +379,17 @@ runner; historical entry points remain unchanged. Its marker describes execution
 checks and explicitly excludes a DP-safe research record. Review found and fixed
 two gaps: jointly altered noise/accounting fields and numeric-string infinity.
 
-Next execute the [bounded four-head cost protocol](../../docs/artifacts/capstone/nih-head-cost-probe-protocol.md),
-integrate the checks into the study runner and freeze the confirmatory protocol. IPM/ALIE
+The [bounded four-head cost probe](../../docs/artifacts/capstone/nih-head-cost-probe-v1-report.md)
+is complete: all four cells/eight rounds qualify, with 144 source/protocol
+fingerprints and independent configuration/allocation/FLOP/payload reconciliation.
+Child time is 5.854–7.710 seconds; largest observed peak is 1,149.66 MiB, below
+the 2 GiB gate. These are two-round resource checks, not convergence or head selection.
+MLP512 has 257 times the linear parameters and 248.245 times its modeled payload;
+short-run child time grows only 1.317 times here, with substantial setup/check costs.
+
+Next integrate the checks into the persistent study runner and freeze the
+confirmatory protocol, including matched controls, clipping, seeds, analysis and
+failure rules. IPM/ALIE
 read raw honest updates, so their oracle stress results cannot silently inherit
 a one-final-upload sensitivity claim at the raw-client data boundary. V3 has no
 attacks or noise and is unaffected. Official-test performance remains unseen.

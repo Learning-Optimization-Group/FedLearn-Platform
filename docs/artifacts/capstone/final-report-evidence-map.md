@@ -35,6 +35,7 @@ end-to-end research log or 1,000 physical-client deployment.
 | R6 | A raw-honest-update IPM oracle can invalidate reuse of a single-final-upload sensitivity bound through the upstream pipeline | [Attack-knowledge audit](attack-knowledge-privacy-boundary-audit.md), production-code scalar counterexample and fixed-attacker control | No demonstrated NIH data-neighbor breach, ALIE/trimmed-mean bound violation or replacement-noise theorem; enforce accepted-set and permitted-information conditions before the core study |
 | R7 | Rejected admissions previously caused false completion counts and repeated unresolved rounds; version 2 records separate submission, admission, validation and aggregation | [Participation contract and reproduced regressions](participation-accounting-contract.md), actual coordinator/strategy tests | Synthetic execution evidence, not an observed NIH baseline failure; fixed-cohort enforcement and privacy scope still require separate checks |
 | C1 | A1,000-client/two-round tiny-head NIH simulation executed in7.063s end-to-end | [V1 cost check](nih-validation-pilot-v1-report.md) with actual counts, CPU/RSS scope | Execution only; not convergence, clinical validity, physical-device latency or large-head performance |
+| C2 | All four head sizes pass the declared eighty-client/two-round cost gate; MLP512 has 248.245 times the linear modeled payload and a 1,149.66 MiB observed memory peak | [Prospective head-cost report](nih-head-cost-probe-v1-report.md), four cells/eight rounds and independent source/allocation/FLOP/payload audit | One fixed-order timing sample per head; engine-completion RSS sample; not convergence, clinical/physical-device performance or a general runtime scaling law |
 | P1 | Current diagnostic JSON is a research record, not a DP-safe deployment export | [Output-boundary audit](privacy-output-boundary-audit.md), seeded-noise reconstruction proof | Model accountant alone does not protect disclosed randomness/pre-noise diagnostics or patient identity |
 | H1 | Fixed512-feature heads contain1,026/4,122/65,922/263,682 trainable parameters | Current plan and model construction tests | Capacity/optimization change with width; measure cost and match each head's no-DP baseline |
 | E1 | Earlier945-run Milestone2 grids are exploratory, not NIH confirmatory findings | [Retrospective Milestone2 report](capstone-milestone-2-report.md), immutable raw records/summary | Keep dataset, metric version and tuning history separate from phase2 |
@@ -44,8 +45,8 @@ end-to-end research log or 1,000 physical-client deployment.
 - The selected core NIH schedule now passes all three declared seed gates, and
   clean clipped mean/trimmed mean pass in the base seed. Confirmatory privacy and
   attack contrasts remain unrun; these checks do not substitute for them.
-- A bounded larger-head runtime/memory qualification, including failure/stop
-  handling. Tiny-head execution cannot support a large-head cost claim.
+- Larger-head learning and privacy contrasts under matched no-DP baselines.
+  The completed short cost qualification cannot establish convergence or usefulness.
 - A frozen confirmatory hypothesis, primary endpoint/contrast, exact matched
   configurations/seeds, privacy/release assumptions, attack knowledge/strength,
   failure policy, resource budget and uncertainty/multiplicity method.
