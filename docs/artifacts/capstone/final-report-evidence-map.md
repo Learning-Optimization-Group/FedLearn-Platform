@@ -1,6 +1,6 @@
 # Final report: evidence map and completion gates
 
-19 October 2026. Working outline and claim register, not a finished final report.
+20 October 2026. Working outline and claim register, not a finished final report.
 The [current capstone plan](../../../wikis/capstone/README.md) governs scope.
 The title still needs advisor confirmation. No confirmatory NIH study has run;
 results below remain exploratory and must be labelled that way in every artifact.
@@ -34,6 +34,7 @@ end-to-end research log or 1,000 physical-client deployment.
 | R5 | Eighty-client E7/R20 schedule passes across three declared seeds; matched-exposure E1/R140 gives similar validation utility with seven times the modeled payload | [V3 report](nih-schedule-pilot-v3-report.md), six independently reconciled cells/240rounds, source proofs and cost/clipping audit | Exploratory, no clinical/DP/attack claim; shuffle streams and local trajectories differ; modeled payload is not physical traffic |
 | R6 | A raw-honest-update IPM oracle can invalidate reuse of a single-final-upload sensitivity bound through the upstream pipeline | [Attack-knowledge audit](attack-knowledge-privacy-boundary-audit.md), production-code scalar counterexample and fixed-attacker control | No demonstrated NIH data-neighbor breach, ALIE/trimmed-mean bound violation or replacement-noise theorem; enforce accepted-set and permitted-information conditions before the core study |
 | R7 | Rejected admissions previously caused false completion counts and repeated unresolved rounds; version 2 records separate submission, admission, validation and aggregation | [Participation contract and reproduced regressions](participation-accounting-contract.md), actual coordinator/strategy tests | Synthetic execution evidence, not an observed NIH baseline failure; fixed-cohort enforcement and privacy scope still require separate checks |
+| R8 | In one matched NIH validation seed at C0.05, trimmed mean improves attacked AUROC without DP but is lower than mean with central epsilon4; its coordinate noise SD is 5/3 larger | [Twelve-cell mechanism qualification](nih-mechanism-qualification-v1-report.md), all240rounds and independent Gaussian/accounting reconciliation | Exploratory single seed; no general rule ranking, causal noise-only attribution, clinical or confirmatory interaction claim; final score-based independent AUROC still required |
 | C1 | A1,000-client/two-round tiny-head NIH simulation executed in7.063s end-to-end | [V1 cost check](nih-validation-pilot-v1-report.md) with actual counts, CPU/RSS scope | Execution only; not convergence, clinical validity, physical-device latency or large-head performance |
 | C2 | All four head sizes pass the declared eighty-client/two-round cost gate; MLP512 has 248.245 times the linear modeled payload and a 1,149.66 MiB observed memory peak | [Prospective head-cost report](nih-head-cost-probe-v1-report.md), four cells/eight rounds and independent source/allocation/FLOP/payload audit | One fixed-order timing sample per head; engine-completion RSS sample; not convergence, clinical/physical-device performance or a general runtime scaling law |
 | P1 | Current diagnostic JSON is a research record, not a DP-safe deployment export | [Output-boundary audit](privacy-output-boundary-audit.md), seeded-noise reconstruction proof | Model accountant alone does not protect disclosed randomness/pre-noise diagnostics or patient identity |
@@ -43,8 +44,9 @@ end-to-end research log or 1,000 physical-client deployment.
 ## Conclusions still requiring evidence
 
 - The selected core NIH schedule now passes all three declared seed gates, and
-  clean clipped mean/trimmed mean pass in the base seed. Confirmatory privacy and
-  attack contrasts remain unrun; these checks do not substitute for them.
+  clean clipped mean/trimmed mean pass in the base seed. Twelve exploratory
+  full-schedule privacy/attack validation cells also qualify, exposing a trade-off;
+  confirmatory contrasts remain unrun and these checks do not substitute for them.
 - Larger-head learning and privacy contrasts under matched no-DP baselines.
   The completed short cost qualification cannot establish convergence or usefulness.
 - A frozen confirmatory hypothesis, primary endpoint/contrast, exact matched
@@ -53,7 +55,9 @@ end-to-end research log or 1,000 physical-client deployment.
 - Paired privacy/robustness results against matched no-DP clean/attacked baselines.
   Do not attribute every raw head-size/cohort difference solely to dimension/noise.
 - Official-test classifier evaluation only after the confirmatory protocol is
-  frozen. Preserve declared prevalence and patient-aware sensitivity checks.
+  frozen. Preserve declared prevalence and patient-aware sensitivity checks;
+  retain bound final model/scores to independently recompute AUROC and transfer
+  a validation-selected threshold rather than infer these from aggregate JSON.
 - A practical recommendation table with measured setting, utility/cost effect,
   uncertainty, applicable assumptions and a concrete FedLearn action.
 

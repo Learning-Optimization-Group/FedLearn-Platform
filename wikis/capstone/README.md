@@ -84,8 +84,8 @@ tests pass. A fresh bounded comparison reproduces all eight stored cells from
 repetition 0 of `main_n80_eps1` exactly under torch 2.12.0. The original 160-cell
 torch 2.9.1 verification remains historical evidence; this new eight-cell check
 does not replace or expand its scope. That integrated suite passed 1,787 tests,
-14 deselected, 81.21% coverage. The latest reviewed head-cost runner suite passes
-1,918 tests, 14 deselected, 81.60% coverage, with unhandled thread exceptions
+14 deselected, 81.21% coverage. The latest reviewed mechanism-qualification suite passes
+1,944 tests, 14 deselected, 81.60% coverage, with unhandled thread exceptions
 treated as errors. Tests alone do not establish NIH learning or content integrity.
 
 The no-DP/no-attack NIH validation pilot and the separate 1,000-client/two-round
@@ -93,9 +93,10 @@ execution check are complete. V1 found useful ranking but poor calibration and
 probability-saturation AUROC error. Scoring is now versioned and corrected;
 the separately frozen v3 schedule probe establishes a stable eighty-client
 baseline across three seeds. The attack-knowledge audit, participation correction,
-core execution checks and short four-head cost qualification are complete. The
-confirmatory protocol is not yet frozen, and the privacy/attack matrix has not run;
-successful baseline/resource execution alone does not complete the study.
+core execution checks, short four-head cost qualification and twelve-cell
+full-schedule validation mechanism qualification are complete. The confirmatory
+protocol is not yet frozen, and its matrix has not run; exploratory validation
+and successful execution alone do not complete the study.
 
 ## NIH manifest qualification — 19 October
 
@@ -387,9 +388,22 @@ the 2 GiB gate. These are two-round resource checks, not convergence or head sel
 MLP512 has 257 times the linear parameters and 248.245 times its modeled payload;
 short-run child time grows only 1.317 times here, with substantial setup/check costs.
 
-Next integrate the checks into the persistent study runner and freeze the
-confirmatory protocol, including matched controls, clipping, seeds, analysis and
-failure rules. IPM/ALIE
+The [full-schedule mechanism qualification](../../docs/artifacts/capstone/nih-mechanism-qualification-v1-report.md)
+now adds twelve real NIH validation cells and 240 rounds: clean/sign flip/label
+flip × mean/trimmed mean × no DP/central epsilon4, at C0.05 and a new matched seed.
+All twelve qualify, with 145 source/protocol fingerprints and independently
+reconciled fixed cohorts, assignments, Gaussian calibration/accounting and costs.
+The no-DP attacked trimmed-mean advantage is 0.009548/0.006758 AUROC; with DP,
+trimmed mean is lower than mean by 0.010914/0.014281. Its sensitivity/noise SD is
+5/3 larger at the same epsilon. This is one-seed exploratory evidence, not a
+general ranking, clinical result or confirmatory interaction. Child execution
+totals160.964s; largest engine-completion observed RSS698.31MiB.
+
+Next freeze the confirmatory protocol, implement its persistent runner with
+final score/model artifacts for independent AUROC, threshold transfer and
+patient-aware checks, then execute the fixed study. A private 360-cell design
+draft specifies new seeds and one primary contrast; it is not frozen or executable.
+Avoid further utility-selected pilots. IPM/ALIE
 read raw honest updates, so their oracle stress results cannot silently inherit
 a one-final-upload sensitivity claim at the raw-client data boundary. V3 has no
 attacks or noise and is unaffected. Official-test performance remains unseen.
