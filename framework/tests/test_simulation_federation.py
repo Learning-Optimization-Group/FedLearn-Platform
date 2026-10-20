@@ -138,6 +138,24 @@ def _federation(num_clients=8, clients_per_round=4, seed=0, **kw) -> SimulatedFe
 # --------------------------------------------------------------------------------------
 
 class TestFederationRuns:
+    def test_rejected_submission_does_not_fill_quorum_or_repeat_round(self):
+        class Client:
+            def __init__(self, cid):
+                self.cid = cid
+
+            def fit(self, params, config):
+                return OrderedDict((k, v + 1) for k, v in params.items()), (0 if self.cid == 0 else 2)
+
+        sim = _federation(num_clients=3, clients_per_round=3)
+        sim.client_factory = lambda cid, rng: Client(cid)
+        result = sim.run(num_rounds=2)
+        assert [r.reported for r in result.rounds] == [[1, 2], [1, 2]]
+        assert [r.round for r in result.rounds] == [1, 2]
+        assert all(r.forced and r.num_examples == 4 for r in result.rounds)
+        assert not result.stopped_early
+        for key, value in _initial_params().items():
+            torch.testing.assert_close(result.final_params[key], value + 2)
+
     def test_runs_the_requested_number_of_rounds(self):
         result = _federation().run(num_rounds=5)
         assert len(result.rounds) == 5

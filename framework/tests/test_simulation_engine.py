@@ -93,11 +93,70 @@ def test_partial_round_is_recorded_not_zeroed(tmp_path):
     cfg = _cfg(_features(tmp_path), behaviors=[{"type": "straggler", "fraction": 0.3, "slowdown": 1000.0}],
                federation={"network": {"round_deadline_s": 1.0, "device_gflops": 1e-4}})
     r0 = run(cfg)["rounds"][0]
-    assert r0["participants"] == {"sampled": 10, "dropped": 0, "straggled": 3, "aggregated": 7}
+    assert r0["participants"] == {"sampled": 10, "dropped": 0, "straggled": 3, "submitted": 7,
+                                  "admitted": 7, "accepted": 7, "aggregated": 7}
     assert r0["forced"] is True and r0["accuracy"] is not None and r0["refusal"] is None
     assert r0["comm"]["up_bytes"] == r0["comm"]["down_bytes"]      # late stragglers' bytes still count
     # a server cannot know a straggler is late before the deadline passes, so the round lasts until it
     assert r0["time"]["simulated_round_s"] == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize("bad_update,admitted,accepted", [("zero_count", 9, 9), ("extra_key", 10, 9)])
+def test_participation_counts_follow_coordinator_and_strategy_validation(
+        tmp_path, monkeypatch, bad_update, admitted, accepted):
+    from fedlearn.simulation.engine import HeadClient
+    fit = HeadClient.fit
+
+    def corrupt_one(self, params, config):
+        update, count = fit(self, params, config)
+        if self.cid == 0:
+            if bad_update == "zero_count":
+                count = 0
+            else:
+                update["unexpected"] = torch.zeros(1)
+        return update, count
+
+    monkeypatch.setattr(HeadClient, "fit", corrupt_one)
+    rec = run(_cfg(_features(tmp_path), federation={"rounds": 2}))
+    assert [line["round"] for line in rec["rounds"]] == [1, 2]
+    for line in rec["rounds"]:
+        assert line["participants"] == {
+            "sampled": 10, "dropped": 0, "straggled": 0, "submitted": 10,
+            "admitted": admitted, "accepted": accepted, "aggregated": 9,
+        }
+        assert line["refusal"] is None and line["accuracy"] is not None
+        assert line["privacy"]["sensitivity"] == pytest.approx(1.0 / 9)
+    assert rec["meta"]["participation_schema_version"] == 2
+
+
+def test_all_rejected_updates_stop_without_claiming_validation_or_aggregation(tmp_path, monkeypatch):
+    from fedlearn.simulation.engine import HeadClient
+    fit = HeadClient.fit
+
+    def zero_count(self, params, config):
+        update, _ = fit(self, params, config)
+        return update, 0
+
+    monkeypatch.setattr(HeadClient, "fit", zero_count)
+    rec = run(_cfg(_features(tmp_path)))
+    assert len(rec["rounds"]) == 1 and rec["meta"]["stopped_early"]
+    line = rec["rounds"][0]
+    assert line["participants"] == {
+        "sampled": 10, "dropped": 0, "straggled": 0, "submitted": 10,
+        "admitted": 0, "accepted": None, "aggregated": 0,
+    }
+    assert line["forced"] and line["refusal"] and line["accuracy"] is None
+
+
+def test_reducer_refusal_has_valid_inputs_but_no_aggregate(tmp_path):
+    rec = run(_cfg(_features(tmp_path), federation={"num_clients": 3, "rounds": 1},
+                   server={"rule": "krum", "rule_params": {"byzantine_fraction": 0.34}}))
+    line = rec["rounds"][0]
+    assert "krum" in line["refusal"] and line["accuracy"] is None
+    assert line["participants"] == {
+        "sampled": 3, "dropped": 0, "straggled": 0, "submitted": 3,
+        "admitted": 3, "accepted": 3, "aggregated": 0,
+    }
 
 
 def test_backdoor_without_triggered_features_fails_fast(tmp_path):

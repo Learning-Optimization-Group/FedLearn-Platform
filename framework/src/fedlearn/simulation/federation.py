@@ -431,14 +431,15 @@ class SimulatedFederation:
                 wire_bytes += nbytes
                 wire_clients += 1
             if self.round_hook is None:
-                coord.submit_client_update(
+                admitted = coord.submit_client_update(
                     client_id=str(client_id),
                     params=params,
                     num_examples=num_examples,
                     trained_on_round=round_num,
                 )
-                reported.append(client_id)
-                total_examples += num_examples
+                if admitted:
+                    reported.append(client_id)
+                    total_examples += num_examples
             else:
                 collected.append((client_id, params, num_examples))
 
@@ -450,14 +451,15 @@ class SimulatedFederation:
             # summation order, so results are bit-reproducible.
             submissions, extra = self.round_hook(round_num, collected, global_params, selected, dropped)
             for client_id, params, num_examples in sorted(submissions, key=lambda s: s[0]):
-                coord.submit_client_update(
+                admitted = coord.submit_client_update(
                     client_id=str(client_id),
                     params=params,
                     num_examples=num_examples,
                     trained_on_round=round_num,
                 )
-                reported.append(client_id)
-                total_examples += num_examples
+                if admitted:
+                    reported.append(client_id)
+                    total_examples += num_examples
 
         # A full cohort already aggregated inline on the last submit (coordinator.py). Only an
         # incomplete cohort needs resolving, and it is resolved immediately rather than by
@@ -465,7 +467,7 @@ class SimulatedFederation:
         forced = False
         if len(reported) < self.clients_per_round:
             forced = True
-            if self.round_hook is None:
+            if self.round_hook is None and len(reported) == len(selected) - len(dropped):
                 reason = f"simulated dropout ({len(dropped)} of {len(selected)} clients)"
             else:
                 reason = (f"simulated availability ({len(selected) - len(reported)} of "

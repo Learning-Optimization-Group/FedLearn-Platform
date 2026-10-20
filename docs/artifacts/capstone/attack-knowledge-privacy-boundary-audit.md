@@ -39,11 +39,15 @@ set/cardinality, other clients' data, attacker state and permitted prior public
 transcript. The strategy rejects invalid/nonpositive-count submissions and the
 engine can drop late submissions; merely fixing the selected cohort does not
 establish a fixed accepted set. Audit that path and its sensitivity denominator.
-In the current round JSON, `participants.aggregated` is populated from
+In historical round JSON without a participation schema version, `participants.aggregated` was populated from
 `len(submissions)` before the strategy's final validation, whereas the strategy's
 own `aggregated` statistic counts accepted updates. Those counters must be
 distinguished in the confirmatory execution checks; the headline alone does not
-prove the actual denominator stayed fixed.
+prove the actual denominator stayed fixed. The subsequent
+[version 2 participation contract](participation-accounting-contract.md) separates
+submission, admission, strategy acceptance and successful aggregation, and fixes
+the simulator's handling of rejected admissions. Prospective runner enforcement
+of a fixed accepted cohort is still required.
 A current raw update
 from the protected honest client must not secretly enter many additional input
 slots without accounting for that dependence. Adapting to previously released

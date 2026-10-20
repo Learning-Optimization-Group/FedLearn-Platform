@@ -84,8 +84,8 @@ tests pass. A fresh bounded comparison reproduces all eight stored cells from
 repetition 0 of `main_n80_eps1` exactly under torch 2.12.0. The original 160-cell
 torch 2.9.1 verification remains historical evidence; this new eight-cell check
 does not replace or expand its scope. That integrated suite passed 1,787 tests,
-14 deselected, 81.21% coverage. The latest reviewed schedule-runner suite passes
-1,832 tests, 14 deselected, 81.26% coverage, with unhandled thread exceptions
+14 deselected, 81.21% coverage. The latest participation-accounting suite passes
+1,837 tests, 14 deselected, 81.31% coverage, with unhandled thread exceptions
 treated as errors. Tests alone do not establish NIH learning or content integrity.
 
 The no-DP/no-attack NIH validation pilot and the separate 1,000-client/two-round
@@ -362,8 +362,16 @@ or attack resistance. Independent checks bind 142 source/protocol fingerprints,
 both per-child proof phases, all assignments/counts, selection and timing totals.
 The interrupted-child proof and timing-accounting review findings are fixed.
 
-Next complete the [attack-knowledge/privacy boundary audit](../../docs/artifacts/capstone/attack-knowledge-privacy-boundary-audit.md)
-and bound larger-head costs, then freeze the confirmatory protocol. IPM/ALIE
+The [attack-knowledge/privacy boundary audit](../../docs/artifacts/capstone/attack-knowledge-privacy-boundary-audit.md)
+is complete. The subsequent [participation contract](../../docs/artifacts/capstone/participation-accounting-contract.md)
+fixes rejected admissions that previously caused repeated unresolved rounds and
+separates submitted, admitted, validated and successfully aggregated input counts.
+These failures were reproduced in synthetic regressions; no corresponding NIH
+baseline failure was observed. New records identify participation schema version 2;
+historical records and their numerical results remain unchanged.
+
+Next enforce permitted-information attacks and the fixed accepted cohort in the
+prospective runner, bound larger-head costs, then freeze the confirmatory protocol. IPM/ALIE
 read raw honest updates, so their oracle stress results cannot silently inherit
 a one-final-upload sensitivity claim at the raw-client data boundary. V3 has no
 attacks or noise and is unaffected. Official-test performance remains unseen.

@@ -204,7 +204,7 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         attack_norms = [v for c, v in up_norms.items() if c in attackers]
         extra = {
             "participants": {"sampled": len(selected), "dropped": len(dropped), "straggled": len(late),
-                             "aggregated": len(submissions)},
+                             "submitted": len(submissions)},
             "comm": {"down_bytes": per_transfer * len(selected), "up_bytes": per_transfer * len(records)},
             # A server with a deadline cannot know a client is late or gone until the deadline passes.
             "simulated_round_s": (float(deadline) if deadline is not None and (late or dropped)
@@ -240,6 +240,12 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
             refusal = None
         if refusal is not None:
             state["refusals"].append({"round": rec.round, "reason": refusal})
+        # The strategy's historical "aggregated" statistic counts validated inputs even
+        # when its reducer refuses. Keep admission, validation and model production distinct.
+        accepted = st.get("aggregated") if st else None
+        participants = {**extra.get("participants", {}), "admitted": len(rec.reported),
+                        "accepted": accepted,
+                        "aggregated": 0 if refusal is not None else accepted}
         releases = len(lines) + 1
         eps_spent = (float(get_epsilon(compute_rdp(1.0, z, releases), float(pv["delta"]))[0])
                      if pv["mode"] != "none" else None)
@@ -252,7 +258,7 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
             **{k: (None if refusal is not None else (rec.loss if k == "loss" else m.get(k))) for k in UTILITY_KEYS},
             "attack_note": extra.get("attack_note"),
             "fairness": fairness,
-            "participants": extra.get("participants"), "comm": extra.get("comm"),
+            "participants": participants, "comm": extra.get("comm"),
             "time": {"wall_s": {**t["wall_s"], **st.get("timings", {})}, "cpu_s": t["cpu_s"],
                      "simulated_round_s": extra.get("simulated_round_s")},
             "compute": {"client_flops": extra.get("client_flops"),
@@ -291,6 +297,7 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         "cpu_seconds": sum(l["compute"]["cpu_s"] for l in lines),
     }
     meta = {
+        "participation_schema_version": 2,
         "config": r, "config_hash": config_hash(r), "seeds": seeds, "flags": tolerance_flags(r),
         "workload": {**wl.info, "feat_dim": wl.feat_dim, "n_classes": wl.n_classes,
                      "n_train": int(len(wl.train_y)), "n_test": int(len(wl.test_y)), "parameters": d},
