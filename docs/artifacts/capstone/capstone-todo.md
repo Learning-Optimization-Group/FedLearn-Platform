@@ -9,6 +9,45 @@ correction are complete; assessed deliverables and the working dashboard remain 
 
 ## Live checkpoint
 
+**Priority update, 20 October:** follow the approved
+[next-phase plan](capstone-next-phase-plan.md): stronger centralized and federated
+learning baselines first, then clean privacy/security comparisons, attacks and
+heatmaps. A good integrated Simulation Lab remains a required final deliverable.
+The completed study stays intact as the earlier reference. The older schedule
+below is superseded where this order differs.
+
+**Follow-up target:** one specific condition, as requested. Condition selection is
+pending; do not silently reuse the earlier any-finding labels or the mobile
+pneumonia task. Preserve the completed study separately.
+
+### Next-phase work, in priority order
+
+- [x] Audit all fourteen candidate conditions in the existing development cohort
+  without fitting or test scoring. [Feasibility audit](condition-feasibility-audit-2026-10-20.md):
+  independent counts agree; positive-patient scarcity and misleading majority
+  accuracy identified. No condition or new model has been selected by this audit.
+- [ ] Select the condition and define the prediction purpose, labels, baseline acceptance measures and a genuinely
+  untouched final evaluation; do not tune to the already examined NIH test results.
+- [ ] Audit and improve a bounded centralized learning baseline on development data.
+  The [initial audit](learning-baseline-audit-2026-10-20.md) is complete: development
+  payload identities/statistics checked, no centralized NIH comparison found, and
+  representation/optimization/federation effects remain unresolved. No new fitting
+  or test scoring has been performed; the prospective diagnostic is next.
+- [ ] Qualify a matched federated baseline without DP or attacks.
+- [ ] Freeze a supported follow-up comparison of central DP, local DP and secure
+  aggregation, including clean controls and explicit privacy/trust/compatibility scope.
+- [ ] Run the bounded attack study across declared seeds, retaining all outcomes.
+- [ ] Build absolute-performance and attack-drop heatmaps with uncertainty and costs.
+- [ ] Complete and browser-verify the integrated simulator, including persistence,
+  ownership, live progress, stop/reopen, comparison, heatmaps and research export.
+
+The Spring API checkpoint passes 32 focused checks and the full backend gate:
+1,207 tests, no skips, 84.09% line coverage. An earlier admin-login HTTP EOF did not
+recur in isolation or the instrumented full run; its cause is unresolved, not fixed.
+React and actual browser acceptance remain open. Preserve the tested checkpoint
+while prioritizing learning quality.
+The API is committed locally at `53d60fc`; no public push or merge is implied.
+
 | Item | Current evidence |
 | --- | --- |
 | Working branch | `capstone`, isolated worktree |
@@ -146,11 +185,18 @@ Implementation has begun: the bounded worker, choice resolver and canonical
 finite/tagged record writer pass **107 focused tests**. Two lifecycle review findings
 were reproduced and corrected; an installed-wheel control completed two real
 synthetic-cache rounds. The full framework gate passed **2,183 tests**, 14 deselected, with 79.82% coverage.
-Backend/API, React and browser verification remain open.
+The backend/API checkpoint also passes its full gate. React and actual browser
+verification remain open.
 
 - [x] Implement and qualify the [bounded Simulation Lab worker](simulation-lab-worker-contract.md),
   including actual subprocess lifecycle and isolated installed-wheel verification.
   One minor oversized-integer CLI error-formatting issue remains documented.
+- [x] Implement and qualify the [owned persistent Spring API](simulation-lab-api-contract.md),
+  including real cookie/PostgreSQL authorization, process supervision, stop/restart,
+  safe persisted research exports and the opt-in numerical worker controls.
+  All 1,207 backend tests passed with 84.09% line coverage. Synthetic execution
+  controls do not establish NIH model quality. One busy-response link minor and
+  the unreproduced admin-login transport failure remain documented.
 
 ## Study checks and remaining reporting
 
@@ -209,8 +255,10 @@ Backend/API, React and browser verification remain open.
 | 1–5 December | Correction/reproduction buffer; stated deadline 5 December |
 
 Keep the primary study, honest reporting and reproducibility ahead of GUI extras.
-Local-DP expansion is optional and not part of the frozen matrix. LoRA/full image
-network training and physical thousand-device deployment remain outside this phase.
+Local DP remains outside the completed frozen matrix, but is now a required
+follow-up investigation after the learning-baseline gate. Candidate model/fine-tuning
+scope will be bounded by the new baseline audit; physical thousand-device deployment
+remains outside scope.
 Mobile release/signing/production TLS remains parked while capstone work has priority.
 There is no defensible single completion percentage: experiment preparation is
 complete and the scientific result is measured and reconciled. The working

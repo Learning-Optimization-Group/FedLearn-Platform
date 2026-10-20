@@ -1,5 +1,18 @@
 # Capstone plan — current as of 20 October 2026
 
+**Current priority:** stronger prediction baseline → matched federated baseline →
+clean privacy/security comparisons (including local DP and supported secure
+aggregation) → attacks → heatmaps/practical conclusions. A good Simulation Lab
+inside the existing FedLearn dashboard remains a required final deliverable.
+The approved [next-phase plan](../../docs/artifacts/capstone/capstone-next-phase-plan.md)
+supersedes the earlier dashboard-first next step and optional-local-DP scope below.
+Do not tune new models against the already inspected official NIH test results or
+claim clinical usefulness from the completed simulation study.
+
+The follow-up target is now **one specific condition**; the condition remains to
+be selected before labels, candidate models and the evaluation protocol are fixed.
+The completed No Finding/any-finding study remains a separate historical result.
+
 This is the current schedule and completion checklist. Earlier milestone decks,
 reports and design notes remain historical evidence. The
 [phase-2 protocol](../../docs/artifacts/capstone/nih-phase2-study-v1-protocol.md)
@@ -34,7 +47,10 @@ gates and an eight-page working outline. It is not a finished final report.
 - Simulation Lab is designed for the existing FedLearn dashboard; its
   [design](../../docs/superpowers/specs/2026-10-20-simulation-lab-design.md) and
   [implementation plan](../../docs/superpowers/plans/2026-10-20-simulation-lab.md)
-  are ready. Actual implementation/browser evidence, final deck and rehearsal remain open.
+  are ready. The bounded worker and persistent Spring API pass their execution gates;
+  the backend has 1,207 passing tests and 84.09% line coverage. React/browser evidence,
+  the final deck and rehearsal remain open. See the [API contract](../../docs/artifacts/capstone/simulation-lab-api-contract.md)
+  for the retained intermittent admin-login failure and execution limits.
 - Advisor title, report format and presentation-duration confirmation remain open;
   no advisor message or public publication is assumed.
 
