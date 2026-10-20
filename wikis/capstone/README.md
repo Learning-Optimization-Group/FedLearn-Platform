@@ -3,7 +3,8 @@
 This is the current schedule and completion checklist. Earlier milestone decks,
 reports and design notes remain historical evidence. The
 [phase-2 protocol](../../docs/artifacts/capstone/nih-phase2-study-v1-protocol.md)
-is prospectively frozen; its runner and execution remain pending. The NIH validation
+is prospectively frozen; its final-state artifact API is verified, while the
+study runner and execution remain pending. The NIH validation
 pilot and Milestone 2 grids are exploratory; the remaining runner/artifact gates
 below must be resolved before official-test classifier evaluation.
 
@@ -86,8 +87,8 @@ tests pass. A fresh bounded comparison reproduces all eight stored cells from
 repetition 0 of `main_n80_eps1` exactly under torch 2.12.0. The original 160-cell
 torch 2.9.1 verification remains historical evidence; this new eight-cell check
 does not replace or expand its scope. That integrated suite passed 1,787 tests,
-14 deselected, 81.21% coverage. The latest reviewed mechanism-qualification suite passes
-1,944 tests, 14 deselected, 81.60% coverage, with unhandled thread exceptions
+14 deselected, 81.21% coverage. The latest reviewed final-artifact suite passes
+2,008 tests, 14 deselected, 81.66% coverage, with unhandled thread exceptions
 treated as errors. Tests alone do not establish NIH learning or content integrity.
 
 The no-DP/no-attack NIH validation pilot and the separate 1,000-client/two-round
@@ -401,9 +402,17 @@ trimmed mean is lower than mean by 0.010914/0.014281. Its sensitivity/noise SD i
 general ranking, clinical result or confirmatory interaction. Child execution
 totals160.964s; largest engine-completion observed RSS698.31MiB.
 
-Next implement the frozen confirmatory protocol's persistent runner with
-final score/model artifacts for independent AUROC, threshold transfer and
-patient-aware checks, then execute the fixed study. The public 360-cell protocol
+The [qualified final-state/score artifact API](../../docs/artifacts/capstone/final-state-score-artifact-contract.md)
+is implemented and verified with synthetic NIH controls: caller capture only after
+successful postflight, owned CPU parameters, preserved records on callback failure,
+checkpoint roundtrip and aligned float32 logits/float64 margins/labels/identities.
+Independent review found a record/cache identity gap; 24 failing regressions
+reproduced it before correction. All116 artifact/core checks and the full2,008-test
+suite pass. Test classifier scoring has occurred only on synthetic controls.
+
+Next integrate this API into the frozen confirmatory protocol's persistent runner
+and independent AUROC, threshold-transfer and patient-aware analysis, then execute
+the fixed study. The public 360-cell protocol
 specifies ten new matched seeds, one primary contrast, three bounded secondary
 families and exact failure/inference/resource rules. It was frozen after an
 independent implementability check and before official-test classifier scoring.

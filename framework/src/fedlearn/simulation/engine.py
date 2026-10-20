@@ -118,7 +118,8 @@ def _start_checks(resolved: Dict, workload) -> None:
 
 
 def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
-        should_stop: Optional[Callable[[], bool]] = None) -> Dict:
+        should_stop: Optional[Callable[[], bool]] = None, *,
+        on_final_parameters: Optional[Callable[[Dict], None]] = None) -> Dict:
     r = resolve(cfg)
     rss_before = costs.peak_rss_bytes()
     seeds, fed, sv, pv = r["seeds"], r["federation"], r["server"], r["privacy"]
@@ -315,6 +316,8 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
                        "platform": platform.platform(), "host": platform.node(), "git_commit": _git_commit()},
         "clocks": "time.wall_s is measured on this machine; time.simulated_round_s is the deployment model",
     }
+    if on_final_parameters is not None and final is not None:
+        on_final_parameters(OrderedDict((k, v.detach().cpu().clone()) for k, v in final.items()))
     return {"meta": meta, "rounds": lines}
 
 

@@ -20,9 +20,10 @@ preserved. The frozen ResNet-18 feature cache has passed source and alignment
 checks. These are report-derived labels, so I will not present the work as a
 clinically validated diagnostic system.
 
-Next I will complete a bounded validation-only pilot and freeze the confirmatory
-experiment protocol before examining official-test performance. The privacy unit
-will be a simulated client; I will distinguish this from patient-level protection
+The validation baseline and a bounded twelve-run privacy/attack qualification are
+complete. The confirmatory protocol is now frozen, and I am preparing its verified
+runner before examining official-test classifier performance. The privacy unit
+is a simulated client; I will distinguish this from patient-level protection
 and distinguish reproducible research logs from production privacy guarantees.
 
 Please let me know whether you approve this title and emphasis, or would prefer

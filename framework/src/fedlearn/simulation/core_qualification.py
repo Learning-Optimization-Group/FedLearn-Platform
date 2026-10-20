@@ -155,16 +155,26 @@ def qualify_core_record(record, cfg, *, feature_report_sha256, clients=80, evalu
 
 
 def run_core(cfg, *, feature_report_sha256, clients=80, evaluation_split="validation",
-             on_round=None, should_stop=None):
+             on_round=None, should_stop=None, on_final_parameters=None):
     """Check policy before training, then label only a successfully qualified result.
 
     A caller must save ``CoreQualificationError.record`` on postflight failure.
     Engine exceptions propagate for its runner to retain alongside logs/tracebacks.
+    Final-parameter callbacks receive owned CPU copies only after qualification;
+    callback failure retains the qualified simulation record for the runner.
     """
     policy = {"feature_report_sha256": feature_report_sha256, "clients": clients,
               "evaluation_split": evaluation_split}
     resolved = prepare_core_config(cfg, **policy)
-    record = engine.run(resolved, on_round=on_round, should_stop=should_stop)
+    captured = []
+    capture = {"on_final_parameters": captured.append} if on_final_parameters is not None else {}
+    record = engine.run(resolved, on_round=on_round, should_stop=should_stop, **capture)
     qualification = qualify_core_record(record, resolved, **policy)
     record["meta"]["core_qualification"] = qualification
+    if on_final_parameters is not None:
+        try:
+            _require(len(captured) == 1, "missing final parameters")
+            on_final_parameters(captured[0])
+        except Exception as error:
+            raise CoreQualificationError(f"final parameter callback failed: {error}", record=record) from error
     return record

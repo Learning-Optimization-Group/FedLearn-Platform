@@ -63,20 +63,20 @@ Manifest binds config hash, final model digest/full file hash, cache/mask-indepe
 split identity, payload sizes/hashes, parameter names/shapes, logits and float64
 margins/labels/IDs for validation/test. Research output is explicitly non-private.
 
-- [ ] Write failing tests for actual final-state capture/digest, default identical
+- [x] Write failing tests for actual final-state capture/digest, default identical
   run, mutation isolation, postflight refusal/no callback and callback errors.
   Use small synthetic NIH controls; no real official-test predictions here.
-- [ ] Implement optional capture with unchanged default engine/core APIs and JSON.
+- [x] Implement optional capture with unchanged default engine/core APIs and JSON.
   Preserve returned failed records if the later caller's artifact writing fails.
-- [ ] Write failing artifact roundtrip tests using real small NIH cache/model:
+- [x] Write failing artifact roundtrip tests using real small NIH cache/model:
   linear and MLP, source-record/config/state mismatches, existing/inside-cache
   output refusal, score/label/identity/checkpoint tampering, partial output, nonfinite
   state/scores. No pickle/object arrays or silent dtype/coercion changes.
-- [ ] Implement atomic completion manifest last. Predict on CPU under eval/no-grad,
+- [x] Implement atomic completion manifest last. Predict on CPU under eval/no-grad,
   record execution/library/batch/thread settings. Check saved model roundtrip and
   final digest; strict model key/shape matching. Derive float64 margins before
   subtraction, preserve raw float32 logits for loss/ECE/tie reconciliation.
-- [ ] Focused tests, one independent review; substantive fixes RED→GREEN, no re-review.
+- [x] Focused tests, one independent review; substantive fixes RED→GREEN, no re-review.
   Full framework suite/coverage/thread errors gate; commit verified source.
 
 ### Task 2: Fixed study runner and independent analysis
