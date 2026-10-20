@@ -3,14 +3,40 @@
 This is the current schedule and completion checklist. Earlier milestone decks,
 reports and design notes remain historical evidence. The
 [phase-2 protocol](../../docs/artifacts/capstone/nih-phase2-study-v1-protocol.md)
-is prospectively frozen. Its final-state artifact API and fixed study runner/
-analysis are implemented and verified; a committed source checkpoint precedes
-the actual study. The NIH validation pilot and Milestone 2 grids remain
-exploratory. Official-test classifier evaluation has not started.
+was prospectively frozen before official-test classifier scoring. The single
+fixed study is complete: **360/360 qualified, 7,200 rounds and zero failures**.
+Independent model/score/accounting reconciliation passed, and the original source
+reader reproduced the complete analysis exactly. The NIH pilots and Milestone 2
+grids remain exploratory. Study review and its primary-validation correction are
+complete. Assessed deliverables and a working dashboard remain open.
 
 The [final-report evidence map](../../docs/artifacts/capstone/final-report-evidence-map.md)
 tracks which claims are currently supported, the remaining study/report/demo
 gates and an eight-page working outline. It is not a finished final report.
+
+## Current delivery checkpoint
+
+- [Fixed study report](../../docs/artifacts/capstone/nih-phase2-study-v1-report.md):
+  ten-seed primary D=+0.002266150 AUROC, paired 95% interval
+  [+0.000704398,+0.003827901], conditional on fixed cohorts. Absolute private utility
+  and aggregation ordering depend on clipping/head/attack; no universal winner.
+- [Verification receipt](../../docs/artifacts/capstone/nih-phase2-study-v1-verification.json):
+  360 models/both splits, 148 source files, 16 allocations, all diagnostics/costs;
+  12 curated tables/3,202 rows and six visually checked figures.
+- Terminal raw evidence: 3,964 files hash-verified on a second device. The original
+  execution source/cache/history checkpoints remain preserved separately.
+- [Practical guidance](../../docs/artifacts/capstone/fedlearn-practical-guidance.md)
+  maps eight measured findings to platform actions and applicable limits.
+- [Current TODO](../../docs/artifacts/capstone/capstone-todo.md) and
+  [working report](../../docs/artifacts/capstone/capstone-final-report-v2-working.md):
+  methods/results/abstract/conclusion drafted; all eight working PDF pages visually checked.
+  Advisor formatting/title and final submission checks remain open.
+- Simulation Lab is designed for the existing FedLearn dashboard; its
+  [design](../../docs/superpowers/specs/2026-10-20-simulation-lab-design.md) and
+  [implementation plan](../../docs/superpowers/plans/2026-10-20-simulation-lab.md)
+  are ready. Actual implementation/browser evidence, final deck and rehearsal remain open.
+- Advisor title, report format and presentation-duration confirmation remain open;
+  no advisor message or public publication is assumed.
 
 ## Objective and boundaries
 
@@ -55,8 +81,8 @@ research commits and integrates this verified main baseline at `660576a`.
 | --- | --- | --- |
 | 18–19 October | NIH data and pilot | Explicit labels, validated patient-disjoint manifests, frozen ResNet-18 feature cache with provenance, patient-preserving simulated clients, clean validation pilot |
 | Before confirmatory runs | Phase-2 protocol | Versioned hypotheses, primary endpoint, exact configurations/seeds, tuning/test separation, run budget, inference and failure-handling rules; approved and frozen before examining confirmatory results |
-| 20 October–2 November | Experiments | Complete the core matched NIH study first, then separately budgeted scale/head-size studies; verified records, failures and analysis |
-| 3–16 November | Simulation Lab | Design review first; minimum GUI loads a resolved config, starts/stops a run, streams results and exports the record |
+| 20 October–2 November | Experiments | Fixed 360-cell study and independent/source-bound checks complete; finish reviewed report/evidence checkpoint |
+| 3–16 November | Simulation Lab | Dashboard integration design reviewed; implement resolved config, owned start/stop, progress/results, comparison and export |
 | 17–30 November | Final deliverables | Report, current presentation and reproducible demonstration; keep writing alongside experiments |
 | 1–5 December | Buffer | Reproduction checks, corrections and submission; 5 December is the stated deadline |
 
@@ -98,8 +124,11 @@ the separately frozen v3 schedule probe establishes a stable eighty-client
 baseline across three seeds. The attack-knowledge audit, participation correction,
 core execution checks, short four-head cost qualification and twelve-cell
 full-schedule validation mechanism qualification are complete. The confirmatory
-protocol is frozen, and its matrix has not run; exploratory validation
-and successful execution alone do not complete the study.
+protocol was frozen and the complete matrix has now run and reconciled. Those
+new results are separate from the exploratory validation; final delivery remains open.
+
+The dated sections below preserve preparation/pilot checkpoints and their original
+failed gates. Later completion above does not rewrite those historical outcomes.
 
 ## NIH manifest qualification — 19 October
 
@@ -402,6 +431,9 @@ trimmed mean is lower than mean by 0.010914/0.014281. Its sensitivity/noise SD i
 general ranking, clinical result or confirmatory interaction. Child execution
 totals160.964s; largest engine-completion observed RSS698.31MiB.
 
+The following two paragraphs record the **pre-launch implementation checkpoint**.
+The completed study and current conclusions are linked at the top of this page.
+
 The [qualified final-state/score artifact API](../../docs/artifacts/capstone/final-state-score-artifact-contract.md)
 is implemented and verified with synthetic NIH controls: caller capture only after
 successful postflight, owned CPU parameters, preserved records on callback failure,
@@ -420,11 +452,12 @@ specifies ten new matched seeds, one primary contrast, three bounded secondary
 families and exact failure/inference/resource rules. It was frozen after an
 independent implementability check and before official-test classifier scoring.
 The nine-image ambiguous-content sensitivity mask is bound by hash; primary
-official-test membership remains unchanged. The real study is not complete yet.
+official-test membership remains unchanged. At that checkpoint, the real study had not executed.
 Avoid further utility-selected pilots. IPM/ALIE
 read raw honest updates, so their oracle stress results cannot silently inherit
 a one-final-upload sensitivity claim at the raw-client data boundary. V3 has no
-attacks or noise and is unaffected. Official-test performance remains unseen.
+attacks or noise and is unaffected. Official-test performance was still unseen
+at that pre-launch checkpoint; the completed fixed study now reports it.
 
 ## Practical research outputs
 
@@ -448,7 +481,7 @@ avoid adding an unrestricted Cartesian experiment matrix.
 
 The [methods source register](../../docs/artifacts/capstone/phase-2-methods-sources.md) distinguishes checked primary references from claims still needing full theoretical review.
 
-## Protocol decisions to freeze
+## Historical pre-study checklist — now governed by the frozen protocol
 
 - Primary cohort, rounds, local optimizer/steps, learning rate, clipping norm,
   attacker knowledge/fraction/strength, aggregation rules and DP settings.
@@ -469,7 +502,7 @@ The [methods source register](../../docs/artifacts/capstone/phase-2-methods-sour
 
 The recommended head-size comparison holds frozen ResNet-18 features fixed and
 uses a linear head plus MLP hidden widths 8, 128 and 512: 1,026, 4,122, 65,922 and
-263,682 trainable parameters. Head capacity and optimization still change; compare each head against its matched no-DP baseline rather than calling every difference a pure dimension effect. This is the working comparison under the continuous-work mandate; freeze it in the prospective protocol after the pilot. A ResNet-50
+263,682 trainable parameters. Head capacity and optimization still change; compare each head against its matched no-DP baseline rather than calling every difference a pure dimension effect. This is the working comparison under the continuous-work mandate; the frozen protocol now fixes this comparison after the validation pilots. A ResNet-50
 linear head has 4,098 parameters but also changes feature dimension/backbone;
 retain it only as a separately named representation comparison.
 

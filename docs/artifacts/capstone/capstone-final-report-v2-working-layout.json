@@ -1,0 +1,19 @@
+{
+  "all_pages_visually_inspected": true,
+  "inspection": "All eight pages readable, no clipping, overlap or orphaned references; working layout only, advisor format/title not approved.",
+  "pages": 8,
+  "pdf_sha256": "1956942def71c9d2ae3c00fb3fb3bab23b5f0966a43558b3f83b819d03630ff6",
+  "rendered_pages": [
+    "page-01.png",
+    "page-02.png",
+    "page-03.png",
+    "page-04.png",
+    "page-05.png",
+    "page-06.png",
+    "page-07.png",
+    "page-08.png"
+  ],
+  "scope": "Working report preview; final assessed submission, dashboard, presentation and rehearsal remain open.",
+  "source_sha256": "e4b6b830d9513dc486d1ee7cfe0c636fb586d2af5fe7e8c829f69530d9b9f958",
+  "text_characters": 22961
+}

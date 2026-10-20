@@ -1,0 +1,2343 @@
+{
+  "files": {
+    "nih-phase2-clipping-sensitivity.png": "7df363f47b6b18e0fa79a03b614f216461072edb1948577d87490a374c9d2bb7",
+    "nih-phase2-clipping-sensitivity.svg": "7f7326f17338b11026dba5d8e6e1cc0e7a9cb163979e178052e6aaa2da60eb7a",
+    "nih-phase2-cohort-sensitivity.png": "e521c7d98e51023f5f703739b94b47cdbffbe4cc79d9b04a0d5b67c76ee64611",
+    "nih-phase2-cohort-sensitivity.svg": "594fe5c820d408878e57cf2ac7f3aea8184ed9a55a112f45687032578bab9f7a",
+    "nih-phase2-head-costs.png": "177bc08bedeccb4e592a3279cc265ee6fa6335950b386ec9868de57b03ef33b1",
+    "nih-phase2-head-costs.svg": "f9e6f99f64d230d0dec7e4ab8c6ec71c6b97ea0c4b872a32db64208cf9ecfd9d",
+    "nih-phase2-head-privacy-penalty.png": "7180f3a50331d62f1eb5179033509e3fdec2f7e9af3a6176442e193aa89ba02c",
+    "nih-phase2-head-privacy-penalty.svg": "d64dcbaf6b24ca4705d92ef03fd37258ce6eb9aecee8493056a36ca06f4606c2",
+    "nih-phase2-primary-components.png": "71f40ffeb3aa416eda44c3c8ba552cb659fe8d56e6378f8798e9a70a5d23dd09",
+    "nih-phase2-primary-components.svg": "6ba35dfd742d21e0e247f6b3b27148c86db0a4bb1c51e7d3768eb4e677c0cbe5",
+    "nih-phase2-primary-contrast.png": "42a1e22708a5d8d1eb615026111afde52f9914074f35a38a8a5caaf30d39ccee",
+    "nih-phase2-primary-contrast.svg": "d4a2e1934c20d33ec24d765ba739daaec2ecb339a46fe656b043bb0e79a4aca9"
+  },
+  "independent_audit_sha256": "8438ccb8531188851a2f6b3b2750604d373e9a8fc8d1fe32b6dc0455514a097b",
+  "plot_script_sha256": "9207b7b5c0e9ad1646f400c53a70aeef81aeb4df6d14820a2d73e8598907e744",
+  "plotted_values": [
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_clean_mean_none",
+      "value": 0.6618973609240898
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_clean_mean_none",
+      "value": 0.6613724736339085
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_clean_mean_none",
+      "value": 0.6669185504376741
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_clean_mean_none",
+      "value": 0.65990497015603
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_clean_mean_none",
+      "value": 0.658744821206702
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_clean_mean_none",
+      "value": 0.665514838008728
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_clean_mean_none",
+      "value": 0.6597682267148574
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_clean_mean_none",
+      "value": 0.6634654619451881
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_clean_mean_none",
+      "value": 0.6597473454258553
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_clean_mean_none",
+      "value": 0.664683724037396
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_clean_mean_eps1",
+      "value": 0.5856610250773002
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_clean_mean_eps1",
+      "value": 0.5688428772263667
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_clean_mean_eps1",
+      "value": 0.595348306184274
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_clean_mean_eps1",
+      "value": 0.5404005604821541
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_clean_mean_eps1",
+      "value": 0.5901964249364224
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_clean_mean_eps1",
+      "value": 0.6037790782825023
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_clean_mean_eps1",
+      "value": 0.5888171191252081
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_clean_mean_eps1",
+      "value": 0.6265286046107627
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_clean_mean_eps1",
+      "value": 0.5660528502202219
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_clean_mean_eps1",
+      "value": 0.5708911673339817
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_clean_mean_eps4",
+      "value": 0.648989250550881
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_clean_mean_eps4",
+      "value": 0.6332092314503018
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_clean_mean_eps4",
+      "value": 0.6504412831848555
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_clean_mean_eps4",
+      "value": 0.6299324802875637
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_clean_mean_eps4",
+      "value": 0.6495591743989467
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_clean_mean_eps4",
+      "value": 0.6533837145989244
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_clean_mean_eps4",
+      "value": 0.6457065379090295
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_clean_mean_eps4",
+      "value": 0.6609240866216449
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_clean_mean_eps4",
+      "value": 0.6420764224886714
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_clean_mean_eps4",
+      "value": 0.6491389255680975
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_clean_mean_eps8",
+      "value": 0.6585313196939203
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_clean_mean_eps8",
+      "value": 0.6483732203011114
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_clean_mean_eps8",
+      "value": 0.6606869712067326
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_clean_mean_eps8",
+      "value": 0.6483788015345299
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_clean_mean_eps8",
+      "value": 0.6571519107652293
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_clean_mean_eps8",
+      "value": 0.6614426901905988
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_clean_mean_eps8",
+      "value": 0.6550143434798674
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_clean_mean_eps8",
+      "value": 0.664937592819827
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_clean_mean_eps8",
+      "value": 0.6542228910679545
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_clean_mean_eps8",
+      "value": 0.6604039008439102
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_clean_trimmed_mean_none",
+      "value": 0.6617196508429354
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_clean_trimmed_mean_none",
+      "value": 0.6610516300504563
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_clean_trimmed_mean_none",
+      "value": 0.6668854432828583
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_clean_trimmed_mean_none",
+      "value": 0.659763599318097
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_clean_trimmed_mean_none",
+      "value": 0.658511111890937
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_clean_trimmed_mean_none",
+      "value": 0.6653861796222014
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_clean_trimmed_mean_none",
+      "value": 0.6595648983856218
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_clean_trimmed_mean_none",
+      "value": 0.6632177673216657
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_clean_trimmed_mean_none",
+      "value": 0.6597016933855326
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_clean_trimmed_mean_none",
+      "value": 0.6645264698856527
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_clean_trimmed_mean_eps1",
+      "value": 0.5537672503856996
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_clean_trimmed_mean_eps1",
+      "value": 0.5464344828450705
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_clean_trimmed_mean_eps1",
+      "value": 0.5704707831614445
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_clean_trimmed_mean_eps1",
+      "value": 0.5005013056122621
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_clean_trimmed_mean_eps1",
+      "value": 0.564134836154547
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_clean_trimmed_mean_eps1",
+      "value": 0.5792491449386059
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_clean_trimmed_mean_eps1",
+      "value": 0.5616958178161672
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_clean_trimmed_mean_eps1",
+      "value": 0.6073735247232367
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_clean_trimmed_mean_eps1",
+      "value": 0.5392119639989821
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_clean_trimmed_mean_eps1",
+      "value": 0.5399543324920558
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": 0.6306029823443223
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": 0.6113549356068417
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": 0.6333007836573752
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": 0.6003569733692994
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": 0.6334288233390425
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": 0.6389902259777607
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": 0.6295089929234665
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": 0.6517430478761231
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": 0.61881202415514
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": 0.6267803594849244
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_clean_trimmed_mean_eps8",
+      "value": 0.6514194265656463
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_clean_trimmed_mean_eps8",
+      "value": 0.6364662195041745
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_clean_trimmed_mean_eps8",
+      "value": 0.6528519087705507
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_clean_trimmed_mean_eps8",
+      "value": 0.6342864030552161
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_clean_trimmed_mean_eps8",
+      "value": 0.6515982000457777
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_clean_trimmed_mean_eps8",
+      "value": 0.6553371817420067
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_clean_trimmed_mean_eps8",
+      "value": 0.6481394046454487
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_clean_trimmed_mean_eps8",
+      "value": 0.662064578802005
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_clean_trimmed_mean_eps8",
+      "value": 0.6455814499651286
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_clean_trimmed_mean_eps8",
+      "value": 0.6523800657547923
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_sign_flip_mean_none",
+      "value": 0.6463888920307495
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_sign_flip_mean_none",
+      "value": 0.6482098048801441
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_sign_flip_mean_none",
+      "value": 0.6566978812935456
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_sign_flip_mean_none",
+      "value": 0.6422236452433987
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_sign_flip_mean_none",
+      "value": 0.6430109342871958
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_sign_flip_mean_none",
+      "value": 0.6550922745127723
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_sign_flip_mean_none",
+      "value": 0.6443688851135003
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_sign_flip_mean_none",
+      "value": 0.6491245471249607
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_sign_flip_mean_none",
+      "value": 0.6494081395200081
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_sign_flip_mean_none",
+      "value": 0.655388895156498
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_sign_flip_mean_eps1",
+      "value": 0.5608204342231824
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_sign_flip_mean_eps1",
+      "value": 0.5559390881199097
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_sign_flip_mean_eps1",
+      "value": 0.5780949478011278
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_sign_flip_mean_eps1",
+      "value": 0.5076954252608236
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_sign_flip_mean_eps1",
+      "value": 0.574474899224418
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_sign_flip_mean_eps1",
+      "value": 0.5877604775653912
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_sign_flip_mean_eps1",
+      "value": 0.569976012619259
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_sign_flip_mean_eps1",
+      "value": 0.612888363376449
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_sign_flip_mean_eps1",
+      "value": 0.5512138489864535
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_sign_flip_mean_eps1",
+      "value": 0.5476614776985739
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_sign_flip_mean_eps4",
+      "value": 0.6267142482927693
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_sign_flip_mean_eps4",
+      "value": 0.6136910652605696
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_sign_flip_mean_eps4",
+      "value": 0.6335956061901035
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_sign_flip_mean_eps4",
+      "value": 0.5992177572677116
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_sign_flip_mean_eps4",
+      "value": 0.6305163604415968
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_sign_flip_mean_eps4",
+      "value": 0.6397225340720283
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_sign_flip_mean_eps4",
+      "value": 0.625209989879342
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_sign_flip_mean_eps4",
+      "value": 0.649719712197834
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_sign_flip_mean_eps4",
+      "value": 0.6264575341124696
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_sign_flip_mean_eps4",
+      "value": 0.6290435786378871
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_sign_flip_mean_eps8",
+      "value": 0.6406090704645865
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_sign_flip_mean_eps8",
+      "value": 0.6307219380207896
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_sign_flip_mean_eps8",
+      "value": 0.6467172664124112
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_sign_flip_mean_eps8",
+      "value": 0.6242027770374265
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_sign_flip_mean_eps8",
+      "value": 0.64036497528548
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_sign_flip_mean_eps8",
+      "value": 0.650005379832097
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_sign_flip_mean_eps8",
+      "value": 0.63762726428658
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_sign_flip_mean_eps8",
+      "value": 0.6537351131796477
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_sign_flip_mean_eps8",
+      "value": 0.6423835804495323
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_sign_flip_mean_eps8",
+      "value": 0.6477394119539
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "value": 0.6549520379670815
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "value": 0.6553059468138746
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "value": 0.6624364365345606
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "value": 0.6522124837432881
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "value": 0.6512514868653954
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "value": 0.6607879554404893
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "value": 0.6528343143511138
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "value": 0.6570945452240544
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "value": 0.6551465690865986
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "value": 0.6606331309942874
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_sign_flip_trimmed_mean_eps1",
+      "value": 0.5459079682322123
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_sign_flip_trimmed_mean_eps1",
+      "value": 0.5439108405050732
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_sign_flip_trimmed_mean_eps1",
+      "value": 0.5660190502448605
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_sign_flip_trimmed_mean_eps1",
+      "value": 0.4937168426962552
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_sign_flip_trimmed_mean_eps1",
+      "value": 0.5593340312453043
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_sign_flip_trimmed_mean_eps1",
+      "value": 0.5735612429355265
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_sign_flip_trimmed_mean_eps1",
+      "value": 0.5568023973008742
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_sign_flip_trimmed_mean_eps1",
+      "value": 0.6019670367585125
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_sign_flip_trimmed_mean_eps1",
+      "value": 0.5354390566529672
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_sign_flip_trimmed_mean_eps1",
+      "value": 0.532830435845027
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": 0.6193116412187235
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": 0.6029808716758752
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": 0.6254348665387559
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": 0.5860066104102829
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": 0.623900043460794
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": 0.6318621079590354
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": 0.6196839533126602
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": 0.6466517868148001
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": 0.6113020750104238
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": 0.6153643042162771
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_sign_flip_trimmed_mean_eps8",
+      "value": 0.6419982658862865
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_sign_flip_trimmed_mean_eps8",
+      "value": 0.6273211590907062
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_sign_flip_trimmed_mean_eps8",
+      "value": 0.6457166627562586
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_sign_flip_trimmed_mean_eps8",
+      "value": 0.6211560938545625
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_sign_flip_trimmed_mean_eps8",
+      "value": 0.6430441445594881
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_sign_flip_trimmed_mean_eps8",
+      "value": 0.6494740283651043
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_sign_flip_trimmed_mean_eps8",
+      "value": 0.6393377447634286
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_sign_flip_trimmed_mean_eps8",
+      "value": 0.6572074556384588
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_sign_flip_trimmed_mean_eps8",
+      "value": 0.6392076878461262
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_sign_flip_trimmed_mean_eps8",
+      "value": 0.6449411129926829
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_label_flip_mean_none",
+      "value": 0.6518663151520788
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_label_flip_mean_none",
+      "value": 0.6533933657502455
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_label_flip_mean_none",
+      "value": 0.6613801881101231
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_label_flip_mean_none",
+      "value": 0.6487712376485001
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_label_flip_mean_none",
+      "value": 0.647893672476402
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_label_flip_mean_none",
+      "value": 0.6592919496476073
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_label_flip_mean_none",
+      "value": 0.648944046427097
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_label_flip_mean_none",
+      "value": 0.6545334776849108
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_label_flip_mean_none",
+      "value": 0.6527954583969802
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_label_flip_mean_none",
+      "value": 0.658970377796977
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_label_flip_mean_eps1",
+      "value": 0.5582300039825903
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_label_flip_mean_eps1",
+      "value": 0.549092912616607
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_label_flip_mean_eps1",
+      "value": 0.5743670899026819
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_label_flip_mean_eps1",
+      "value": 0.5091627547279605
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_label_flip_mean_eps1",
+      "value": 0.5648043618176994
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_label_flip_mean_eps1",
+      "value": 0.5825790434932437
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_label_flip_mean_eps1",
+      "value": 0.5653015878447955
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_label_flip_mean_eps1",
+      "value": 0.6100465713970745
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_label_flip_mean_eps1",
+      "value": 0.539555835003917
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_label_flip_mean_eps1",
+      "value": 0.5433131297194976
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_label_flip_mean_eps4",
+      "value": 0.6273348898271934
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_label_flip_mean_eps4",
+      "value": 0.6140939806880945
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_label_flip_mean_eps4",
+      "value": 0.6347980043030278
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_label_flip_mean_eps4",
+      "value": 0.5986335580939856
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_label_flip_mean_eps4",
+      "value": 0.6291800739526318
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_label_flip_mean_eps4",
+      "value": 0.6387913607018072
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_label_flip_mean_eps4",
+      "value": 0.625923920505835
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_label_flip_mean_eps4",
+      "value": 0.649499366262546
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_label_flip_mean_eps4",
+      "value": 0.6209864784953175
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_label_flip_mean_eps4",
+      "value": 0.6294585523653264
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_label_flip_mean_eps8",
+      "value": 0.6440886762606522
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_label_flip_mean_eps8",
+      "value": 0.6347159679055877
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_label_flip_mean_eps8",
+      "value": 0.6508177715365925
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_label_flip_mean_eps8",
+      "value": 0.6273520266628281
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_label_flip_mean_eps8",
+      "value": 0.6429863955501973
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_label_flip_mean_eps8",
+      "value": 0.6519076813722823
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_label_flip_mean_eps8",
+      "value": 0.6404503114421698
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_label_flip_mean_eps8",
+      "value": 0.6564855044057425
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_label_flip_mean_eps8",
+      "value": 0.6419099973263572
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_label_flip_mean_eps8",
+      "value": 0.650414752991591
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_label_flip_trimmed_mean_none",
+      "value": 0.6571630216733279
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_label_flip_trimmed_mean_none",
+      "value": 0.6580538857774801
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_label_flip_trimmed_mean_none",
+      "value": 0.6647258829732003
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_label_flip_trimmed_mean_none",
+      "value": 0.655006815904079
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_label_flip_trimmed_mean_none",
+      "value": 0.6535062890543344
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_label_flip_trimmed_mean_none",
+      "value": 0.6627212437823787
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_label_flip_trimmed_mean_none",
+      "value": 0.65489191725583
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_label_flip_trimmed_mean_none",
+      "value": 0.6596507791314846
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_label_flip_trimmed_mean_none",
+      "value": 0.6574937065309486
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_label_flip_trimmed_mean_none",
+      "value": 0.6627409005513466
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_label_flip_trimmed_mean_eps1",
+      "value": 0.5406572585503481
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_label_flip_trimmed_mean_eps1",
+      "value": 0.5379674585089915
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_label_flip_trimmed_mean_eps1",
+      "value": 0.5607693459583927
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_label_flip_trimmed_mean_eps1",
+      "value": 0.48964011259526163
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_label_flip_trimmed_mean_eps1",
+      "value": 0.5515149101265132
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_label_flip_trimmed_mean_eps1",
+      "value": 0.567917259310195
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_label_flip_trimmed_mean_eps1",
+      "value": 0.5505145094828926
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_label_flip_trimmed_mean_eps1",
+      "value": 0.5982667337832542
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_label_flip_trimmed_mean_eps1",
+      "value": 0.527275471603751
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_label_flip_trimmed_mean_eps1",
+      "value": 0.5261019077152077
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_label_flip_trimmed_mean_eps4",
+      "value": 0.6160870803888058
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_label_flip_trimmed_mean_eps4",
+      "value": 0.5993379567987398
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_label_flip_trimmed_mean_eps4",
+      "value": 0.6223561267103686
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_label_flip_trimmed_mean_eps4",
+      "value": 0.5804254736644893
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_label_flip_trimmed_mean_eps4",
+      "value": 0.6182188473161115
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_label_flip_trimmed_mean_eps4",
+      "value": 0.6284332971874353
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_label_flip_trimmed_mean_eps4",
+      "value": 0.6165037587770293
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_label_flip_trimmed_mean_eps4",
+      "value": 0.6438609735378965
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_label_flip_trimmed_mean_eps4",
+      "value": 0.6026104318086222
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_label_flip_trimmed_mean_eps4",
+      "value": 0.6104341029860663
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_label_flip_trimmed_mean_eps8",
+      "value": 0.6418105759668544
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_label_flip_trimmed_mean_eps8",
+      "value": 0.628054288902365
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_label_flip_trimmed_mean_eps8",
+      "value": 0.6460416987096169
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261104_linear_n80_c005_label_flip_trimmed_mean_eps8",
+      "value": 0.6197300693816273
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261105_linear_n80_c005_label_flip_trimmed_mean_eps8",
+      "value": 0.6417521599163872
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261106_linear_n80_c005_label_flip_trimmed_mean_eps8",
+      "value": 0.6488265182831958
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261107_linear_n80_c005_label_flip_trimmed_mean_eps8",
+      "value": 0.6392642832286481
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261108_linear_n80_c005_label_flip_trimmed_mean_eps8",
+      "value": 0.6570600524281475
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261109_linear_n80_c005_label_flip_trimmed_mean_eps8",
+      "value": 0.6364627135099716
+    },
+    {
+      "figure": "nih-phase2-primary-components",
+      "figure_value": "test_auc",
+      "name": "primary_s20261110_linear_n80_c005_label_flip_trimmed_mean_eps8",
+      "value": 0.6444878891262846
+    },
+    {
+      "figure": "nih-phase2-primary-contrast",
+      "figure_value": "primary_D",
+      "seed": 20261101,
+      "value": 0.0022428051150266137
+    },
+    {
+      "figure": "nih-phase2-primary-contrast",
+      "figure_value": "primary_D",
+      "seed": 20261102,
+      "value": 0.00372711674158277
+    },
+    {
+      "figure": "nih-phase2-primary-contrast",
+      "figure_value": "primary_D",
+      "seed": 20261103,
+      "value": 0.0032080974803022633
+    },
+    {
+      "figure": "nih-phase2-primary-contrast",
+      "figure_value": "primary_D",
+      "seed": 20261104,
+      "value": 0.006234150723013254
+    },
+    {
+      "figure": "nih-phase2-primary-contrast",
+      "figure_value": "primary_D",
+      "seed": 20261105,
+      "value": 0.0010397721851372888
+    },
+    {
+      "figure": "nih-phase2-primary-contrast",
+      "figure_value": "primary_D",
+      "seed": 20261106,
+      "value": 0.0007087231939272298
+    },
+    {
+      "figure": "nih-phase2-primary-contrast",
+      "figure_value": "primary_D",
+      "seed": 20261107,
+      "value": 0.0020027508520322757
+    },
+    {
+      "figure": "nih-phase2-primary-contrast",
+      "figure_value": "primary_D",
+      "seed": 20261108,
+      "value": -0.0021045793601284224
+    },
+    {
+      "figure": "nih-phase2-primary-contrast",
+      "figure_value": "primary_D",
+      "seed": 20261109,
+      "value": 0.002324857624572574
+    },
+    {
+      "figure": "nih-phase2-primary-contrast",
+      "figure_value": "primary_D",
+      "seed": 20261110,
+      "value": 0.0032778016720307335
+    },
+    {
+      "control": "primary_s20261101_linear_n80_c005_clean_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "primary_s20261101_linear_n80_c005_clean_mean_eps4",
+      "value": -0.012908110373208825
+    },
+    {
+      "control": "primary_s20261102_linear_n80_c005_clean_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "primary_s20261102_linear_n80_c005_clean_mean_eps4",
+      "value": -0.028163242183606663
+    },
+    {
+      "control": "primary_s20261103_linear_n80_c005_clean_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "primary_s20261103_linear_n80_c005_clean_mean_eps4",
+      "value": -0.016477267252818617
+    },
+    {
+      "control": "head_s20261101_mlp8_n80_c005_clean_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261101_mlp8_n80_c005_clean_mean_eps4",
+      "value": -0.004438292197999516
+    },
+    {
+      "control": "head_s20261102_mlp8_n80_c005_clean_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261102_mlp8_n80_c005_clean_mean_eps4",
+      "value": -0.01715002822679801
+    },
+    {
+      "control": "head_s20261103_mlp8_n80_c005_clean_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261103_mlp8_n80_c005_clean_mean_eps4",
+      "value": -0.018406543680385745
+    },
+    {
+      "control": "head_s20261101_mlp128_n80_c005_clean_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261101_mlp128_n80_c005_clean_mean_eps4",
+      "value": -0.009056424497528637
+    },
+    {
+      "control": "head_s20261102_mlp128_n80_c005_clean_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261102_mlp128_n80_c005_clean_mean_eps4",
+      "value": -0.02117853479539744
+    },
+    {
+      "control": "head_s20261103_mlp128_n80_c005_clean_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261103_mlp128_n80_c005_clean_mean_eps4",
+      "value": -0.013729331511634246
+    },
+    {
+      "control": "head_s20261101_mlp512_n80_c005_clean_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261101_mlp512_n80_c005_clean_mean_eps4",
+      "value": -0.005416171340256848
+    },
+    {
+      "control": "head_s20261102_mlp512_n80_c005_clean_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261102_mlp512_n80_c005_clean_mean_eps4",
+      "value": -0.022109147464339562
+    },
+    {
+      "control": "head_s20261103_mlp512_n80_c005_clean_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261103_mlp512_n80_c005_clean_mean_eps4",
+      "value": -0.010668269885633297
+    },
+    {
+      "control": "primary_s20261101_linear_n80_c005_clean_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "primary_s20261101_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": -0.031116668498613054
+    },
+    {
+      "control": "primary_s20261102_linear_n80_c005_clean_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "primary_s20261102_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": -0.049696694443614575
+    },
+    {
+      "control": "primary_s20261103_linear_n80_c005_clean_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "primary_s20261103_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": -0.03358465962548307
+    },
+    {
+      "control": "head_s20261101_mlp8_n80_c005_clean_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261101_mlp8_n80_c005_clean_trimmed_mean_eps4",
+      "value": -0.026082160718447822
+    },
+    {
+      "control": "head_s20261102_mlp8_n80_c005_clean_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261102_mlp8_n80_c005_clean_trimmed_mean_eps4",
+      "value": -0.042409778733419
+    },
+    {
+      "control": "head_s20261103_mlp8_n80_c005_clean_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261103_mlp8_n80_c005_clean_trimmed_mean_eps4",
+      "value": -0.040465543826909256
+    },
+    {
+      "control": "head_s20261101_mlp128_n80_c005_clean_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261101_mlp128_n80_c005_clean_trimmed_mean_eps4",
+      "value": -0.022723621284697515
+    },
+    {
+      "control": "head_s20261102_mlp128_n80_c005_clean_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261102_mlp128_n80_c005_clean_trimmed_mean_eps4",
+      "value": -0.03773281791351646
+    },
+    {
+      "control": "head_s20261103_mlp128_n80_c005_clean_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261103_mlp128_n80_c005_clean_trimmed_mean_eps4",
+      "value": -0.03014274004467632
+    },
+    {
+      "control": "head_s20261101_mlp512_n80_c005_clean_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261101_mlp512_n80_c005_clean_trimmed_mean_eps4",
+      "value": -0.03143130247652415
+    },
+    {
+      "control": "head_s20261102_mlp512_n80_c005_clean_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261102_mlp512_n80_c005_clean_trimmed_mean_eps4",
+      "value": -0.04274632195267636
+    },
+    {
+      "control": "head_s20261103_mlp512_n80_c005_clean_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261103_mlp512_n80_c005_clean_trimmed_mean_eps4",
+      "value": -0.04109137345937253
+    },
+    {
+      "control": "primary_s20261101_linear_n80_c005_sign_flip_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "primary_s20261101_linear_n80_c005_sign_flip_mean_eps4",
+      "value": -0.019674643737980113
+    },
+    {
+      "control": "primary_s20261102_linear_n80_c005_sign_flip_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "primary_s20261102_linear_n80_c005_sign_flip_mean_eps4",
+      "value": -0.03451873961957452
+    },
+    {
+      "control": "primary_s20261103_linear_n80_c005_sign_flip_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "primary_s20261103_linear_n80_c005_sign_flip_mean_eps4",
+      "value": -0.023102275103442094
+    },
+    {
+      "control": "head_s20261101_mlp8_n80_c005_sign_flip_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261101_mlp8_n80_c005_sign_flip_mean_eps4",
+      "value": -0.018879160077218238
+    },
+    {
+      "control": "head_s20261102_mlp8_n80_c005_sign_flip_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261102_mlp8_n80_c005_sign_flip_mean_eps4",
+      "value": -0.027120173461641195
+    },
+    {
+      "control": "head_s20261103_mlp8_n80_c005_sign_flip_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261103_mlp8_n80_c005_sign_flip_mean_eps4",
+      "value": -0.04750950509508278
+    },
+    {
+      "control": "head_s20261101_mlp128_n80_c005_sign_flip_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261101_mlp128_n80_c005_sign_flip_mean_eps4",
+      "value": -0.006531058162220438
+    },
+    {
+      "control": "head_s20261102_mlp128_n80_c005_sign_flip_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261102_mlp128_n80_c005_sign_flip_mean_eps4",
+      "value": -0.04420733225195328
+    },
+    {
+      "control": "head_s20261103_mlp128_n80_c005_sign_flip_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261103_mlp128_n80_c005_sign_flip_mean_eps4",
+      "value": -0.03227076574103582
+    },
+    {
+      "control": "head_s20261101_mlp512_n80_c005_sign_flip_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261101_mlp512_n80_c005_sign_flip_mean_eps4",
+      "value": -0.014844617913819413
+    },
+    {
+      "control": "head_s20261102_mlp512_n80_c005_sign_flip_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261102_mlp512_n80_c005_sign_flip_mean_eps4",
+      "value": -0.02912927570574486
+    },
+    {
+      "control": "head_s20261103_mlp512_n80_c005_sign_flip_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261103_mlp512_n80_c005_sign_flip_mean_eps4",
+      "value": -0.012064641639217277
+    },
+    {
+      "control": "primary_s20261101_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "primary_s20261101_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": -0.03564039674835795
+    },
+    {
+      "control": "primary_s20261102_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "primary_s20261102_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": -0.05232507513799933
+    },
+    {
+      "control": "primary_s20261103_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "primary_s20261103_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": -0.03700156999580473
+    },
+    {
+      "control": "head_s20261101_mlp8_n80_c005_sign_flip_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261101_mlp8_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": -0.03286744212942483
+    },
+    {
+      "control": "head_s20261102_mlp8_n80_c005_sign_flip_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261102_mlp8_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": -0.04913759793058692
+    },
+    {
+      "control": "head_s20261103_mlp8_n80_c005_sign_flip_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261103_mlp8_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": -0.04485347602729739
+    },
+    {
+      "control": "head_s20261101_mlp128_n80_c005_sign_flip_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261101_mlp128_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": -0.024385349752084617
+    },
+    {
+      "control": "head_s20261102_mlp128_n80_c005_sign_flip_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261102_mlp128_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": -0.046052580825814315
+    },
+    {
+      "control": "head_s20261103_mlp128_n80_c005_sign_flip_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261103_mlp128_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": -0.03707523776553845
+    },
+    {
+      "control": "head_s20261101_mlp512_n80_c005_sign_flip_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261101_mlp512_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": -0.04295646892504901
+    },
+    {
+      "control": "head_s20261102_mlp512_n80_c005_sign_flip_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261102_mlp512_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": -0.04654947172111157
+    },
+    {
+      "control": "head_s20261103_mlp512_n80_c005_sign_flip_trimmed_mean_none",
+      "figure": "nih-phase2-head-privacy-penalty",
+      "figure_value": "head_private_minus_control",
+      "name": "head_s20261103_mlp512_n80_c005_sign_flip_trimmed_mean_eps4",
+      "value": -0.044026518979238816
+    },
+    {
+      "child_seconds": 25.056023915996775,
+      "figure": "nih-phase2-head-costs",
+      "figure_value": "head_clean_mean_cost",
+      "name": "primary_s20261101_linear_n80_c005_clean_mean_none",
+      "parameters": 1026,
+      "up_megabytes": 6.8
+    },
+    {
+      "child_seconds": 25.512785415980034,
+      "figure": "nih-phase2-head-costs",
+      "figure_value": "head_clean_mean_cost",
+      "name": "primary_s20261102_linear_n80_c005_clean_mean_none",
+      "parameters": 1026,
+      "up_megabytes": 6.8
+    },
+    {
+      "child_seconds": 23.918194042053074,
+      "figure": "nih-phase2-head-costs",
+      "figure_value": "head_clean_mean_cost",
+      "name": "primary_s20261103_linear_n80_c005_clean_mean_none",
+      "parameters": 1026,
+      "up_megabytes": 6.8
+    },
+    {
+      "child_seconds": 25.74804691702593,
+      "figure": "nih-phase2-head-costs",
+      "figure_value": "head_clean_mean_cost",
+      "name": "head_s20261101_mlp8_n80_c005_clean_mean_none",
+      "parameters": 4122,
+      "up_megabytes": 26.8528
+    },
+    {
+      "child_seconds": 26.95851558400318,
+      "figure": "nih-phase2-head-costs",
+      "figure_value": "head_clean_mean_cost",
+      "name": "head_s20261102_mlp8_n80_c005_clean_mean_none",
+      "parameters": 4122,
+      "up_megabytes": 26.8528
+    },
+    {
+      "child_seconds": 25.853987292037345,
+      "figure": "nih-phase2-head-costs",
+      "figure_value": "head_clean_mean_cost",
+      "name": "head_s20261103_mlp8_n80_c005_clean_mean_none",
+      "parameters": 4122,
+      "up_megabytes": 26.8528
+    },
+    {
+      "child_seconds": 32.38329587492626,
+      "figure": "nih-phase2-head-costs",
+      "figure_value": "head_clean_mean_cost",
+      "name": "head_s20261101_mlp128_n80_c005_clean_mean_none",
+      "parameters": 65922,
+      "up_megabytes": 422.3936
+    },
+    {
+      "child_seconds": 32.404094416997395,
+      "figure": "nih-phase2-head-costs",
+      "figure_value": "head_clean_mean_cost",
+      "name": "head_s20261102_mlp128_n80_c005_clean_mean_none",
+      "parameters": 65922,
+      "up_megabytes": 422.3936
+    },
+    {
+      "child_seconds": 30.55015166697558,
+      "figure": "nih-phase2-head-costs",
+      "figure_value": "head_clean_mean_cost",
+      "name": "head_s20261103_mlp128_n80_c005_clean_mean_none",
+      "parameters": 65922,
+      "up_megabytes": 422.3936
+    },
+    {
+      "child_seconds": 41.856910709058866,
+      "figure": "nih-phase2-head-costs",
+      "figure_value": "head_clean_mean_cost",
+      "name": "head_s20261101_mlp512_n80_c005_clean_mean_none",
+      "parameters": 263682,
+      "up_megabytes": 1688.0688
+    },
+    {
+      "child_seconds": 39.59635470807552,
+      "figure": "nih-phase2-head-costs",
+      "figure_value": "head_clean_mean_cost",
+      "name": "head_s20261102_mlp512_n80_c005_clean_mean_none",
+      "parameters": 263682,
+      "up_megabytes": 1688.0688
+    },
+    {
+      "child_seconds": 39.59944408305455,
+      "figure": "nih-phase2-head-costs",
+      "figure_value": "head_clean_mean_cost",
+      "name": "head_s20261103_mlp512_n80_c005_clean_mean_none",
+      "parameters": 263682,
+      "up_megabytes": 1688.0688
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261101_linear_n10_c005_clean_mean_none",
+      "value": 0.6765040642625536
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261102_linear_n10_c005_clean_mean_none",
+      "value": 0.6763555976532654
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261103_linear_n10_c005_clean_mean_none",
+      "value": 0.6774860519917673
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_clean_mean_none",
+      "value": 0.6618973609240898
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_clean_mean_none",
+      "value": 0.6613724736339085
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_clean_mean_none",
+      "value": 0.6669185504376741
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261101_linear_n1000_c005_clean_mean_none",
+      "value": 0.6239820637461284
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261102_linear_n1000_c005_clean_mean_none",
+      "value": 0.6300559731329993
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261103_linear_n1000_c005_clean_mean_none",
+      "value": 0.6407181236408834
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261101_linear_n10_c005_clean_trimmed_mean_none",
+      "value": 0.6762537562554848
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261102_linear_n10_c005_clean_trimmed_mean_none",
+      "value": 0.6762929570086806
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261103_linear_n10_c005_clean_trimmed_mean_none",
+      "value": 0.6779759921246605
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_clean_trimmed_mean_none",
+      "value": 0.6617196508429354
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_clean_trimmed_mean_none",
+      "value": 0.6610516300504563
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_clean_trimmed_mean_none",
+      "value": 0.6668854432828583
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261101_linear_n1000_c005_clean_trimmed_mean_none",
+      "value": 0.622286854323073
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261102_linear_n1000_c005_clean_trimmed_mean_none",
+      "value": 0.6291635525994353
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261103_linear_n1000_c005_clean_trimmed_mean_none",
+      "value": 0.6404000384499291
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261101_linear_n10_c005_clean_mean_eps4",
+      "value": 0.5469928543133412
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261102_linear_n10_c005_clean_mean_eps4",
+      "value": 0.5362500369370024
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261103_linear_n10_c005_clean_mean_eps4",
+      "value": 0.5618250626833416
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_clean_mean_eps4",
+      "value": 0.648989250550881
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_clean_mean_eps4",
+      "value": 0.6332092314503018
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_clean_mean_eps4",
+      "value": 0.6504412831848555
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261101_linear_n1000_c005_clean_mean_eps4",
+      "value": 0.6242167204537091
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261102_linear_n1000_c005_clean_mean_eps4",
+      "value": 0.627949492544397
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261103_linear_n1000_c005_clean_mean_eps4",
+      "value": 0.639767145270322
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261101_linear_n10_c005_clean_trimmed_mean_eps4",
+      "value": 0.5195973765238306
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261102_linear_n10_c005_clean_trimmed_mean_eps4",
+      "value": 0.5223593942454068
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261103_linear_n10_c005_clean_trimmed_mean_eps4",
+      "value": 0.5475900172873227
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "primary_s20261101_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": 0.6306029823443223
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "primary_s20261102_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": 0.6113549356068417
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "primary_s20261103_linear_n80_c005_clean_trimmed_mean_eps4",
+      "value": 0.6333007836573752
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261101_linear_n1000_c005_clean_trimmed_mean_eps4",
+      "value": 0.6224158929552943
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261102_linear_n1000_c005_clean_trimmed_mean_eps4",
+      "value": 0.6255062818361111
+    },
+    {
+      "figure": "nih-phase2-cohort-sensitivity",
+      "figure_value": "test_auc",
+      "name": "cohort_s20261103_linear_n1000_c005_clean_trimmed_mean_eps4",
+      "value": 0.6385818872154534
+    },
+    {
+      "control": "primary_s20261101_linear_n80_c005_clean_mean_none",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261101_linear_n80_c04_clean_mean_none",
+      "value": 0.0002695297491825954
+    },
+    {
+      "control": "primary_s20261102_linear_n80_c005_clean_mean_none",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261102_linear_n80_c04_clean_mean_none",
+      "value": 7.35098710976656e-05
+    },
+    {
+      "control": "primary_s20261103_linear_n80_c005_clean_mean_none",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261103_linear_n80_c04_clean_mean_none",
+      "value": 8.361216137864336e-05
+    },
+    {
+      "control": "primary_s20261101_linear_n80_c005_clean_mean_eps4",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261101_linear_n80_c04_clean_mean_eps4",
+      "value": -0.09224091903193188
+    },
+    {
+      "control": "primary_s20261102_linear_n80_c005_clean_mean_eps4",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261102_linear_n80_c04_clean_mean_eps4",
+      "value": -0.08593448295785522
+    },
+    {
+      "control": "primary_s20261103_linear_n80_c005_clean_mean_eps4",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261103_linear_n80_c04_clean_mean_eps4",
+      "value": -0.07754059146960035
+    },
+    {
+      "control": "primary_s20261101_linear_n80_c005_clean_trimmed_mean_none",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261101_linear_n80_c04_clean_trimmed_mean_none",
+      "value": 0.00020045392957668273
+    },
+    {
+      "control": "primary_s20261102_linear_n80_c005_clean_trimmed_mean_none",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261102_linear_n80_c04_clean_trimmed_mean_none",
+      "value": 5.75878882337344e-05
+    },
+    {
+      "control": "primary_s20261103_linear_n80_c005_clean_trimmed_mean_none",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261103_linear_n80_c04_clean_trimmed_mean_none",
+      "value": 7.535954083337515e-05
+    },
+    {
+      "control": "primary_s20261101_linear_n80_c005_clean_trimmed_mean_eps4",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261101_linear_n80_c04_clean_trimmed_mean_eps4",
+      "value": -0.09039980482439625
+    },
+    {
+      "control": "primary_s20261102_linear_n80_c005_clean_trimmed_mean_eps4",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261102_linear_n80_c04_clean_trimmed_mean_eps4",
+      "value": -0.07142092370250908
+    },
+    {
+      "control": "primary_s20261103_linear_n80_c005_clean_trimmed_mean_eps4",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261103_linear_n80_c04_clean_trimmed_mean_eps4",
+      "value": -0.06954727593112098
+    },
+    {
+      "control": "primary_s20261101_linear_n80_c005_sign_flip_mean_none",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261101_linear_n80_c04_sign_flip_mean_none",
+      "value": -0.2077493009199013
+    },
+    {
+      "control": "primary_s20261102_linear_n80_c005_sign_flip_mean_none",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261102_linear_n80_c04_sign_flip_mean_none",
+      "value": -0.07072587001906738
+    },
+    {
+      "control": "primary_s20261103_linear_n80_c005_sign_flip_mean_none",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261103_linear_n80_c04_sign_flip_mean_none",
+      "value": -0.18525964674466017
+    },
+    {
+      "control": "primary_s20261101_linear_n80_c005_sign_flip_mean_eps4",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261101_linear_n80_c04_sign_flip_mean_eps4",
+      "value": -0.13543184487445076
+    },
+    {
+      "control": "primary_s20261102_linear_n80_c005_sign_flip_mean_eps4",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261102_linear_n80_c04_sign_flip_mean_eps4",
+      "value": -0.09028391044801409
+    },
+    {
+      "control": "primary_s20261103_linear_n80_c005_sign_flip_mean_eps4",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261103_linear_n80_c04_sign_flip_mean_eps4",
+      "value": -0.08799665203333007
+    },
+    {
+      "control": "primary_s20261101_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261101_linear_n80_c04_sign_flip_trimmed_mean_none",
+      "value": 0.0005363526646056105
+    },
+    {
+      "control": "primary_s20261102_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261102_linear_n80_c04_sign_flip_trimmed_mean_none",
+      "value": 0.0005274330028837149
+    },
+    {
+      "control": "primary_s20261103_linear_n80_c005_sign_flip_trimmed_mean_none",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261103_linear_n80_c04_sign_flip_trimmed_mean_none",
+      "value": 0.00041253113221340065
+    },
+    {
+      "control": "primary_s20261101_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261101_linear_n80_c04_sign_flip_trimmed_mean_eps4",
+      "value": -0.08296106151966087
+    },
+    {
+      "control": "primary_s20261102_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261102_linear_n80_c04_sign_flip_trimmed_mean_eps4",
+      "value": -0.06372381956027029
+    },
+    {
+      "control": "primary_s20261103_linear_n80_c005_sign_flip_trimmed_mean_eps4",
+      "figure": "nih-phase2-clipping-sensitivity",
+      "figure_value": "clipping_high_minus_low",
+      "name": "clipping_s20261103_linear_n80_c04_sign_flip_trimmed_mean_eps4",
+      "value": -0.06296288025415364
+    }
+  ],
+  "primary_complete": true,
+  "qualified": 360,
+  "renderer_versions": {
+    "matplotlib": "3.9.4",
+    "numpy": "2.1.2"
+  },
+  "source_commit": "3baea7d3f1c3d518d689c6f12fee4a85ee03a00c"
+}

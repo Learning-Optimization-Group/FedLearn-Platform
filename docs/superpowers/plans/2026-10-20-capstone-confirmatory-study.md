@@ -118,15 +118,15 @@ public study report/figures/current status/evidence map and reproducibility inst
 **Produces:** retained all360outcomes, independently verified scores/calibration/
 matching/costs, primary analysis or explicit incomplete status, practical guidance.
 
-- [ ] Execute once with no concurrent regressions. Poll the same live session/job;
+- [x] Execute once with no concurrent regressions. Poll the same live session/job;
   observation timeout is not a failed run or permission to restart. Retain all statuses.
-- [ ] Independently verify committed source/protocol/config/cache/mask/checkpoint/
+- [x] Independently verify committed source/protocol/config/cache/mask/checkpoint/
   score hashes and loaded imports, exact counts/assignments/attackers, model
   predictions and final AUROC, Gaussian/prefix accounting, payload/FLOPs and budgets.
-- [ ] Recompute primary effects/interval with separate arithmetic; verify threshold
+- [x] Recompute primary effects/interval with separate arithmetic; verify threshold
   transfer and both sensitivity analyses. Publish every planned failure and all
   components; no convergence/population/clinical claim from simulator execution.
-- [ ] Create report and scientific figures with exact evidence-linked practical
+- [x] Create report and scientific figures with exact evidence-linked practical
   recommendations, assumptions and limits. Render/inspect exports and reconcile
   public numbers against independently checked records before committing.
 - [ ] Update capstone status/claim register and preserve execution ledger/checks/logs;

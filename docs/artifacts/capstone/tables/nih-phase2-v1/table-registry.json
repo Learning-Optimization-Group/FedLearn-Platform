@@ -1,0 +1,524 @@
+{
+  "exporter_sha256": "ee4e7aa4a92ab85fa0eb905e7f2d368b45809594cf682cfb3c8028beefd921bf",
+  "files": {
+    "all_360_evaluation_modes.csv": {
+      "fields": [
+        "name",
+        "family",
+        "seed",
+        "head",
+        "clients",
+        "clip",
+        "condition",
+        "rule",
+        "privacy",
+        "status",
+        "evaluation_mode",
+        "validation_selected_threshold",
+        "auc",
+        "loss",
+        "ece",
+        "accuracy",
+        "balanced_accuracy",
+        "sensitivity",
+        "specificity",
+        "tp",
+        "tn",
+        "fp",
+        "fn",
+        "n_images",
+        "weight_sum"
+      ],
+      "rows": 2520,
+      "sha256": "3437db7ef60c3374ee904fdac2a0e7eb09c89ddadc02c7aaae5aada251881db3"
+    },
+    "all_360_outcomes.csv": {
+      "fields": [
+        "name",
+        "family",
+        "seed",
+        "head",
+        "clients",
+        "clip",
+        "condition",
+        "rule",
+        "privacy",
+        "status",
+        "reason",
+        "auc",
+        "loss",
+        "ece",
+        "accuracy",
+        "balanced_accuracy",
+        "sensitivity",
+        "specificity",
+        "tp",
+        "tn",
+        "fp",
+        "fn",
+        "child_seconds",
+        "engine_completion_rss_mib"
+      ],
+      "rows": 360,
+      "sha256": "f853b9e895068e3637538929c6c9eedad21eac07b9db1d6a2bb95fde1254d527"
+    },
+    "all_64_recipe_groups.csv": {
+      "fields": [
+        "group",
+        "family",
+        "head",
+        "clients",
+        "clip",
+        "condition",
+        "rule",
+        "privacy",
+        "planned",
+        "qualified",
+        "auc_mean",
+        "auc_min",
+        "auc_max",
+        "loss_mean",
+        "loss_min",
+        "loss_max",
+        "ece_mean",
+        "ece_min",
+        "ece_max",
+        "accuracy_mean",
+        "accuracy_min",
+        "accuracy_max",
+        "balanced_accuracy_mean",
+        "balanced_accuracy_min",
+        "balanced_accuracy_max",
+        "sensitivity_mean",
+        "sensitivity_min",
+        "sensitivity_max",
+        "specificity_mean",
+        "specificity_min",
+        "specificity_max",
+        "tp_mean",
+        "tp_min",
+        "tp_max",
+        "tn_mean",
+        "tn_min",
+        "tn_max",
+        "fp_mean",
+        "fp_min",
+        "fp_max",
+        "fn_mean",
+        "fn_min",
+        "fn_max"
+      ],
+      "rows": 64,
+      "sha256": "17a57d810f266a1a2ef1ee9c99af424416d3bd489bce9ed1ebd76c94fa8a634d"
+    },
+    "attack_minus_clean.csv": {
+      "fields": [
+        "condition",
+        "rule",
+        "privacy",
+        "planned_pairs",
+        "qualified_pairs",
+        "difference_mean",
+        "difference_min",
+        "difference_max",
+        "treatment_auc_mean",
+        "treatment_auc_min",
+        "treatment_auc_max",
+        "control_auc_mean",
+        "control_auc_min",
+        "control_auc_max"
+      ],
+      "rows": 16,
+      "sha256": "e8a259faf95558fd8e65cff64473e4b7fe419e2ab331130a5d8101d937715862"
+    },
+    "clipping_high_minus_low.csv": {
+      "fields": [
+        "condition",
+        "rule",
+        "privacy",
+        "planned_pairs",
+        "qualified_pairs",
+        "difference_mean",
+        "difference_min",
+        "difference_max",
+        "treatment_auc_mean",
+        "treatment_auc_min",
+        "treatment_auc_max",
+        "control_auc_mean",
+        "control_auc_min",
+        "control_auc_max"
+      ],
+      "rows": 8,
+      "sha256": "220e74f1671cd979a8d9d236471393538213cfb10d667fd953f52a0d73ffe2fa"
+    },
+    "cohort_matched_first_three_seeds.csv": {
+      "fields": [
+        "clients",
+        "rule",
+        "privacy",
+        "planned",
+        "qualified",
+        "auc_mean",
+        "auc_min",
+        "auc_max"
+      ],
+      "rows": 12,
+      "sha256": "94c4e2328b0b2eaa332a5c18e83b51213d5388f10c325e9814e5906ff1efadbe"
+    },
+    "head_private_minus_no_dp.csv": {
+      "fields": [
+        "head",
+        "condition",
+        "rule",
+        "planned_pairs",
+        "qualified_pairs",
+        "difference_mean",
+        "difference_min",
+        "difference_max",
+        "treatment_auc_mean",
+        "treatment_auc_min",
+        "treatment_auc_max",
+        "control_auc_mean",
+        "control_auc_min",
+        "control_auc_max"
+      ],
+      "rows": 16,
+      "sha256": "b7cac321c2f8d3702eec1cb092134080ccbadf472dc1adcd77825cea687382e9"
+    },
+    "observed_and_modeled_costs.csv": {
+      "fields": [
+        "group",
+        "family",
+        "head",
+        "clients",
+        "clip",
+        "condition",
+        "rule",
+        "privacy",
+        "planned",
+        "qualified",
+        "child_seconds_mean",
+        "child_seconds_min",
+        "child_seconds_max",
+        "parent_control_seconds_mean",
+        "parent_control_seconds_min",
+        "parent_control_seconds_max",
+        "core_seconds_mean",
+        "core_seconds_min",
+        "core_seconds_max",
+        "federation_loop_seconds_mean",
+        "federation_loop_seconds_min",
+        "federation_loop_seconds_max",
+        "artifact_seconds_mean",
+        "artifact_seconds_min",
+        "artifact_seconds_max",
+        "engine_completion_rss_mib_mean",
+        "engine_completion_rss_mib_min",
+        "engine_completion_rss_mib_max",
+        "modeled_upload_mb_mean",
+        "modeled_upload_mb_min",
+        "modeled_upload_mb_max",
+        "modeled_download_mb_mean",
+        "modeled_download_mb_min",
+        "modeled_download_mb_max",
+        "client_matmul_flops_mean",
+        "client_matmul_flops_min",
+        "client_matmul_flops_max"
+      ],
+      "rows": 64,
+      "sha256": "b73222c6778b2536447c1c4c6bd3bb92349dbff79dc61fbe56a01e9422fd85ae"
+    },
+    "primary_per_seed.csv": {
+      "fields": [
+        "seed",
+        "complete",
+        "effect",
+        "B_none",
+        "B_eps4",
+        "missing",
+        "clean/mean/none",
+        "clean/mean/eps4",
+        "clean/trimmed_mean/none",
+        "clean/trimmed_mean/eps4",
+        "sign_flip/mean/none",
+        "sign_flip/mean/eps4",
+        "sign_flip/trimmed_mean/none",
+        "sign_flip/trimmed_mean/eps4"
+      ],
+      "rows": 10,
+      "sha256": "bf3c9e47ccbe1faad1a7af03b57bdf83a114a9ce49862871d0780b754d9cec62"
+    },
+    "source_bound_update_diagnostics.csv": {
+      "fields": [
+        "group",
+        "family",
+        "head",
+        "clients",
+        "clip",
+        "condition",
+        "rule",
+        "privacy",
+        "planned",
+        "qualified",
+        "clip_rate_mean",
+        "clip_rate_min",
+        "clip_rate_max",
+        "clip_rate_n",
+        "shrink_factor_mean",
+        "shrink_factor_min",
+        "shrink_factor_max",
+        "shrink_factor_n",
+        "noise_to_signal_mean",
+        "noise_to_signal_min",
+        "noise_to_signal_max",
+        "noise_to_signal_n",
+        "noise_rms_per_round_mean",
+        "noise_rms_per_round_min",
+        "noise_rms_per_round_max",
+        "noise_rms_per_round_n"
+      ],
+      "rows": 64,
+      "sha256": "b0fc5cb58dca2c99b19e63408f1b329d795a78476a2cd0306b4c59d4aa304b57"
+    },
+    "status.csv": {
+      "fields": [
+        "family",
+        "planned",
+        "qualified",
+        "failed",
+        "timeout",
+        "not_run"
+      ],
+      "rows": 4,
+      "sha256": "311682ada15787a5d5d6ac25b1fa4a9e00cb1f733881ac0e944dd60762e222ee"
+    },
+    "threshold_patient_content_sensitivity.csv": {
+      "fields": [
+        "group",
+        "family",
+        "head",
+        "clients",
+        "clip",
+        "condition",
+        "rule",
+        "privacy",
+        "planned",
+        "qualified",
+        "patient_minus_image_auc_mean",
+        "patient_minus_image_auc_min",
+        "patient_minus_image_auc_max",
+        "mask_minus_primary_auc_mean",
+        "mask_minus_primary_auc_min",
+        "mask_minus_primary_auc_max",
+        "validation_threshold_mean",
+        "validation_threshold_min",
+        "validation_threshold_max",
+        "default_test_recall_mean",
+        "default_test_recall_min",
+        "default_test_recall_max",
+        "threshold_test_recall_mean",
+        "threshold_test_recall_min",
+        "threshold_test_recall_max",
+        "threshold_test_specificity_mean",
+        "threshold_test_specificity_min",
+        "threshold_test_specificity_max",
+        "threshold_test_balanced_accuracy_mean",
+        "threshold_test_balanced_accuracy_min",
+        "threshold_test_balanced_accuracy_max",
+        "threshold_validation_recall_mean",
+        "threshold_validation_recall_min",
+        "threshold_validation_recall_max"
+      ],
+      "rows": 64,
+      "sha256": "5ffff5e384248badcc2a9ff56f6b81c69aee66e80538b19cf85a8f5a11fd218d"
+    }
+  },
+  "independent_audit_sha256": "8438ccb8531188851a2f6b3b2750604d373e9a8fc8d1fe32b6dc0455514a097b",
+  "notes": [
+    "Only the prespecified complete-ten-seed primary contrast has a formal interval.",
+    "All other ranges and paired differences are descriptive, with qualified/planned counts retained.",
+    "Head/cohort/clipping sensitivities use first three matched seeds and reuse primary controls.",
+    "All360evaluationmodes retains confusion counts, including fractional inverse-patient weights; threshold loss/ECE remain argmax-confidence diagnostics.",
+    "Update diagnostics are source-bound reported summaries, not an independent reconstruction of raw updates. Noise RMS is sigma times sqrt(d), not mean Gaussian vector length.",
+    "Costs distinguish observed scope from modeled payload/FLOPs; RSS is engine-completion process high-water.",
+    "Research aggregates do not establish clinical, patient-level or whole-matrix privacy protection."
+  ],
+  "primary": {
+    "ci95": [
+      0.0007043983687426811,
+      0.003827900876756635
+    ],
+    "complete": true,
+    "interval_method": "paired_t_df9_if_all10_complete",
+    "mean": 0.002266149622749658,
+    "missing": [],
+    "n_complete": 10,
+    "per_seed": [
+      {
+        "components": {
+          "clean/mean/eps4": 0.6489892505509054,
+          "clean/mean/none": 0.6618973609241148,
+          "clean/trimmed_mean/eps4": 0.6306029823443458,
+          "clean/trimmed_mean/none": 0.6617196508429604,
+          "sign_flip/mean/eps4": 0.626714248292793,
+          "sign_flip/mean/none": 0.6463888920307738,
+          "sign_flip/trimmed_mean/eps4": 0.6193116412187467,
+          "sign_flip/trimmed_mean/none": 0.6549520379671061
+        },
+        "effect": 0.0022428051150266137,
+        "missing": [],
+        "seed": 20261101
+      },
+      {
+        "components": {
+          "clean/mean/eps4": 0.6332092314503255,
+          "clean/mean/none": 0.6613724736339336,
+          "clean/trimmed_mean/eps4": 0.6113549356068645,
+          "clean/trimmed_mean/none": 0.6610516300504813,
+          "sign_flip/mean/eps4": 0.6136910652605927,
+          "sign_flip/mean/none": 0.6482098048801684,
+          "sign_flip/trimmed_mean/eps4": 0.6029808716758976,
+          "sign_flip/trimmed_mean/none": 0.6553059468138993
+        },
+        "effect": 0.00372711674158277,
+        "missing": [],
+        "seed": 20261102
+      },
+      {
+        "components": {
+          "clean/mean/eps4": 0.6504412831848799,
+          "clean/mean/none": 0.6669185504376991,
+          "clean/trimmed_mean/eps4": 0.633300783657399,
+          "clean/trimmed_mean/none": 0.6668854432828836,
+          "sign_flip/mean/eps4": 0.6335956061901272,
+          "sign_flip/mean/none": 0.6566978812935702,
+          "sign_flip/trimmed_mean/eps4": 0.6254348665387793,
+          "sign_flip/trimmed_mean/none": 0.6624364365345855
+        },
+        "effect": 0.0032080974803022633,
+        "missing": [],
+        "seed": 20261103
+      },
+      {
+        "components": {
+          "clean/mean/eps4": 0.6299324802875874,
+          "clean/mean/none": 0.6599049701560549,
+          "clean/trimmed_mean/eps4": 0.6003569733693218,
+          "clean/trimmed_mean/none": 0.6597635993181217,
+          "sign_flip/mean/eps4": 0.599217757267734,
+          "sign_flip/mean/none": 0.6422236452434227,
+          "sign_flip/trimmed_mean/eps4": 0.5860066104103048,
+          "sign_flip/trimmed_mean/none": 0.6522124837433126
+        },
+        "effect": 0.006234150723013254,
+        "missing": [],
+        "seed": 20261104
+      },
+      {
+        "components": {
+          "clean/mean/eps4": 0.6495591743989712,
+          "clean/mean/none": 0.6587448212067268,
+          "clean/trimmed_mean/eps4": 0.6334288233390661,
+          "clean/trimmed_mean/none": 0.6585111118909618,
+          "sign_flip/mean/eps4": 0.6305163604416203,
+          "sign_flip/mean/none": 0.6430109342872198,
+          "sign_flip/trimmed_mean/eps4": 0.6239000434608174,
+          "sign_flip/trimmed_mean/none": 0.6512514868654196
+        },
+        "effect": 0.0010397721851372888,
+        "missing": [],
+        "seed": 20261105
+      },
+      {
+        "components": {
+          "clean/mean/eps4": 0.6533837145989491,
+          "clean/mean/none": 0.6655148380087532,
+          "clean/trimmed_mean/eps4": 0.6389902259777845,
+          "clean/trimmed_mean/none": 0.6653861796222265,
+          "sign_flip/mean/eps4": 0.6397225340720523,
+          "sign_flip/mean/none": 0.6550922745127971,
+          "sign_flip/trimmed_mean/eps4": 0.6318621079590591,
+          "sign_flip/trimmed_mean/none": 0.6607879554405144
+        },
+        "effect": 0.0007087231939272298,
+        "missing": [],
+        "seed": 20261106
+      },
+      {
+        "components": {
+          "clean/mean/eps4": 0.6457065379090536,
+          "clean/mean/none": 0.659768226714882,
+          "clean/trimmed_mean/eps4": 0.6295089929234902,
+          "clean/trimmed_mean/none": 0.6595648983856467,
+          "sign_flip/mean/eps4": 0.6252099898793653,
+          "sign_flip/mean/none": 0.6443688851135244,
+          "sign_flip/trimmed_mean/eps4": 0.6196839533126832,
+          "sign_flip/trimmed_mean/none": 0.6528343143511383
+        },
+        "effect": 0.0020027508520322757,
+        "missing": [],
+        "seed": 20261107
+      },
+      {
+        "components": {
+          "clean/mean/eps4": 0.66092408662167,
+          "clean/mean/none": 0.6634654619452132,
+          "clean/trimmed_mean/eps4": 0.6517430478761478,
+          "clean/trimmed_mean/none": 0.6632177673216907,
+          "sign_flip/mean/eps4": 0.6497197121978584,
+          "sign_flip/mean/none": 0.6491245471249851,
+          "sign_flip/trimmed_mean/eps4": 0.6466517868148244,
+          "sign_flip/trimmed_mean/none": 0.6570945452240793
+        },
+        "effect": -0.0021045793601284224,
+        "missing": [],
+        "seed": 20261108
+      },
+      {
+        "components": {
+          "clean/mean/eps4": 0.6420764224886952,
+          "clean/mean/none": 0.65974734542588,
+          "clean/trimmed_mean/eps4": 0.6188120241551631,
+          "clean/trimmed_mean/none": 0.6597016933855577,
+          "sign_flip/mean/eps4": 0.626457534112493,
+          "sign_flip/mean/none": 0.6494081395200324,
+          "sign_flip/trimmed_mean/eps4": 0.6113020750104465,
+          "sign_flip/trimmed_mean/none": 0.6551465690866232
+        },
+        "effect": 0.002324857624572574,
+        "missing": [],
+        "seed": 20261109
+      },
+      {
+        "components": {
+          "clean/mean/eps4": 0.6491389255681218,
+          "clean/mean/none": 0.6646837240374209,
+          "clean/trimmed_mean/eps4": 0.6267803594849478,
+          "clean/trimmed_mean/none": 0.6645264698856777,
+          "sign_flip/mean/eps4": 0.6290435786379106,
+          "sign_flip/mean/none": 0.6553888951565227,
+          "sign_flip/trimmed_mean/eps4": 0.6153643042163002,
+          "sign_flip/trimmed_mean/none": 0.6606331309943122
+        },
+        "effect": 0.0032778016720307335,
+        "missing": [],
+        "seed": 20261110
+      }
+    ],
+    "range": [
+      -0.0021045793601284224,
+      0.006234150723013254
+    ],
+    "requested_seeds": 10,
+    "scope": "conditional_simulation_seed_variation",
+    "sd": 0.002183177713017609
+  },
+  "source_commit": "3baea7d3f1c3d518d689c6f12fee4a85ee03a00c",
+  "statuses": {
+    "failed": 0,
+    "not_run": 0,
+    "qualified": 360,
+    "timeout": 0
+  },
+  "version": "nih-phase2-tables-v1"
+}

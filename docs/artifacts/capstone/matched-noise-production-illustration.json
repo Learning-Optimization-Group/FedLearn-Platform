@@ -1,0 +1,242 @@
+{
+  "aggregated_rounds_per_fixture": 1,
+  "calibration_rounds": 20,
+  "clients": 80,
+  "clip": 0.05,
+  "cpu_threads": 4,
+  "delta": 1e-05,
+  "epsilon_targets": [
+    1.0,
+    4.0
+  ],
+  "ideal_algebra": "(b*Y_a-a*Y_b)/(b-a)=f(D) for shared Gaussian draw and a!=b; float32 fixture only approximates this equality",
+  "independent_control_max_absolute_error": 0.029968766563128395,
+  "neighbor_classifications_correct": 16,
+  "noise_multipliers": [
+    21.92023841042738,
+    5.796253984039355
+  ],
+  "probe_sha256": "8728122fca217bcfde8b078c5548d17b8d9fd6f1d188eb804d46e090ccbb3328",
+  "probe_version": "matched-noise-first-round-illustration-v1",
+  "randomness_interpretation": "fixture seeds are public; ideal secret shared-noise algebra shows that hiding seeds alone does not justify joint composition",
+  "rows": [
+    {
+      "independent_control_absolute_error": 0.003667110838181579,
+      "independent_control_reconstructed_query": 0.003667110838181579,
+      "neighbor": "all_zero_uploads",
+      "noise_free_query": 0.0,
+      "seed": 11,
+      "shared_absolute_error": 3.0938849838930186e-10,
+      "shared_reconstructed_query": 3.0938849838930186e-10,
+      "shared_releases": [
+        0.020211266353726387,
+        0.005344359669834375
+      ]
+    },
+    {
+      "independent_control_absolute_error": 0.003667111522219618,
+      "independent_control_reconstructed_query": 0.004292111508249779,
+      "neighbor": "one_nonzero_clipped_upload",
+      "noise_free_query": 0.0006249999860301614,
+      "seed": 11,
+      "shared_absolute_error": 3.6036921244406855e-10,
+      "shared_reconstructed_query": 0.0006250003463993738,
+      "shared_releases": [
+        0.02083626575767994,
+        0.005969359539449215
+      ]
+    },
+    {
+      "independent_control_absolute_error": 0.0007296392836617497,
+      "independent_control_reconstructed_query": -0.0007296392836617497,
+      "neighbor": "all_zero_uploads",
+      "noise_free_query": 0.0,
+      "seed": 12,
+      "shared_absolute_error": 4.3596712500481816e-11,
+      "shared_reconstructed_query": -4.3596712500481816e-11,
+      "shared_releases": [
+        -0.005858562421053648,
+        -0.0015491490485146642
+      ]
+    },
+    {
+      "independent_control_absolute_error": 0.0007296392418127402,
+      "independent_control_reconstructed_query": -0.00010463925578257886,
+      "neighbor": "one_nonzero_clipped_upload",
+      "noise_free_query": 0.0006249999860301614,
+      "seed": 12,
+      "shared_absolute_error": 1.7477032191251518e-12,
+      "shared_reconstructed_query": 0.0006249999842824582,
+      "shared_releases": [
+        -0.0052335625514388084,
+        -0.0009241490624845028
+      ]
+    },
+    {
+      "independent_control_absolute_error": 7.640525823802988e-05,
+      "independent_control_reconstructed_query": 7.640525823802988e-05,
+      "neighbor": "all_zero_uploads",
+      "noise_free_query": 0.0,
+      "seed": 13,
+      "shared_absolute_error": 1.2862084044737216e-11,
+      "shared_reconstructed_query": -1.2862084044737216e-11,
+      "shared_releases": [
+        -0.003059499431401491,
+        -0.0008090074406936765
+      ]
+    },
+    {
+      "independent_control_absolute_error": 7.640530008703919e-05,
+      "independent_control_reconstructed_query": 0.0007014052861172006,
+      "neighbor": "one_nonzero_clipped_upload",
+      "noise_free_query": 0.0006249999860301614,
+      "seed": 13,
+      "shared_absolute_error": 2.898692527328328e-11,
+      "shared_reconstructed_query": 0.0006250000150170867,
+      "shared_releases": [
+        -0.0024344995617866516,
+        -0.0001840074546635151
+      ]
+    },
+    {
+      "independent_control_absolute_error": 0.010405746609792156,
+      "independent_control_reconstructed_query": 0.010405746609792156,
+      "neighbor": "all_zero_uploads",
+      "noise_free_query": 0.0,
+      "seed": 14,
+      "shared_absolute_error": 2.602075637195531e-10,
+      "shared_reconstructed_query": 2.602075637195531e-10,
+      "shared_releases": [
+        -0.02778754010796547,
+        -0.007347713690251112
+      ]
+    },
+    {
+      "independent_control_absolute_error": 0.010405746819037201,
+      "independent_control_reconstructed_query": 0.011030746805067363,
+      "neighbor": "one_nonzero_clipped_upload",
+      "noise_free_query": 0.0006249999860301614,
+      "seed": 14,
+      "shared_absolute_error": 3.111882778371322e-10,
+      "shared_reconstructed_query": 0.0006250002972184392,
+      "shared_releases": [
+        -0.027162540704011917,
+        -0.006722713820636272
+      ]
+    },
+    {
+      "independent_control_absolute_error": 0.029968766563128395,
+      "independent_control_reconstructed_query": 0.029968766563128395,
+      "neighbor": "all_zero_uploads",
+      "noise_free_query": 0.0,
+      "seed": 15,
+      "shared_absolute_error": 3.701513364529902e-11,
+      "shared_reconstructed_query": -3.701513364529902e-11,
+      "shared_releases": [
+        -0.019334854558110237,
+        -0.00511261448264122
+      ]
+    },
+    {
+      "independent_control_absolute_error": 0.02996876598105179,
+      "independent_control_reconstructed_query": 0.03059376596708195,
+      "neighbor": "one_nonzero_clipped_upload",
+      "noise_free_query": 0.0006249999860301614,
+      "seed": 15,
+      "shared_absolute_error": 1.3965581837672991e-11,
+      "shared_reconstructed_query": 0.0006249999999957432,
+      "shared_releases": [
+        -0.018709855154156685,
+        -0.0044876146130263805
+      ]
+    },
+    {
+      "independent_control_absolute_error": 0.006018633033339968,
+      "independent_control_reconstructed_query": -0.006018633033339968,
+      "neighbor": "all_zero_uploads",
+      "noise_free_query": 0.0,
+      "seed": 16,
+      "shared_absolute_error": 5.4024633398557614e-11,
+      "shared_reconstructed_query": -5.4024633398557614e-11,
+      "shared_releases": [
+        -0.009120196104049683,
+        -0.002411605790257454
+      ]
+    },
+    {
+      "independent_control_absolute_error": 0.006018633317151327,
+      "independent_control_reconstructed_query": -0.005393633331121165,
+      "neighbor": "one_nonzero_clipped_upload",
+      "noise_free_query": 0.0006249999860301614,
+      "seed": 16,
+      "shared_absolute_error": 1.7957166049270556e-10,
+      "shared_reconstructed_query": 0.0006249998064585009,
+      "shared_releases": [
+        -0.008495195768773556,
+        -0.0017866058042272925
+      ]
+    },
+    {
+      "independent_control_absolute_error": 0.008958571516948517,
+      "independent_control_reconstructed_query": 0.008958571516948517,
+      "neighbor": "all_zero_uploads",
+      "noise_free_query": 0.0,
+      "seed": 17,
+      "shared_absolute_error": 3.8277709139505593e-10,
+      "shared_reconstructed_query": 3.8277709139505593e-10,
+      "shared_releases": [
+        -0.0387306809425354,
+        -0.010241351090371609
+      ]
+    },
+    {
+      "independent_control_absolute_error": 0.008958571884457894,
+      "independent_control_reconstructed_query": 0.009583571870488056,
+      "neighbor": "one_nonzero_clipped_upload",
+      "noise_free_query": 0.0006249999860301614,
+      "seed": 17,
+      "shared_absolute_error": 1.0668151303756118e-09,
+      "shared_reconstructed_query": 0.0006250010528452918,
+      "shared_releases": [
+        -0.03810568153858185,
+        -0.009616350755095482
+      ]
+    },
+    {
+      "independent_control_absolute_error": 0.007448920857734214,
+      "independent_control_reconstructed_query": -0.007448920857734214,
+      "neighbor": "all_zero_uploads",
+      "noise_free_query": 0.0,
+      "seed": 18,
+      "shared_absolute_error": 5.807845740242235e-11,
+      "shared_reconstructed_query": 5.807845740242235e-11,
+      "shared_releases": [
+        0.01627780683338642,
+        0.004304255358874798
+      ]
+    },
+    {
+      "independent_control_absolute_error": 0.007448920648489167,
+      "independent_control_reconstructed_query": -0.006823920662459006,
+      "neighbor": "one_nonzero_clipped_upload",
+      "noise_free_query": 0.0006249999860301614,
+      "seed": 18,
+      "shared_absolute_error": 1.0905917282536676e-10,
+      "shared_reconstructed_query": 0.0006250000950893342,
+      "shared_releases": [
+        0.016902806237339973,
+        0.004929255228489637
+      ]
+    }
+  ],
+  "scope": "scalar one-upload-domain first-round illustration using production aggregation; not a statistical DP test, clinical/patient-neighbor attack, or recovery from final-only NIH models",
+  "seeds_per_neighbor": 8,
+  "shared_max_absolute_reconstruction_error": 1.0668151303756118e-09,
+  "source_commit": "3baea7d3f1c3d518d689c6f12fee4a85ee03a00c",
+  "source_files": {
+    "framework/src/fedlearn/privacy/dp_accountant.py": "e6fb553457cae01010b5a0025edfa166393b0266221a7f48de4efb11e77f9ca3",
+    "framework/src/fedlearn/privacy/dp_mechanism.py": "32e92f0384b41cfe6f75ec7345c7cb294f964e025ed0f0a3b15e1a887abcc02b",
+    "framework/src/fedlearn/server/composed_strategy.py": "beb10f9e5ef007523c3caa573c3c450fdf661e9cf44de0e1335bf2f25f76bf31"
+  },
+  "torch": "2.12.0"
+}
