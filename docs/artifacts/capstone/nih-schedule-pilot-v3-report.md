@@ -107,17 +107,20 @@ Fewer rounds are also fewer release/accounting events; actual DP calibration and
 utility have not been tested here.
 
 The 20-round initial case took **14.024s** of isolated child execution, versus
-**30.379s** for 140 rounds. Engine-only times were 10.334829s and 26.761529s. Recorded
+**30.379s** for 140 rounds. Federation-loop times were 10.334829s and 26.761529s. Recorded
 training-stage time was 7.486146s versus 7.471801s; evaluation-stage time was
 1.690242s versus 12.079577s. Thus the end-to-end difference includes much more
 frequent evaluation and orchestration, rather than a demonstrated reduction in
 training arithmetic. Stage timers cover selected operations and need not sum
-to the whole engine wall time.
+to the whole federation-loop wall time.
 
 All six children together took **98.405573s**; separately measured parent control
 and verification took **3.594475s**, total **102.000048s**. Isolated child time
-includes Python startup, cache loading and child source guards; engine time is
-narrower. Child RSS ranged **727,023,616–730,988,544 bytes**, measured per process,
+includes Python startup, cache loading and child source guards. The legacy
+engine-time field covers only `SimulatedFederation.run`, excluding engine setup,
+cache validation/loading, partitioning and initialization. A full engine-call
+duration was not recorded in v3; these numerical records remain unchanged.
+Child RSS ranged **727,023,616–730,988,544 bytes**, measured per process,
 not for the whole machine. Runs were sequential with no concurrent regressions;
 ordinary desktop background load was uncontrolled. This is cached-head CPU
 simulation, not physical-device or raw-image CNN performance.

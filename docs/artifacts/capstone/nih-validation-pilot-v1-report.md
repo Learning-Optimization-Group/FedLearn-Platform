@@ -141,10 +141,11 @@ their logits or controlled replays. No v1 or Milestone 2 record is rewritten.
 
 The 1,000-client check used 22–23 patients per client, 27–198 images per client,
 all 68,650 training images and two rounds. It took **7.063 seconds** including
-child startup/cache loading and **3.560 seconds** inside the simulation run.
+child startup/cache loading and **3.560 seconds** inside the federation loop.
+The latter timer excludes engine setup, cache validation/loading and initialization.
 Its OS peak RSS was **735,051,776 bytes**, a process measurement rather than
 whole-machine/tree memory. Ten-client selected training took **5.887 seconds**
-end-to-end and **2.435 seconds** inside its ten-round simulation. Children ran
+end-to-end and **2.435 seconds** inside its ten-round federation loop. Children ran
 sequentially, with no concurrent regression suite; ordinary desktop background
 load was not controlled.
 

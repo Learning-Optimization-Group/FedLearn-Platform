@@ -127,7 +127,9 @@ normalization or a new LR sweep without separate evidence.
 
 The entire pilot took **50.496 seconds**. Individual child execution took
 **7.448–8.469 seconds**, including startup, cache loading and execution guards;
-engine-only time was **3.525–4.675 seconds**. Peak child RSS ranged from
+federation-loop time was **3.525–4.675 seconds**. That timer excludes engine setup
+(cache validation/loading, partitioning and initialization); no separate full
+engine-invocation timer was retained in v2. Peak child RSS ranged from
 **706,822,144 to 728,842,240 bytes**. These are sequential cached-head CPU
 simulation costs, not 80 physical devices, raw-image training or whole-machine
 memory. No regression suite ran concurrently; ordinary background load was not
