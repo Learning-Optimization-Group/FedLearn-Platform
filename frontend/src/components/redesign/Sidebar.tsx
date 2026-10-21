@@ -57,7 +57,7 @@ const ROLE_LABEL: Record<Role, string> = {
     PLATFORM_ADMIN: 'Platform admin',
 };
 
-export function Sidebar() {
+export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNavigate?: () => void }) {
     const { currentUser, logout } = useAuth();
 
     const initials = currentUser?.username ? currentUser.username.slice(0, 2).toUpperCase() : 'U';
@@ -66,12 +66,12 @@ export function Sidebar() {
     const navGroups = navGroupsForRole(role);
 
     return (
-        <aside className="relative z-10 flex h-screen w-64 flex-shrink-0 flex-col border-r border-hairline bg-canvas font-sans text-fg">
-            <div className="flex h-16 items-center px-6">
+        <aside className={cn("relative z-10 flex flex-shrink-0 flex-col bg-canvas font-sans text-fg", mobile ? "w-full" : "h-screen w-64 border-r border-hairline")}>
+            {!mobile && <div className="flex h-16 items-center px-6">
                 <NavLink to="/dashboard" aria-label="FedLearn">
                     <Wordmark size={26} />
                 </NavLink>
-            </div>
+            </div>}
 
             <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 py-4">
                 {navGroups.map((group) => (
@@ -84,6 +84,7 @@ export function Sidebar() {
                                 key={item.path}
                                 to={item.path}
                                 end={item.end}
+                                onClick={onNavigate}
                                 className={({ isActive }) =>
                                     cn(
                                         'group relative flex items-center gap-3 rounded-md px-3 py-2.5 text-label font-medium',
@@ -129,7 +130,7 @@ export function Sidebar() {
                         <span className="text-caption text-fg-muted">{roleLabel}</span>
                     </div>
                     <button
-                        onClick={logout}
+                        onClick={() => { onNavigate?.(); void logout(); }}
                         className="rounded-md p-1.5 text-fg-muted transition-colors hover:bg-surface-2 hover:text-danger"
                         title="Sign out"
                         aria-label="Sign out"

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -43,6 +43,7 @@ export function Modal({
     className,
 }: ModalProps) {
     const [mounted, setMounted] = useState(false);
+    const titleId = useId();
     const panelRef = useRef<HTMLDivElement>(null);
 
     // Trap focus inside the panel while open; restore it to the trigger on close.
@@ -73,6 +74,7 @@ export function Modal({
         <div
             role="dialog"
             aria-modal="true"
+            aria-labelledby={title ? titleId : undefined}
             className={cn(
                 'fixed inset-0 z-50 flex items-center justify-center p-4',
                 'bg-scrim',
@@ -99,7 +101,7 @@ export function Modal({
                 {(title || showClose) && (
                     <div className="flex items-center justify-between gap-4 px-6 pt-5 pb-4">
                         {title ? (
-                            <h2 className="text-h4 text-fg">{title}</h2>
+                            <h2 id={titleId} className="text-h4 text-fg">{title}</h2>
                         ) : (
                             <span />
                         )}

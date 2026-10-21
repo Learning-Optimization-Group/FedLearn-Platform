@@ -96,3 +96,9 @@ describe('Modal — focus management (FE-13)', () => {
         expect(trigger).toHaveFocus();
     });
 });
+
+it('names the dialog from its visible title for keyboard and screen-reader navigation', () => {
+    render(<Harness />);
+    openViaTrigger();
+    expect(screen.getByRole('dialog', { name: 'Test Dialog' })).toBeInTheDocument();
+});
