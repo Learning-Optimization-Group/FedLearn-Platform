@@ -1,8 +1,35 @@
 {
   "all_pages_visually_inspected": true,
-  "inspection": "All eight pages readable, no clipping, overlap or orphaned references; working layout only, advisor format/title not approved.",
+  "dependencies": {
+    "pypdf": "6.21.1",
+    "pypdfium2": "5.14.0",
+    "reportlab": "5.0.1"
+  },
+  "figure_sha256": {
+    "figures/nih-phase2-primary-components.png": "71f40ffeb3aa416eda44c3c8ba552cb659fe8d56e6378f8798e9a70a5d23dd09",
+    "figures/nih-phase2-primary-contrast.png": "42a1e22708a5d8d1eb615026111afde52f9914074f35a38a8a5caaf30d39ccee"
+  },
+  "font_sha256": {
+    "DejaVuSerif-Bold.ttf": "c3753f2ed6bc673f15846dc45addbeb3b9c872f32fb18fd53a21f1bef1ed7676",
+    "DejaVuSerif-BoldItalic.ttf": "d93efec7a9d2e826768d1a2ee95b95870e15e29599a84f3484af1de1cec2e181",
+    "DejaVuSerif-Italic.ttf": "3e7994fbc54fa10ce3352a42d548fadd7d9cadb69cb1109bc9d960f6dac57f04",
+    "DejaVuSerif.ttf": "107244956e9962b9e96faccdc551825e0ae0898ae13737133e1b921a2fd35ffa"
+  },
+  "inspection": "All eight current rendered pages readable; no visible clipping, overlap or orphaned references. The final render pixels exactly match the inspected pages. Working layout; advisor title/format unapproved.",
+  "page_png_sha256": {
+    "page-01.png": "812c69b46772b314cdf5cbeea5c52734a31fff0ba283541403b96f0be15ff133",
+    "page-02.png": "4351eef1422bd3ea463f1cd7908f232715f562cb209d04d7cb9bca1bbfc0708b",
+    "page-03.png": "6f51ab7740a020ed3479985ce448fe6d46225595222671ef241ccfdff44faf07",
+    "page-04.png": "837a94c6d5a7b5a83dd8d6f5f07f02983b596de552b2232238a99c75d2c6d0ff",
+    "page-05.png": "8adaf3b8aaf8a8b997629e69071bcab6b0c45c0652143e0157537ab887d30f31",
+    "page-06.png": "1b232175c39807cd387dd20d68c14c38d9569bf4a886771bd90dd76e47a152cb",
+    "page-07.png": "659ee3fd87a5a6513824d199db0632945367988d766d4d94f71de39d4c11e96d",
+    "page-08.png": "c991f6f031795ff41fe513c0feb1928100c2dd3eae0150d565dc9bc255cf937d"
+  },
   "pages": 8,
-  "pdf_sha256": "1956942def71c9d2ae3c00fb3fb3bab23b5f0966a43558b3f83b819d03630ff6",
+  "pdf_sha256": "d9569aed365ec8be3b2b85000cc6a4172cade70cdc6a337d103ba9101fded372",
+  "prior_report_pdf_sha256": "1956942def71c9d2ae3c00fb3fb3bab23b5f0966a43558b3f83b819d03630ff6",
+  "render_repeated_byte_identically": true,
   "rendered_pages": [
     "page-01.png",
     "page-02.png",
@@ -13,7 +40,9 @@
     "page-07.png",
     "page-08.png"
   ],
-  "scope": "Working report preview; final assessed submission, dashboard, presentation and rehearsal remain open.",
-  "source_sha256": "e4b6b830d9513dc486d1ee7cfe0c636fb586d2af5fe7e8c829f69530d9b9f958",
-  "text_characters": 22961
+  "renderer_sha256": "ec48da98b72ab3945a1dc8fd7a00e92f4bed299fb78e0a9169f7617aed02b7b6",
+  "report_date": "21 October 2026",
+  "scope": "Eight-page visually checked working historical-study report with verified simulator checkpoint. Advisor-approved submission/title, disease-specific follow-up, presentation and rehearsal remain incomplete.",
+  "source_sha256": "a1370df7c417a8d8754fb5004d7d1ee3403f64c7f09d135ca7873d2da9fb5afe",
+  "text_characters": 23941
 }

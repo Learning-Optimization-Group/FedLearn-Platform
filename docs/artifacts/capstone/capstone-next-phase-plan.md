@@ -97,8 +97,10 @@ keyboard/responsive checks and disabled-workload refusal also pass. The
 [live/replay guide](simulation-lab-demo-guide.md) record their scope and limitations.
 These are short any-finding validation demonstrations on one Mac; they do not qualify
 a disease model, a privacy-effect comparison or a physical-device benchmark.
-Off-device preservation of this new checkpoint and final presentation/rehearsal remain
-open. Further dashboard expansion must not displace the learning-baseline priority.
+The working report PDF now includes the dashboard checkpoint in eight visually
+checked pages, with a portable renderer and source/font/dependency receipt. It
+remains a working historical-study report. Off-device preservation of the new
+checkpoint and final presentation/rehearsal remain open. Further dashboard expansion must not displace the learning-baseline priority.
 
 The simulator remains an explicit final acceptance gate. Deferring its expansion
 now does not remove it from the project.

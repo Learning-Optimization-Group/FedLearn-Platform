@@ -4,9 +4,9 @@ Working title retained from the milestone reports; advisor confirmation remains 
 The fixed study completed all 360 cells and passed independent reconciliation.
 The additional source-bound reader reproduced all saved analysis exactly. Final
 study review and its validation correction are complete. Submission layout, advisor
-requirements and final delivery remain open; this is a working report. The current
-PDF remains the 20 October rendered snapshot; the dashboard updates below are
-Markdown-only until the next layout/render pass.
+requirements and final delivery remain open; this is a working report. The refreshed
+PDF includes the verified dashboard checkpoint. The disease-specific follow-up has
+not been selected or trained; the results below describe the historical any-finding study.
 
 ## Abstract
 
@@ -331,7 +331,7 @@ failure was corrected and verified with visible-control-width and keyboard check
 The [verification receipt](simulation-lab-browser-verification-2026-10-21.json)
 and [live/replay guide](simulation-lab-demo-guide.md) preserve the evidence boundary.
 
-Final submission review, the next rendered layout, advisor-approved title/format,
+Final submission review, final assessed layout, advisor-approved title/format,
 presentation and full rehearsal remain delivery gates. The stronger disease-specific
 follow-up also remains separate and unqualified. A working simulator does not complete
 the assessed capstone without the remaining scientific and delivery evidence.

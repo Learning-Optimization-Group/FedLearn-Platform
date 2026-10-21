@@ -260,8 +260,11 @@ see the verification receipt and demonstration guide below.
 - [ ] Finish the [v2 working report](capstone-final-report-v2-working.md), using the
   evidence map and current eight-page structure. Methods, abstract, audited results
   and conclusions are drafted and scientifically reviewed. The [working PDF](capstone-final-report-v2-working.pdf)
-  is the eight-page 20 October snapshot; the 21 October Markdown dashboard updates
-  still need the next render/layout pass. Final submission and delivery checks remain open.
+  now includes the 21 October dashboard checkpoint in eight visually checked pages.
+  The [rendering instructions](repro/RENDERING.md) and source-bound layout receipt
+  record fonts/dependencies and two byte-identical fresh renders. Methods/results
+  text and historical study identities are unchanged. Advisor-approved final
+  layout/submission and delivery checks remain open.
   Verify actual advisor formatting/submission requirements.
 - [ ] Integrate methods, tuning history, primary/secondary results, practical
   conclusions and limitations into one coherent argument.

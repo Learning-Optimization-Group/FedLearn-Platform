@@ -232,8 +232,10 @@ source-bound diagnostic record and labelled replay fallback; final demo script.
 
 21 October: enabled and unavailable phases passed; responsive recheck reused all
 three retained job IDs without retraining. Source/record identities reconciled.
-Live/replay guide and aggregate receipt written. Final report/presentation integration,
-new off-device preservation and full rehearsal remain open; Task4 is not closed.
+Live/replay guide and aggregate receipt written. The working report Markdown/PDF
+now include the verified checkpoint; all eight PDF pages are visually checked.
+Final presentation integration, new off-device preservation and full rehearsal
+remain open; Task4 is not closed.
 
 ## Plan self-review and handoff
 
