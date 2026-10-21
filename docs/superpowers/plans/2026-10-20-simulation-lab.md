@@ -164,10 +164,10 @@ user IDs(Long), role security and ProcessTrees. Existing Spring/DataSource is re
 
 ### Task 3: Existing dashboard workflow and comparisons
 
-21 October: source implementation and 175-test/lint/build gates pass. The single
-read-only review and regression-first Important fixes are finished. Authenticated
-keyboard/focus/responsive acceptance remains open alongside Task4; do not infer
-actual NIH browser execution from component fixtures or the static reference page.
+21 October: source implementation and 179-test/lint/build gates pass. The single
+read-only review and regression-first Important fixes are finished. Actual authenticated
+browser/worker, keyboard/focus and responsive acceptance now also pass. The browser
+checks use real jobs and retained records, separately from component fixtures.
 
 **Files:** create `frontend/src/components/redesign/SimulationLab.tsx`,
 `SimulationLab.test.tsx`, `SimulationRunView.tsx`, `SimulationCompare.tsx`,
@@ -193,7 +193,7 @@ form→resolve→start→actualprogress→terminal/reopen/export and 2–4run co
   download labelledresearchdata, costchart distinguishes modeledbytes fromelapsed.
 - [x] Implement comparison/result panes and a read-only link to independently
   verified fixed-study report/curated aggregates; never expose private IDs/rawmodels.
-- [ ] Verify keyboard labels/focus, busy states, responsive layout using existing
+- [x] Verify keyboard labels/focus, busy states, responsive layout using existing
   Ember design language. One read-only review/fixes; run `npm run lint`,
   `npm run test:coverage`, `npm run build`. Expected: allpass, no realdata inference
   implied by component fixtures. Commit `feat(frontend): add Simulation Lab workflow`.
@@ -209,26 +209,31 @@ independently checked study aggregates. No intercepted canned API/training resul
 **Produces:** reproducible realbrowser run/reopen/export/stop/ownership evidence,
 source-bound diagnostic record and labelled replay fallback; final demo script.
 
-- [ ] Read current homelab instructions. `~/code/homelab/AGENTS.md` was absent during
+- [x] Read current homelab instructions. `~/code/homelab/AGENTS.md` was absent during
   this plan's preparation; search once for its replacement and follow the existing
   fedlearnREADME/config if stillabsent. Do not invent missing-file instructions.
-- [ ] Add owner-authenticated tests tagged`@core @simulation-lab`, plus a second
+- [x] Add owner-authenticated tests tagged`@core @simulation-lab`, plus a second
   user's denied read/stop/export. Target the capstone worktree usingFEDLEARN_REPO;
   verify runningbackend/frontend source first, since reuseExistingServer may attach
   an unrelated rootcheckout. Never reuse foreign liveapp state or credentials.
-- [ ] Drive realUI start→atleastoneactualround→completed→refresh/reopen→download;
+- [x] Drive realUI start→atleastoneactualround→completed→refresh/reopen→download;
   compare two retained differentsettings, verify displayed actualconfig/metric values.
   Stopanotheractualrun and assert noownedchild survives; verify unavailableworkload
   and visiblylabelledreplay, without rewriting frozenstudy/caches or publicdata.
-- [ ] Run `FEDLEARN_REPO=<capstone-worktree> npx playwright test
-  tests/simulation-lab.spec.ts --project=core --grep @simulation-lab` inhomelab/fedlearn.
+- [x] Run `FEDLEARN_REPO=<capstone-worktree> npx playwright test
+  --config playwright.simulation.config.ts tests/simulation-lab.spec.ts --project=core --grep @simulation-lab` inhomelab/fedlearn.
   Expected: pass onactualstack with matchingrecord/source; no trainingretries to hide
   failures. Use precise failures tofix relevant code with regression/fullgates.
-- [ ] Render/inspect curatedscreenshots and reconcile all shownvalues withretained
+- [x] Render/inspect curatedscreenshots and reconcile all shownvalues withretained
   records; keepauthcookies/rawtraces/privatepaths outsidecommitted evidence.
 - [ ] Write a short reproducible demo/replayfallback guide; update finalreport,
   presentation and TODO fromactualevidence. Verify privateOrin backupbeforecleanup.
 - [ ] Commit eachrepo's ownedchanges locally, preservinguseredits; no push/merge.
+
+21 October: enabled and unavailable phases passed; responsive recheck reused all
+three retained job IDs without retraining. Source/record identities reconciled.
+Live/replay guide and aggregate receipt written. Final report/presentation integration,
+new off-device preservation and full rehearsal remain open; Task4 is not closed.
 
 ## Plan self-review and handoff
 

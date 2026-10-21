@@ -90,10 +90,15 @@ and corrected. The full backend gate passed all 1,207 tests, no skips, and 84.09
 line coverage. An admin-login HTTP EOF in the initial full run did not recur in
 isolation or the instrumented full run; its cause is unresolved, not fixed.
 Preserve the tested API checkpoint and private ledger. The React workflow now
-passes 175 tests, lint and production build, with 57.59% line coverage. Its actual
-authenticated browser-to-worker acceptance, keyboard/focus and responsive checks
-remain open; component fixtures and the historical-page browser check do not close
-those gates. New dashboard expansion must not displace the learning-baseline priority.
+passes 179 tests, lint and production build, with 57.74% line coverage. The actual
+browser-to-API-to-NIH-worker flow, ownership, reload/export/comparison, partial stop,
+keyboard/responsive checks and disabled-workload refusal also pass. The
+[aggregate receipt](simulation-lab-browser-verification-2026-10-21.json) and
+[live/replay guide](simulation-lab-demo-guide.md) record their scope and limitations.
+These are short any-finding validation demonstrations on one Mac; they do not qualify
+a disease model, a privacy-effect comparison or a physical-device benchmark.
+Off-device preservation of this new checkpoint and final presentation/rehearsal remain
+open. Further dashboard expansion must not displace the learning-baseline priority.
 
 The simulator remains an explicit final acceptance gate. Deferring its expansion
 now does not remove it from the project.

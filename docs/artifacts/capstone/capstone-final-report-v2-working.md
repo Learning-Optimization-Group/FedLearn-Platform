@@ -1,10 +1,12 @@
 # Measuring the Cost of Privacy and Robustness in Federated Learning
 
-Working title retained from the milestone reports; advisor confirmation remains open. Working report, 20 October 2026.
+Working title retained from the milestone reports; advisor confirmation remains open. Working report, updated 21 October 2026.
 The fixed study completed all 360 cells and passed independent reconciliation.
 The additional source-bound reader reproduced all saved analysis exactly. Final
 study review and its validation correction are complete. Submission layout, advisor
-requirements and final delivery remain open; this is a working report.
+requirements and final delivery remain open; this is a working report. The current
+PDF remains the 20 October rendered snapshot; the dashboard updates below are
+Markdown-only until the next layout/render pass.
 
 ## Abstract
 
@@ -320,10 +322,19 @@ clipping manipulations change multiple learning mechanisms, so raw differences d
 not establish a noise-only causal explanation. Secondary comparisons are bounded
 and descriptive, and terminal resource failures must remain part of the report.
 
-Final submission review, eight-page rendered layout,
-advisor-approved title/format, presentation and actual dashboard/browser demonstration
-remain delivery gates. A passing simulator or polished interface does not complete
-the assessed capstone without those artifacts.
+The dashboard now passed actual browser-to-API-to-worker checks: two three-round
+validation jobs completed, a separate job stopped with two of twenty rounds retained,
+and reload/export/comparison/ownership and disabled-workload behavior were checked.
+These short, differently seeded demonstration runs are not new matched research
+comparisons or a disease-specific baseline. A screenshot-exposed mobile clipping
+failure was corrected and verified with visible-control-width and keyboard checks.
+The [verification receipt](simulation-lab-browser-verification-2026-10-21.json)
+and [live/replay guide](simulation-lab-demo-guide.md) preserve the evidence boundary.
+
+Final submission review, the next rendered layout, advisor-approved title/format,
+presentation and full rehearsal remain delivery gates. The stronger disease-specific
+follow-up also remains separate and unqualified. A working simulator does not complete
+the assessed capstone without the remaining scientific and delivery evidence.
 
 ## 9. Conclusion
 
@@ -334,8 +345,10 @@ controls, actual accepted cohorts, rule-specific calibration, operating points a
 resource scopes together. Data/content qualification and versioned score arithmetic
 are prerequisites for trusting that comparison. The study supplies reproducible
 evidence for those decisions; it does not certify a clinical model or a protected
-end-to-end deployment. The planned dashboard must make these distinctions usable
-and demonstrate actual execution before the capstone is complete.
+end-to-end deployment. The integrated dashboard makes execution, partial outcomes,
+configuration differences and cost/privacy scopes inspectable. Its verified local
+workflow supports delivery; stronger prediction baselines and the final report,
+presentation and rehearsal still require completion.
 
 ## Working evidence links
 

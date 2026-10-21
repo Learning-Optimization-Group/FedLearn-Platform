@@ -194,8 +194,9 @@ finite/tagged record writer pass **107 focused tests**. Two lifecycle review fin
 were reproduced and corrected; an installed-wheel control completed two real
 synthetic-cache rounds. The full framework gate passed **2,183 tests**, 14 deselected, with 79.82% coverage.
 The backend/API checkpoint also passes its full gate. The React implementation
-passes its component/service/route checks and frontend release gates; authenticated
-keyboard/responsive checks and actual browser-to-worker acceptance remain open.
+passes its component/service/route checks and frontend release gates. Actual
+authenticated browser-to-worker, keyboard and responsive acceptance now also pass;
+see the verification receipt and demonstration guide below.
 
 - [x] Implement and qualify the [bounded Simulation Lab worker](simulation-lab-worker-contract.md),
   including actual subprocess lifecycle and isolated installed-wheel verification.
@@ -217,8 +218,17 @@ keyboard/responsive checks and actual browser-to-worker acceptance remain open.
   These checks do not establish authenticated UI-to-worker execution or learning
   quality. The original Markdown download retains repository-relative references,
   disclosed on its download page; a self-contained Markdown package is deferred.
-- [ ] Finish authenticated keyboard/responsive verification and the real
+- [x] Finish authenticated keyboard/responsive verification and the real
   browser-to-API-to-NIH-worker demonstration, including ownership and stop/export.
+  The [21 October receipt](simulation-lab-browser-verification-2026-10-21.json)
+  binds two completed three-round jobs and one stopped two-of-twenty-round job.
+  The disabled-workload phase returned 503 and retained all three jobs. A real
+  screenshot exposed clipped mobile controls despite an initially green width
+  check; responsive navigation and stronger checks now pass. **179 frontend tests**,
+  lint/build and 57.74% line coverage pass.
+- [x] Write the [live demonstration and explicitly labelled replay guide](simulation-lab-demo-guide.md).
+- [ ] Verify off-device preservation of the new dashboard/browser checkpoint;
+  local evidence is retained and the historical study already has verified backups.
 
 ## Study checks and remaining reporting
 
@@ -250,16 +260,17 @@ keyboard/responsive checks and actual browser-to-worker acceptance remain open.
 - [ ] Finish the [v2 working report](capstone-final-report-v2-working.md), using the
   evidence map and current eight-page structure. Methods, abstract, audited results
   and conclusions are drafted and scientifically reviewed. The [working PDF](capstone-final-report-v2-working.pdf)
-  has eight visually checked pages; final submission layout and delivery checks remain open.
+  is the eight-page 20 October snapshot; the 21 October Markdown dashboard updates
+  still need the next render/layout pass. Final submission and delivery checks remain open.
   Verify actual advisor formatting/submission requirements.
 - [ ] Integrate methods, tuning history, primary/secondary results, practical
   conclusions and limitations into one coherent argument.
 - [ ] Verify primary literature/theorem citations used in final privacy/robustness claims.
 - [ ] Create the final presentation from verified results; preserve the presented
   Milestone 2 deck and label older exploratory material accurately.
-- [ ] Implement the designed Simulation Lab workflow: configuration,
+- [x] Implement the designed Simulation Lab workflow: configuration,
   start/stop, progress/results and record export for the cached-feature simulator.
-- [ ] Verify the demonstration through the actual UI and real execution; clearly
+- [x] Verify the demonstration through the actual UI and real execution; clearly
   label a replay fallback as a replay.
 - [ ] Prepare reproducibility instructions and a curated shareable evidence package;
   keep private models/identities/research diagnostics out of public artifacts.

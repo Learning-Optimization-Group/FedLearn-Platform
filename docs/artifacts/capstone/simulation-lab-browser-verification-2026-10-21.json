@@ -1,0 +1,83 @@
+{
+  "status": "actual_local_workflow_and_responsive_acceptance_verified",
+  "verifiedOn": "2026-10-21",
+  "executionSourceCommit": "630fd27566838a95942ef85493215a77059263e9",
+  "dashboardSourceCommit": "8ebb5919f587afd018fdf9fa5010a60ed56280e5",
+  "featureReportSha256": "6c9e6969c6fd762156ef2246323fbdbc5e9cb272c9910a8b1c9b691ab33783fd",
+  "scope": "Exploratory NIH any-finding validation demonstration on one Mac; clients simulated. Not a new disease baseline, matched privacy effect estimate, physical-device benchmark or clinical qualification.",
+  "runs": [
+    {
+      "purpose": "plain",
+      "status": "COMPLETED",
+      "completedRounds": 3,
+      "requestedRounds": 3,
+      "finalValidationAuroc": 0.6353247310300824,
+      "finalValidationAccuracy": 0.617350697517395,
+      "configHash": "8900b1b36be3354f477bfc880522ad2fdb88d75db800c5c52cd7ad45776a6d4e",
+      "recordSha256": "698da961e47b6e974aa077fa1c2c993870bbfc95c0afde52891e42da4b0ab270",
+      "executionQualified": true
+    },
+    {
+      "purpose": "central",
+      "status": "COMPLETED",
+      "completedRounds": 3,
+      "requestedRounds": 3,
+      "finalValidationAuroc": 0.6106832589596054,
+      "finalValidationAccuracy": 0.5811518430709839,
+      "configHash": "fbce5cb22ca702a1b9f08c79697c86110549cd04c35515c15cc54546b6696160",
+      "recordSha256": "a871e26bcac0ba2396faa86a2c035ad041a008413ed4a49cde71b85899ca6085",
+      "executionQualified": true
+    },
+    {
+      "purpose": "stopped",
+      "status": "STOPPED",
+      "completedRounds": 2,
+      "requestedRounds": 20,
+      "finalValidationAuroc": 0.6539019967951082,
+      "finalValidationAccuracy": 0.6046838760375977,
+      "configHash": "7bf06ad339e09938e2cfc320213b2e36ea5e2a9a67b8c34b5d8d90a18a834a02",
+      "recordSha256": "cb7a752d8fb52c7eb060b14db4f6a576c9e2b3aee4c16c97fc5107e62a2ce39f",
+      "executionQualified": false
+    }
+  ],
+  "checks": {
+    "actualBrowserStarts": 3,
+    "reloadCreatedNoNewRun": true,
+    "downloadMatchesOwnedApiRecord": true,
+    "anonymousApiStatus": 401,
+    "ordinaryUserApiStatus": 403,
+    "foreignOwnerReadStopExportStatus": 404,
+    "ownedStopRetainedPartialRounds": true,
+    "stoppedWorkerAbsent": true,
+    "liveUiObservedRunningRoundBeforeStop": true,
+    "desktopAnd390pxResponsiveChecks": true,
+    "keyboardMenuEscapeAndFocusRestore": true,
+    "disabledWorkloadLaunchStatus": 503,
+    "disabledPhaseRetainedRuns": 3,
+    "referencePageRecipeRows": 64
+  },
+  "frontendGate": {
+    "testsPassed": 179,
+    "lineCoveragePercent": 57.74,
+    "lint": "passed",
+    "productionBuild": "passed",
+    "remainingBuildWarning": "Main bundle exceeds 500 kB"
+  },
+  "evidenceSha256": {
+    "initial-enabled-receipt.json": "155aa582afa68ef59d43a2d86e374726c87a95894b80a5c073359f4e555013c0",
+    "initial-enabled-observations.json": "9d473fe8952d507c10e7f11f2437b254f3633b62ecc69fdbe029e8796c06f1aa",
+    "responsive-acceptance-receipt.json": "155aa582afa68ef59d43a2d86e374726c87a95894b80a5c073359f4e555013c0",
+    "unavailable-receipt.json": "9b03a749b1c10517ab30a6d62264c8194aee295eccf6c7644149afbe8ce40cf8"
+  },
+  "limitations": [
+    "Two completed demo runs use different seeds; their AUROC gap is not an estimate of the DP effect.",
+    "Original Markdown report references require the repository layout.",
+    "Private current dashboard/browser evidence has not been verified off-device."
+  ],
+  "screenshotsSha256": {
+    "docs/artifacts/capstone/figures/simulation-lab-desktop-2026-10-21.png": "9288efda859f5e863caa8d76b91c2b10da34139478c474133ace1075ff803e5c",
+    "docs/artifacts/capstone/figures/simulation-lab-mobile-2026-10-21.png": "1321a25cf369838d9d54b789b821e8b81fd7ff2cfee605016b4719036d72160e"
+  },
+  "browserSuiteCommit": "cf77c4c4b1265660fb1903e2c761199a44dfb5e1",
+  "browserSuiteBranch": "test/simulation-lab-browser"
+}
