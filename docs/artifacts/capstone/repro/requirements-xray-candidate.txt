@@ -1,0 +1,5 @@
+torchxrayvision==1.5.7
+scikit-image==0.26.0
+imageio==2.38.1
+tifffile==2026.10.15
+lazy-loader==0.6

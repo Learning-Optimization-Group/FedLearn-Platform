@@ -26,6 +26,11 @@ pneumonia task. Preserve the completed study separately.
   without fitting or test scoring. [Feasibility audit](condition-feasibility-audit-2026-10-20.md):
   independent counts agree; positive-patient scarcity and misleading majority
   accuracy identified. No condition or new model has been selected by this audit.
+- [x] Prepare a source-bound medical feature candidate without NIH fitting:
+  [CheXpert DenseNet-121 check](medical-backbone-candidate-2026-10-21.md). Exact
+  checkpoint/library pinned; two synthetic CPU inputs yield finite 1,024-value
+  features with exact fresh-process replay. Nine reproduction tests pass.
+  The 512-wide legacy cache is unchanged; no new disease accuracy is available.
 - [ ] Select the condition and define the prediction purpose, labels, baseline acceptance measures and a genuinely
   untouched final evaluation; do not tune to the already examined NIH test results.
 - [ ] Audit and improve a bounded centralized learning baseline on development data.

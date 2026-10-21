@@ -1,0 +1,188 @@
+{
+  "baseRuntimeVersions": {
+    "Pillow": "12.3.0",
+    "networkx": "3.6.1",
+    "packaging": "25.0",
+    "pandas": "2.3.1",
+    "requests": "2.34.2",
+    "scipy": "1.18.0",
+    "tqdm": "4.70.0"
+  },
+  "candidateSelectedForDiseaseStudy": false,
+  "checkedOn": "2026-10-21",
+  "checkpoint": {
+    "bytes": 28381998,
+    "filename": "chex-densenet121-d121-tw-lr001-rot45-tr15-sc15-seed0-best.pt",
+    "publisherCreatedAt": "2020-03-11T03:50:51Z",
+    "publisherUpdatedAt": "2020-03-11T03:51:15Z",
+    "releaseAssetId": 18622079,
+    "sha256": "1a914ae802170187a4852e594708206c12468eeeefd66aa4e8e26141649d61a4",
+    "upstreamDigest": null,
+    "url": "https://github.com/mlmed/torchxrayvision/releases/download/v1/chex-densenet121-d121-tw-lr001-rot45-tr15-sc15-seed0-best.pt"
+  },
+  "classifiersFitted": 0,
+  "conditionSelected": false,
+  "freshProcessReplayMatches": true,
+  "limits": [
+    "Publisher identifies this as CheXpert-specific; original checkpoint training/selection membership was not independently reconstructed.",
+    "No publisher checksum was present; the checkpoint hash is an observed official-download pin.",
+    "Synthetic CPU compatibility does not establish real-image preprocessing, prediction quality or clinical utility.",
+    "Existing NIH cache and qualification remain fixed at 512 features; this 1024-feature candidate requires a separate versioned workload.",
+    "No independent final cohort or disease label has been qualified."
+  ],
+  "newAccuracyOrAurocMeasured": false,
+  "nihImagesUsed": 0,
+  "packageArtifacts": [
+    {
+      "filename": "torchxrayvision-1.5.7-py3-none-any.whl",
+      "name": "torchxrayvision",
+      "requiresPython": ">=3.6",
+      "sha256": "95f6c3475661f3515d4258deb0855bd5d1b1a56e0b65384251d3dd3fa61fac41",
+      "url": "https://files.pythonhosted.org/packages/e1/fd/f61ab16f1dbffec75691cec03461b64d6eda8d769dba201d43402056f773/torchxrayvision-1.5.7-py3-none-any.whl",
+      "version": "1.5.7"
+    },
+    {
+      "filename": "scikit_image-0.26.0-cp312-cp312-macosx_11_0_arm64.whl",
+      "name": "scikit-image",
+      "requiresPython": ">=3.11",
+      "sha256": "3409e89d66eff5734cd2b672d1c48d2759360057e714e1d92a11df82c87cba37",
+      "url": "https://files.pythonhosted.org/packages/e3/be/f8dd17d0510f9911f9f17ba301f7455328bf13dae416560126d428de9568/scikit_image-0.26.0-cp312-cp312-macosx_11_0_arm64.whl",
+      "version": "0.26.0"
+    },
+    {
+      "filename": "imageio-2.38.1-py3-none-any.whl",
+      "name": "imageio",
+      "requiresPython": ">=3.11",
+      "sha256": "36d23eb7423d2fb63f637098758edb3d2df3687f7125e0a5ce8596572022dcf9",
+      "url": "https://files.pythonhosted.org/packages/7d/8a/3b7f62b9df56460959f1b9bef094248d2a4d7f393c5b0d2da8efcdf0e40e/imageio-2.38.1-py3-none-any.whl",
+      "version": "2.38.1"
+    },
+    {
+      "filename": "tifffile-2026.10.15-py3-none-any.whl",
+      "name": "tifffile",
+      "requiresPython": ">=3.12",
+      "sha256": "3dcf6c56731a45c1f85c81e90dad922b0a380a2d639e77f71207e010f8ef0f7b",
+      "url": "https://files.pythonhosted.org/packages/5b/bc/9e7664e2d30d4e82ada1b29dbb249d2dcac1ed1114cbbf11764f670d8be7/tifffile-2026.10.15-py3-none-any.whl",
+      "version": "2026.10.15"
+    },
+    {
+      "filename": "lazy_loader-0.6-py3-none-any.whl",
+      "name": "lazy-loader",
+      "requiresPython": ">=3.9",
+      "sha256": "77253be3391b06124a0e16105bd663b6c54470af1a9ca8e1cf026f38d58ed056",
+      "url": "https://files.pythonhosted.org/packages/23/93/4e45e37f26c820216704b36b8e67cc55c490a7abd287a78a26a2c0e21386/lazy_loader-0.6-py3-none-any.whl",
+      "version": "0.6"
+    }
+  ],
+  "privateEvidenceSha256": {
+    "download-manifest.json": "6f35b2260548febf703baa1864e3604d850e5080e7ae4d5a02d2808c7bb0e433",
+    "refusal-green.log": "746fcb9debaff14ffef1a7207ebc850dc5ec5a6ab05a37b11c32dddfeac8ca34",
+    "refusal-red.log": "56c7a75b6433a44ca227811091895c8a97b7d7c033cf202c1486c499a830eea1",
+    "repro-suite.log": "67b58a6f2f5eafc881eecaadc7e4f54ab4b0886e04c25cd3585ee4a5a71bd22b",
+    "source-receipt.json": "cbd4da42d699bbe8b0877d1a3ebb1efa410d3d33273d177529e749e7ec5632a4",
+    "synthetic-receipt.json": "5036392747dbbec06ee61b4fdf31ce1f1a6cde0fb15a5c935e06539d2a5e04e1",
+    "synthetic-replay-receipt.json": "b0ad8b6b9712e7b0a7326064dfb654c72ce4232d7ae703b68a889415278b0a98",
+    "training-source-manifest.json": "c2dfb96017dad12f34dde0807a52d07041391242255e000a151ebc7e30b95ff4"
+  },
+  "projectSourceCommit": "605b83b5374a21006672fada3169b3ea54563dad",
+  "pythonVersion": "3.12.7",
+  "refusalTestSourceSha256": "ec36cfcb238152f8b59d43168d480a1f8cc06f35324771e95dc19c1ef611e238",
+  "releasedCoreModulesMatchInspectedCommit": {
+    "datasets": true,
+    "models": true,
+    "utils": true
+  },
+  "schema": "capstone.medical_backbone_candidate.v1",
+  "selfTestSourceSha256": "c927bd6f135fdd52c043bc571964e9169d8f10cf290bb60af64df6b0272989a5",
+  "standaloneReproductionTestsPassed": 9,
+  "status": "source_bound_synthetic_execution_verified",
+  "syntheticExecution": {
+    "checkpointSha256": "1a914ae802170187a4852e594708206c12468eeeefd66aa4e8e26141649d61a4",
+    "cpuThreads": 4,
+    "device": "cpu",
+    "featureMapShape": [
+      2,
+      1024,
+      7,
+      7
+    ],
+    "featureSha256": "4dee8a7a08e3e5530d6313d06840bbdab953e8ab4e367582d65e83aa57b6815c",
+    "featureVectorShape": [
+      2,
+      1024
+    ],
+    "featuresFinite": true,
+    "manualReluAveragePoolExactlyEqual": true,
+    "modelId": "densenet121-res224-chex",
+    "moduleSha256": {
+      "datasets": "77b831e8ac52d92ecddc73715789d0d5a517d1c9bce49ea4fce2428cefbb6539",
+      "models": "3d359ee39db33ae4f9633d7cccc0756f63ad8e38b6d018776c5c2c18a0553af8",
+      "utils": "37604b4b57ad7f4d662fc6d21ee6b4eeb614c634e14a5a3fc5cf42160055940b"
+    },
+    "packages": {
+      "imageio": "2.38.1",
+      "lazy-loader": "0.6",
+      "numpy": "2.1.2",
+      "scikit-image": "0.26.0",
+      "tifffile": "2026.10.15",
+      "torch": "2.12.0",
+      "torchvision": "0.27.0",
+      "torchxrayvision": "1.5.7"
+    },
+    "parameterCount": 6966034,
+    "parameterStateSha256": "5c1ff3ba6255e50dc5ba05fbd6f815d8efe8cb3f794d3fbc4b83b3ef7825ff1a",
+    "parametersAndBuffersUnchanged": true,
+    "preprocessedSha256": "8df8002243968f52d2cf0b4ea40503f6da18c5aff5f6aefb66ce20880b899035",
+    "preprocessing": {
+      "centerCrop": true,
+      "channels": 1,
+      "dtype": "torch.float32",
+      "normalization8BitEndpoints": [
+        -1024.0,
+        1024.0
+      ],
+      "resize": [
+        224,
+        224
+      ],
+      "resizeEngine": "skimage"
+    },
+    "publishedTrainedTargets": [
+      "Atelectasis",
+      "Consolidation",
+      "Pneumothorax",
+      "Edema",
+      "Effusion",
+      "Pneumonia",
+      "Cardiomegaly",
+      "Lung Lesion",
+      "Fracture",
+      "Lung Opacity",
+      "Enlarged Cardiomediastinum"
+    ],
+    "rawInputShape": [
+      2,
+      288,
+      320
+    ],
+    "repeatedFeaturesExactlyEqual": true,
+    "schema": "capstone.medical_backbone.synthetic.v1",
+    "scope": "Synthetic images only; no NIH access, classifier fitting, utility estimate or clinical qualification.",
+    "status": "synthetic_execution_pass",
+    "syntheticImageCount": 2,
+    "syntheticRawSha256": "bdb1c292acc1e96db6bea821e244e4226e5270d3478726d5b12812d4eca3e14b",
+    "threeSyntheticFeatureForwardsWallSeconds": 0.1260644580470398,
+    "timingScope": "Only three two-image CPU feature forwards; no dataset throughput or device-scaling estimate.",
+    "untrainedOutputSlots": 7
+  },
+  "trainingSourcesInspected": {
+    "commit": "17726dd8f5e756eec3e5ae958281a289b05b1dae",
+    "files": {
+      "scripts/train_ae.py": "a00fc46f255749e0c833ae40a2aa1139939500ef10d7e35a403696c7941942c9",
+      "scripts/train_model.py": "db403356626c5b7192b579491a6936d7b6fe7fdb362ea159d0ba17e06159f748",
+      "scripts/train_utils.py": "93fbe7fb672d44383ad57c19e3c3d4e8ed6b1d4dafa513cd846cdb7928f7245c",
+      "scripts/train_utils_ae.py": "45f7378e58ae7f7c9c7048d72b5c815b89d874fd0b7159048ed939ca05d021a6"
+    }
+  },
+  "upstreamCommitInspected": "17726dd8f5e756eec3e5ae958281a289b05b1dae"
+}

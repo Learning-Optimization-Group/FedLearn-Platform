@@ -23,6 +23,13 @@ The [development-label feasibility audit](condition-feasibility-audit-2026-10-20
 compares positive image/patient counts and reference-standard access without
 selecting a condition or scoring models.
 
+The [medical-backbone candidate check](medical-backbone-candidate-2026-10-21.md)
+now pins a CheXpert-specific DenseNet checkpoint and verifies synthetic CPU feature
+extraction/replay. It establishes technical preparation only: no condition selection,
+NIH fitting, utility gain or new clinical qualification. Its 1,024-wide features need
+a separately versioned cache and qualification; the existing 512-wide workload stays
+historical. The learning sequence below remains binding.
+
 ## Required sequence and gates
 
 1. **Learning baseline is the immediate priority.** Select the specific condition
