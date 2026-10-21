@@ -26,6 +26,9 @@ import { AdminProjectDetail } from './components/redesign/AdminProjectDetail';
 const AuditLogView = lazy(() =>
     import('./components/redesign/AuditLogView').then((m) => ({ default: m.AuditLogView })),
 );
+const SimulationLab = lazy(() =>
+    import('./components/redesign/SimulationLab').then((m) => ({ default: m.SimulationLab })),
+);
 
 const AppLoading: React.FC = () => (
     <div className="flex items-center justify-center h-screen bg-canvas text-fg">
@@ -94,6 +97,7 @@ function App() {
                         {/* Owner / admin only */}
                         <Route element={<RoleRoute allow={['PROJECT_OWNER', 'PLATFORM_ADMIN']} />}>
                             <Route path="/datasets" element={<DatasetsView />} />
+                            <Route path="/simulations" element={<Suspense fallback={<AppLoading />}><SimulationLab /></Suspense>} />
                         </Route>
 
                         {/* Admin only. /nodes is really platform user-account

@@ -193,8 +193,9 @@ Implementation has begun: the bounded worker, choice resolver and canonical
 finite/tagged record writer pass **107 focused tests**. Two lifecycle review findings
 were reproduced and corrected; an installed-wheel control completed two real
 synthetic-cache rounds. The full framework gate passed **2,183 tests**, 14 deselected, with 79.82% coverage.
-The backend/API checkpoint also passes its full gate. React and actual browser
-verification remain open.
+The backend/API checkpoint also passes its full gate. The React implementation
+passes its component/service/route checks and frontend release gates; authenticated
+keyboard/responsive checks and actual browser-to-worker acceptance remain open.
 
 - [x] Implement and qualify the [bounded Simulation Lab worker](simulation-lab-worker-contract.md),
   including actual subprocess lifecycle and isolated installed-wheel verification.
@@ -205,6 +206,19 @@ verification remain open.
   All 1,207 backend tests passed with 84.09% line coverage. Synthetic execution
   controls do not establish NIH model quality. One busy-response link minor and
   the unreproduced admin-login transport failure remain documented.
+
+
+- [x] Implement the dashboard route, recipe review/start, actual-round polling,
+  stop/reopen/export, matched-workload comparisons and historical-study page.
+  The 21 October checkpoint passes **175 frontend tests**, lint and production
+  build, with **57.59% line coverage**. Both tagged-nonfinite chart crashes were
+  reproduced before correction. The report link now names the actual HTML file;
+  all ten public manifest entries were fetched and hash-checked in the browser.
+  These checks do not establish authenticated UI-to-worker execution or learning
+  quality. The original Markdown download retains repository-relative references,
+  disclosed on its download page; a self-contained Markdown package is deferred.
+- [ ] Finish authenticated keyboard/responsive verification and the real
+  browser-to-API-to-NIH-worker demonstration, including ownership and stop/export.
 
 ## Study checks and remaining reporting
 

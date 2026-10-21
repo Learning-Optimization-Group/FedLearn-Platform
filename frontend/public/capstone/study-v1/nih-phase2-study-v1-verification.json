@@ -1,0 +1,58 @@
+{
+  "allocation_groups_verified": 16,
+  "checker_sha256": "ae94b68710c5fccb5a55d36d8c173a7b15896280faa2382d9e18bbb1ca7ca7e5",
+  "checks": [
+    "literal360recipes and source/cache/mask/record/model/score identities",
+    "whole-patient ownership/attackers/counts",
+    "direct checkpoint parsing and CPU reforward of validation/test logits",
+    "independent rank AUROC, thresholds, inverse-patient weights and content mask",
+    "Gaussian/prefix accounting, modeled payload/FLOPs and resource scopes",
+    "signed-eight-component primary contrast and paired ten-seed interval"
+  ],
+  "csv_line_endings": "LF; all 3,202 decoded rows identical to reviewed CRLF exports",
+  "failed": 0,
+  "figure_exporter_sha256": "9207b7b5c0e9ad1646f400c53a70aeef81aeb4df6d14820a2d73e8598907e744",
+  "independent_audit_sha256": "8438ccb8531188851a2f6b3b2750604d373e9a8fc8d1fe32b6dc0455514a097b",
+  "models_and_both_splits_reforwarded": 360,
+  "not_run": 0,
+  "primary": {
+    "ci95": [
+      0.0007043983687426811,
+      0.003827900876756635
+    ],
+    "complete": true,
+    "interval_method": "paired_t_df9_if_all10_complete",
+    "mean": 0.002266149622749658,
+    "n_complete": 10,
+    "range": [
+      -0.0021045793601284224,
+      0.006234150723013254
+    ],
+    "requested_seeds": 10,
+    "scope": "conditional_simulation_seed_variation",
+    "sd": 0.002183177713017609
+  },
+  "primary_validation_regression_methods": 7,
+  "qualified": 360,
+  "raw_index_sha256": "61a78d9107c0023a5a5b795cd2b1c75e2d0f90effed4689d655d227510da6e5a",
+  "raw_protocol_sha256": "34088c23be1d6f8c4dcb9d2446ea810a584ab202df7eb55a2ae12016850d3d86",
+  "raw_summary_sha256": "7ec2c97f278c8c66b3437a3be01dbbb70460391ebdb1034b462d0e4d498679fc",
+  "review": {
+    "critical_findings": 0,
+    "important_findings": 1,
+    "important_findings_fixed_with_regressions": 1,
+    "numerical_results_unchanged": true,
+    "scope": "single study-delivery review, one correction pass; no repeat review; final submission/dashboard not assessed"
+  },
+  "scope": "conditional per-run public-data research mechanism; no clinical/patient-level/whole-matrix DP claim",
+  "source_bound_analysis_matches_original_exactly": true,
+  "source_bound_reanalysis_sha256": "2f4dd13d13279537898a4fa1d8bcd440a568026b718e8c906e138f0435f8c634",
+  "source_commit": "3baea7d3f1c3d518d689c6f12fee4a85ee03a00c",
+  "source_files_verified": 148,
+  "status": "independent_source_bound_and_review_corrections_verified",
+  "table_exporter_sha256": "ee4e7aa4a92ab85fa0eb905e7f2d368b45809594cf682cfb3c8028beefd921bf",
+  "timeout": 0,
+  "verification_cli_mode_checks": 9,
+  "verified_rounds": 7200,
+  "version": "nih-phase2-v1-independent-verification"
+}

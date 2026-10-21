@@ -164,6 +164,11 @@ user IDs(Long), role security and ProcessTrees. Existing Spring/DataSource is re
 
 ### Task 3: Existing dashboard workflow and comparisons
 
+21 October: source implementation and 175-test/lint/build gates pass. The single
+read-only review and regression-first Important fixes are finished. Authenticated
+keyboard/focus/responsive acceptance remains open alongside Task4; do not infer
+actual NIH browser execution from component fixtures or the static reference page.
+
 **Files:** create `frontend/src/components/redesign/SimulationLab.tsx`,
 `SimulationLab.test.tsx`, `SimulationRunView.tsx`, `SimulationCompare.tsx`,
 `frontend/src/services/simulationService.ts` and contract tests;
@@ -174,19 +179,19 @@ choice limits/display semantics; existing tokens/Card/Button/Recharts components
 **Produces:** owner/admin `/simulations`, selected`?run=<uuid>` restored onrefresh,
 form→resolve→start→actualprogress→terminal/reopen/export and 2–4run comparison.
 
-- [ ] Write RED route/nav/service cases: owner/admin allowed, USER gated, requests
+- [x] Write RED route/nav/service cases: owner/admin allowed, USER gated, requests
   conform toDTOs and existing CSRF/cookie handling, no bearer-token substitute.
-- [ ] Write RED meaningful component cases: missingworkload/busy/errors, exactbounds,
+- [x] Write RED meaningful component cases: missingworkload/busy/errors, exactbounds,
   actualcompletedround count/noelapsedfakeprogress, stopremainsSTOPPINGuntilverified,
   completedvstimedoutvstopped, restoreselectedrun and noduplicatePOSTonrefresh,
   abortignore lateoldselection/session polls, foreignrecord refusal, exportfilename.
-- [ ] Implement form/readiness/resolve/preset/recent-run UI and bounded polling with
+- [x] Implement form/readiness/resolve/preset/recent-run UI and bounded polling with
   cleanup onroute/auth changes. Unmount/logout never cancelsserverownedwork.
   Defaultshortdemo is exploratory; E7/R20preset is explicit and still bounded.
-- [ ] Write RED comparisons: onlysameworkloadpin/split,2–4terminalruns, final-round
+- [x] Write RED comparisons: onlysameworkloadpin/split,2–4terminalruns, final-round
   endpoints, explicitdiffs/partialstate, no primaryCI/winner/bestround; diagnostic
   download labelledresearchdata, costchart distinguishes modeledbytes fromelapsed.
-- [ ] Implement comparison/result panes and a read-only link to independently
+- [x] Implement comparison/result panes and a read-only link to independently
   verified fixed-study report/curated aggregates; never expose private IDs/rawmodels.
 - [ ] Verify keyboard labels/focus, busy states, responsive layout using existing
   Ember design language. One read-only review/fixes; run `npm run lint`,

@@ -67,3 +67,20 @@ describe('App routing — /nodes is gated to PLATFORM_ADMIN (FE-1)', () => {
     expect(screen.queryByText('role-dashboard-surface')).not.toBeInTheDocument();
   });
 });
+
+// Simulation routes keep the real page and replace only HTTP I/O.
+describe('Simulation Lab route authorization', () => {
+  it.each(['PROJECT_OWNER', 'PLATFORM_ADMIN'] as const)('opens the workbench for %s', async (role) => {
+    signInAs(role);
+    const { default: transport } = await import('./api/axiosConfig');
+    const previous = transport.defaults.adapter;
+    transport.defaults.adapter = async config => ({ data: config.url?.endsWith('/workloads') ? { workloads: [], scope: 'research' } : { content: [], totalElements: 0, page: 0, size: 20, scope: 'research' }, status: 200, statusText: 'OK', headers: {}, config });
+    try { renderAt('/simulations'); expect(await screen.findByRole('heading', { name: 'Simulation Lab' })).toBeInTheDocument(); }
+    finally { transport.defaults.adapter = previous; }
+  });
+  it('redirects an ordinary USER before opening the workbench', async () => {
+    signInAs('USER'); renderAt('/simulations');
+    expect(await screen.findByText('role-dashboard-surface')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Simulation Lab' })).not.toBeInTheDocument();
+  });
+});

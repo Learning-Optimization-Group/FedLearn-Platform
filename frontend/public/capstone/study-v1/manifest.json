@@ -1,0 +1,27 @@
+{
+  "files": {
+    "all_64_recipe_groups.csv": "17a57d810f266a1a2ef1ee9c99af424416d3bd489bce9ed1ebd76c94fa8a634d",
+    "index.html": "f6978b9715f2eb4b142020274e35b663859904db339142249dee5311991a46d8",
+    "nih-phase2-clipping-sensitivity.png": "7df363f47b6b18e0fa79a03b614f216461072edb1948577d87490a374c9d2bb7",
+    "nih-phase2-cohort-sensitivity.png": "e521c7d98e51023f5f703739b94b47cdbffbe4cc79d9b04a0d5b67c76ee64611",
+    "nih-phase2-head-costs.png": "177bc08bedeccb4e592a3279cc265ee6fa6335950b386ec9868de57b03ef33b1",
+    "nih-phase2-head-privacy-penalty.png": "7180f3a50331d62f1eb5179033509e3fdec2f7e9af3a6176442e193aa89ba02c",
+    "nih-phase2-primary-components.png": "71f40ffeb3aa416eda44c3c8ba552cb659fe8d56e6378f8798e9a70a5d23dd09",
+    "nih-phase2-primary-contrast.png": "42a1e22708a5d8d1eb615026111afde52f9914074f35a38a8a5caaf30d39ccee",
+    "nih-phase2-study-v1-report.md": "4b48870e4353767fe78ebc1593f52f085791329579b5f5c0a6a1c674b522999f",
+    "nih-phase2-study-v1-verification.json": "b875362354613023d4adad53be26f48b8fd37c6ca1a7b6d158d18e8871e97ff7"
+  },
+  "scope": "Read-only historical study; no live training or new scientific result",
+  "source_commit": "3baea7d3f1c3d518d689c6f12fee4a85ee03a00c",
+  "source_sha256": {
+    "docs/artifacts/capstone/figures/nih-phase2-clipping-sensitivity.png": "7df363f47b6b18e0fa79a03b614f216461072edb1948577d87490a374c9d2bb7",
+    "docs/artifacts/capstone/figures/nih-phase2-cohort-sensitivity.png": "e521c7d98e51023f5f703739b94b47cdbffbe4cc79d9b04a0d5b67c76ee64611",
+    "docs/artifacts/capstone/figures/nih-phase2-head-costs.png": "177bc08bedeccb4e592a3279cc265ee6fa6335950b386ec9868de57b03ef33b1",
+    "docs/artifacts/capstone/figures/nih-phase2-head-privacy-penalty.png": "7180f3a50331d62f1eb5179033509e3fdec2f7e9af3a6176442e193aa89ba02c",
+    "docs/artifacts/capstone/figures/nih-phase2-primary-components.png": "71f40ffeb3aa416eda44c3c8ba552cb659fe8d56e6378f8798e9a70a5d23dd09",
+    "docs/artifacts/capstone/figures/nih-phase2-primary-contrast.png": "42a1e22708a5d8d1eb615026111afde52f9914074f35a38a8a5caaf30d39ccee",
+    "docs/artifacts/capstone/nih-phase2-study-v1-report.md": "4b48870e4353767fe78ebc1593f52f085791329579b5f5c0a6a1c674b522999f",
+    "docs/artifacts/capstone/nih-phase2-study-v1-verification.json": "b875362354613023d4adad53be26f48b8fd37c6ca1a7b6d158d18e8871e97ff7",
+    "docs/artifacts/capstone/tables/nih-phase2-v1/all_64_recipe_groups.csv": "17a57d810f266a1a2ef1ee9c99af424416d3bd489bce9ed1ebd76c94fa8a634d"
+  }
+}
