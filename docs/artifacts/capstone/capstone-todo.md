@@ -100,9 +100,12 @@ pneumonia task. Preserve the completed study separately.
     head, whose cause led to
     [A17](effusion-zero-head-r0-v1-result-2026-10-22.md). A zero-initialised head adds +0.019 to +0.20 AUROC under DP.
     The ε 4 cost against clean A7 falls from 0.124 to 0.081 (exploratory best, T = 5).
-  - **#3/#4 Small-k trimming and stronger attacks** (min-max, Fang trimmed-mean, IPM 0.1 at 5/10/20%): A14 running.
-  - **#5 Canary audit.** The estimator `fedlearn.privacy.audit` has shipped. A16 is pre-registered; it needs
-    the canary behaviour, which can be added once A14 has written its summary.
+  - **#3/#4 Small-k trimming and stronger attacks:** [A14](effusion-strong-attacks-r0-v1-result-2026-10-22.md).
+    Without DP, Fang's attack at 20% costs the mean 0.155 and the median 0.063.
+    Under DP the mean beats every trimmed variant in every condition, and small k buys no robustness.
+  - **#5 Canary audit:** [A16](effusion-canary-audit-r0-v1-result-2026-10-22.md) was underpowered
+    (the clean control failed), and A18 was withdrawn before running.
+    A mechanism check over 7,235 recorded DP rounds found 0 mismatches.
   - **Open:** #6 non-IID, #8 noise-aware filtering under local DP, #9 distributed DP, #10 encoder.
 - [ ] Decide whether to ship a zero-initialised-head option for DP frozen-head runs (platform change; needs a decision).
 - [ ] Complete and browser-verify the integrated simulator, including persistence,
