@@ -202,7 +202,8 @@ function LabWorkspace() {
       <div className="grid items-start gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
         <Card padding="lg" className="space-y-4"><h2 className="text-h3 font-semibold">Configure a run</h2>
           <label className="block text-label">Workload<select className={controlClass} value={choices.workloadId} disabled={reviewing || starting} onChange={e => chooseWorkload(e.target.value)}>
-            {(workloads.length ? workloads : [{ id: HISTORICAL, ready: false }]).map(w => <option key={w.id} value={w.id}>{WORKLOAD_NAMES[w.id] ?? w.id}{w.ready ? '' : ' (unavailable)'}</option>)}</select></label>
+            {workloads.length ? workloads.map(w => <option key={w.id} value={w.id}>{WORKLOAD_NAMES[w.id] ?? w.id}{w.ready ? '' : ' (unavailable)'}</option>)
+              : <option value={choices.workloadId}>Loading workloads…</option>}</select></label>
           <div className="flex flex-wrap gap-2"><Button variant="secondary" size="sm" disabled={reviewing || starting} onClick={() => preset({})}>Three-round demo</Button>
             <Button variant="secondary" size="sm" disabled={reviewing || starting} onClick={() => preset({ numClients: 80, rounds: 20, localEpochs: 7 })}>Reference E7/R20 schedule</Button></div>
           <form onSubmit={e => { e.preventDefault(); void review(); }} className="space-y-3">

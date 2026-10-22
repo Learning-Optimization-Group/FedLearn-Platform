@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button, Card } from '../ui';
-import { finalRound, finiteMetric, metric, statusLabel, sumRounds } from './simulationPresentation';
+import { finalRound, finiteMetric, metric, statusLabel, sumRounds, evaluationScope } from './simulationPresentation';
 import { simulationTerminal, type SimulationRecord, type SimulationRun } from '../../services/simulationService';
 
 export function SimulationRunView({ run, record, onStop, onExport, onInspect, stopping, exporting, inspecting }: {
@@ -10,6 +10,7 @@ export function SimulationRunView({ run, record, onStop, onExport, onInspect, st
 }) {
   const [curve, setCurve] = useState<'auc' | 'loss' | 'ece'>('auc');
   const last = finalRound(run);
+  const scope = evaluationScope(run.recipe);
   const curveValues = run.rounds.map(r => ({ round: r.round, auc: finiteMetric(r.auc), loss: finiteMetric(r.loss), ece: finiteMetric(r.ece) }));
   const peakRss = finiteMetric(record?.execution.peakRssBytes);
   const elapsed = run.startedAt ? (Date.parse(run.endedAt ?? new Date().toISOString()) - Date.parse(run.startedAt)) / 1000 : null;
@@ -26,7 +27,7 @@ export function SimulationRunView({ run, record, onStop, onExport, onInspect, st
       </Button>}
     </div>
     <p className="text-label text-fg-muted"><span>{run.status === 'COMPLETED' && run.qualification ? 'Execution qualified' : 'Not qualified as a complete run'}</span>.
-      {' '}Validation results from simulated patient groups; no clinical-use qualification.</p>
+      {' '}{scope.adjective} results from simulated patient groups; no clinical-use qualification.</p>
     {run.errorCode && <p role="alert" className="text-label text-danger">{run.errorCode}: {run.errorMessage ?? 'The run did not complete.'}</p>}
     <dl className="grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-3">
       {[['Final AUROC', metric(last?.auc)], ['Final accuracy', typeof last?.accuracy === 'number' ? `${metric(last.accuracy * 100, 1)}%` : '—'],
@@ -38,9 +39,9 @@ export function SimulationRunView({ run, record, onStop, onExport, onInspect, st
     </dl>
     {run.rounds.length > 0 && <section aria-label="Observed round outcomes">
       <label className="text-label">Metric curve <select className="ml-2 rounded-md border border-line bg-surface-1 p-2" value={curve} onChange={e => setCurve(e.target.value as typeof curve)}>
-        <option value="auc">Validation AUROC</option><option value="loss">Validation loss</option><option value="ece">Calibration ECE</option>
+        <option value="auc">{scope.adjective} AUROC</option><option value="loss">{scope.adjective} loss</option><option value="ece">Calibration ECE</option>
       </select></label>
-      <p className="mt-2 text-caption text-fg-muted">Actual completed rounds; {curve === 'auc' ? 'AUROC' : curve === 'loss' ? 'loss' : 'ECE'} from validation. No projected points. Missing or nonfinite values appear as gaps.</p>
+      <p className="mt-2 text-caption text-fg-muted">Actual completed rounds; {curve === 'auc' ? 'AUROC' : curve === 'loss' ? 'loss' : 'ECE'} from the {scope.noun}. No projected points. Missing or nonfinite values appear as gaps.</p>
       <div className="mt-2 h-48 w-full" aria-hidden="true">
         <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
           <LineChart data={curveValues}><CartesianGrid stroke="var(--color-hairline)" /><XAxis dataKey="round" allowDecimals={false} /><YAxis domain={curve === 'loss' ? [0, 'auto'] : [0, 1]} /><Tooltip />

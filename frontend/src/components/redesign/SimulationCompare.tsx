@@ -1,7 +1,7 @@
 import { Card } from '../ui';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { simulationTerminal, type SimulationRun } from '../../services/simulationService';
-import { finalRound, finiteMetric, metric, statusLabel, sumRounds } from './simulationPresentation';
+import { evaluationScope, finalRound, finiteMetric, metric, statusLabel, sumRounds } from './simulationPresentation';
 
 export function SimulationCompare({ runs }: { runs: SimulationRun[] }) {
   const first = runs[0]?.recipe;
@@ -30,7 +30,7 @@ export function SimulationCompare({ runs }: { runs: SimulationRun[] }) {
       <thead><tr><th className="p-2">Measure</th>{runs.map(r => <th className="p-2" key={r.id} title={r.id}>Run {r.id.slice(0, 8)}</th>)}</tr></thead>
       <tbody>{measures.map(([label, read]) => <tr className="border-t border-hairline" key={label}><th className="p-2 font-medium">{label}</th>{runs.map(r => <td className="p-2" key={r.id}>{read(r)}</td>)}</tr>)}</tbody>
     </table></div>
-    <h3 className="text-label font-semibold">Validation AUROC across completed rounds</h3>
+    <h3 className="text-label font-semibold">{evaluationScope(runs[0].recipe).adjective} AUROC across completed rounds</h3>
     <div className="h-52 w-full" aria-hidden="true"><ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
       <LineChart data={curve}><CartesianGrid stroke="var(--color-hairline)" /><XAxis dataKey="round" allowDecimals={false} /><YAxis domain={[0, 1]} /><Tooltip /><Legend />
         {runs.map((run, index) => <Line key={run.id} dataKey={run.id} name={`Run ${run.id.slice(0, 8)}`} stroke={`var(--color-series-${index + 1})`} strokeWidth={2} connectNulls={false} isAnimationActive={false} />)}

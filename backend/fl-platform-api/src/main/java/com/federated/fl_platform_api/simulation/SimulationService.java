@@ -65,13 +65,18 @@ public class SimulationService {
         return result;
     }
 
+    private JsonNode probe(String workloadId) {
+        try { return runner.inspect(workloadId); } catch (SimulationException unavailable) { return null; }
+    }
+
     public Workloads workloads() {
-        JsonNode metadata = SimulationJson.MAPPER.nullNode();
-        boolean ready = false;
-        try { metadata = runner.inspect(); ready = true; } catch (SimulationException ignored) { }
-        JsonNode effusion = SimulationJson.MAPPER.nullNode();
-        boolean effusionReady = false;
-        try { effusion = runner.inspect(SimulationProcessRunner.EFFUSION); effusionReady = true; } catch (SimulationException ignored) { }
+        // Each probe re-verifies a large cache; run them concurrently so the page waits for the slower one only.
+        var historicalProbe = java.util.concurrent.CompletableFuture.supplyAsync(() -> probe(SimulationProcessRunner.HISTORICAL));
+        var effusionProbe = java.util.concurrent.CompletableFuture.supplyAsync(() -> probe(SimulationProcessRunner.EFFUSION));
+        JsonNode metadata = historicalProbe.join(), effusion = effusionProbe.join();
+        boolean ready = metadata != null, effusionReady = effusion != null;
+        if (metadata == null) metadata = SimulationJson.MAPPER.nullNode();
+        if (effusion == null) effusion = SimulationJson.MAPPER.nullNode();
         return new Workloads(List.of(new Workload("nih-qualified", ready, ready ? null : "Qualified workload unavailable or not configured.",
                 "No Finding (0) versus any finding (1)", "Frozen pretrained ResNet-18 features; validation only",
                 ready ? properties.getReportSha256() : null, metadata.path("splits"), supported(

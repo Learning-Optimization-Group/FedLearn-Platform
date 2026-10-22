@@ -17,3 +17,10 @@ export function statusLabel(run: SimulationRun): string {
     STOPPED: 'Stopped', FAILED: 'Failed', TIMED_OUT: 'Timed out', INTERRUPTED: 'Interrupted' })[run.status];
 }
 export function finalRound(run: SimulationRun): SimulationRound | undefined { return run.rounds[run.rounds.length - 1]; }
+
+/** The evaluation set a run's recipe names: the Effusion bundle's selection half, or the historical validation split. */
+export function evaluationScope(recipe: { evaluationSplit?: string }): { noun: string; adjective: string } {
+  return recipe.evaluationSplit === 'development selection half'
+    ? { noun: 'development selection half', adjective: 'Selection-half' }
+    : { noun: 'validation', adjective: 'Validation' };
+}
