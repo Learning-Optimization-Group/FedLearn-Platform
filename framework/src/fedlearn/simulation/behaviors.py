@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Set
 import numpy as np
 import torch
 
-MALICIOUS = ("sign_flip_scale", "ipm", "alie", "label_flip", "backdoor", "free_rider", "min_max", "fang_trim")
+MALICIOUS = ("sign_flip_scale", "ipm", "alie", "label_flip", "backdoor", "free_rider", "min_max", "fang_trim", "canary")
 _OMNISCIENT = ("ipm", "alie", "min_max", "fang_trim")  # built from the honest clients' deltas
 
 
@@ -83,7 +83,7 @@ class BehaviorPlan:
                       data_seed: int):
         """Apply training-time behaviours; returns ``(x, y, train)``; ``train`` is False for a free-rider."""
         b = self.malicious.get(cid)
-        if b is not None and b["type"] == "free_rider":
+        if b is not None and b["type"] in ("free_rider", "canary"):
             return x, y, False
         if b is not None and b["type"] == "label_flip":
             y = (self.n_classes - 1) - y
@@ -145,6 +145,9 @@ class BehaviorPlan:
                 g = torch.Generator().manual_seed((self.attack_seed * 1_000_003 + round_num * 10_007 + c) % (2 ** 63))
                 out[c] = OrderedDict((k, global_params[k].float() + _fang_trim_values(stacked[k], mean_[k], float(b["b"]), g))
                                      for k in keys)
+            elif t == "canary":
+                u = canary_direction(self.attack_seed, c, global_params)
+                out[c] = OrderedDict((k, global_params[k].float() + float(b["norm"]) * u[k]) for k in keys)
             elif t == "free_rider":
                 if b["mode"] == "zero":
                     out[c] = OrderedDict((k, global_params[k].float().clone()) for k in keys)
@@ -209,3 +212,16 @@ def _fang_trim_values(stacked: torch.Tensor, mean: torch.Tensor, b: float, gener
     down = below_lo + u * (lo_h - below_lo)
     up = hi_h + u * (above_hi - hi_h)
     return torch.where(mean > 0, down, up)
+
+
+def canary_direction(attack_seed: int, direction_id: int, like: Dict[str, torch.Tensor]) -> "OrderedDict[str, torch.Tensor]":
+    """A seeded random unit direction over all of ``like``'s keys (jointly unit L2 norm).
+
+    A canary client uploads ``global + norm * canary_direction(attack_seed, its id, global)`` every
+    round (Andrew et al., ICLR'24). An audit draws never-inserted directions from the same function with
+    ids no client has, so inserted and unseen directions share one distribution.
+    """
+    g = torch.Generator().manual_seed((int(attack_seed) * 1_000_003 + 7_777_777 + int(direction_id)) % (2 ** 63))
+    raw = OrderedDict((k, torch.randn(tuple(v.shape), generator=g)) for k, v in like.items())
+    norm = torch.sqrt(sum((v.double() ** 2).sum() for v in raw.values())).item()
+    return OrderedDict((k, (v / norm).float()) for k, v in raw.items())

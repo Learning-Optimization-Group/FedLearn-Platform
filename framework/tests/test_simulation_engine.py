@@ -326,3 +326,10 @@ def test_min_max_and_fang_trim_run_end_to_end(tmp_path, behavior):
     assert len(rec["rounds"]) == 3 and all(l["refusal"] is None for l in rec["rounds"])
     assert all(v == [behavior["type"]] for v in rec["meta"]["behavior_assignment"].values())
     assert rec["rounds"][-1]["robustness"]["exclusion"]["attacker"] is not None
+
+
+def test_canary_clients_run_end_to_end_and_are_assigned(tmp_path):
+    rec = run(_cfg(_features(tmp_path), privacy={"mode": "central", "epsilon": 4.0},
+                   behaviors=[{"type": "canary", "fraction": 0.2, "norm": 0.5}]))
+    assert len(rec["rounds"]) == 3 and all(l["refusal"] is None for l in rec["rounds"])
+    assert sorted(v for vs in rec["meta"]["behavior_assignment"].values() for v in vs) == ["canary", "canary"]

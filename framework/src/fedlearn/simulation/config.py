@@ -18,7 +18,7 @@ SCHEMA_VERSION = 1
 RULES = ("mean", "weighted_mean", "trimmed_mean", "median", "krum", "multi_krum", "bulyan",
          "centered_clip")
 CENTRAL_DP_RULES = ("mean", "trimmed_mean")
-MALICIOUS = ("sign_flip_scale", "ipm", "alie", "label_flip", "backdoor", "free_rider", "min_max", "fang_trim")
+MALICIOUS = ("sign_flip_scale", "ipm", "alie", "label_flip", "backdoor", "free_rider", "min_max", "fang_trim", "canary")
 FAULTY = ("dropout", "straggler", "label_noise")
 SEED_KEYS = ("partition", "init", "client", "attack", "noise")
 
@@ -27,6 +27,7 @@ BEHAVIOR_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "ipm": {"scale": 4.0},
     "min_max": {"perturbation": "std"},
     "fang_trim": {"b": 2.0},
+    "canary": {"norm": 1.0},
     "alie": {"z": 20.0},
     "label_flip": {},
     "backdoor": {"target_label": None, "poison_fraction": 0.5, "trigger": None},
@@ -128,6 +129,7 @@ _BEHAVIOR_RANGES = {
     "ipm": (("scale", lambda v: v != 0.0, "a non-zero number"),),
     "alie": (("z", lambda v: v >= 0.0, ">= 0"),),
     "fang_trim": (("b", lambda v: v > 1.0, "> 1"),),
+    "canary": (("norm", lambda v: v > 0.0, "> 0"),),
     "backdoor": (("poison_fraction", lambda v: 0.0 < v <= 1.0, "in (0, 1]"),),
     "free_rider": (("noise_std", lambda v: v >= 0.0, ">= 0"),),
     "straggler": (("slowdown", lambda v: v >= 1.0, ">= 1 (a straggler is slower than its peers)"),),

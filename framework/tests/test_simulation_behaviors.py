@@ -162,3 +162,25 @@ def test_new_attack_parameters_are_validated(behavior):
     from fedlearn.simulation.config import ConfigError
     with pytest.raises(ConfigError):
         _plan([behavior])
+
+
+def test_canaries_upload_their_own_fixed_unit_direction_scaled_to_norm():
+    from fedlearn.simulation.behaviors import canary_direction
+    p = _plan([{"type": "canary", "fraction": 0.25, "norm": 0.05}], n=20, seed=9)
+    recs, glob = _records(20)
+    first, later = p.upload_overrides(recs, glob, 1), p.upload_overrides(recs, glob, 7)
+    canaries = sorted(p.malicious_ids())
+    assert len(canaries) == 5 and set(first) == set(canaries)
+    for c in canaries:
+        u = _flat(canary_direction(9, c, glob), {k: torch.zeros_like(v) for k, v in glob.items()})
+        assert float(torch.linalg.vector_norm(u)) == pytest.approx(1.0, rel=1e-6)
+        assert torch.allclose(_flat(first[c], glob), 0.05 * u)
+        assert torch.equal(_flat(first[c], glob), _flat(later[c], glob))  # same direction every round
+    a, b = (_flat(first[c], glob) for c in canaries[:2])
+    assert not torch.allclose(a, b)
+
+
+def test_canaries_do_not_train():
+    p = _plan([{"type": "canary", "fraction": 0.5}], n=4)
+    c = next(iter(p.malicious_ids()))
+    assert p.training_data(c, torch.zeros(3, 2), torch.zeros(3, dtype=torch.long), None, 0)[2] is False
