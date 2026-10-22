@@ -57,8 +57,13 @@ pneumonia task. Preserve the completed study separately.
   [result](effusion-federated-v1-result-2026-10-22.md), on R1 by amendment A2 with the
   A3 reading rule committed first. Federated 0.797 vs central-SGD 0.800 (seed means;
   −0.004), production engine, 5 seeds, no refusals. Gap to the convex head is
-  recipe-limited (central control clipped every round). Central-DP sweep with an R0
-  width arm (A4) and secure-aggregation equivalence/overhead (A5) declared and running.
+  recipe-limited (central control clipped every round).
+- [x] Central-DP sweep with a declared R0 width arm (A4) and secure-aggregation
+  equivalence/overhead (A5): [result](effusion-privacy-secure-v1-result-2026-10-22.md).
+  Client-level ε 8/4/1 costs R1 0.035/0.088/0.232 AUROC; the 2×-wide head pays more at
+  every ε (width contrast +0.007/+0.017/+0.051, all intervals exclude 0; noise-to-signal
+  ≈√2). LightSecAgg is utility-equivalent (−1e-7 AUROC) at 158× upload; secure +
+  trimmed mean/median/Krum marked unavailable. Local DP still needs qualification.
 - [x] Audit privacy/security readiness against source and fresh controls:
   [readiness report](privacy-security-readiness-2026-10-20.md), 218 checks passed.
   Local DP exists in the generic engine but is excluded from the qualified NIH
@@ -69,6 +74,7 @@ pneumonia task. Preserve the completed study separately.
   performance differences to secure aggregation; mark incompatible combinations unavailable.
 - [ ] Freeze a supported follow-up comparison of central DP, local DP and secure
   aggregation, including clean controls and explicit privacy/trust/compatibility scope.
+  Central DP and secure aggregation done (A4/A5); local DP qualification remains.
 - [ ] Run the bounded attack study across declared seeds, retaining all outcomes.
 - [ ] Build absolute-performance and attack-drop heatmaps with uncertainty and costs.
 - [ ] Complete and browser-verify the integrated simulator, including persistence,

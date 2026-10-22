@@ -23,6 +23,11 @@ failed criterion (a):** CheXpert features are not distinguishably better than th
 existing ImageNet features (0.829 vs 0.822 selection AUROC), though both clear the
 0.80 floor; see the [gate result](effusion-gate-v1-result-2026-10-22.md). Federated,
 privacy and attack work wait for an explicit amendment choosing how to proceed.
+**Update, 22 October:** amendments A2–A5 chose R1, fixed a reading rule, and ran the
+matched clean federated baseline (federated − central-SGD −0.004), a central-DP sweep
+with an R0 width arm (wider head pays more at every ε) and secure-aggregation
+equivalence/overhead (equivalent utility, 158× upload). Local DP qualification,
+attacks, heatmaps and the one-time holdout evaluation remain.
 Choose it using the intended use, label quality, positive-patient counts and an
 independent evaluation plan before relabeling data or fitting candidates. The
 completed No Finding/any-finding study retains its original target and results.
