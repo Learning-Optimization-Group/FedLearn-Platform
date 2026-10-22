@@ -92,19 +92,20 @@ class EffusionWorkload(FeatureHeadWorkload):
         return classification_metrics(logits, labels, auc_score='margin_v2')
 
 
-def config(name, seed, *, clients, features_path, report_sha256, rounds=ROUNDS):
+def config(name, seed, *, clients, features_path, report_sha256, rounds=ROUNDS, privacy=None):
     return {'name': name, 'seeds': default_seeds(seed),
             'workload': {'dataset': 'nih', 'features_path': str(features_path), 'features_report_sha256': report_sha256,
                          'evaluation_split': 'validation', 'balance': False, 'head': {'type': 'linear'}},
             'federation': {'num_clients': clients, 'rounds': rounds, 'partition': {'type': 'patient_iid'}},
             'client': {'algorithm': 'fedavg', 'local_epochs': 7, 'lr': 0.003, 'batch_size': 256},
-            'server': {'clip_norm': 0.05, 'rule': 'mean'}, 'privacy': {'mode': 'none'}}
+            'server': {'clip_norm': 0.05, 'rule': 'mean'}, 'privacy': dict(privacy or {'mode': 'none'})}
 
 
 def run_one(name, seed, train_x, train_y, patients, selection_x, selection_y, mean, std, *, clients,
-            features_path, report_sha256, rounds=ROUNDS, info=None):
+            features_path, report_sha256, rounds=ROUNDS, info=None, privacy=None):
     """One engine run; returns (record, float64 selection margins of the final head)."""
-    cfg = config(name, seed, clients=clients, features_path=features_path, report_sha256=report_sha256, rounds=rounds)
+    cfg = config(name, seed, clients=clients, features_path=features_path, report_sha256=report_sha256, rounds=rounds,
+                 privacy=privacy)
     workload = EffusionWorkload(train_x, train_y, patients, selection_x, selection_y, mean, std, clients=clients,
                                 partition_seed=cfg['seeds']['partition'], info=dict(info or {}))
     final = {}
