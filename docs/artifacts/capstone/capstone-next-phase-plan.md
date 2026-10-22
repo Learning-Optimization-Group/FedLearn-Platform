@@ -18,7 +18,11 @@ historical evidence, privacy-unit clarity and an untouched final evaluation.
 condition, rather than predict any finding. **22 October:** the user selected the
 NIH `Effusion` label, evaluated on a locked, patient-disjoint internal holdout carved
 label-blind from validation; see the draft [protocol v1](effusion-baseline-protocol-v1.md).
-The paragraph below records the pre-decision state.
+The paragraph below records the pre-decision state. **Gate v1 (22 October)
+failed criterion (a):** CheXpert features are not distinguishably better than the
+existing ImageNet features (0.829 vs 0.822 selection AUROC), though both clear the
+0.80 floor; see the [gate result](effusion-gate-v1-result-2026-10-22.md). Federated,
+privacy and attack work wait for an explicit amendment choosing how to proceed.
 Choose it using the intended use, label quality, positive-patient counts and an
 independent evaluation plan before relabeling data or fitting candidates. The
 completed No Finding/any-finding study retains its original target and results.

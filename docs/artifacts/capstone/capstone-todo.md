@@ -41,8 +41,13 @@ pneumonia task. Preserve the completed study separately.
   **22 Oct:** user selected `Effusion` and a locked internal holdout. Label-blind,
   patient-whole 50/50 validation carve locked (2,800/2,800 patients; receipt
   `083aa7ce…c794`). [Protocol v1](effusion-baseline-protocol-v1.md) drafted and
-  awaiting sign-off (AUROC floor, sensitivity-0.90 operating point, carve ratio).
-  No Effusion fitting or scoring yet.
+  frozen on the user's approval (22 Oct).
+- [x] Run the frozen centralized gate on development data:
+  [gate v1 result](effusion-gate-v1-result-2026-10-22.md). Versioned 1,024-wide R1
+  cache built (77,725 images, none refused) and replay-verified; 20/20 fits converged.
+  Selection AUROC R0 0.822, R1 0.829; ΔAUROC +0.007 [−0.004, +0.018], so **the gate
+  failed on criterion (a)**; both exceed the 0.80 floor. Federated baseline not started.
+  **Decision pending:** amend to proceed on R0 or R1, or add bounded fine-tuning.
 - [ ] Audit and improve a bounded centralized learning baseline on development data.
   The [initial audit](learning-baseline-audit-2026-10-20.md) is complete: development
   payload identities/statistics checked, no centralized NIH comparison found, and
