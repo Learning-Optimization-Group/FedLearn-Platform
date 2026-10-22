@@ -164,6 +164,20 @@ class FlServerManagerDpPolicyTest {
         assertTrue(manager.isServerRunning(p.getId()));
     }
 
+    @Test
+    void regulatedProjectOnAStrategyWithoutDp_isRefusedEvenWithCompleteDpConfig() {
+        // A complete DP configuration is not enough if the strategy cannot apply it: FedProx used to be
+        // spawned with --dp-enabled, train in the clear and register an artifact the gate accepts.
+        Project p = regulatedProject();
+        p.setDpEnabled(true);
+        p.setDpTargetEpsilon(6.0);
+        p.setDpDelta(1e-5);
+        p.setDpClipNorm(1.5);
+
+        assertThrows(IllegalArgumentException.class, () -> manager.startServerForProject(p, "FedProx", 5, 2));
+        assertFalse(manager.isServerRunning(p.getId()));
+    }
+
     private Project regulatedProject() {
         Project p = new Project();
         p.setId(UUID.randomUUID());

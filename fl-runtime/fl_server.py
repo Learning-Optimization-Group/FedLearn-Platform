@@ -36,7 +36,7 @@ from torch.utils.data import DataLoader
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 import fedlearn as fl
-from fedlearn.server import DeComFL, FedLoRA, FedProx, FedOpt, RobustAggregator  # Import strategies from framework
+from fedlearn.server import DeComFL, DPFedAvg, FedLoRA, FedProx, FedOpt, RobustAggregator  # Import strategies from framework
 import strategy_client_settings
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
@@ -357,6 +357,50 @@ def resolve_fedopt_settings(args):
     return settings
 
 
+def require_live_dp_accounting(args, clients_per_round):
+    """Refuse DP settings whose accounted epsilon would not describe the live run (FR-24/FR-25).
+
+    Shared by every DP strategy fl_server spawns (FedLoRA, DPFedAvg) so their privacy claims cannot drift.
+    """
+    dp_num_clients = getattr(args, "dp_num_clients", None)
+    dp_rounds = getattr(args, "dp_rounds", None)
+    # FR-24: this orchestrator aggregates whichever clients submit (deterministic
+    # participation) — it performs NO Poisson client subsampling. So a subsampling rate
+    # q<1 (dp_num_clients > the cohort) would let the accountant claim a privacy
+    # amplification the live run never realizes, stamping a falsely-low ε on the eval
+    # card. Refuse it on the live path: dp_num_clients must equal the cohort (q=1) or be
+    # omitted. (The framework accountant/FedLoRA can still be driven at q<1 directly for
+    # offline analysis — this guards only live runs spawned through fl_server.)
+    if clients_per_round is not None and clients_per_round != args.min_clients:
+        raise ValueError(
+            f"--clients-per-round={clients_per_round} differs from --min-clients={args.min_clients} "
+            f"on a DP run. The accountant's sampling rate is clients_per_round / dp_num_clients for a "
+            f"fixed cohort, while a round here may finish with anywhere between the two, so the "
+            f"accounted ε would not describe the run. Keep them equal."
+        )
+    cohort = args.min_clients
+    if dp_num_clients is not None and dp_num_clients != cohort:
+        raise ValueError(
+            f"--dp-num-clients={dp_num_clients} implies a subsampling rate "
+            f"q={cohort}/{dp_num_clients} != 1, but the orchestrator performs no Poisson "
+            f"client subsampling — the accounted ε would not reflect this live run's true "
+            f"privacy loss. Omit --dp-num-clients (q=1) or set it equal to the cohort "
+            f"(--min-clients={cohort})."
+        )
+    # FR-25: the accounted ε is composed over dp_rounds, but the server executes
+    # num_rounds (one noised release each). If the budget covers FEWER rounds than run,
+    # the eval card understates the true privacy loss. Refuse dp_rounds < num_rounds
+    # (dp_rounds >= num_rounds is conservative and allowed).
+    num_rounds = getattr(args, "num_rounds", None)
+    if dp_rounds is not None and num_rounds is not None and dp_rounds < num_rounds:
+        raise ValueError(
+            f"--dp-rounds={dp_rounds} is fewer than --num-rounds={num_rounds}: the "
+            f"accounted ε is composed over {dp_rounds} releases but the server will emit "
+            f"{num_rounds}, so the eval card would understate the true privacy loss. Set "
+            f"--dp-rounds >= --num-rounds."
+        )
+
+
 def select_strategy(args, initial_parameters, evaluate_fn):
     """Map ``--strategy`` to a constructed framework Strategy instance.
 
@@ -374,6 +418,17 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             args.strategy.lower() not in ("fedavg", "robust")
             or getattr(args, "dp_enabled", False) or getattr(args, "secure_aggregation", False)):
         raise ValueError("NIH pneumonia requires FedAvg or Robust without DP or secure aggregation")
+    # SE-11 fail-closed: privacy flags must reach a strategy that implements them. Otherwise the run
+    # trains in the clear, the eval card carries no dp section, and the upload gate accepts the artifact
+    # as non-DP -- a project that asked for privacy would silently receive a non-private model.
+    if getattr(args, "dp_enabled", False) and args.strategy.lower() not in ("fedlora", "fedavg"):
+        raise ValueError(
+            f"--dp-enabled: central differential privacy is implemented only by the FedLoRA and FedAvg "
+            f"strategies, not {args.strategy}; refusing to train without the requested privacy.")
+    if getattr(args, "secure_aggregation", False) and args.strategy.lower() != "decomfl":
+        raise ValueError(
+            f"--secure-aggregation: secure aggregation masks only DeComFL gradient scalars, not "
+            f"{args.strategy} updates; refusing to send them in plaintext.")
     # --clients-per-round: a round completes as soon as this many updates arrive, and the deadline still resolves it
     # with min_clients. Omitted, every strategy falls back to min_clients as before. getattr keeps hand-built
     # namespaces that predate the flag working.
@@ -434,41 +489,7 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             logging.info(f"Using FedLoRA strategy (aggregation={args.aggregation})")
         try:
             if dp_enabled:
-                # FR-24: this orchestrator aggregates whichever clients submit (deterministic
-                # participation) — it performs NO Poisson client subsampling. So a subsampling rate
-                # q<1 (dp_num_clients > the cohort) would let the accountant claim a privacy
-                # amplification the live run never realizes, stamping a falsely-low ε on the eval
-                # card. Refuse it on the live path: dp_num_clients must equal the cohort (q=1) or be
-                # omitted. (The framework accountant/FedLoRA can still be driven at q<1 directly for
-                # offline analysis — this guards only live runs spawned through fl_server.)
-                if clients_per_round is not None and clients_per_round != args.min_clients:
-                    raise ValueError(
-                        f"--clients-per-round={clients_per_round} differs from --min-clients={args.min_clients} "
-                        f"on a DP run. The accountant's sampling rate is clients_per_round / dp_num_clients for a "
-                        f"fixed cohort, while a round here may finish with anywhere between the two, so the "
-                        f"accounted ε would not describe the run. Keep them equal."
-                    )
-                cohort = args.min_clients
-                if dp_num_clients is not None and dp_num_clients != cohort:
-                    raise ValueError(
-                        f"--dp-num-clients={dp_num_clients} implies a subsampling rate "
-                        f"q={cohort}/{dp_num_clients} != 1, but the orchestrator performs no Poisson "
-                        f"client subsampling — the accounted ε would not reflect this live run's true "
-                        f"privacy loss. Omit --dp-num-clients (q=1) or set it equal to the cohort "
-                        f"(--min-clients={cohort})."
-                    )
-                # FR-25: the accounted ε is composed over dp_rounds, but the server executes
-                # num_rounds (one noised release each). If the budget covers FEWER rounds than run,
-                # the eval card understates the true privacy loss. Refuse dp_rounds < num_rounds
-                # (dp_rounds >= num_rounds is conservative and allowed).
-                num_rounds = getattr(args, "num_rounds", None)
-                if dp_rounds is not None and num_rounds is not None and dp_rounds < num_rounds:
-                    raise ValueError(
-                        f"--dp-rounds={dp_rounds} is fewer than --num-rounds={num_rounds}: the "
-                        f"accounted ε is composed over {dp_rounds} releases but the server will emit "
-                        f"{num_rounds}, so the eval card would understate the true privacy loss. Set "
-                        f"--dp-rounds >= --num-rounds."
-                    )
+                require_live_dp_accounting(args, clients_per_round)
             strategy = FedLoRA(
                 initial_parameters=initial_parameters,
                 evaluate_fn=evaluate_fn,
@@ -583,6 +604,30 @@ def select_strategy(args, initial_parameters, evaluate_fn):
                 f"Unrecognized --strategy '{args.strategy}'. Supported: fedavg, decomfl, fedlora, "
                 f"fedprox, fedopt, robust (FoT runs via a separate server)."
             )
+
+        if getattr(args, "dp_enabled", False):
+            # SE-11: central DP for FedAvg with FedLoRA's exact mechanism and accountant (joint clip S,
+            # uniform mean, N(0,(z*S/N)^2)). Example weighting is dropped: it would make sensitivity
+            # data-dependent. Same live-accounting refusals as FedLoRA.
+            require_live_dp_accounting(args, clients_per_round)
+            strategy = DPFedAvg(
+                initial_parameters=initial_parameters,
+                evaluate_fn=evaluate_fn,
+                min_fit_clients=args.min_clients,
+                clients_per_round=clients_per_round,
+                dp_clip_norm=getattr(args, "dp_clip_norm", None),
+                dp_noise_multiplier=getattr(args, "dp_noise_multiplier", None),
+                dp_seed=getattr(args, "dp_seed", None),
+                dp_target_epsilon=getattr(args, "dp_target_epsilon", None),
+                dp_delta=getattr(args, "dp_delta", None),
+                dp_num_clients=getattr(args, "dp_num_clients", None),
+                dp_rounds=getattr(args, "dp_rounds", None),
+            )
+            logging.info("Using FedAvg strategy with CENTRAL DIFFERENTIAL PRIVACY (clip_norm=%s, z=%.4f, "
+                         "accounted_epsilon=%s, delta=%s, rounds=%s)", strategy.dp_clip_norm,
+                         strategy.dp_noise_multiplier, strategy.dp_accounted_epsilon, strategy.dp_delta,
+                         strategy.dp_rounds)
+            return strategy
 
         strategy = fl.FedAvg(
             initial_parameters=initial_parameters,

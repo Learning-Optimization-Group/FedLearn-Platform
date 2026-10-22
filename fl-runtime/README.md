@@ -245,6 +245,14 @@ FedAvg-fallback behaviour; the code is the truth.) `FedProx` / `FedOpt` / `Robus
 constructed with sensible defaults for their extra hyperparameters; plumbing those through the run
 config is a known follow-up.
 
+**Privacy flags fail closed.** `--dp-enabled` is accepted only with `fedlora` and `fedavg`. With
+`fedavg` it builds `DPFedAvg`, which uses FedLoRA's exact mechanism and accountant: joint L2 clip
+to `--dp-clip-norm` S, a *uniform* mean (example weighting would make sensitivity data-dependent)
+and N(0, (z·S/N)²) noise. Both refuse the same live-accounting mismatches: q < 1, `--dp-rounds` <
+`--num-rounds`, or a larger round size. Any other strategy refuses `--dp-enabled` instead of
+training in the clear. `--secure-aggregation` is refused off `decomfl`, because it masks only
+DeComFL gradient scalars.
+
 ## Testing
 
 This unit has its **own** suite, separate from `framework/`:

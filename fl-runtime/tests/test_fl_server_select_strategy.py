@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 from argparse import Namespace
@@ -264,3 +265,60 @@ def test_select_strategy_threads_byzantine_fraction_so_krum_knows_f():
     args.robust_byzantine_fraction = 0.2
     strategy = fl_server.select_strategy(args, _initial_parameters(), None)
     assert strategy.byzantine_fraction == pytest.approx(0.2)
+
+
+@pytest.mark.parametrize("strategy_name", ["FedProx", "FedOpt", "robust", "DeComFL"])
+def test_select_strategy_refuses_dp_on_a_strategy_that_does_not_implement_it(strategy_name):
+    """SE-11: --dp-enabled reaching a strategy without a DP mechanism used to train WITHOUT DP and
+    register an artifact with no dp section, which the upload gate accepts as non-DP. A run that asked
+    for privacy must fail before training, never silently produce a non-private model."""
+    args = _args(strategy_name)
+    args.dp_enabled = True
+    with pytest.raises(ValueError, match="differential privacy"):
+        fl_server.select_strategy(args, _initial_parameters(), None)
+
+
+@pytest.mark.parametrize("strategy_name", ["FedAvg", "FedProx", "FedOpt", "robust", "FedLoRA"])
+def test_select_strategy_refuses_secure_aggregation_off_decomfl(strategy_name):
+    """Secure aggregation masks only DeComFL's gradient scalars. On any other strategy the server
+    logged 'Secure aggregation ENABLED' while weight updates travelled in plaintext."""
+    args = _args(strategy_name)
+    args.secure_aggregation = True
+    with pytest.raises(ValueError, match="[Ss]ecure aggregation"):
+        fl_server.select_strategy(args, _initial_parameters(), None)
+
+
+def test_select_strategy_still_accepts_secure_aggregation_on_decomfl():
+    args = _args("DeComFL")
+    args.secure_aggregation = True
+    assert isinstance(fl_server.select_strategy(args, _initial_parameters(), None), DeComFL)
+
+
+def _dp_fedavg_args(**overrides):
+    args = _args("FedAvg")
+    args.dp_enabled, args.dp_clip_norm, args.dp_target_epsilon = True, 0.05, 4.0
+    args.dp_delta, args.dp_rounds, args.num_rounds, args.min_clients = 1e-5, 20, 20, 8
+    for key, value in overrides.items():
+        setattr(args, key, value)
+    return args
+
+
+def test_select_strategy_builds_central_dp_fedavg_with_the_eval_card_trace():
+    from fedlearn.server import DPFedAvg
+    strategy = fl_server.select_strategy(_dp_fedavg_args(), OrderedDict(head=torch.zeros(3)), None)
+    assert isinstance(strategy, DPFedAvg)
+    card = json.loads(fl_server.build_eval_card(Namespace(model_type="MLP", strategy="FedAvg", num_rounds=20,
+                                                          seed=1, training_arm=None), [], strategy))
+    assert card["dp"]["enabled"] is True
+    assert 0 < card["dp"]["accounted_epsilon"] <= 4.0 + 1e-6
+    assert (card["dp"]["clip_norm"], card["dp"]["delta"], card["dp"]["q"], card["dp"]["rounds"]) == (0.05, 1e-5, 1.0, 20)
+
+
+@pytest.mark.parametrize("overrides, message", [
+    (dict(dp_num_clients=80), "subsampling"),
+    (dict(dp_rounds=10), "dp-rounds"),
+    (dict(clients_per_round=12), "clients-per-round"),
+])
+def test_dp_fedavg_refuses_the_same_live_accounting_mismatches_as_fedlora(overrides, message):
+    with pytest.raises(ValueError, match=message):
+        fl_server.select_strategy(_dp_fedavg_args(**overrides), OrderedDict(head=torch.zeros(3)), None)

@@ -676,6 +676,14 @@ public class FlServerManager {
                     "DP is not supported for FoT text-federation runs; disable dpEnabled or use a "
                             + "gradient strategy.");
         }
+        // SE-11: fl_server.py implements central DP only in FedLoRA and FedAvg (DPFedAvg). Any other strategy
+        // would accept --dp-enabled, train in the clear, and register an artifact without a dp section, which
+        // the upload gate treats as non-DP. Fail closed rather than hand a private project a public model.
+        if (!isFoT && intent.dpEnabled() && !"FedLoRA".equals(strategy) && !"FedAvg".equals(strategy)) {
+            throw new IllegalArgumentException(
+                    "Central DP is implemented only by the FedLoRA and FedAvg strategies, not " + strategy
+                            + "; disable dpEnabled or use FedLoRA or FedAvg.");
+        }
         // SE-10: allowlist every project-derived string this branch will place on the argv. Ints
         // (rounds/clients/port) and the server-generated UUID are type-safe and need no check.
         requireSafeToken("strategy", strategy);

@@ -2,6 +2,8 @@ package com.federated.fl_platform_api.orchestration;
 
 import com.federated.fl_platform_api.model.Project;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import java.util.List;
 import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
@@ -273,6 +275,17 @@ class FlServerManagerCommandTest {
         p.setDpClipNorm(null);
         assertThrows(IllegalArgumentException.class, () ->
                 FlServerManager.buildServerCommand(p, "FedAvg", 5, 2, 50000, "/x/run_fl_server.sh", false));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"FedProx", "FedOpt", "Robust", "DeComFL"})
+    void dpEnabledRunOnAStrategyWithoutDp_isRejected(String strategy) {
+        // fl_server.py implements central DP only in FedLoRA and FedAvg (DPFedAvg). Any other strategy used to
+        // accept --dp-enabled, train in the clear and register an artifact the upload gate accepts as non-DP.
+        Project p = dpProject();
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () ->
+                FlServerManager.buildServerCommand(p, strategy, 5, 2, 50000, "/x/run_fl_server.sh", false));
+        assertTrue(error.getMessage().contains("FedLoRA and FedAvg"), error.getMessage());
     }
 
     @Test
