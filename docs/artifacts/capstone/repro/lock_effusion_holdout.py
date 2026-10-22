@@ -29,11 +29,17 @@ def _sha256(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def _manifest(data, split):
+def _manifest(data, split, fields=MANIFEST_FIELDS, extra=(), keep_extra=None):
+    """Project rows to identity fields; keep `extra` only for ids in `keep_extra` (all if None)."""
     reader = csv.DictReader(io.StringIO(data.decode('utf-8'), newline=''))
-    if reader.fieldnames != MANIFEST_FIELDS:
+    if reader.fieldnames != fields:
         raise Refusal(f'manifest_schema:{split}')
-    rows = [{key: row[key] for key in KEEP} for row in reader]
+    rows = []
+    for source in reader:
+        row = {key: source[key] for key in KEEP}
+        if extra and (keep_extra is None or row['image_index'] in keep_extra):
+            row.update({key: source[key] for key in extra})
+        rows.append(row)
     for row in rows:
         match = IMAGE_PATH.fullmatch(row['image_path'])
         if not match or row['image_path'].rsplit('/', 1)[1] != row['image_index'] or row['patient_id'] != str(int(match.group(1))):
@@ -108,6 +114,51 @@ def lock_holdout(cache, audit_dir, output, *, report_sha256=REPORT_SHA256, audit
     staging.rename(output)
     return lock
 
+
+
+def verify_lock(cache, lock_dir, *, report_sha256=REPORT_SHA256, lock_sha256, extra=()):
+    """Verify cache and lock pins and the partition; return (plan, provenance).
+
+    The lock is read first, so `extra` manifest fields (e.g. findings) are retained for
+    train and selection rows only; holdout rows are reduced to identity while parsing.
+    """
+    cache, lock_dir = Path(cache), Path(lock_dir)
+    raw_lock = (lock_dir / 'lock.json').read_bytes()
+    if _sha256(raw_lock) != lock_sha256:
+        raise Refusal('lock_hash_mismatch')
+    lock = json.loads(raw_lock)
+    parts = {}
+    for name in ('selection', 'holdout'):
+        data = (lock_dir / f'{name}.csv').read_bytes()
+        if _sha256(data) != lock['manifestSha256'][name]:
+            raise Refusal(f'{name}_manifest_hash_mismatch')
+        parts[name] = _manifest(data, name, list(KEEP))
+    selection_ids = [row['image_index'] for row in parts['selection']]
+    raw_report = (cache / 'report.json').read_bytes()
+    report_sha = _sha256(raw_report)
+    if report_sha != report_sha256:
+        raise Refusal('report_hash_mismatch')
+    hashes = json.loads(raw_report)['payload_hashes']
+    manifests, manifest_sha = {}, {}
+    for split, keep_extra in (('train', None), ('validation', set(selection_ids))):
+        data = (cache / f'{split}.csv').read_bytes()
+        manifest_sha[split] = _sha256(data)
+        if manifest_sha[split] != hashes.get(f'{split}.csv'):
+            raise Refusal(f'manifest_hash_mismatch:{split}')
+        manifests[split] = _manifest(data, split, extra=extra, keep_extra=keep_extra)
+    if lock['cacheReportSha256'] != report_sha or lock['inputManifestSha256'] != manifest_sha:
+        raise Refusal('lock_input_mismatch')
+    if {r['patient_id'] for r in manifests['train']} & {r['patient_id'] for r in manifests['validation']}:
+        raise Refusal('patient_overlap')
+    validation = {row['image_index']: row for row in manifests['validation']}
+    holdout_ids = {row['image_index'] for row in parts['holdout']}
+    if (set(selection_ids) & holdout_ids or set(selection_ids) | holdout_ids != set(validation)
+            or any({key: validation[row['image_index']][key] for key in KEEP} != row for row in parts['selection'])):
+        raise Refusal('lock_partition_mismatch')
+    plan = {'train': manifests['train'], 'selection': [validation[i] for i in selection_ids]}
+    provenance = {'cacheReportSha256': report_sha, 'inputManifestSha256': manifest_sha,
+                  'lockSha256': lock_sha256, 'lockManifestSha256': lock['manifestSha256']}
+    return plan, provenance
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
