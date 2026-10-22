@@ -38,6 +38,11 @@ pneumonia task. Preserve the completed study separately.
   are finite and replay byte-identically. No test manifest, labels, fitting or scores.
 - [ ] Select the condition and define the prediction purpose, labels, baseline acceptance measures and a genuinely
   untouched final evaluation; do not tune to the already examined NIH test results.
+  **22 Oct:** user selected `Effusion` and a locked internal holdout. Label-blind,
+  patient-whole 50/50 validation carve locked (2,800/2,800 patients; receipt
+  `083aa7ce…c794`). [Protocol v1](effusion-baseline-protocol-v1.md) drafted and
+  awaiting sign-off (AUROC floor, sensitivity-0.90 operating point, carve ratio).
+  No Effusion fitting or scoring yet.
 - [ ] Audit and improve a bounded centralized learning baseline on development data.
   The [initial audit](learning-baseline-audit-2026-10-20.md) is complete: development
   payload identities/statistics checked, no centralized NIH comparison found, and

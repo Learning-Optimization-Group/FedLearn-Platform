@@ -15,7 +15,10 @@ integrated into the existing FedLearn dashboard. Preserve patient/content separa
 historical evidence, privacy-unit clarity and an untouched final evaluation.
 
 **Target decision, 20 October:** the follow-up should detect one specific
-condition, rather than predict any finding. The condition has not been selected.
+condition, rather than predict any finding. **22 October:** the user selected the
+NIH `Effusion` label, evaluated on a locked, patient-disjoint internal holdout carved
+label-blind from validation; see the draft [protocol v1](effusion-baseline-protocol-v1.md).
+The paragraph below records the pre-decision state.
 Choose it using the intended use, label quality, positive-patient counts and an
 independent evaluation plan before relabeling data or fitting candidates. The
 completed No Finding/any-finding study retains its original target and results.
