@@ -98,8 +98,11 @@ RULES = ('mean', 'trimmed_mean', 'median')
 
 
 def config(name, seed, *, clients, features_path, report_sha256, rounds=ROUNDS, privacy=None, recipe=None,
-           rule='mean', behaviors=None):
-    """Engine config for the section 6 recipe; `recipe` may override only client LR and update clip."""
+           rule='mean', behaviors=None, rule_params=None):
+    """Engine config for the section 6 recipe; `recipe` may override only client LR and update clip.
+
+    `rule_params` (e.g. a trim ratio) is written into the config only when given, so every earlier
+    config, and its hash, is unchanged."""
     recipe = dict(recipe or {})
     if not set(recipe) <= RECIPE_KEYS:
         raise ValueError(f'unknown recipe keys {sorted(set(recipe) - RECIPE_KEYS)}')
@@ -110,16 +113,18 @@ def config(name, seed, *, clients, features_path, report_sha256, rounds=ROUNDS, 
                          'evaluation_split': 'validation', 'balance': False, 'head': {'type': 'linear'}},
             'federation': {'num_clients': clients, 'rounds': rounds, 'partition': {'type': 'patient_iid'}},
             'client': {'algorithm': 'fedavg', 'local_epochs': 7, 'lr': recipe.get('lr', 0.003), 'batch_size': 256},
-            'server': {'clip_norm': recipe.get('clip_norm', 0.05), 'rule': rule}, 'privacy': dict(privacy or {'mode': 'none'}),
+            'server': {'clip_norm': recipe.get('clip_norm', 0.05), 'rule': rule,
+                       **({'rule_params': dict(rule_params)} if rule_params else {})},
+            'privacy': dict(privacy or {'mode': 'none'}),
             'behaviors': [dict(b) for b in (behaviors or [])]}
 
 
 def run_one(name, seed, train_x, train_y, patients, selection_x, selection_y, mean, std, *, clients,
             features_path, report_sha256, rounds=ROUNDS, info=None, privacy=None, recipe=None, rule='mean',
-            behaviors=None):
+            behaviors=None, rule_params=None):
     """One engine run; returns (record, float64 selection margins of the final head)."""
     cfg = config(name, seed, clients=clients, features_path=features_path, report_sha256=report_sha256, rounds=rounds,
-                 privacy=privacy, recipe=recipe, rule=rule, behaviors=behaviors)
+                 privacy=privacy, recipe=recipe, rule=rule, behaviors=behaviors, rule_params=rule_params)
     workload = EffusionWorkload(train_x, train_y, patients, selection_x, selection_y, mean, std, clients=clients,
                                 partition_seed=cfg['seeds']['partition'], info=dict(info or {}))
     final = {}

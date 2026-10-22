@@ -14,7 +14,8 @@ from typing import Dict, List, Optional, Set
 import numpy as np
 import torch
 
-MALICIOUS = ("sign_flip_scale", "ipm", "alie", "label_flip", "backdoor", "free_rider")
+MALICIOUS = ("sign_flip_scale", "ipm", "alie", "label_flip", "backdoor", "free_rider", "min_max", "fang_trim")
+_OMNISCIENT = ("ipm", "alie", "min_max", "fang_trim")  # built from the honest clients' deltas
 
 
 class BehaviorPlan:
@@ -105,13 +106,14 @@ class BehaviorPlan:
     def upload_overrides(self, records: Dict[int, dict], global_params, round_num: int) -> Dict[int, "OrderedDict"]:
         """Final uploads for this round's attackers (honest clients are untouched by the caller).
 
-        IPM and ALIE estimate the honest update from the honest clients' deltas. When a cohort holds
-        no honest client, the attackers fall back to their own honestly-trained deltas (ALIE's own
-        threat model) and ``last_attack_note`` says so; the attack is never silently skipped."""
+        IPM, ALIE, min-max and Fang's trimmed-mean attack are built from the honest clients' deltas
+        (full knowledge). When a cohort holds no honest client, the attackers fall back to their own
+        honestly-trained deltas (ALIE's own threat model) and ``last_attack_note`` says so; the attack
+        is never silently skipped."""
         keys = list(global_params.keys())
         self.last_attack_note = None
         honest = [c for c in sorted(records) if c not in self.malicious]
-        need_stats = any(self.malicious.get(c, {}).get("type") in ("ipm", "alie") for c in records)
+        need_stats = any(self.malicious.get(c, {}).get("type") in _OMNISCIENT for c in records)
         if need_stats:
             basis = honest
             if not basis:
@@ -121,6 +123,7 @@ class BehaviorPlan:
             stacked = {k: torch.stack([records[c]["honest_delta"][k] for c in basis], dim=0) for k in keys}
             mean_ = {k: stacked[k].mean(dim=0) for k in keys}
             std_ = {k: stacked[k].std(dim=0, unbiased=False) for k in keys}
+        min_max_delta = None
         out: Dict[int, "OrderedDict"] = {}
         for c in sorted(records):
             b = self.malicious.get(c)
@@ -134,6 +137,14 @@ class BehaviorPlan:
                 out[c] = OrderedDict((k, global_params[k].float() + (-float(b["scale"]) * mean_[k])) for k in keys)
             elif t == "alie":
                 out[c] = OrderedDict((k, global_params[k].float() + (mean_[k] - float(b["z"]) * std_[k])) for k in keys)
+            elif t == "min_max":
+                if min_max_delta is None:
+                    min_max_delta = _min_max_delta(stacked, mean_, std_, keys, b["perturbation"])
+                out[c] = OrderedDict((k, global_params[k].float() + min_max_delta[k]) for k in keys)
+            elif t == "fang_trim":
+                g = torch.Generator().manual_seed((self.attack_seed * 1_000_003 + round_num * 10_007 + c) % (2 ** 63))
+                out[c] = OrderedDict((k, global_params[k].float() + _fang_trim_values(stacked[k], mean_[k], float(b["b"]), g))
+                                     for k in keys)
             elif t == "free_rider":
                 if b["mode"] == "zero":
                     out[c] = OrderedDict((k, global_params[k].float().clone()) for k in keys)
@@ -143,3 +154,58 @@ class BehaviorPlan:
                         (k, global_params[k].float() + float(b["noise_std"]) *
                          torch.randn(global_params[k].shape, generator=g)) for k in keys)
         return out
+
+
+def _min_max_delta(stacked: Dict[str, torch.Tensor], mean_: Dict[str, torch.Tensor], std_: Dict[str, torch.Tensor],
+                   keys: List[str], perturbation: str) -> "OrderedDict[str, torch.Tensor]":
+    """Shejwalkar and Houmansadr's min-max attack (NDSS'21): ``mean + gamma * p`` with the largest
+    gamma that keeps the upload no farther from any honest delta than two honest deltas can be.
+
+    ``p`` is the negated per-coordinate std (``"std"``), the negated unit mean (``"unit_vec"``) or the
+    negated sign of the mean (``"sign"``). Every min-max attacker uploads the same vector.
+    """
+    honest = torch.cat([stacked[k].reshape(stacked[k].shape[0], -1) for k in keys], dim=1).double()
+    mean = torch.cat([mean_[k].reshape(-1) for k in keys]).double()
+    if perturbation == "std":
+        p = -torch.cat([std_[k].reshape(-1) for k in keys]).double()
+    elif perturbation == "unit_vec":
+        p = -mean / (torch.linalg.vector_norm(mean) + 1e-12)
+    else:
+        p = -torch.sign(mean)
+    threshold = float(torch.cdist(honest, honest).max())
+
+    def worst(gamma: float) -> float:
+        return float(torch.linalg.vector_norm(honest - (mean + gamma * p), dim=1).max())
+
+    lo, hi = 0.0, 1.0
+    if float(torch.linalg.vector_norm(p)) > 0.0 and worst(0.0) <= threshold:
+        while worst(hi) <= threshold and hi < 1e12:
+            lo, hi = hi, hi * 2.0
+        for _ in range(60):
+            mid = (lo + hi) / 2.0
+            lo, hi = (mid, hi) if worst(mid) <= threshold else (lo, mid)
+    flat = (mean + lo * p).float()
+    out: "OrderedDict[str, torch.Tensor]" = OrderedDict()
+    at = 0
+    for k in keys:
+        size = mean_[k].numel()
+        out[k] = flat[at:at + size].reshape(mean_[k].shape)
+        at += size
+    return out
+
+
+def _fang_trim_values(stacked: torch.Tensor, mean: torch.Tensor, b: float, generator: torch.Generator) -> torch.Tensor:
+    """Fang et al.'s full-knowledge attack on the trimmed mean and median (USENIX Security'20).
+
+    On each coordinate the attacker pushes against the honest direction ``sign(mean)``: where honest
+    clients move up it uploads a value below their minimum (in ``[min/b, min]`` if ``min > 0``, else
+    ``[b*min, min]``); otherwise a value above their maximum (``[max, b*max]`` if ``max > 0``, else
+    ``[max/b, max]``). Values are uniform in that interval, drawn per attacker.
+    """
+    lo_h, hi_h = stacked.min(dim=0).values, stacked.max(dim=0).values
+    u = torch.rand(mean.shape, generator=generator)
+    below_lo = torch.where(lo_h > 0, lo_h / b, lo_h * b)
+    above_hi = torch.where(hi_h > 0, hi_h * b, hi_h / b)
+    down = below_lo + u * (lo_h - below_lo)
+    up = hi_h + u * (above_hi - hi_h)
+    return torch.where(mean > 0, down, up)

@@ -18,13 +18,15 @@ SCHEMA_VERSION = 1
 RULES = ("mean", "weighted_mean", "trimmed_mean", "median", "krum", "multi_krum", "bulyan",
          "centered_clip")
 CENTRAL_DP_RULES = ("mean", "trimmed_mean")
-MALICIOUS = ("sign_flip_scale", "ipm", "alie", "label_flip", "backdoor", "free_rider")
+MALICIOUS = ("sign_flip_scale", "ipm", "alie", "label_flip", "backdoor", "free_rider", "min_max", "fang_trim")
 FAULTY = ("dropout", "straggler", "label_noise")
 SEED_KEYS = ("partition", "init", "client", "attack", "noise")
 
 BEHAVIOR_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "sign_flip_scale": {"scale": -10.0},
     "ipm": {"scale": 4.0},
+    "min_max": {"perturbation": "std"},
+    "fang_trim": {"b": 2.0},
     "alie": {"z": 20.0},
     "label_flip": {},
     "backdoor": {"target_label": None, "poison_fraction": 0.5, "trigger": None},
@@ -110,6 +112,8 @@ def _resolve_behavior(b: Any, i: int) -> Dict[str, Any]:
         raise ConfigError(f"{where}.trigger", "only patch triggers are supported (prepare_features --trigger-patch)")
     if kind == "free_rider" and out["mode"] not in ("zero", "noise"):
         raise ConfigError(f"{where}.mode", "must be 'zero' or 'noise'")
+    if kind == "min_max" and out["perturbation"] not in ("std", "unit_vec", "sign"):
+        raise ConfigError(f"{where}.perturbation", "must be 'std', 'unit_vec' or 'sign'")
     for key, ok, rule in _BEHAVIOR_RANGES.get(kind, ()):
         v = out[key]
         if not isinstance(v, (int, float)) or isinstance(v, bool) or not ok(float(v)):
@@ -123,6 +127,7 @@ _BEHAVIOR_RANGES = {
     "sign_flip_scale": (("scale", lambda v: v != 0.0, "a non-zero number (negative flips)"),),
     "ipm": (("scale", lambda v: v != 0.0, "a non-zero number"),),
     "alie": (("z", lambda v: v >= 0.0, ">= 0"),),
+    "fang_trim": (("b", lambda v: v > 1.0, "> 1"),),
     "backdoor": (("poison_fraction", lambda v: 0.0 < v <= 1.0, "in (0, 1]"),),
     "free_rider": (("noise_std", lambda v: v >= 0.0, ">= 0"),),
     "straggler": (("slowdown", lambda v: v >= 1.0, ">= 1 (a straggler is slower than its peers)"),),

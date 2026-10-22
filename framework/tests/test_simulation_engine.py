@@ -318,3 +318,11 @@ def test_local_dp_rounds_report_client_and_server_noise_separately(tmp_path):
     central = run(_cfg(_features(tmp_path), privacy={"mode": "central", "epsilon": 4.0}))
     first = central["rounds"][0]["privacy"]
     assert first["client_noise_std"] == 0.0 and first["server_noise_std"] == first["noise_std"] > 0
+
+
+@pytest.mark.parametrize("behavior", [{"type": "min_max", "fraction": 0.2}, {"type": "fang_trim", "fraction": 0.2}])
+def test_min_max_and_fang_trim_run_end_to_end(tmp_path, behavior):
+    rec = run(_cfg(_features(tmp_path), server={"rule": "trimmed_mean"}, behaviors=[behavior]))
+    assert len(rec["rounds"]) == 3 and all(l["refusal"] is None for l in rec["rounds"])
+    assert all(v == [behavior["type"]] for v in rec["meta"]["behavior_assignment"].values())
+    assert rec["rounds"][-1]["robustness"]["exclusion"]["attacker"] is not None

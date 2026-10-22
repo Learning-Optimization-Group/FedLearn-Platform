@@ -118,3 +118,47 @@ def test_ipm_with_no_honest_client_uses_the_attackers_own_deltas():
     assert set(got) == {0, 1, 2, 3}
     assert all(torch.equal(got[c][k], glob[k].float() + (-4.0 * mean_[k])) for c in got for k in glob)
     assert "own" in p.last_attack_note
+
+
+def _flat(state, glob):
+    return torch.cat([(state[k] - glob[k]).reshape(-1) for k in glob])
+
+
+@pytest.mark.parametrize("perturbation", ["std", "unit_vec", "sign"])
+def test_min_max_sits_on_the_honest_diameter(perturbation):
+    p = _plan([{"type": "min_max", "fraction": 0.25, "perturbation": perturbation}], n=20)
+    recs, glob = _records(20)
+    out = p.upload_overrides(recs, glob, 1)
+    attackers = sorted(p.malicious_ids())
+    honest = torch.stack([_flat(recs[c]["client_state"], glob) for c in sorted(recs) if c not in p.malicious])
+    upload = _flat(out[attackers[0]], glob)
+    diameter = float(torch.cdist(honest, honest).max())
+    worst = float(torch.linalg.vector_norm(honest - upload, dim=1).max())
+    assert worst <= diameter * (1 + 1e-6)
+    assert worst == pytest.approx(diameter, rel=1e-4)  # gamma is as large as the constraint allows
+    assert all(torch.equal(_flat(out[c], glob), upload) for c in attackers)
+    mean = honest.mean(dim=0)
+    assert float(torch.dot(upload - mean, mean)) < 0 or perturbation == "std"  # pushes against the mean
+
+
+def test_fang_trim_uploads_lie_past_the_honest_extremes_against_the_honest_direction():
+    p = _plan([{"type": "fang_trim", "fraction": 0.25}], n=20)
+    recs, glob = _records(20)
+    out = p.upload_overrides(recs, glob, 3)
+    honest = torch.stack([_flat(recs[c]["client_state"], glob) for c in sorted(recs) if c not in p.malicious])
+    mean, lo, hi = honest.mean(dim=0), honest.min(dim=0).values, honest.max(dim=0).values
+    for c in p.malicious_ids():
+        v = _flat(out[c], glob)
+        assert torch.all(torch.where(mean > 0, v <= lo, v >= hi))
+        assert torch.all(torch.where(mean > 0, v >= torch.where(lo > 0, lo / 2, lo * 2),
+                                     v <= torch.where(hi > 0, hi * 2, hi / 2)))
+    again = p.upload_overrides(recs, glob, 3)
+    assert all(torch.equal(_flat(out[c], glob), _flat(again[c], glob)) for c in p.malicious_ids())
+
+
+@pytest.mark.parametrize("behavior", [{"type": "min_max", "fraction": 0.1, "perturbation": "cos"},
+                                      {"type": "fang_trim", "fraction": 0.1, "b": 1.0}])
+def test_new_attack_parameters_are_validated(behavior):
+    from fedlearn.simulation.config import ConfigError
+    with pytest.raises(ConfigError):
+        _plan([behavior])

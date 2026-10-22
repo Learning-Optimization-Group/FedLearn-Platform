@@ -463,3 +463,43 @@ claimed ε 8/4/1 are really 6.76/3.25/0.74.
   - DP cost against the A8 clean cells.
   - Refusals and non-finite runs are reported as such. The A8 margins are read from the pinned
     A8 output (`summary.json` `bd9868ae…`).
+
+## Amendment A14 — 22 October 2026: attacks built for robust rules, attacker-fraction sweep and small-k trimming on R0, before any A14 run
+
+**Questions:**
+1. Do A9's robustness conclusions survive attacks designed against the trimmed mean and median,
+   at production-realistic attacker fractions?
+2. Under central DP, does trimming only a few values per side keep most of the mean's clean
+   utility while still bounding attacks? A9 found trimming 0.2 per side costs utility under DP.
+
+- **Recipes and setup:** as A9.
+  - No-DP cells: LR 0.1, clip 1.0.
+  - DP cells: LR 0.03, clip 0.05, central DP ε 4 (δ 10⁻⁵, replace-one, RDP-calibrated as in A9).
+  - R0, 80 whole-patient IID clients, 20 rounds, seeds 20261101–20261105.
+- **Rules:**
+  - No DP: `mean`, `trimmed_mean` (k = 16 per side, ratio 0.2), `median`.
+  - DP: `mean`, and `trimmed_mean` with k ∈ {1, 4, 16} per side (ratios 0.0125, 0.05, 0.2).
+    Sensitivity is 2C/(n − 2k).
+- **Attacks** (full knowledge of the honest updates, as for IPM/ALIE in the engine):
+  - `min_max`: Shejwalkar and Houmansadr, NDSS'21, with std perturbation.
+  - `fang_trim`: Fang et al., USENIX Security'20, trimmed-mean attack, b = 2.
+  - `ipm` with scale 0.1: Xie et al., the small-ε variant aimed at median-type rules.
+
+  Uploads are clipped by the server like any other update. The attacks do not adapt to the
+  clip, which is a stated limit.
+- **Attacker fractions:** 4, 8 and 16 of 80 slots (5%, 10%, 20%), drawn by the engine's
+  attack-seed stream.
+- **Size:**
+  - No DP: 3 rules × (1 clean + 3 attacks × 3 fractions) × 5 seeds = 150 runs.
+  - DP: 4 rules × 10 conditions × 5 seeds = 200 runs.
+  - Total 350, all retained.
+  - The no-DP clean cells and the DP mean and trimmed-0.2 clean cells repeat A9's configuration
+    and must reproduce A9's margins exactly (replay check).
+- **Reported** (selection half; paired patient bootstrap, 2,000 resamples, seed 20261033):
+  - absolute AUROC per cell;
+  - attack drop: clean − attacked, same rule, recipe and seed;
+  - each rule's clean cost relative to `mean`;
+  - drop as a function of attacker fraction.
+  - Refusals, non-finite runs and the engine's attack notes are reported as such. No pass/fail
+    threshold.
+- **Limits:** IID, simulated, client-level, non-adaptive to clipping, one ε under DP.
