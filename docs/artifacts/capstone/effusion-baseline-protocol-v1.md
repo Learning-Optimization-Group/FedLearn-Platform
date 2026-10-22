@@ -606,12 +606,16 @@ central-DP mechanism leak no more than claimed?
   - A canary's own contribution is exactly C/n per round.
   - Inserted canaries give 80 scores per level; 1,000 unseen directions per run give 10,000 per
     level, as in A16.
-- **Estimate:** μ̂ = (mean inserted − mean unseen)/sd unseen, scaled by √T. Per-round scores are
-  averaged, and the release-level separation of T independent Gaussian rounds composes as √T.
-  - The interval comes from `canary_audit` (bootstrap, 2,000 resamples, seed 20261038). ε̂ is
-    the GDP ε of μ̂ at δ 10⁻⁵.
-  - The scaling is exact if the per-round unseen projections are independent across rounds. This
-    is checked and reported as the ratio of the summed-score sd to √T times the per-round sd.
+- **Estimate:** `canary_audit` applied directly to the round-averaged scores s(u): μ̂ =
+  (mean inserted − mean unseen) / sd of the unseen averaged scores.
+  - Because the spread is that of the averaged score itself, μ̂ already describes all T releases
+    together. No √T scaling is applied, and no independence across rounds is assumed; correlated
+    honest projections simply widen the unseen spread.
+  - The interval uses 2,000 bootstrap resamples, seed 20261038. ε̂ is the GDP ε of μ̂ at δ 10⁻⁵.
+  - Diagnostic only: the ratio of the averaged score's sd to (per-round sd / √T), where 1 means
+    independent rounds.
+  - *Correction before any run, 22 October:* an earlier draft of this bullet said to scale by √T,
+    which would have double-counted the composition.
 - **Reference:**
   - Theory for inserted vs not is √T/(2z).
   - The clean control must have a lower interval bound above 1, or the audit is again
