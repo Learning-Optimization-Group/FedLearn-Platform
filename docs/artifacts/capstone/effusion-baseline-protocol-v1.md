@@ -585,3 +585,36 @@ rounds viable?
     counterpart and is reported as absolute only.
   - DP cost against the zero-init clean cell with the same T.
   - Refusals and non-finite runs are reported as such.
+
+## Amendment A18 — 22 October 2026: all-iterates canary audit of central DP on R0, before any A18 run
+
+**Why:** A16's final-model audit failed its positive control (clean μ̂ 0.15 [−0.07, 0.36]).
+The parameter vector's own projection (sd 0.030) swamped a canary shift that honest training had
+already partly erased (0.005 of an expected 0.0125). See the
+[A16 result](effusion-canary-audit-r0-v1-result-2026-10-22.md).
+
+**Question:** against an adversary who sees every released global model, does the simulator's
+central-DP mechanism leak no more than claimed?
+
+- **Cells, canaries and calibration:** as A16. That means 8 canaries of norm C = 0.05 per run,
+  clean and claimed ε 8/4/1 with exact-GDP z, T = 20, and seeds 20261101–20261110: 40 runs.
+- **Observation:** the global head at the start of each round and the final head, captured
+  through a new engine hook. It is read-only and adds no config key, so every earlier config hash
+  is unchanged. The released updates are Δ_t = θ_t − θ_{t−1}, t = 1…20.
+- **Score:** s(u) = Σ_t ⟨Δ_t, u⟩ / T, the per-round mean of the released updates projected onto
+  a direction.
+  - A canary's own contribution is exactly C/n per round.
+  - Inserted canaries give 80 scores per level; 1,000 unseen directions per run give 10,000 per
+    level, as in A16.
+- **Estimate:** μ̂ = (mean inserted − mean unseen)/sd unseen, scaled by √T. Per-round scores are
+  averaged, and the release-level separation of T independent Gaussian rounds composes as √T.
+  - The interval comes from `canary_audit` (bootstrap, 2,000 resamples, seed 20261038). ε̂ is
+    the GDP ε of μ̂ at δ 10⁻⁵.
+  - The scaling is exact if the per-round unseen projections are independent across rounds. This
+    is checked and reported as the ratio of the summed-score sd to √T times the per-round sd.
+- **Reference:**
+  - Theory for inserted vs not is √T/(2z).
+  - The clean control must have a lower interval bound above 1, or the audit is again
+    underpowered and is reported as such.
+  - A lower bound above √T/(2z) under DP is a leak finding.
+  - μ̂ below theory is expected only to the extent that honest updates add spread.
