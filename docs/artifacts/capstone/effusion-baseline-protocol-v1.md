@@ -254,3 +254,46 @@ show equivalence, measure overhead, and mark incompatible combinations.
   coordinates. The harness refuses them rather than silently falling back to a plain
   path. Central DP on the recovered sum would be mechanically possible but is not run
   here.
+
+## Amendment A6 — 22 October 2026: R0 becomes primary for all remaining work
+
+User decision. From here on, **R0 (historical ImageNet ResNet-18 features) is the primary
+representation** for recipe work, attacks, local DP, the frozen §8 list and the
+platform-facing outputs.
+
+Reasons:
+- R0 tied with R1 at the gate.
+- A4 measured a significantly smaller DP cost for the narrower head at every ε.
+- Its payload is half the size.
+- It carries no CheXpert training-membership caveat.
+- It matches the simulator's qualified 512-wide workload.
+
+Completed R1 results (§6 baseline, A4 arm, A5) are kept unchanged as secondary
+evidence. Nothing already run is re-labelled.
+
+## Amendment A7 — 22 October 2026: bounded federated recipe study on R0, before any A7 run
+
+**Why:** under the fixed §6 recipe, R0 reaches 0.755 federated against 0.822 for its
+convex head. The §6 results were recipe-limited (A3). A default that is limited this
+way is not useful to the platform. Per A3, this is a declared optimiser check: it is
+exploratory, run on the selection half, and leaves the holdout untouched.
+
+- **Grid:** 12 configurations, R0, no DP, all retained.
+  - Client LR ∈ {0.003, 0.01, 0.03, 0.1} × update clip ∈ {0.05, 0.25, 1.0}.
+  - Fixed: 80 whole-patient IID clients, 20 rounds, 7 local epochs, batch 256, mean rule.
+- **Selection:** the highest mean selection AUROC of the federated arm over seeds 20261101
+  and 20261102. Ties go to the smaller clip, then the smaller LR. Non-finite or refused
+  runs are ineligible.
+- **Confirmation:** the chosen recipe runs on all five seeds 20261101–20261105:
+  - the federated arm and the central-SGD control;
+  - central DP at ε 8/4/1 with δ 10⁻⁵ (client-level, q = 1, as in A4).
+- **Reported:**
+  - the gain of the chosen recipe over the §6 recipe (same seeds, paired);
+  - federated − central-SGD;
+  - the gap to the convex R0 head (0.822);
+  - the DP cost at the chosen clip compared with the A4 R0 cost at clip 0.05. Noise
+    scales with the clip, so this is a declared clip–DP interaction, not a fresh
+    privacy result.
+- **Honest limits:** seeds 1–2 choose the recipe, so the five-seed means are optimistic.
+  Seeds 3–5 are separate training seeds on the same selection data, not new data. The
+  unbiased number comes only from the §8 holdout.
