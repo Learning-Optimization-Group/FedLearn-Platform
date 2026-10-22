@@ -31,7 +31,7 @@ from fedlearn.simulation.federation import SimulatedFederation
 from fedlearn.simulation.metrics import (
     client_fairness, deviation_ratio, exclusion_rates, flat, mean_pairwise_cosine, state_digest,
 )
-from fedlearn.simulation.workloads import FeatureHeadWorkload, NihFeatureHeadWorkload
+from fedlearn.simulation.workloads import FeatureHeadWorkload, nih_workload
 
 UTILITY_KEYS = ("accuracy", "auc", "loss", "sensitivity", "specificity", "balanced_accuracy", "ece",
                 "backdoor_success")
@@ -129,7 +129,7 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
     if workload is not None:
         wl = workload
     else:
-        wl = (NihFeatureHeadWorkload(r) if r["workload"]["dataset"] == "nih" else FeatureHeadWorkload(r))
+        wl = (nih_workload(r) if r["workload"]["dataset"] == "nih" else FeatureHeadWorkload(r))
     plan = BehaviorPlan(r["behaviors"], int(fed["num_clients"]), int(seeds["attack"]), wl.n_classes)
     _start_checks(r, wl)
     rounds = int(fed["rounds"])

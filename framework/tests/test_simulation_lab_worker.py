@@ -121,12 +121,12 @@ raise SystemExit(run_worker(Path(config),output,report_sha256=pin,run_id=run_id,
 '''
 
 
-def launch(tmp_path, lab_cache, *, scenario="normal", deadline=15, mutation=None):
+def launch(tmp_path, lab_cache, *, scenario="normal", deadline=15, mutation=None, choices=None):
     cache, pin = lab_cache
     run_id = str(uuid.uuid4())
     job = tmp_path / run_id
     job.mkdir()
-    cfg = resolve_choices({"rounds": 2}, cache_path=cache, report_sha256=pin)["config"]
+    cfg = resolve_choices(choices or {"rounds": 2}, cache_path=cache, report_sha256=pin)["config"]
     if mutation:
         mutation(cfg)
     config = job / "config.json"
@@ -386,3 +386,41 @@ def test_actual_process_kill_retains_atomic_last_completed_snapshot(tmp_path, la
     assert progress["completed_rounds"] == 1 and [r["round"] for r in progress["rounds"]] == [1]
     assert execution["state"] in ("starting", "running")
     assert not (output / "record.json").exists()
+
+
+@pytest.fixture
+def effusion_bundle(tmp_path):
+    from fedlearn.simulation.effusion_bundle import write_effusion_bundle
+    rng = np.random.default_rng(5)
+
+    def split(patients, start):
+        ids = [str(start + i // 2) for i in range(2 * patients)]
+        return {"x": rng.normal(size=(len(ids), 512)).astype(np.float32),
+                "y": (rng.random(len(ids)) < 0.3).astype(np.int64), "patient_ids": ids,
+                "image_ids": [f"{int(p):08d}_{i % 2:03d}.png" for i, p in enumerate(ids)]}
+
+    bundle = tmp_path / "effusion-bundle"
+    return bundle, write_effusion_bundle(bundle, split(20, 1), split(6, 501), provenance={"test": True})
+
+
+@pytest.mark.parametrize("recipe", ["effusion-clean", "effusion-dp"])
+def test_actual_worker_runs_and_qualifies_the_effusion_bundle_recipe(tmp_path, effusion_bundle, recipe):
+    choices = {"workloadId": "nih-effusion-r0", "recipe": recipe, "rounds": 2,
+               "privacy": "central" if recipe == "effusion-dp" else "none"}
+    child, output, log = launch(tmp_path, effusion_bundle, choices=choices)
+    code, progress, execution = finish(child, output, log)
+    record = json.loads((output / "record.json").read_text())
+    assert code == 0 and progress["state"] == execution["state"] == "completed", (output.parent / "process.log").read_text()
+    assert record["meta"]["workload"]["target"] == "Effusion"
+    assert record["meta"]["workload"]["n_test"] == 12
+    assert record["meta"]["core_qualification"]["privacy_mode"] == choices["privacy"]
+
+
+def test_a_tampered_bundle_refuses_before_the_engine(tmp_path, effusion_bundle):
+    bundle, _ = effusion_bundle
+    path = bundle / "selection-y.npy"
+    data = bytearray(path.read_bytes()); data[-1] ^= 1; path.write_bytes(bytes(data))
+    child, output, log = launch(tmp_path, effusion_bundle,
+                                choices={"workloadId": "nih-effusion-r0", "recipe": "effusion-clean", "rounds": 2})
+    code, progress, _ = finish(child, output, log)
+    assert code != 0 and progress["error_code"] == "invalid_cache"

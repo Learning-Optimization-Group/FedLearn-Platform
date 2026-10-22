@@ -195,3 +195,65 @@ class NihFeatureHeadWorkload(FeatureHeadWorkload):
 
     def _metrics(self, logits: torch.Tensor, labels: torch.Tensor):
         return classification_metrics(logits, labels, auc_score=self.auc_score)
+
+
+class NihEffusionBundleWorkload(FeatureHeadWorkload):
+    """The capstone Effusion R0 bundle: standardised train features, development-selection evaluation only.
+
+    The bundle holds no holdout and no official-test rows, so the Lab can never score them. Clients are
+    whole-patient IID shards of the bundle's train split, exactly as for the historical NIH workload.
+    """
+
+    def __init__(self, resolved: dict):
+        from fedlearn.simulation.effusion_bundle import load_effusion_bundle
+        wl, fed = resolved["workload"], resolved["federation"]
+        if wl["evaluation_split"] != "validation":
+            raise ConfigError("workload.evaluation_split", "the Effusion bundle evaluates on its development selection half only")
+        if wl["allow_random_features"] is not False:
+            raise ConfigError("workload.allow_random_features", "the Effusion bundle is pretrained-only")
+        self.auc_score = wl["auc_score"]
+        bundle = load_effusion_bundle(wl["features_path"], expected_report_sha256=wl["features_report_sha256"])
+        report, train, evaluation = bundle["report"], bundle["train"], bundle["evaluation"]
+        self.train_x = torch.from_numpy(np.array(train["x"], copy=True))
+        self.train_y = torch.from_numpy(np.array(train["y"], copy=True))
+        self.test_x = torch.from_numpy(np.array(evaluation["x"], copy=True))
+        self.test_y = torch.from_numpy(np.array(evaluation["y"], copy=True))
+        self.train_patient_ids, self.train_image_ids = list(train["patient_ids"]), list(train["image_ids"])
+        self.evaluation_image_ids = list(evaluation["image_ids"])
+        self.trigger_train_x = self.trigger_test_x = None
+        self.has_trigger = False
+        self.feat_dim, self.n_classes = report["feat_dim"], report["n_classes"]
+        self.head = dict(wl["head"])
+        self.parts = patient_iid_partition(self.train_patient_ids, fed["num_clients"], resolved["seeds"]["partition"])
+        assignments, clients = [], {}
+        for cid, indices in enumerate(self.parts):
+            positives = int(self.train_y[torch.as_tensor(indices)].sum())
+            clients[str(cid)] = {"images": len(indices), "patients": len({self.train_patient_ids[i] for i in indices}),
+                                 "positive_images": positives, "negative_images": len(indices) - positives}
+            assignments.append({"client_id": cid, "image_ids": [self.train_image_ids[i] for i in indices]})
+        assignment = {"algorithm": "nih-client-assignment-v1", "clients": assignments}
+        self.info = {
+            "auc_score": self.auc_score, "auc_score_definition": "float64(logit_1)-float64(logit_0)",
+            "dataset": "nih", "source_dataset": report["dataset"], "target": report["target"],
+            "bundle_version": report["bundle_version"], "backbone": "resnet18 ImageNet (R0), train-standardised",
+            "training_device": str(self.train_x.device), "torch_num_threads": torch.get_num_threads(),
+            "pretrained": report["pretrained"], "allow_random_features": wl["allow_random_features"],
+            "evaluation_split": wl["evaluation_split"],
+            "evaluation": "development selection half; no holdout or official test",
+            "features_report_sha256": bundle["report_sha256"], "bundle_provenance": report["provenance"],
+            "split_counts": report["counts"], "clients": clients,
+            "partition_algorithm": "patient-iid-v1:sorted-patients-pcg64-array-split",
+            "assignment_sha256": hashlib.sha256(json_bytes(assignment)).hexdigest(),
+            "assignment_version": "nih-client-assignment-v1",
+        }
+
+    def _metrics(self, logits: torch.Tensor, labels: torch.Tensor):
+        return classification_metrics(logits, labels, auc_score=self.auc_score)
+
+
+def nih_workload(resolved: dict):
+    """The NIH workload a config's features path names: the Effusion bundle, or the historical cache."""
+    from fedlearn.simulation.effusion_bundle import is_effusion_bundle
+    if is_effusion_bundle(resolved["workload"]["features_path"]):
+        return NihEffusionBundleWorkload(resolved)
+    return NihFeatureHeadWorkload(resolved)

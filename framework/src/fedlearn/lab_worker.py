@@ -64,7 +64,8 @@ def _read_json(path):
 
 
 def _checked_config(cfg, report_sha256):
-    from fedlearn.simulation.lab_contract import resolve_choices
+    from fedlearn.simulation.effusion_bundle import is_effusion_bundle
+    from fedlearn.simulation.lab_contract import RECIPES, resolve_choices
     try:
         wl, fed, sv, pv = (cfg[key] for key in ("workload", "federation", "server", "privacy"))
         head = wl["head"]
@@ -76,6 +77,12 @@ def _checked_config(cfg, report_sha256):
                        localEpochs=cfg["client"]["local_epochs"], aggregation=sv["rule"],
                        clipNorm=sv["clip_norm"], privacy=pv["mode"], epsilon=pv["epsilon"],
                        behavior=behavior, seed=cfg["seed"])
+        if is_effusion_bundle(wl["features_path"]):
+            # The recipe is identified by its (LR, clip) pair; any other pair re-resolves differently and is refused.
+            recipe = next((name for name, pair in RECIPES.items()
+                           if pair == (cfg["client"]["lr"], sv["clip_norm"])), "unrecognised")
+            choices.update(workloadId="nih-effusion-r0", recipe=recipe)
+            choices.pop("clipNorm")
         resolved = resolve_choices(choices, cache_path=Path(wl["features_path"]),
                                    report_sha256=report_sha256)
         if json.dumps(cfg, sort_keys=True, allow_nan=False) != json.dumps(resolved["config"], sort_keys=True):
@@ -185,6 +192,7 @@ def run_worker(config_path: Path, output: Path, *, report_sha256: str,
         import torch
         from fedlearn.simulation import core_qualification as core
         from fedlearn.simulation.lab_contract import _tag_nonfinite, write_research_record
+        from fedlearn.simulation.effusion_bundle import is_effusion_bundle, load_effusion_bundle
         from fedlearn.simulation.nih_cache import load_nih_cache
         torch.set_num_threads(4)
         resolved = _checked_config(_read_json(config_path), report_sha256)
@@ -193,10 +201,17 @@ def run_worker(config_path: Path, output: Path, *, report_sha256: str,
             progress.update(config_hash=resolved["config_hash"], requested_rounds=cfg["federation"]["rounds"])
             persist()
         error_code = "invalid_cache"
-        cache = load_nih_cache(Path(cfg["workload"]["features_path"]), expected_report_sha256=report_sha256)
-        if cache["provenance"]["pretrained"] is not True:
-            raise ValueError("non-pretrained cache")
-        del cache
+        features_path = Path(cfg["workload"]["features_path"])
+        if is_effusion_bundle(features_path):
+            bundle = load_effusion_bundle(features_path, expected_report_sha256=report_sha256)
+            if bundle["report"]["pretrained"] is not True:
+                raise ValueError("non-pretrained bundle")
+            del bundle
+        else:
+            cache = load_nih_cache(features_path, expected_report_sha256=report_sha256)
+            if cache["provenance"]["pretrained"] is not True:
+                raise ValueError("non-pretrained cache")
+            del cache
 
         def on_round(line):
             with lock:

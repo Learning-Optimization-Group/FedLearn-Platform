@@ -149,3 +149,28 @@ def test_record_writer_refuses_overwrite_and_symlink(tmp_path):
         with pytest.raises(FileExistsError):
             write_research_record(target, {})
     assert original.read_bytes() == b"preserved\n"
+
+
+@pytest.mark.parametrize("recipe, lr, clip", [("effusion-clean", .1, 1.0), ("effusion-dp", .03, .05)])
+def test_effusion_workload_resolves_its_measured_recipe(tmp_path, recipe, lr, clip):
+    result = resolved(tmp_path, {"workloadId": "nih-effusion-r0", "recipe": recipe, "localEpochs": 7})
+    cfg, display = result["config"], result["display_recipe"]
+    assert (cfg["client"]["lr"], cfg["server"]["clip_norm"], cfg["client"]["local_epochs"]) == (lr, clip, 7)
+    assert display["workloadId"] == "nih-effusion-r0" and display["recipe"] == recipe
+    assert display["evaluationSplit"] == "development selection half"
+
+
+def test_the_historical_workload_keeps_the_standard_recipe_and_identity(tmp_path):
+    assert resolved(tmp_path, {"recipe": "standard"})["config_hash"] == resolved(tmp_path)["config_hash"]
+    assert resolved(tmp_path)["display_recipe"]["recipe"] == "standard"
+
+
+@pytest.mark.parametrize("choices", [
+    {"workloadId": "nih-qualified", "recipe": "effusion-clean"},
+    {"workloadId": "nih-effusion-r0", "recipe": "standard"},
+    {"workloadId": "nih-effusion-r0", "recipe": "effusion-dp", "clipNorm": .4},
+    {"workloadId": "nih-effusion-r0", "recipe": "bespoke"},
+])
+def test_recipes_cannot_cross_workloads_or_override_their_clip(tmp_path, choices):
+    with pytest.raises(ValueError):
+        resolved(tmp_path, choices)
