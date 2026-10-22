@@ -186,3 +186,34 @@ per-round movement in both arms.
 - **No retuning after seeing results.** LR, clip, epochs and rounds are not tuned
   after these results. Any optimiser check needs its own declared amendment, with the
   outcome reported as exploratory.
+
+## Amendment A4 — 22 October 2026, central-DP sweep with a declared R0 arm, before any DP run
+
+**Question.** R0 and R1 tied on clean selection AUROC, and R1 is twice as wide (2,050
+vs 1,026 head parameters). Does width change the utility cost of central DP at equal
+ε? This is the declared secondary contrast. R1 stays primary (A2).
+
+- **Arms:**
+  - R1 uses the A2 setup.
+  - R0 uses the historical 512-wide arrays, standardised with the gate's R0 train
+    mean/std, and a 1,026-parameter head.
+  - Everything else is the §6/A1 recipe: 80 whole-patient IID clients, 20 rounds,
+    7 epochs, LR 0.003, batch 256, clip 0.05, mean rule, seeds 20261101–20261105.
+- **Cells:** clean, plus central DP at ε ∈ {1, 4, 8} with δ = 10⁻⁵. That is
+  2 arms × 4 conditions × 5 seeds = 40 runs.
+- **DP mechanism:** the engine's existing mechanism.
+  - Gaussian noise is added to the clipped mean, using the replace-one sensitivity.
+  - The multiplier is calibrated for all 20 rounds at q = 1, with no amplification credit.
+  - **The privacy unit is one simulated client (about 280 patients), not a patient.**
+    ε here is not patient-level DP.
+- **Reported:**
+  - Per-cell AUROC and AP.
+  - DP cost: clean − DP, same arm and seed, with a paired patient bootstrap
+    (2,000 resamples, seed 20261024).
+  - **Width contrast:** cost(R1) − cost(R0), seed-averaged inside each bootstrap
+    replicate.
+  - Recorded noise SD and noise-to-signal ratio.
+  - There is no pass/fail threshold.
+- **Replay check:** the R1 clean cells must reproduce the §6 federated margins exactly.
+- **Excluded:** local DP, until a separate qualification amendment. Secure aggregation
+  is covered by A5. There is no retuning.
