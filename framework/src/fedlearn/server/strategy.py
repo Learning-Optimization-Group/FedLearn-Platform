@@ -191,76 +191,10 @@ class FedLoRA(Strategy):
         # enabled, aggregate_fit takes the central-DP path (clip each client's adapter delta to S,
         # UNIFORM-average, add Gaussian noise z*S/N on the aggregatable keys only) implemented in
         # fedlearn.privacy.dp_mechanism, then re-attaches the frozen A bit-identical (FFA invariant).
-        self.dp_enabled = bool(dp_enabled)
-        self.dp_clip_norm = None if dp_clip_norm is None else float(dp_clip_norm)
-        self.dp_noise_multiplier = None if dp_noise_multiplier is None else float(dp_noise_multiplier)
-        self.dp_seed = None if dp_seed is None else int(dp_seed)
-        self.dp_target_epsilon = None if dp_target_epsilon is None else float(dp_target_epsilon)
-        self.dp_delta = None if dp_delta is None else float(dp_delta)
-        self.dp_num_clients = None if dp_num_clients is None else int(dp_num_clients)
-        self.dp_rounds = None if dp_rounds is None else int(dp_rounds)
-        # Accounted (ε, δ) trace for the chosen noise multiplier (eval-card / SE-11). None when DP is
-        # off or the accounting params (δ + round count) weren't supplied.
-        self.dp_accounted_epsilon = None
-        self.dp_q = None
-        if self.dp_enabled:
-            if self.dp_clip_norm is None or self.dp_clip_norm <= 0:
-                raise ValueError("FedLoRA dp_enabled requires dp_clip_norm (S) > 0.")
-            # Subsampling rate for the accountant: cohort / enrolled population (q=1 if the population
-            # is unknown — the conservative no-amplification assumption).
-            self.dp_q = (self.clients_per_round / self.dp_num_clients) if self.dp_num_clients else 1.0
-
-            # Calibrate the noise multiplier z: supplied directly, OR solved from a target-ε budget
-            # via the RDP accountant. Exactly one of the two must be given.
-            from fedlearn.privacy.dp_accountant import (
-                compute_rdp, get_epsilon, required_noise_multiplier,
-            )
-            if self.dp_target_epsilon is not None:
-                if self.dp_noise_multiplier is not None:
-                    raise ValueError(
-                        "FedLoRA DP: give either dp_noise_multiplier OR dp_target_epsilon, not both.")
-                if self.dp_delta is None or self.dp_rounds is None:
-                    raise ValueError(
-                        "FedLoRA dp_target_epsilon requires dp_delta and dp_rounds to solve z.")
-                self.dp_noise_multiplier = float(required_noise_multiplier(
-                    self.dp_target_epsilon, self.dp_q, self.dp_rounds, self.dp_delta))
-            elif self.dp_noise_multiplier is None:
-                raise ValueError(
-                    "FedLoRA dp_enabled requires exactly one of dp_noise_multiplier (z) or "
-                    "dp_target_epsilon.")
-            if self.dp_noise_multiplier < 0:
-                raise ValueError("FedLoRA dp_noise_multiplier (z) must be >= 0.")
-
-            # Best-effort accounted-ε trace: computable whenever δ and the round count are known.
-            if self.dp_delta is not None and self.dp_rounds is not None:
-                self.dp_accounted_epsilon = float(get_epsilon(
-                    compute_rdp(self.dp_q, self.dp_noise_multiplier, self.dp_rounds),
-                    self.dp_delta)[0])
-
-        # Running global reference for the DP delta (mirrors RobustAggregator._global). Kept float32
-        # to match the aggregator's output dtype so a delta subtraction never silently upcasts. This
-        # is a NEW side-channel: it does not alter the non-DP return value (see aggregate_fit).
-        self._global = OrderedDict(
-            (k, v.detach().clone().to(torch.float32)) for k, v in initial_parameters.items()
-        )
-        # The DP noise generator is ALWAYS a DEDICATED torch.Generator (never the global default),
-        # persisted across rounds so advancing it never reuses identical noise. With an explicit
-        # dp_seed it is reproducible (tests/audits); in production (dp_seed=None) it is seeded from
-        # FRESH OS entropy, INDEPENDENT of any global torch seed.
-        #
-        # This isolation is load-bearing for the (epsilon, delta) guarantee: fl_server.resolve_run_seed
-        # calls torch.manual_seed(S) for data/model-init reproducibility and DISCLOSES S on the eval
-        # card + logs. If the DP noise were drawn from the global default generator (the old
-        # dp_seed=None path passed generator=None), it would become a deterministic function of that
-        # disclosed seed — an adversary holding the card could replay the run and STRIP the noise,
-        # recovering the un-noised client-level aggregate and voiding DP (DA-3 x FR-13 interaction).
-        self._dp_generator = None
-        if self.dp_enabled:
-            self._dp_generator = torch.Generator()
-            if self.dp_seed is not None:
-                self._dp_generator.manual_seed(self.dp_seed)
-            else:
-                self._dp_generator.seed()  # non-deterministic OS-entropy seed, independent of global RNG
+        _configure_central_dp(
+            self, "FedLoRA", initial_parameters, dp_enabled=dp_enabled, dp_clip_norm=dp_clip_norm,
+            dp_noise_multiplier=dp_noise_multiplier, dp_seed=dp_seed, dp_target_epsilon=dp_target_epsilon,
+            dp_delta=dp_delta, dp_num_clients=dp_num_clients, dp_rounds=dp_rounds)
 
     def initialize_parameters(self):
         return self.initial_parameters
@@ -388,6 +322,121 @@ class FedLoRA(Strategy):
 # FedProx run looks like an ordinary bad-hyperparameter run rather than an unstable one.
 PROX_STABILITY_LIMIT = 2.0     # lr*mu at which the penalty stops contracting
 PROX_STABILITY_WARN = 1.0      # past here the step is large enough to be worth flagging
+
+
+def _configure_central_dp(strategy, label, initial_parameters, *, dp_enabled, dp_clip_norm, dp_noise_multiplier,
+                          dp_seed, dp_target_epsilon, dp_delta, dp_num_clients, dp_rounds):
+    """Shared central-DP configuration for FedLoRA and DPFedAvg (FR-13 / SE-11).
+
+    Sets the ``dp_*`` attributes the eval card reads, solves or validates the noise multiplier with the
+    platform RDP accountant, records the accounted epsilon, and creates the dedicated noise generator.
+    ``label`` names the strategy in error messages. One implementation keeps every DP strategy's privacy
+    claim identical: joint L2 clip to S, uniform average, Gaussian noise z*S/N per coordinate.
+    """
+    strategy.dp_enabled = bool(dp_enabled)
+    strategy.dp_clip_norm = None if dp_clip_norm is None else float(dp_clip_norm)
+    strategy.dp_noise_multiplier = None if dp_noise_multiplier is None else float(dp_noise_multiplier)
+    strategy.dp_seed = None if dp_seed is None else int(dp_seed)
+    strategy.dp_target_epsilon = None if dp_target_epsilon is None else float(dp_target_epsilon)
+    strategy.dp_delta = None if dp_delta is None else float(dp_delta)
+    strategy.dp_num_clients = None if dp_num_clients is None else int(dp_num_clients)
+    strategy.dp_rounds = None if dp_rounds is None else int(dp_rounds)
+    # Accounted (ε, δ) trace for the chosen noise multiplier (eval-card / SE-11). None when DP is
+    # off or the accounting params (δ + round count) weren't supplied.
+    strategy.dp_accounted_epsilon = None
+    strategy.dp_q = None
+    if strategy.dp_enabled:
+        if strategy.dp_clip_norm is None or strategy.dp_clip_norm <= 0:
+            raise ValueError(f"{label} dp_enabled requires dp_clip_norm (S) > 0.")
+        # Subsampling rate for the accountant: cohort / enrolled population (q=1 if the population
+        # is unknown — the conservative no-amplification assumption).
+        strategy.dp_q = (strategy.clients_per_round / strategy.dp_num_clients) if strategy.dp_num_clients else 1.0
+
+        # Calibrate the noise multiplier z: supplied directly, OR solved from a target-ε budget
+        # via the RDP accountant. Exactly one of the two must be given.
+        from fedlearn.privacy.dp_accountant import (
+            compute_rdp, get_epsilon, required_noise_multiplier,
+        )
+        if strategy.dp_target_epsilon is not None:
+            if strategy.dp_noise_multiplier is not None:
+                raise ValueError(
+                    f"{label} DP: give either dp_noise_multiplier OR dp_target_epsilon, not both.")
+            if strategy.dp_delta is None or strategy.dp_rounds is None:
+                raise ValueError(
+                    f"{label} dp_target_epsilon requires dp_delta and dp_rounds to solve z.")
+            strategy.dp_noise_multiplier = float(required_noise_multiplier(
+                strategy.dp_target_epsilon, strategy.dp_q, strategy.dp_rounds, strategy.dp_delta))
+        elif strategy.dp_noise_multiplier is None:
+            raise ValueError(
+                f"{label} dp_enabled requires exactly one of dp_noise_multiplier (z) or "
+                "dp_target_epsilon.")
+        if strategy.dp_noise_multiplier < 0:
+            raise ValueError(f"{label} dp_noise_multiplier (z) must be >= 0.")
+
+        # Best-effort accounted-ε trace: computable whenever δ and the round count are known.
+        if strategy.dp_delta is not None and strategy.dp_rounds is not None:
+            strategy.dp_accounted_epsilon = float(get_epsilon(
+                compute_rdp(strategy.dp_q, strategy.dp_noise_multiplier, strategy.dp_rounds),
+                strategy.dp_delta)[0])
+
+    # Running global reference for the DP delta (mirrors RobustAggregator._global). Kept float32
+    # to match the aggregator's output dtype so a delta subtraction never silently upcasts. This
+    # is a NEW side-channel: it does not alter the non-DP return value (see aggregate_fit).
+    strategy._global = OrderedDict(
+        (k, v.detach().clone().to(torch.float32)) for k, v in initial_parameters.items()
+    )
+    # The DP noise generator is ALWAYS a DEDICATED torch.Generator (never the global default),
+    # persisted across rounds so advancing it never reuses identical noise. With an explicit
+    # dp_seed it is reproducible (tests/audits); in production (dp_seed=None) it is seeded from
+    # FRESH OS entropy, INDEPENDENT of any global torch seed.
+    #
+    # This isolation is load-bearing for the (epsilon, delta) guarantee: fl_server.resolve_run_seed
+    # calls torch.manual_seed(S) for data/model-init reproducibility and DISCLOSES S on the eval
+    # card + logs. If the DP noise were drawn from the global default generator (the old
+    # dp_seed=None path passed generator=None), it would become a deterministic function of that
+    # disclosed seed — an adversary holding the card could replay the run and STRIP the noise,
+    # recovering the un-noised client-level aggregate and voiding DP (DA-3 x FR-13 interaction).
+    strategy._dp_generator = None
+    if strategy.dp_enabled:
+        strategy._dp_generator = torch.Generator()
+        if strategy.dp_seed is not None:
+            strategy._dp_generator.manual_seed(strategy.dp_seed)
+        else:
+            strategy._dp_generator.seed()  # non-deterministic OS-entropy seed, independent of global RNG
+
+
+class DPFedAvg(FedAvg):
+    """FedAvg with central differential privacy, using FedLoRA's exact mechanism and accountant.
+
+    Each round every client's delta over the submitted keys is jointly clipped to L2 norm S, the clipped
+    deltas are UNIFORMLY averaged (``num_examples`` is ignored: example weighting would make the
+    sensitivity data-dependent), and Gaussian noise N(0, (z*S/N)^2) is added per coordinate. Float buffers
+    a client submits (e.g. BatchNorm statistics) are privatised with the parameters, since they are
+    data-dependent too. Always DP: use :class:`FedAvg` for non-private runs.
+    """
+
+    def __init__(self, initial_parameters, evaluate_fn=None, min_fit_clients=1, clients_per_round=None,
+                 dp_clip_norm=None, dp_noise_multiplier=None, dp_seed=None, dp_target_epsilon=None,
+                 dp_delta=None, dp_num_clients=None, dp_rounds=None):
+        super().__init__(initial_parameters, evaluate_fn=evaluate_fn, min_fit_clients=min_fit_clients,
+                         clients_per_round=clients_per_round)
+        _configure_central_dp(
+            self, "DPFedAvg", initial_parameters, dp_enabled=True, dp_clip_norm=dp_clip_norm,
+            dp_noise_multiplier=dp_noise_multiplier, dp_seed=dp_seed, dp_target_epsilon=dp_target_epsilon,
+            dp_delta=dp_delta, dp_num_clients=dp_num_clients, dp_rounds=dp_rounds)
+
+    def aggregate_fit(self, server_round, results):
+        if not results:
+            return None
+        from fedlearn.privacy.dp_mechanism import dp_aggregate  # lazy import avoids an import cycle
+
+        keys = list(FedLoRA._client_keys(results))
+        aggregated = dp_aggregate(results, global_params=self._global, aggregatable_keys=keys,
+                                  clip_norm=self.dp_clip_norm, noise_multiplier=self.dp_noise_multiplier,
+                                  generator=self._dp_generator)
+        for k, v in aggregated.items():
+            self._global[k] = v.detach().clone().to(torch.float32)
+        return aggregated
 
 
 def prox_stability_statistic(proximal_mu: float, learning_rate: float) -> float:
