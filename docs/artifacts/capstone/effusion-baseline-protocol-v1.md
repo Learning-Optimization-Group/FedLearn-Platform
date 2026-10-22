@@ -297,3 +297,25 @@ exploratory, run on the selection half, and leaves the holdout untouched.
 - **Honest limits:** seeds 1–2 choose the recipe, so the five-seed means are optimistic.
   Seeds 3–5 are separate training seeds on the same selection data, not new data. The
   unbiased number comes only from the §8 holdout.
+
+## Amendment A8 — 22 October 2026: DP-specific recipe study on R0, before any A8 run
+
+**Why:** A7 showed that the clean-optimal clip (1.0) makes central DP about 0.05 AUROC
+worse than clip 0.05 at ε 8 and ε 4. The platform needs evidence-backed DP defaults.
+
+- **Grid:** 12 configurations, all retained. Client LR ∈ {0.03, 0.1, 0.3} × clip ∈
+  {0.01, 0.025, 0.05, 0.1}. Central DP at ε = 4, δ = 10⁻⁵, client-level, q = 1.
+  Otherwise the §6 recipe: 80 whole-patient IID clients, 20 rounds, 7 epochs, batch 256,
+  mean rule.
+- **Selection:** the highest mean selection AUROC over seeds 20261101 and 20261102 at
+  ε = 4. Ties go to the smaller clip, then the smaller LR.
+- **Confirmation:** the chosen recipe on all five seeds at ε 8, 4 and 1, plus its clean
+  (no-DP) arm. Reported as paired contrasts against the A4 R0 cells (§6 recipe) and the
+  A7 DP cells (clean-tuned recipe).
+- **Honest limits:**
+  - Choosing hyperparameters by looking at DP runs on the same data consumes privacy
+    that the stated ε does not account for. The selection half is development data, not
+    the training data, but this is still disclosed. Production guidance must fix
+    defaults in advance or account for tuning.
+  - The ε = 4 choice is applied to ε 8 and ε 1 without retuning.
+  - Seeds 1–2 choose, so the means are optimistic; only the holdout is unbiased.
