@@ -414,3 +414,28 @@ DP at the same ε?
   - local cost against the A8 clean arm;
   - client noise SD.
   - Paired patient bootstrap, 2,000 resamples, seed 20261030.
+
+## Amendment A12 — 22 October 2026: robust aggregation under local DP, before any A12 run
+
+**Question:** does robust aggregation help or hurt when clients add local-DP noise, with
+and without attackers? A9 covered robust rules without DP and under central DP; A11 covered
+local DP with the plain mean only.
+
+- **Cells:** 135 runs, all retained.
+  - R0, A8 DP recipe (LR 0.03, clip 0.05), 80 whole-patient IID clients, 20 rounds,
+    seeds 20261101–20261105.
+  - Local DP ε ∈ {8, 32, 128} with δ 10⁻⁵, as in A11. Honest clients clip and add
+    N(0, (2zC)²); the server applies only the non-shrinking post-processing clip.
+  - Rules: mean, trimmed mean (0.2 per side) and median. Robust rules are server-side
+    post-processing of already-privatised updates, so they cost no extra privacy.
+  - Conditions: clean, sign flip ×−4, and label flip at 16 of 80 attacker slots,
+    as in A9.
+  - Attackers do not add local noise, since the engine privatises honest clients only.
+    This is the realistic threat: a malicious client need not follow the protocol.
+  - ALIE is excluded because it had no measurable effect in A9.
+- **Reported** (selection half; paired patient bootstrap, 2,000 resamples, seed 20261031):
+  - absolute AUROC per cell;
+  - attack drop: clean − attacked, same rule, ε and seed;
+  - rule − mean, same condition, ε and seed.
+  - Refusals and non-finite runs are reported as such. The ε 8, mean, clean cells repeat
+    A11's configuration and must reproduce its margins exactly (replay check).
