@@ -90,6 +90,21 @@ pneumonia task. Preserve the completed study separately.
   contract with measured recipes, API, UI). A Lab run reproduces the capstone A7 run exactly;
   real-browser pass recorded in
   [simulation-lab-effusion-browser-verification-2026-10-22.json](simulation-lab-effusion-browser-verification-2026-10-22.json).
+- [x] Literature check of robust and private FL against what we ran:
+  [review](literature-review-robust-private-fl-2026-10-22.md), with a ranked shortlist. Progress, 22 October:
+  - **#1 Production DP adjacency.** [Analysis](production-dp-adjacency-analysis-2026-10-22.md).
+    The `--dp-adjacency` option, the eval-card field and the fixed-denominator refusal shipped in `edad4aa`.
+  - **#2 Exact GDP accountant.** Shipped as `--dp-accountant gdp`.
+    [A13](effusion-gdp-calibration-r0-v1-result-2026-10-22.md): +0.017 AUROC at ε 4 for the same claim.
+  - **#7 Fewer DP releases.** [A15](effusion-dp-rounds-r0-v1-result-2026-10-22.md): negative with a random-init
+    head, whose cause led to
+    [A17](effusion-zero-head-r0-v1-result-2026-10-22.md). A zero-initialised head adds +0.019 to +0.20 AUROC under DP.
+    The ε 4 cost against clean A7 falls from 0.124 to 0.081 (exploratory best, T = 5).
+  - **#3/#4 Small-k trimming and stronger attacks** (min-max, Fang trimmed-mean, IPM 0.1 at 5/10/20%): A14 running.
+  - **#5 Canary audit.** The estimator `fedlearn.privacy.audit` has shipped. A16 is pre-registered; it needs
+    the canary behaviour, which can be added once A14 has written its summary.
+  - **Open:** #6 non-IID, #8 noise-aware filtering under local DP, #9 distributed DP, #10 encoder.
+- [ ] Decide whether to ship a zero-initialised-head option for DP frozen-head runs (platform change; needs a decision).
 - [ ] Complete and browser-verify the integrated simulator, including persistence,
   ownership, live progress, stop/reopen, comparison, heatmaps and research export.
 
