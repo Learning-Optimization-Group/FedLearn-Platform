@@ -303,3 +303,18 @@ def test_an_injected_workload_is_trained_and_evaluated_instead_of_the_configured
     injected.test_y = 1 - injected.test_y  # an evaluation set only the injected workload has
     flipped = run(cfg, workload=injected)
     assert [l["accuracy"] for l in flipped["rounds"]] == pytest.approx([1 - l["accuracy"] for l in default["rounds"]])
+
+
+def test_local_dp_rounds_report_client_and_server_noise_separately(tmp_path):
+    """The historical noise_std is server-added noise only, so a local-DP run used to report 0.0 noise. The
+    explicit fields keep that meaning and add the client-side Gaussian SD the honest clients actually add."""
+    rec = run(_cfg(_features(tmp_path), privacy={"mode": "local", "epsilon": 4.0}))
+    z, clip = rec["meta"]["noise_multiplier"], 0.5
+    for line in rec["rounds"]:
+        assert line["privacy"]["noise_std"] == 0.0
+        assert line["privacy"]["server_noise_std"] == 0.0
+        assert line["privacy"]["client_noise_std"] == pytest.approx(2.0 * z * clip)
+    assert rec["meta"]["privacy_unit"] == "simulated client (replace-one)"
+    central = run(_cfg(_features(tmp_path), privacy={"mode": "central", "epsilon": 4.0}))
+    first = central["rounds"][0]["privacy"]
+    assert first["client_noise_std"] == 0.0 and first["server_noise_std"] == first["noise_std"] > 0

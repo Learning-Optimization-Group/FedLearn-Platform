@@ -148,6 +148,7 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         c = float(sv["clip_norm"])
         server_clip = c + 2.0 * z * c * (math.sqrt(d) + 4.0)
     clock = costs.StageClock()
+    client_noise_std = 2.0 * z * float(sv["clip_norm"]) if pv["mode"] == "local" else 0.0
     evaluate = wl.evaluate_fn(plan.backdoor_target())
     state = {"round0_digest": None, "params": None, "refusals": [],
              "client_bytes": {c: 0 for c in range(int(fed["num_clients"]))}}
@@ -272,7 +273,10 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
                         "server_flops_est": costs.server_flops_estimate(
                             sv["rule"], int(st.get("aggregated", 0)), d, int(rule_params["iterations"])),
                         "cpu_s": sum(t["cpu_s"].values())},
-            "privacy": {"epsilon_spent": eps_spent, "noise_std": noise_std, "sensitivity": st.get("sensitivity"),
+            # noise_std keeps its historical meaning (server-added noise only); the explicit fields separate it
+            # from the Gaussian SD each honest client adds under local DP, which noise_std never reported.
+            "privacy": {"epsilon_spent": eps_spent, "noise_std": noise_std, "server_noise_std": noise_std,
+                        "client_noise_std": client_noise_std, "sensitivity": st.get("sensitivity"),
                         "clip_rate": st.get("clip_rate"), "mean_shrink": st.get("mean_shrink"),
                         "noise_to_signal": (noise_std * math.sqrt(d) / agg_norm) if (noise_std and agg_norm) else None},
             "robustness": {**extra.get("robustness", {}),
@@ -308,6 +312,7 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         "workload": {**wl.info, "feat_dim": wl.feat_dim, "n_classes": wl.n_classes,
                      "n_train": int(len(wl.train_y)), "n_test": int(len(wl.test_y)), "parameters": d},
         "noise_multiplier": z, "adjacency": pv["adjacency"], "privacy_mode": pv["mode"],
+        "privacy_unit": "simulated client (replace-one)" if pv["mode"] != "none" else None,
         "server_clip_norm": server_clip,
         "accounted_epsilon": (float(get_epsilon(compute_rdp(1.0, z, rounds), float(pv["delta"]))[0])
                               if pv["mode"] != "none" else None),
