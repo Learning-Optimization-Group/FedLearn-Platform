@@ -51,7 +51,10 @@ These defaults are for a linear head over frozen 512-wide features with 80 clien
 
 - **Never reuse a clean-tuned clip for DP.** It loses about 0.06 AUROC at ε 4–8.
 - **Use the planner first.** At ε 4 this workload's noise-norm-to-clip lower bound is
-  z√d/N ≈ 2.3 (z 5.80, d 1,026, N 80). The planner reproduces that number before a run.
+  2z√d/N ≈ 4.6 under the capstone's replace-one sensitivity 2C/N (z 5.80, d 1,026, N 80).
+  *Correction, 22 October:* an earlier version said z√d/N ≈ 2.3. That is the planner's add/remove
+  scale (noise zC/N), not these replace-one runs; see the
+  [literature check](literature-review-robust-private-fl-2026-10-22.md).
 - **Client-level ε = 1 is near chance** for this setup whatever the recipe.
 
 **Limits:**
