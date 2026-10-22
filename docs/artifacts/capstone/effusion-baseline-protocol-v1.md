@@ -319,3 +319,37 @@ worse than clip 0.05 at ε 8 and ε 4. The platform needs evidence-backed DP def
     defaults in advance or account for tuning.
   - The ε = 4 choice is applied to ε 8 and ε 1 without retuning.
   - Seeds 1–2 choose, so the means are optimistic; only the holdout is unbiased.
+
+## Amendment A9 — 22 October 2026: bounded attack study on R0, before any A9 run
+
+**Question:** which aggregation rule should the platform recommend when some clients may
+be malicious, with and without DP, given each rule's cost when nobody attacks?
+
+- **Recipes** (A7/A8 defaults): no-DP cells use LR 0.1 with clip 1.0. DP cells use
+  LR 0.03 with clip 0.05 and central DP at ε 4 (δ 10⁻⁵, client-level, q = 1).
+  Otherwise the §6 setup: R0, 80 whole-patient IID clients, 20 rounds, 7 epochs, batch 256.
+- **Rules:**
+  - No DP: `mean`, `trimmed_mean` (trim 0.2 per side), `median`.
+  - DP: `mean` and `trimmed_mean`. These are the rules with a replace-one sensitivity
+    bound in the engine; median under DP is unavailable, not failed.
+- **Conditions:** 16 of 80 attacker slots (fraction 0.2), fixed per seed by the attack
+  seed stream and identical across rules and conditions.
+  1. **clean** — no attackers.
+  2. **sign flip** — each attacker multiplies its own update by −4 before clipping, as in
+     the historical study.
+  3. **label flip** — attackers train on reversed labels.
+  4. **ALIE** — `alie`, z = 0.4888, the published bound Φ⁻¹((n − s)/n) with
+     s = ⌊n/2⌋ + 1 − m = 25 for n = 80, m = 16.
+
+  No attacker reads another client's raw update except as the engine's ALIE
+  implementation defines it.
+- **Size:** seeds 20261101–20261105, all cells retained. No DP: 3 rules × 4 conditions ×
+  5 seeds = 60 runs. DP: 2 × 4 × 5 = 40 runs. Total 100.
+- **Reported** (selection half, paired patient bootstrap, 2,000 resamples, seed 20261028):
+  - absolute AUROC per cell (heatmap 1);
+  - attack-induced drop, clean minus attacked under the same rule and seed (heatmap 2);
+  - each robust rule's clean cost relative to `mean`;
+  - refusals and non-finite runs, reported as such, never as zero.
+  - There is no pass/fail threshold, and no winner is declared from a single seed.
+- **Limits:** client-level, simulated, IID; one attacker fraction; the attacks are not
+  adaptive to the defence beyond ALIE's construction.
