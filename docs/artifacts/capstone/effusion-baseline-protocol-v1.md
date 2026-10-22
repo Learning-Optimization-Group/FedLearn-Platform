@@ -353,3 +353,37 @@ be malicious, with and without DP, given each rule's cost when nobody attacks?
   - There is no pass/fail threshold, and no winner is declared from a single seed.
 - **Limits:** client-level, simulated, IID; one attacker fraction; the attacks are not
   adaptive to the defence beyond ALIE's construction.
+
+## Amendment A10 — 22 October 2026: frozen §8 holdout list, before any holdout feature or label is read
+
+The holdout is opened **once**, by `repro/evaluate_effusion_holdout.py`, for exactly these
+22 models. All are R0 (A6) with the gate's train-only standardiser.
+
+1. **C0:** constant score.
+2. **Convex R0 logistic head** (the gate-selected fit).
+3. **R0 FedAvg, no DP**, A7 recipe (LR 0.1, clip 1.0): five seeds, 20261101–20261105.
+4. **R0 central DP**, A8 recipe (LR 0.03, clip 0.05): ε 8, 4 and 1, five seeds each
+   (15 models).
+
+**Excluded, declared now:** R1 heads and the X control. R1 is secondary since A6, and both
+would need holdout R1 feature extraction. Also excluded: attack cells (reported on
+selection only), central-SGD controls, the A8 clean arm, and the §6-recipe runs.
+
+**Frozen before the holdout is read:**
+- Each model's selection-half margins are recomputed from its saved final head and must
+  equal the stored margins exactly.
+- On those margins: the Platt recalibration and the operating point (the highest
+  Platt-probability threshold with selection sensitivity ≥ 0.90).
+- These go into a hashed calibration file, written before any holdout label is loaded.
+
+**Holdout metrics** (§5):
+- AUROC; AP with prevalence;
+- sensitivity, specificity, PPV and NPV at the frozen threshold;
+- Brier score; calibration intercept and slope; ECE over 10 equal-mass bins;
+- patient-level AUROC (maximum score per patient).
+- Uncertainty: 2,000 patient-cluster bootstrap resamples, seed 20261029.
+- Seed groups: per seed, plus the seed mean with its interval taken inside each replicate.
+- Paired contrasts: federated − convex, and DP − no-DP federated at each ε.
+
+**Rules:** the harness refuses to write over an existing evaluation. Any later scoring of
+the holdout, for any model, is labelled post-hoc.
