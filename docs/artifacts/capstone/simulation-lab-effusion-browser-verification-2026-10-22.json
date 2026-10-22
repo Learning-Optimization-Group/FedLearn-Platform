@@ -1,0 +1,53 @@
+{
+  "bundleReportSha256": "dec54dfb580232ed6bf8da16ea9466248db58de4925285c8fb0d07a381562ffa",
+  "checks": {
+    "effusionSplitText": "Training: 68,650 images; 9,075 development-selection images. Limit: 180 seconds, 4 CPU threads.",
+    "freeClipSelectorShown": false,
+    "mobileHorizontalOverflow": false,
+    "reloadWorkloadsReadyMs": 3683,
+    "resolvedRecipeText": "Resolved recipe10 clients, 1 local epochs, 3 rounds. Learning rate 0.03, batch size 256. Evaluation: development selection half.Configuration: 04a3f21002cc61ad74dc8ebaa2da5636b9f65beac716794a0b9532fadedc44d0",
+    "run": {
+      "clipNorm": 0.05,
+      "completedRounds": 3,
+      "epsilon": 4,
+      "evaluationSplit": "development selection half",
+      "featureReportSha256": "dec54dfb580232ed6bf8da16ea9466248db58de4925285c8fb0d07a381562ffa",
+      "finalAuc": 0.5307485867391938,
+      "finalEpsilonSpent": 3.999999998238,
+      "id": "c40abc33-cd99-4e28-87ad-10cfa1c2b803",
+      "learningRate": 0.03,
+      "privacy": "central",
+      "qualification": {
+        "accepted_clients": 10,
+        "evaluation_split": "validation",
+        "privacy_mode": "central",
+        "research_record_dp_safe": false,
+        "scope": "simulation_execution_only",
+        "version": 1
+      },
+      "recipe": "effusion-dp",
+      "status": "COMPLETED",
+      "workloadId": "nih-effusion-r0"
+    },
+    "runPanelWording": "Execution qualified. Selection-half results from simulated patient groups; no clinical-use qualification.",
+    "workloadOptions": [
+      "Any finding \u00b7 historical study",
+      "Effusion \u00b7 capstone follow-up"
+    ]
+  },
+  "curatedCaptures": {
+    "simulation-lab-effusion-desktop-2026-10-22.png": "325663ec1cd5832fc1cc5fcb23036eb331439b5d49430b8a57c76042574edcca",
+    "simulation-lab-effusion-mobile-2026-10-22.png": "a83230d7499b3c9cc57bc0234fc57e1f64f4d74187e0b00afa32b8241dfeb8a1"
+  },
+  "date": "2026-10-22",
+  "labReproducesCapstone": "Lab-resolved seed 20261101, 80 clients, 20 rounds, 7 epochs, effusion-clean on the bundle: per-round AUROC max difference 0.0 and identical final digest versus the A7 recipe run.",
+  "notes": [
+    "An earlier pass found a misleading \"(unavailable)\" placeholder while workloads loaded and validation-only wording on Effusion runs; both were fixed and re-verified in this pass.",
+    "The workload list takes about 3.7 s to load because each probe re-verifies its cache; the page shows \"Loading workloads\" meanwhile.",
+    "The shared Playwright MCP browser profile was held by another session, so a separate headless Chromium was used."
+  ],
+  "schema": "capstone.simulation_lab.effusion_browser_verification.v1",
+  "scope": "Isolated local stack (loopback API and frontend, dedicated PostgreSQL); headless Chromium; Effusion R0 bundle workload. Development selection half only; no holdout or official test. Not disease-model qualification or a privacy-effect measurement.",
+  "sourceCommit": "c59fd0e2383a65caead2505bddc6ad12e3fda60d",
+  "sourceNote": "The verified stack ran this commit's code (fixes were in the working tree during the browser pass and committed unchanged here)."
+}
