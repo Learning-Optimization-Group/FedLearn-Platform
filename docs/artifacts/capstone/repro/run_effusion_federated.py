@@ -20,8 +20,14 @@ import warnings
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
+FRAMEWORK_SRC = HERE.parents[3] / 'framework' / 'src'  # repro -> capstone -> artifacts -> docs -> worktree
 sys.path.insert(0, str(HERE))
-sys.path.insert(1, str(HERE.parents[2] / 'framework' / 'src'))
+sys.path.insert(0, str(FRAMEWORK_SRC))
+import fedlearn  # noqa: E402
+
+# An editable install of another checkout must never stand in for this worktree's engine.
+if not Path(fedlearn.__file__).resolve().is_relative_to(FRAMEWORK_SRC.resolve()):
+    raise SystemExit(f'fedlearn imported from {fedlearn.__file__}, not {FRAMEWORK_SRC}')
 import torch  # noqa: E402
 
 from fedlearn.server.subset_federation import apply_trainable_subset  # noqa: E402
@@ -206,7 +212,7 @@ def main(args):
             'seeds': list(SEEDS), 'runs': runs,
             'comparison': compare(y_selection, selection_patients, margins, reference),
             'sourceSha256': {name: _sha256_file(HERE / name) for name in ('run_effusion_federated.py', 'fit_effusion_gate.py', 'effusion_labels.py')},
-            'engineSourceSha256': _sha256_file(HERE.parents[2] / 'framework' / 'src' / 'fedlearn' / 'simulation' / 'engine.py'),
+            'engineSourceSha256': _sha256_file(FRAMEWORK_SRC / 'fedlearn' / 'simulation' / 'engine.py'),
             'elapsedSeconds': round(time.perf_counter() - started, 1),
         }
         (staging / 'summary.json').write_text(json.dumps(summary, indent=2, sort_keys=True) + '\n')
@@ -219,6 +225,9 @@ def main(args):
 
 
 if __name__ == '__main__':
+    if sys.argv[1:] == ['--engine-path']:
+        print(sys.modules[run.__module__].__file__)
+        raise SystemExit(0)
     parser = argparse.ArgumentParser(description=__doc__)
     for flag in ('--historical-cache', '--lock-dir', '--xrv-cache', '--gate-dir', '--output'):
         parser.add_argument(flag, type=Path, required=True)

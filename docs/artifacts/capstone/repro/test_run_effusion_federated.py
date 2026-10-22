@@ -77,5 +77,13 @@ class FederatedHarnessTests(unittest.TestCase):
         self.assertEqual(self.module.check_gate({'gate': {'passed': True}}, None)['proceedingUnder'], None)
 
 
+    def test_script_imports_this_worktrees_engine_in_a_fresh_process(self):
+        import subprocess
+        result = subprocess.run([sys.executable, str(HERE / 'run_effusion_federated.py'), '--engine-path'],
+                                capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr[-500:])
+        engine = Path(result.stdout.strip().splitlines()[-1]).resolve()
+        self.assertTrue(engine.is_relative_to((HERE.parents[3] / 'framework' / 'src').resolve()), engine)
+
 if __name__ == '__main__':
     unittest.main()
