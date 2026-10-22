@@ -52,7 +52,8 @@ Against a background of 0.030, a 0.005 shift gives μ ≈ 0.15 whatever the DP s
   - Round t's canary contribution C/n is present in that release untouched by later training.
   - The background is the per-round DP noise plus a small honest projection.
   - μ̂ should then approach √T/(2z) under DP and be very large in the clean control.
-  - This is pre-registered as amendment A18.
+  - This was pre-registered as amendment A18. It was then withdrawn before any run, because the
+    averaged score telescopes back to the final model (see the follow-up below).
 
 Private evidence: `summary.json`
 `9c6692759411903cb583433a024d85e14d78baa253753e060874c9e3cbb4c42c`.
