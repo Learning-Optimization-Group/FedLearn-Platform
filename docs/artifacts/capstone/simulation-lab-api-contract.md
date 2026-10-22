@@ -20,7 +20,24 @@ app.simulation.report-sha256=${CAPSTONE_LAB_FEATURE_PIN}
 app.simulation.storage=${CAPSTONE_LAB_JOB_ROOT}
 app.simulation.deadline-seconds=180
 app.simulation.reconcile-on-startup=true
+# Optional: the capstone Effusion R0 bundle (train + development selection only)
+app.simulation.effusion-bundle=${CAPSTONE_LAB_EFFUSION_BUNDLE}
+app.simulation.effusion-report-sha256=${CAPSTONE_LAB_EFFUSION_PIN}
 ```
+
+**Effusion workload (`nih-effusion-r0`).**
+- The two optional settings enable a second workload, built by
+  `repro/build_effusion_bundle.py`. When they are unset, `/simulations/workloads` lists it
+  as unavailable.
+- The bundle holds standardised R0 features and exact-token Effusion labels for train and
+  the development selection half. It has no holdout and no official-test rows; the loader
+  re-verifies every hash and refuses anything else.
+- Its recipes are the measured presets `effusion-clean` (LR 0.1, clip 1.0) and
+  `effusion-dp` (LR 0.03, clip 0.05). Each fixes its own clip, so requests omit `clipNorm`.
+  The historical workload keeps the `standard` recipe.
+- A Lab run with seed 20261101, 80 clients, 20 rounds, 7 epochs and `effusion-clean`
+  reproduces the capstone A7 run exactly: per-round AUROC difference 0.0 and the same
+  final digest.
 
 Use an absolute executable path and a module root containing the installed
 `fedlearn` package or the framework's `src` directory. The cache must pass the

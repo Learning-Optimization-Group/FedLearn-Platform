@@ -40,6 +40,39 @@ async function review() {
   await waitFor(() => expect(screen.getByRole('button', { name: 'Start simulation' })).toBeEnabled());
 }
 
+describe('Simulation Lab workload choice', () => {
+  const effusion = { ...workload, id: 'nih-effusion-r0', label: 'Effusion (1) versus not (0); report-derived labels',
+    representation: 'Frozen ImageNet ResNet-18 features, train-standardised; development selection half only (holdout and official test excluded)',
+    splitSummary: { train: { images: 68650, patients: 22399 }, selection: { images: 9075, patients: 2800 } },
+    supportedChoices: { recipe: ['effusion-clean', 'effusion-dp'] } };
+  beforeEach(() => {
+    override = (config) => config.url?.endsWith('/workloads') ? Promise.resolve({ workloads: [workload, effusion], scope: limits.scope }) : undefined;
+  });
+  it('switches to the Effusion workload with measured recipes and no free clip choice', async () => {
+    show(); await screen.findByText(workload.label);
+    fireEvent.change(screen.getByLabelText('Workload'), { target: { value: 'nih-effusion-r0' } });
+    expect(await screen.findByText(effusion.label)).toBeInTheDocument();
+    expect(screen.getByText(/9,075 development-selection images/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Client clipping norm')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Measured recipe'), { target: { value: 'effusion-dp' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Review recipe' }));
+    await waitFor(() => expect(requests.some(r => r.url === '/simulations/resolve')).toBe(true));
+    const sent = (requests.find(r => r.url === '/simulations/resolve')!.data as { choices: Record<string, unknown> }).choices;
+    expect(sent).toMatchObject({ workloadId: 'nih-effusion-r0', recipe: 'effusion-dp' });
+    expect(sent).not.toHaveProperty('clipNorm');
+  });
+  it('returns to the historical workload with its standard recipe and clip', async () => {
+    show(); await screen.findByText(workload.label);
+    fireEvent.change(screen.getByLabelText('Workload'), { target: { value: 'nih-effusion-r0' } });
+    fireEvent.change(screen.getByLabelText('Workload'), { target: { value: 'nih-qualified' } });
+    expect(screen.getByLabelText('Client clipping norm')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Review recipe' }));
+    await waitFor(() => expect(requests.some(r => r.url === '/simulations/resolve')).toBe(true));
+    expect((requests.find(r => r.url === '/simulations/resolve')!.data as { choices: unknown }).choices)
+      .toMatchObject({ workloadId: 'nih-qualified', recipe: 'standard', clipNorm: .05 });
+  });
+});
+
 describe('Simulation Lab workbench', () => {
   it('prevents launches when no qualified workload is available', async () => {
     available = false; show();

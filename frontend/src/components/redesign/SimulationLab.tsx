@@ -10,7 +10,11 @@ import { SimulationRunView } from './SimulationRunView';
 import { statusLabel } from './simulationPresentation';
 import { SimulationCompare } from './SimulationCompare';
 
-const INITIAL: SimulationChoices = { workloadId: 'nih-qualified', head: 'linear', numClients: 10,
+const HISTORICAL = 'nih-qualified';
+const WORKLOAD_NAMES: Record<string, string> = { [HISTORICAL]: 'Any finding · historical study', 'nih-effusion-r0': 'Effusion · capstone follow-up' };
+/** Measured presets for the capstone Effusion R0 bundle; each fixes its own learning rate and clip. */
+const EFFUSION_RECIPES: [string, string][] = [['effusion-clean', 'Measured clean · LR 0.1, clip 1.0'], ['effusion-dp', 'Measured DP · LR 0.03, clip 0.05']];
+const INITIAL: SimulationChoices = { workloadId: HISTORICAL, recipe: 'standard', head: 'linear', numClients: 10,
   rounds: 3, localEpochs: 1, aggregation: 'mean', clipNorm: .05, privacy: 'none', epsilon: 4, behavior: 'clean', seed: 42 };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const controlClass = 'mt-1 w-full rounded-md border border-line bg-surface-1 px-3 py-2 text-body focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent';
@@ -27,7 +31,7 @@ function LabWorkspace() {
   const selectedId = query.get('run');
   const selectedRef = useRef(selectedId);
   selectedRef.current = selectedId;
-  const [workload, setWorkload] = useState<SimulationWorkload | null>(null);
+  const [workloads, setWorkloads] = useState<SimulationWorkload[]>([]);
   const [history, setHistory] = useState<SimulationPage | null>(null);
   const [page, setPage] = useState(0);
   const [refresh, setRefresh] = useState(0);
@@ -36,6 +40,8 @@ function LabWorkspace() {
   const [runError, setRunError] = useState('');
   const [actionError, setActionError] = useState('');
   const [choices, setChoices] = useState(INITIAL);
+  const workload = workloads.find(w => w.id === choices.workloadId) ?? null;
+  const historical = choices.workloadId === HISTORICAL;
   const [resolution, setResolution] = useState<SimulationResolution | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -60,7 +66,7 @@ function LabWorkspace() {
     setLoadError('');
     Promise.all([api.getSimulationWorkloads(request.signal), api.listSimulations(page, request.signal)])
       .then(([data, recent]) => {
-        if (!request.signal.aborted) { setWorkload(data.workloads.find(w => w.id === 'nih-qualified') ?? null); setHistory(recent); }
+        if (!request.signal.aborted) { setWorkloads(data.workloads); setHistory(recent); }
       }).catch(error => { if (!request.signal.aborted) setLoadError(errorMessage(error, 'Could not load the workload and owned history.')); });
     return () => request.abort();
   }, [page, refresh]);
@@ -91,6 +97,19 @@ function LabWorkspace() {
 
   function open(id: string) { setQuery(previous => { const next = new URLSearchParams(previous); next.set('run', id); return next; }); }
   function change(key: keyof SimulationChoices, value: string | number) { setChoices(previous => ({ ...previous, [key]: value })); setResolution(null); setActionError(''); }
+  function chooseWorkload(id: string) {
+    setChoices(previous => ({ ...previous, workloadId: id, recipe: id === HISTORICAL ? 'standard' : EFFUSION_RECIPES[0][0], clipNorm: INITIAL.clipNorm }));
+    setResolution(null); setActionError('');
+  }
+  // A measured recipe fixes its clip, so the request omits clipNorm rather than send a value the contract would refuse.
+  function payload(): Partial<SimulationChoices> {
+    if (historical) return choices;
+    const { clipNorm: _fixedByRecipe, ...rest } = choices;
+    return rest;
+  }
+  function preset(extra: Partial<SimulationChoices>) {
+    setChoices({ ...INITIAL, workloadId: choices.workloadId, recipe: historical ? 'standard' : choices.recipe, ...extra }); setResolution(null);
+  }
   const valid = [choices.rounds, choices.localEpochs, choices.seed].every(Number.isInteger)
     && choices.rounds >= 1 && choices.rounds <= 20 && choices.localEpochs >= 1 && choices.localEpochs <= 7 && choices.seed >= 0 && choices.seed <= 1e9;
   const knownActive = history?.content.find(r => !api.simulationTerminal(r.status));
@@ -99,7 +118,7 @@ function LabWorkspace() {
   async function review() {
     if (!valid || !workload?.ready || reviewing || starting) return;
     const request = controller(); setReviewing(true); setResolution(null); setActionError('');
-    try { const next = await api.resolveSimulation(choices, request.signal); if (!request.signal.aborted) setResolution(next); }
+    try { const next = await api.resolveSimulation(payload(), request.signal); if (!request.signal.aborted) setResolution(next); }
     catch (error) { if (!request.signal.aborted) setActionError(errorMessage(error, 'Could not resolve this recipe.')); }
     finally { if (!request.signal.aborted) setReviewing(false); pending.current.delete(request); }
   }
@@ -107,7 +126,7 @@ function LabWorkspace() {
     if (!resolution || starting || occupied || !workload?.ready) return;
     const request = controller(); setStarting(true); setActionError('');
     try {
-      const accepted = await api.startSimulation(choices, request.signal);
+      const accepted = await api.startSimulation(payload(), request.signal);
       if (!request.signal.aborted) { open(accepted.id); setRefresh(v => v + 1); }
     } catch (error) {
       if (!request.signal.aborted) { if (errorStatus(error) === 409) setBusy(true); setActionError(errorMessage(error, 'The simulation could not be started. Check owned history before retrying.')); }
@@ -157,7 +176,8 @@ function LabWorkspace() {
     ['head', 'Trainable head', [['linear', 'Linear · 1,026 parameters'], ['mlp8', 'MLP 8 · 4,122 parameters'], ['mlp128', 'MLP 128 · 65,922 parameters'], ['mlp512', 'MLP 512 · 263,682 parameters']]],
     ['numClients', 'Simulated clients', [10, 80, 1000].map(n => [n, String(n)])],
     ['aggregation', 'Aggregation', [['mean', 'Uniform mean'], ['trimmed_mean', 'Coordinate trimming · 20%']]],
-    ['clipNorm', 'Client clipping norm', [[.05, '0.05'], [.4, '0.4']]],
+    ...(historical ? [['clipNorm', 'Client clipping norm', [[.05, '0.05'], [.4, '0.4']]] as [keyof SimulationChoices, string, [string | number, string][]]]
+      : [['recipe', 'Measured recipe', EFFUSION_RECIPES] as [keyof SimulationChoices, string, [string | number, string][]]]),
     ['privacy', 'Privacy', [['none', 'No DP'], ['central', 'Central DP · client update']]],
     ['epsilon', 'Epsilon target', [1, 4, 8].map(n => [n, String(n)])],
     ['behavior', 'Client behavior', [['clean', 'Clean'], ['sign_flip', '20% sign flip · scale −4'], ['label_flip', '20% binary label flip']]],
@@ -168,17 +188,23 @@ function LabWorkspace() {
       <section className="max-w-5xl space-y-2" aria-label="Prepared workload">
         <h2 className="text-h3 font-semibold">{workload?.label ?? 'NIH chest X-ray workload'}</h2>
         <p className="text-body text-fg-muted">{workload?.representation ?? 'Loading prepared workload…'}</p>
-        <p className="max-w-prose text-label text-fg-muted">Clients are simulated patient groups. These runs use validation data and the existing any-finding task; they do not test the proposed disease-specific model.</p>
+        <p className="max-w-prose text-label text-fg-muted">{historical
+          ? 'Clients are simulated patient groups. These runs use validation data and the existing any-finding task; they do not test the proposed disease-specific model.'
+          : 'Clients are simulated patient groups. These runs use the Effusion follow-up\u2019s development selection half; the locked holdout and the official test are not available in the Lab.'}</p>
         {workload && !workload.ready && <p role="status" className="text-warning">{workload.reason ?? 'Qualified workload unavailable.'}</p>}
-        {workload?.ready && <p className="text-caption text-fg-muted">Training: {workload.splitSummary?.train?.images?.toLocaleString() ?? '—'} images; validation: {workload.splitSummary?.validation?.images?.toLocaleString() ?? '—'} images. Limit: {workload.limits.deadlineSeconds} seconds, {workload.limits.cpuThreads} CPU threads.</p>}
+        {workload?.ready && <p className="text-caption text-fg-muted">Training: {workload.splitSummary?.train?.images?.toLocaleString() ?? '—'} images; {historical
+          ? <>validation: {workload.splitSummary?.validation?.images?.toLocaleString() ?? '—'} images.</>
+          : <>{workload.splitSummary?.selection?.images?.toLocaleString() ?? '—'} development-selection images.</>} Limit: {workload.limits.deadlineSeconds} seconds, {workload.limits.cpuThreads} CPU threads.</p>}
         <a className="inline-block text-label font-medium text-accent underline" href="/capstone/study-v1/index.html" target="_blank" rel="noreferrer">View completed reference study</a>
       </section>
       {loadError && <p role="alert" className="text-danger">{loadError}</p>}
       {actionError && <p role="alert" className="text-danger">{actionError}</p>}
       <div className="grid items-start gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
         <Card padding="lg" className="space-y-4"><h2 className="text-h3 font-semibold">Configure a run</h2>
-          <div className="flex flex-wrap gap-2"><Button variant="secondary" size="sm" disabled={reviewing || starting} onClick={() => { setChoices(INITIAL); setResolution(null); }}>Three-round demo</Button>
-            <Button variant="secondary" size="sm" disabled={reviewing || starting} onClick={() => { setChoices({ ...INITIAL, numClients: 80, rounds: 20, localEpochs: 7 }); setResolution(null); }}>Reference E7/R20 schedule</Button></div>
+          <label className="block text-label">Workload<select className={controlClass} value={choices.workloadId} disabled={reviewing || starting} onChange={e => chooseWorkload(e.target.value)}>
+            {(workloads.length ? workloads : [{ id: HISTORICAL, ready: false }]).map(w => <option key={w.id} value={w.id}>{WORKLOAD_NAMES[w.id] ?? w.id}{w.ready ? '' : ' (unavailable)'}</option>)}</select></label>
+          <div className="flex flex-wrap gap-2"><Button variant="secondary" size="sm" disabled={reviewing || starting} onClick={() => preset({})}>Three-round demo</Button>
+            <Button variant="secondary" size="sm" disabled={reviewing || starting} onClick={() => preset({ numClients: 80, rounds: 20, localEpochs: 7 })}>Reference E7/R20 schedule</Button></div>
           <form onSubmit={e => { e.preventDefault(); void review(); }} className="space-y-3">
             <fieldset disabled={reviewing || starting} className="space-y-3">
               {selectors.map(([key, label, options]) => <label key={key} className="block text-label">{label}<select className={controlClass} value={choices[key]} disabled={key === 'epsilon' && choices.privacy === 'none'} onChange={e => change(key, typeof INITIAL[key] === 'number' ? Number(e.target.value) : e.target.value)}>{options.map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label>)}
@@ -187,7 +213,7 @@ function LabWorkspace() {
             <Button type="submit" variant="secondary" disabled={!valid || !workload?.ready || reviewing || starting}>{reviewing ? 'Resolving…' : 'Review recipe'}</Button>
           </form>
           {resolution && <section aria-label="Resolved recipe" className="space-y-2 border-t border-hairline pt-3 text-caption"><h3 className="font-semibold">Resolved recipe</h3>
-            <p>{resolution.recipe.numClients} clients, {resolution.recipe.localEpochs} local epochs, {resolution.recipe.rounds} rounds. Learning rate {resolution.recipe.learningRate}, batch size {resolution.recipe.batchSize}. Validation only.</p>
+            <p>{resolution.recipe.numClients} clients, {resolution.recipe.localEpochs} local epochs, {resolution.recipe.rounds} rounds. Learning rate {resolution.recipe.learningRate}, batch size {resolution.recipe.batchSize}. Evaluation: {resolution.recipe.evaluationSplit ?? 'validation'}.</p>
             <p className="break-all">Configuration: {resolution.configHash}</p></section>}
           <Button onClick={() => { void start(); }} disabled={!resolution || occupied || !workload?.ready || starting || reviewing}>{starting ? 'Starting…' : 'Start simulation'}</Button>
           {occupied && <p role="status" className="text-caption text-fg-muted">A worker is active or awaiting recovery. Open owned history or refresh its state.{knownActive && <button className="ml-1 underline" onClick={() => open(knownActive.id)}>Open active run</button>}</p>}

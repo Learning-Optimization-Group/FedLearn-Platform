@@ -3,7 +3,7 @@ import api from '../api/axiosConfig';
 export type SimulationStatus = 'ACCEPTED' | 'STARTING' | 'RUNNING' | 'STOPPING' | 'COMPLETED'
   | 'STOPPED' | 'FAILED' | 'TIMED_OUT' | 'INTERRUPTED';
 export type SimulationChoices = {
-  workloadId: string; head: string; numClients: number; rounds: number; localEpochs: number;
+  workloadId: string; recipe: string; head: string; numClients: number; rounds: number; localEpochs: number;
   aggregation: string; clipNorm: number; privacy: string; epsilon: number; behavior: string; seed: number;
 };
 export type SimulationRecipe = Partial<SimulationChoices> & {
