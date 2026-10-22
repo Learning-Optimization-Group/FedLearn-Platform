@@ -526,3 +526,34 @@ cost of fewer optimisation steps.
   - Refusals and non-finite runs are reported as such. The T = 20 ε 4 and ε 8 cells repeat
     A13's configuration and must reproduce its margins exactly. The T = 20 clean cells must
     likewise reproduce A8's clean cells.
+
+## Amendment A16 — 22 October 2026: one-run canary audit of central DP on R0, before any A16 run
+
+**Question:** does the simulator's central-DP mechanism leak no more than its accountant
+claims, against an adversary who knows the canary directions and sees the final model?
+Method: Andrew et al., ICLR'24 (arXiv:2302.03098).
+
+- **Canaries:**
+  - 8 of the 80 client slots are canary clients, drawn by the engine's attack-seed stream.
+  - Each canary uploads global + C·u, every round, where u is its own fixed random unit
+    direction over the trainable head and C = 0.05 is the clip, so the clip leaves it unchanged.
+  - Each final model is also scored against 1,000 random unit directions that were never inserted.
+- **Cells:** 40 runs, all retained.
+  - R0, A8 recipe, T = 20.
+  - Privacy ∈ {clean (positive control), claimed ε 8, 4, 1}, with z calibrated exactly with GDP as in A13.
+  - Seeds 20261101–20261110.
+- **Score:** ⟨final head parameters, u⟩ for inserted canaries (80 per privacy level) and unseen
+  directions (10,000 per level).
+  - μ̂ = (mean inserted − mean unseen) / sd unseen, with a bootstrap 95% interval
+    (`fedlearn.privacy.audit.canary_audit`, 2,000 resamples, seed 20261035).
+  - ε̂ is the GDP ε of μ̂ at δ 10⁻⁵.
+- **Reference:**
+  - The noise is calibrated for replace-one sensitivity 2C/n. "Canary inserted vs not inserted"
+    is a shift of C/n per round, so its theoretical μ is √T/(2z).
+  - μ̂ is expected at or below that, because the learning signal adds spread. A lower interval
+    bound above √T/(2z) would mean the mechanism leaks more than claimed, and is reported as a
+    finding.
+- **Also reported:**
+  - AUROC with canaries present;
+  - the clean control's μ̂, which must be large, or the audit has no power;
+  - refusals and non-finite runs.
