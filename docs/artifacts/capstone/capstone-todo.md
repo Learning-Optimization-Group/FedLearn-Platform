@@ -53,7 +53,12 @@ pneumonia task. Preserve the completed study separately.
   payload identities/statistics checked, no centralized NIH comparison found, and
   representation/optimization/federation effects remain unresolved. No new fitting
   or test scoring has been performed; the prospective diagnostic is next.
-- [ ] Qualify a matched federated baseline without DP or attacks.
+- [x] Qualify a matched federated baseline without DP or attacks:
+  [result](effusion-federated-v1-result-2026-10-22.md), on R1 by amendment A2 with the
+  A3 reading rule committed first. Federated 0.797 vs central-SGD 0.800 (seed means;
+  −0.004), production engine, 5 seeds, no refusals. Gap to the convex head is
+  recipe-limited (central control clipped every round). Central-DP sweep with an R0
+  width arm (A4) and secure-aggregation equivalence/overhead (A5) declared and running.
 - [x] Audit privacy/security readiness against source and fresh controls:
   [readiness report](privacy-security-readiness-2026-10-20.md), 218 checks passed.
   Local DP exists in the generic engine but is excluded from the qualified NIH
