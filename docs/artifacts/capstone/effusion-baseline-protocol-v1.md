@@ -124,3 +124,25 @@ labelled post-hoc. If the holdout itself proves unusable, report that.
 3. §4 fits, §7 gate, then §6 federation. Privacy (central DP, local DP, secure
    aggregation where supported) and bounded attacks follow on the frozen recipe.
 4. §8 once, then heatmaps, report, presentation and simulator integration.
+
+## Amendment A1 — 22 October 2026, before any federated run or gate result
+
+Fixes details §6 left open; no result of any kind had been observed when this was written.
+
+- **Seeds:** 20261101–20261105 (the first five of the historical study's declared
+  list), with the historical scheme: partition = init = client = s, attack = s + 1000,
+  noise = s + 2000.
+- **Engine:** the production simulation engine (`ComposedStrategy` + `FLCoordinator`
+  via `SimulatedFederation`) through a new optional `workload=` argument, so FedAvg is
+  not re-implemented. Uniform mean rule, no server optimiser, AUROC on float64
+  logit margins (`margin_v2`), evaluated on the selection half after each round.
+- **Central-SGD control:** the same engine with one client holding all of train,
+  so local SGD, seven epochs, batch 256, LR 0.003 and the 0.05 update clip per round
+  are identical. Only data distribution and averaging differ. The clip bounds the
+  per-round movement of both arms equally.
+- **Convex optimum:** the gate-selected R1 logistic head.
+- **Reported:** per-seed AUROC and AP; the seed mean and range; and paired
+  patient-bootstrap intervals (2,000 resamples, seed 20261023) for federated −
+  central-SGD (same seed), federated − convex and central-SGD − convex. There is
+  no pass/fail threshold; the gap is the result.
+- Runs only if the §7 gate passed.

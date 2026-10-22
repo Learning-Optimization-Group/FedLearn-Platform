@@ -119,12 +119,17 @@ def _start_checks(resolved: Dict, workload) -> None:
 
 def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         should_stop: Optional[Callable[[], bool]] = None, *,
-        on_final_parameters: Optional[Callable[[Dict], None]] = None) -> Dict:
+        on_final_parameters: Optional[Callable[[Dict], None]] = None, workload=None) -> Dict:
+    """Run one resolved config. ``workload``, when given, replaces the workload the config would
+    build (same interface as ``FeatureHeadWorkload``); its own ``info`` must describe its data."""
     r = resolve(cfg)
     rss_before = costs.peak_rss_bytes()
     seeds, fed, sv, pv = r["seeds"], r["federation"], r["server"], r["privacy"]
     net_cfg = fed["network"]
-    wl = (NihFeatureHeadWorkload(r) if r["workload"]["dataset"] == "nih" else FeatureHeadWorkload(r))
+    if workload is not None:
+        wl = workload
+    else:
+        wl = (NihFeatureHeadWorkload(r) if r["workload"]["dataset"] == "nih" else FeatureHeadWorkload(r))
     plan = BehaviorPlan(r["behaviors"], int(fed["num_clients"]), int(seeds["attack"]), wl.n_classes)
     _start_checks(r, wl)
     rounds = int(fed["rounds"])

@@ -291,3 +291,15 @@ def test_fedprox_pulls_updates_toward_the_global(tmp_path):
 def test_free_riders_do_no_training_and_upload_the_global(tmp_path):
     r0 = run(_cfg(_features(tmp_path), behaviors=[{"type": "free_rider", "fraction": 1.0}]))["rounds"][0]
     assert r0["compute"]["client_flops"] == 0 and r0["updates"]["attacker_norm_mean"] == 0.0
+
+
+def test_an_injected_workload_is_trained_and_evaluated_instead_of_the_configured_one(tmp_path):
+    from fedlearn.simulation.workloads import FeatureHeadWorkload
+    from fedlearn.simulation.config import resolve
+    cfg = _cfg(_features(tmp_path))
+    default = run(cfg)
+    injected = FeatureHeadWorkload(resolve(cfg))
+    assert _stable(run(cfg, workload=injected)) == _stable(default)
+    injected.test_y = 1 - injected.test_y  # an evaluation set only the injected workload has
+    flipped = run(cfg, workload=injected)
+    assert [l["accuracy"] for l in flipped["rounds"]] == pytest.approx([1 - l["accuracy"] for l in default["rounds"]])
