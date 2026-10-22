@@ -1,0 +1,397 @@
+{
+  "cells": [
+    {
+      "column": "clean",
+      "interval95": [
+        0.7999097891677822,
+        0.8350084692956645
+      ],
+      "panel": "A",
+      "point": 0.8186705820259965,
+      "row": "No DP \u00b7 mean"
+    },
+    {
+      "column": "sign_flip",
+      "interval95": [
+        0.7721497481498352,
+        0.8055397821189341
+      ],
+      "panel": "A",
+      "point": 0.7896885837660084,
+      "row": "No DP \u00b7 mean"
+    },
+    {
+      "column": "label_flip",
+      "interval95": [
+        0.7951417072993909,
+        0.8296533634098942
+      ],
+      "panel": "A",
+      "point": 0.8133673121206195,
+      "row": "No DP \u00b7 mean"
+    },
+    {
+      "column": "alie",
+      "interval95": [
+        0.7994668804856855,
+        0.8341556470817004
+      ],
+      "panel": "A",
+      "point": 0.8180316215234681,
+      "row": "No DP \u00b7 mean"
+    },
+    {
+      "column": "clean",
+      "interval95": [
+        0.7998085790870653,
+        0.8344528815157696
+      ],
+      "panel": "A",
+      "point": 0.8183234900607808,
+      "row": "No DP \u00b7 trimmed mean (0.2)"
+    },
+    {
+      "column": "sign_flip",
+      "interval95": [
+        0.7904513575513237,
+        0.8250149599453146
+      ],
+      "panel": "A",
+      "point": 0.8086900075028035,
+      "row": "No DP \u00b7 trimmed mean (0.2)"
+    },
+    {
+      "column": "label_flip",
+      "interval95": [
+        0.7954506632868261,
+        0.8296776115939357
+      ],
+      "panel": "A",
+      "point": 0.8137839821129969,
+      "row": "No DP \u00b7 trimmed mean (0.2)"
+    },
+    {
+      "column": "alie",
+      "interval95": [
+        0.7990986269417778,
+        0.8337369243148623
+      ],
+      "panel": "A",
+      "point": 0.8176755376676658,
+      "row": "No DP \u00b7 trimmed mean (0.2)"
+    },
+    {
+      "column": "clean",
+      "interval95": [
+        0.7980719225672014,
+        0.8324615693109498
+      ],
+      "panel": "A",
+      "point": 0.8165692981685975,
+      "row": "No DP \u00b7 median"
+    },
+    {
+      "column": "sign_flip",
+      "interval95": [
+        0.7892947166706982,
+        0.8239284978729452
+      ],
+      "panel": "A",
+      "point": 0.8075222340395813,
+      "row": "No DP \u00b7 median"
+    },
+    {
+      "column": "label_flip",
+      "interval95": [
+        0.7929638939378301,
+        0.827465901612113
+      ],
+      "panel": "A",
+      "point": 0.8112998382706836,
+      "row": "No DP \u00b7 median"
+    },
+    {
+      "column": "alie",
+      "interval95": [
+        0.7982921074045881,
+        0.8327468924349476
+      ],
+      "panel": "A",
+      "point": 0.8166898842852183,
+      "row": "No DP \u00b7 median"
+    },
+    {
+      "column": "clean",
+      "interval95": [
+        0.6769864322089133,
+        0.7126007653993599
+      ],
+      "panel": "A",
+      "point": 0.6946899705874137,
+      "row": "DP \u03b5=4 \u00b7 mean"
+    },
+    {
+      "column": "sign_flip",
+      "interval95": [
+        0.6210268319809435,
+        0.6513430445834523
+      ],
+      "panel": "A",
+      "point": 0.6359094829650441,
+      "row": "DP \u03b5=4 \u00b7 mean"
+    },
+    {
+      "column": "label_flip",
+      "interval95": [
+        0.6205045635623188,
+        0.6508655057229774
+      ],
+      "panel": "A",
+      "point": 0.6354252428434028,
+      "row": "DP \u03b5=4 \u00b7 mean"
+    },
+    {
+      "column": "alie",
+      "interval95": [
+        0.6809355117010161,
+        0.7165861538673187
+      ],
+      "panel": "A",
+      "point": 0.6987682980608445,
+      "row": "DP \u03b5=4 \u00b7 mean"
+    },
+    {
+      "column": "clean",
+      "interval95": [
+        0.6228168420767124,
+        0.6541882543709217
+      ],
+      "panel": "A",
+      "point": 0.638263973971657,
+      "row": "DP \u03b5=4 \u00b7 trimmed mean (0.2)"
+    },
+    {
+      "column": "sign_flip",
+      "interval95": [
+        0.5959420273232854,
+        0.6241639930616135
+      ],
+      "panel": "A",
+      "point": 0.610002249843359,
+      "row": "DP \u03b5=4 \u00b7 trimmed mean (0.2)"
+    },
+    {
+      "column": "label_flip",
+      "interval95": [
+        0.5860477822062379,
+        0.6136095153209777
+      ],
+      "panel": "A",
+      "point": 0.5998893037158831,
+      "row": "DP \u03b5=4 \u00b7 trimmed mean (0.2)"
+    },
+    {
+      "column": "alie",
+      "interval95": [
+        0.6267996664701153,
+        0.6585513571156056
+      ],
+      "panel": "A",
+      "point": 0.6424627753189689,
+      "row": "DP \u03b5=4 \u00b7 trimmed mean (0.2)"
+    },
+    {
+      "column": "clean",
+      "panel": "A",
+      "row": "DP \u03b5=4 \u00b7 median",
+      "status": "unavailable"
+    },
+    {
+      "column": "sign_flip",
+      "panel": "A",
+      "row": "DP \u03b5=4 \u00b7 median",
+      "status": "unavailable"
+    },
+    {
+      "column": "label_flip",
+      "panel": "A",
+      "row": "DP \u03b5=4 \u00b7 median",
+      "status": "unavailable"
+    },
+    {
+      "column": "alie",
+      "panel": "A",
+      "row": "DP \u03b5=4 \u00b7 median",
+      "status": "unavailable"
+    },
+    {
+      "column": "sign_flip",
+      "interval95": [
+        0.02419655083772091,
+        0.033599876893562274
+      ],
+      "panel": "B",
+      "point": 0.02898199825998813,
+      "row": "No DP \u00b7 mean"
+    },
+    {
+      "column": "label_flip",
+      "interval95": [
+        0.0027866517185289328,
+        0.007713054742767164
+      ],
+      "panel": "B",
+      "point": 0.0053032699053770175,
+      "row": "No DP \u00b7 mean"
+    },
+    {
+      "column": "alie",
+      "interval95": [
+        -0.00016585321079795934,
+        0.0013891159920223068
+      ],
+      "panel": "B",
+      "point": 0.0006389605025283185,
+      "row": "No DP \u00b7 mean"
+    },
+    {
+      "column": "sign_flip",
+      "interval95": [
+        0.006993733819073517,
+        0.012249326506770021
+      ],
+      "panel": "B",
+      "point": 0.00963348255797709,
+      "row": "No DP \u00b7 trimmed mean (0.2)"
+    },
+    {
+      "column": "label_flip",
+      "interval95": [
+        0.0023448407452892526,
+        0.006580436946917606
+      ],
+      "panel": "B",
+      "point": 0.004539507947783639,
+      "row": "No DP \u00b7 trimmed mean (0.2)"
+    },
+    {
+      "column": "alie",
+      "interval95": [
+        -0.00022007322595518964,
+        0.0014772698724488964
+      ],
+      "panel": "B",
+      "point": 0.0006479523931149256,
+      "row": "No DP \u00b7 trimmed mean (0.2)"
+    },
+    {
+      "column": "sign_flip",
+      "interval95": [
+        0.006471741195444539,
+        0.011648143684789709
+      ],
+      "panel": "B",
+      "point": 0.009047064129016258,
+      "row": "No DP \u00b7 median"
+    },
+    {
+      "column": "label_flip",
+      "interval95": [
+        0.0030475456369212237,
+        0.007357194261355722
+      ],
+      "panel": "B",
+      "point": 0.005269459897913942,
+      "row": "No DP \u00b7 median"
+    },
+    {
+      "column": "alie",
+      "interval95": [
+        -0.0011968922991216174,
+        0.0008823124873422446
+      ],
+      "panel": "B",
+      "point": -0.00012058611662071339,
+      "row": "No DP \u00b7 median"
+    },
+    {
+      "column": "sign_flip",
+      "interval95": [
+        0.05375825630321601,
+        0.06328032961128613
+      ],
+      "panel": "B",
+      "point": 0.058780487622369516,
+      "row": "DP \u03b5=4 \u00b7 mean"
+    },
+    {
+      "column": "label_flip",
+      "interval95": [
+        0.05476967958649553,
+        0.06344170657571936
+      ],
+      "panel": "B",
+      "point": 0.059264727744010794,
+      "row": "DP \u03b5=4 \u00b7 mean"
+    },
+    {
+      "column": "alie",
+      "interval95": [
+        -0.004593164653650214,
+        -0.003573546081480484
+      ],
+      "panel": "B",
+      "point": -0.004078327473430887,
+      "row": "DP \u03b5=4 \u00b7 mean"
+    },
+    {
+      "column": "sign_flip",
+      "interval95": [
+        0.025396739231654263,
+        0.03097215900043896
+      ],
+      "panel": "B",
+      "point": 0.02826172412829797,
+      "row": "DP \u03b5=4 \u00b7 trimmed mean (0.2)"
+    },
+    {
+      "column": "label_flip",
+      "interval95": [
+        0.034944387095971356,
+        0.04159617733789687
+      ],
+      "panel": "B",
+      "point": 0.03837467025577386,
+      "row": "DP \u03b5=4 \u00b7 trimmed mean (0.2)"
+    },
+    {
+      "column": "alie",
+      "interval95": [
+        -0.004673623692962528,
+        -0.0037032916243153174
+      ],
+      "panel": "B",
+      "point": -0.00419880134731192,
+      "row": "DP \u03b5=4 \u00b7 trimmed mean (0.2)"
+    },
+    {
+      "column": "sign_flip",
+      "panel": "B",
+      "row": "DP \u03b5=4 \u00b7 median",
+      "status": "unavailable"
+    },
+    {
+      "column": "label_flip",
+      "panel": "B",
+      "row": "DP \u03b5=4 \u00b7 median",
+      "status": "unavailable"
+    },
+    {
+      "column": "alie",
+      "panel": "B",
+      "row": "DP \u03b5=4 \u00b7 median",
+      "status": "unavailable"
+    }
+  ],
+  "summarySha256": "1530b753892216ec9a140610916854315c6d40b3628ed4099151d6afde724568"
+}
