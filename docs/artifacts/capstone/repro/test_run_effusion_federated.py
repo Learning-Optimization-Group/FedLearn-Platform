@@ -66,6 +66,16 @@ class FederatedHarnessTests(unittest.TestCase):
             self.assertAlmostEqual(record['rounds'][-1]['auc'], self.module.auroc(sy, margin), places=12)
         self.assertEqual(out['central'][0]['meta']['config']['federation']['num_clients'], 1)
 
+    def test_failed_gate_needs_a_named_amendment_and_records_it(self):
+        failed = {'gate': {'passed': False}}
+        with self.assertRaisesRegex(ValueError, 'gate_not_passed'):
+            self.module.check_gate(failed, None)
+        with self.assertRaisesRegex(ValueError, 'unknown_amendment'):
+            self.module.check_gate(failed, 'A9')
+        self.assertEqual(self.module.check_gate(failed, 'A2')['gatePassed'], False)
+        self.assertEqual(self.module.check_gate(failed, 'A2')['proceedingUnder'], 'A2')
+        self.assertEqual(self.module.check_gate({'gate': {'passed': True}}, None)['proceedingUnder'], None)
+
 
 if __name__ == '__main__':
     unittest.main()

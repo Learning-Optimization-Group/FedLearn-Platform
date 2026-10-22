@@ -146,3 +146,21 @@ Fixes details §6 left open; no result of any kind had been observed when this w
   central-SGD (same seed), federated − convex and central-SGD − convex. There is
   no pass/fail threshold; the gap is the result.
 - Runs only if the §7 gate passed.
+
+## Amendment A2 — 22 October 2026, after the gate result, before any federated run
+
+The §7 gate failed criterion (a): ΔAUROC for R1 − R0 was +0.007, 95% CI
+[−0.004, +0.018]. Criterion (b) passed with R1 AUROC 0.829 ≥ 0.80. See the
+[gate result](effusion-gate-v1-result-2026-10-22.md).
+
+By explicit user decision, §6 onward proceeds on **R1**, the gate-selected CheXpert
+probe, with its frozen standardiser. The decision is recorded, not inferred.
+
+- R1 is **not** claimed to be a stronger baseline than R0. Every later report states
+  that the representations were statistically tied on selection.
+- R1's costs are disclosed wherever relevant: a 2,050-parameter head (twice R0's
+  payload) and the unverified CheXpert training-membership caveat.
+- R0's selected head stays available as a reference at the §8 holdout evaluation.
+  Nothing else in §4–§8 or A1 changes.
+- The federated harness refuses a failed gate unless it is given `--amendment A2`,
+  and it records that authority in its output.

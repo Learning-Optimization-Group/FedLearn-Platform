@@ -41,6 +41,23 @@ class Refusal(ValueError):
     pass
 
 
+# Dated protocol amendments that authorise proceeding after a failed section 7 gate.
+FAILED_GATE_AMENDMENTS = {
+    'A2': 'User decision 22 October 2026: proceed on R1 after gate (a) failed; R1 is not claimed superior to R0.',
+}
+
+
+def check_gate(gate, amendment):
+    """Allow a run on a passed gate, or on a failed one only under a named, recorded amendment."""
+    passed = bool(gate['gate']['passed'])
+    if not passed and amendment is None:
+        raise Refusal('gate_not_passed')
+    if amendment is not None and amendment not in FAILED_GATE_AMENDMENTS:
+        raise Refusal('unknown_amendment')
+    return {'gatePassed': passed, 'proceedingUnder': amendment,
+            'amendmentText': FAILED_GATE_AMENDMENTS.get(amendment)}
+
+
 def auroc(y, scores):
     from sklearn.metrics import roc_auc_score
     return float(roc_auc_score(y, scores))
@@ -144,8 +161,7 @@ def main(args):
     if hashlib.sha256(raw_gate).hexdigest() != args.gate_sha256:
         raise Refusal('gate_hash_mismatch')
     gate = json.loads(raw_gate)
-    if not gate['gate']['passed']:
-        raise Refusal('gate_not_passed')
+    authority = check_gate(gate, args.amendment)
     if gate['inputs']['xrvCacheReportSha256'] != args.xrv_report_sha256:
         raise Refusal('gate_cache_mismatch')
     labels, provenance = effusion_labels.load_labels(args.historical_cache, args.lock_dir)
@@ -183,6 +199,7 @@ def main(args):
         summary = {
             'schema': 'capstone.effusion.federated_baseline.v1',
             'protocol': 'effusion-baseline-protocol-v1 section 6 with amendment A1',
+            'gateAuthority': authority,
             'scope': 'Clean federated and central-SGD heads on R1, scored on the selection half only. No DP, attacks, holdout or official test.',
             'inputs': {**info, 'historicalCache': str(args.historical_cache)},
             'recipe': config('fed', SEEDS[0], clients=CLIENTS, features_path=args.xrv_cache, report_sha256=args.xrv_report_sha256),
@@ -207,6 +224,7 @@ if __name__ == '__main__':
         parser.add_argument(flag, type=Path, required=True)
     parser.add_argument('--xrv-report-sha256', required=True)
     parser.add_argument('--gate-sha256', required=True)
+    parser.add_argument('--amendment', choices=sorted(FAILED_GATE_AMENDMENTS))
     args = parser.parse_args()
     try:
         summary = main(args)
