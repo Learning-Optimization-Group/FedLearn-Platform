@@ -28,11 +28,10 @@ hit**, and our evaluation used weak attacks and no empirical privacy check.
    - The runs we labelled ε 8/4/1 actually satisfy **ε 6.76/3.25/0.74** (δ 10⁻⁵).
    - Calibrating exactly would need 13–24% less noise for the same claim (z 2.68/4.84/16.68 instead of 3.09/5.80/21.92).
    - The claims stand; they were simply loose.
-2. **Possible understatement of ε in production DP. This needs verification.**
-   - The mechanism behind production FedLoRA DP and the new `DPFedAvg` (`dp_aggregate`) adds noise of z·S/n under an add/remove reading, but divides by the *actual* number of clients n.
-   - Live DP runs force a fixed cohort. A mechanism that only ever runs on exactly n clients has replace-one neighbours, with sensitivity 2S/n. Under add/remove with a data-dependent denominator, the mean's sensitivity is also up to about 2S/n.
-   - If so, production adds half the noise its accountant assumes, and the reported ε is understated. Standard DP-FedAvg avoids this with a fixed public denominator.
-   - The capstone simulator uses replace-one (2C/n) throughout and is unaffected.
+2. **Production DP's guarantee is weaker than it reads, not miscalculated.** Resolved in the [adjacency analysis](production-dp-adjacency-analysis-2026-10-22.md).
+   - `dp_aggregate` (FedLoRA, `DPFedAvg`) adds noise z·S/n. That is correct for add/remove adjacency with a fixed public denominator, and the live path always runs on the fixed cohort.
+   - It is not correct for replace-one, the relation the capstone simulator uses. Read as replace-one, claimed ε 8/4/1 would be about 18/8.6/2.0 under RDP.
+   - Only direct framework calls with a varying cohort understate even the add/remove ε; the live server refuses those.
    - My guidance line "z√d/N ≈ 2.3" used the add/remove scale. For the capstone runs the lower bound is about 4.6.
 3. **Our secure-aggregation implementation is not communication-light.** ✔ Verified in `security/lightsecagg.py`: each peer receives a full-length per-coordinate Shamir share. LightSecAgg proper sends coded shares of size d/(U−T) (So et al., [2109.14236](https://arxiv.org/abs/2109.14236)). That explains A5's 158× upload. With proper coding the estimate is about 6–10× plain (calculated, not measured).
 
@@ -40,7 +39,7 @@ hit**, and our evaluation used weak attacks and no empirical privacy check.
 
 | # | What | Why | Effort |
 | --- | --- | --- | --- |
-| 1 | **Resolve the production DP adjacency question.** Write the analysis, add a test, then fix with a fixed public denominator or 2S/n noise. Record adjacency on the eval card. | Correctness of shipped privacy claims (FedLoRA and DPFedAvg). | S–M |
+| 1 | **Production DP adjacency.** Analysis and tests done; the fix choice is pending. | Correctness of shipped privacy claims (FedLoRA and DPFedAvg). | S–M |
 | 2 | **Exact GDP accountant for q = 1.** Add it beside RDP. | 13–24% less noise for the same ε, free, with no change to the unit or trust model. | S |
 | 3 | **Sensitivity-matched robust rule under central DP.** Clip each update's deviation from the previous released aggregate, with sensitivity 2τ/n; sweep τ. Also a small-k trimming sweep (k = 1–16). | Directly targets our negative A9 result. | S |
 | 4 | **Stronger attacks.** Fang et al.'s attack tailored to trimmed mean and median ✔ ([1911.11815](https://arxiv.org/abs/1911.11815)), IPM ([1903.03936](https://arxiv.org/abs/1903.03936)), min-max/min-sum (NDSS'21), and an attacker-fraction sweep of 1/5/10/20%. | Our trimmed-mean and median robustness claims are untested against attacks built for them. A 20% attacker fraction is a stress test by production standards (Shejwalkar et al., S&P'22, [2108.10241](https://arxiv.org/abs/2108.10241)). | S |
