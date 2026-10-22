@@ -75,8 +75,15 @@ pneumonia task. Preserve the completed study separately.
 - [ ] Freeze a supported follow-up comparison of central DP, local DP and secure
   aggregation, including clean controls and explicit privacy/trust/compatibility scope.
   Central DP and secure aggregation done (A4/A5); local DP qualification remains.
-- [ ] Run the bounded attack study across declared seeds, retaining all outcomes.
-- [ ] Build absolute-performance and attack-drop heatmaps with uncertainty and costs.
+- [x] Run the bounded attack study across declared seeds, retaining all outcomes:
+  [A9 result](effusion-attacks-r0-v1-result-2026-10-22.md), 100/100 cells usable.
+- [x] One-time holdout evaluation of the frozen list (A10):
+  [holdout result](effusion-holdout-v1-result-2026-10-22.md). FedAvg 0.836 vs centralised
+  0.835 AUROC; DP ε 8/4/1 0.763/0.715/0.580; sensitivity held about 0.91 at frozen thresholds.
+- [x] Recipe studies (A7 clean, A8 DP) and platform changes: DP fail-closed fix (`5fad502`),
+  `DPFedAvg` + planner (`969755a`); see [practical guidance](fedlearn-practical-guidance.md).
+- [x] Build absolute-performance and attack-drop heatmaps with uncertainty and costs:
+  `figures/effusion-attack-heatmaps-v1.*`, rendered from the pinned record by `repro/plot_effusion_attacks.py`.
 - [ ] Complete and browser-verify the integrated simulator, including persistence,
   ownership, live progress, stop/reopen, comparison, heatmaps and research export.
 

@@ -26,8 +26,12 @@ privacy and attack work wait for an explicit amendment choosing how to proceed.
 **Update, 22 October:** amendments A2–A5 chose R1, fixed a reading rule, and ran the
 matched clean federated baseline (federated − central-SGD −0.004), a central-DP sweep
 with an R0 width arm (wider head pays more at every ε) and secure-aggregation
-equivalence/overhead (equivalent utility, 158× upload). Local DP qualification,
-attacks, heatmaps and the one-time holdout evaluation remain.
+equivalence/overhead (equivalent utility, 158× upload). A6 returned to R0; A7/A8
+set clean and DP recipes; A9 ran the attack study with heatmaps; A10 opened the holdout
+once (FedAvg 0.836 = centralised 0.835; DP ε 8/4/1 0.763/0.715/0.580). Platform changes
+shipped locally: DP fail-closed fix, `DPFedAvg`, DP planner. Remaining: local DP
+qualification, simulator integration of the Effusion workload, final report and
+presentation.
 Choose it using the intended use, label quality, positive-patient counts and an
 independent evaluation plan before relabeling data or fitting candidates. The
 completed No Finding/any-finding study retains its original target and results.
