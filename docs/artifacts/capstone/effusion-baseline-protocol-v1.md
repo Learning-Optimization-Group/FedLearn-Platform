@@ -387,3 +387,30 @@ selection only), central-SGD controls, the A8 clean arm, and the §6-recipe runs
 
 **Rules:** the harness refuses to write over an existing evaluation. Any later scoring of
 the holdout, for any model, is labelled post-hoc.
+
+## Amendment A11 — 22 October 2026: local DP on R0, before any local-DP run
+
+**Question:** what does removing the trusted server (local DP) cost, compared with central
+DP at the same ε?
+
+- **Mechanism:** the engine's existing local DP.
+  - Each honest client clips its own update to C and adds N(0, (2zC)²) per coordinate;
+    the noise multiplier z is calibrated for 20 rounds at q = 1, δ = 10⁻⁵.
+  - The server applies only the non-shrinking post-processing clip C + 2zC(√d + 4).
+  - The privacy unit is one simulated client, with replace-one adjacency, as for central DP.
+  - The trust model differs: no trusted aggregator. Equal ε is therefore **not** an
+    equivalent claim across the two modes.
+- **Reporting fix first:** round records now carry explicit `client_noise_std` and
+  `server_noise_std`. The historical `noise_std` keeps its server-only meaning and old
+  records are not reinterpreted.
+- **Cells:** 25 runs, all retained.
+  - R0, A8 DP recipe (LR 0.03, clip 0.05), 80 whole-patient IID clients, 20 rounds,
+    mean rule, seeds 20261101–20261105.
+  - ε ∈ {1, 4, 8, 32, 128}. ε 32 and 128 are weak-privacy values, included only to find
+    where local DP regains utility; they are not recommended settings.
+- **Reported** (selection half; the holdout was opened once in A10 and is not reused):
+  - AUROC per cell;
+  - local − central at ε 1/4/8 against the A8 confirmation runs;
+  - local cost against the A8 clean arm;
+  - client noise SD.
+  - Paired patient bootstrap, 2,000 resamples, seed 20261030.
