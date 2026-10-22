@@ -1,4 +1,5 @@
 import logging
+import math
 from abc import ABC, abstractmethod
 from typing import Optional, Callable, Tuple
 from collections import OrderedDict
@@ -169,7 +170,8 @@ class FedLoRA(Strategy):
     def __init__(self, initial_parameters, evaluate_fn=None, min_fit_clients=1,
                  clients_per_round=None, aggregation="FFA_LORA",
                  dp_enabled=False, dp_clip_norm=None, dp_noise_multiplier=None, dp_seed=None,
-                 dp_target_epsilon=None, dp_delta=None, dp_num_clients=None, dp_rounds=None):
+                 dp_target_epsilon=None, dp_delta=None, dp_num_clients=None, dp_rounds=None,
+                 dp_adjacency="add_remove", dp_accountant="rdp"):
         self.initial_parameters = initial_parameters
         self.evaluate_fn = evaluate_fn
         self.min_fit_clients = min_fit_clients
@@ -194,7 +196,8 @@ class FedLoRA(Strategy):
         _configure_central_dp(
             self, "FedLoRA", initial_parameters, dp_enabled=dp_enabled, dp_clip_norm=dp_clip_norm,
             dp_noise_multiplier=dp_noise_multiplier, dp_seed=dp_seed, dp_target_epsilon=dp_target_epsilon,
-            dp_delta=dp_delta, dp_num_clients=dp_num_clients, dp_rounds=dp_rounds)
+            dp_delta=dp_delta, dp_num_clients=dp_num_clients, dp_rounds=dp_rounds, dp_adjacency=dp_adjacency,
+            dp_accountant=dp_accountant)
 
     def initialize_parameters(self):
         return self.initial_parameters
@@ -235,6 +238,8 @@ class FedLoRA(Strategy):
             clip_norm=self.dp_clip_norm,
             noise_multiplier=self.dp_noise_multiplier,
             generator=self._dp_generator,
+            adjacency=self.dp_adjacency,
+            public_cohort=self.clients_per_round,
         )
         # Re-attach the frozen A exactly as the non-DP FFA path does (bit-identical, never noised).
         if self.aggregation == "FFA_LORA":
@@ -325,13 +330,18 @@ PROX_STABILITY_WARN = 1.0      # past here the step is large enough to be worth 
 
 
 def _configure_central_dp(strategy, label, initial_parameters, *, dp_enabled, dp_clip_norm, dp_noise_multiplier,
-                          dp_seed, dp_target_epsilon, dp_delta, dp_num_clients, dp_rounds):
+                          dp_seed, dp_target_epsilon, dp_delta, dp_num_clients, dp_rounds,
+                          dp_adjacency="add_remove", dp_accountant="rdp"):
     """Shared central-DP configuration for FedLoRA and DPFedAvg (FR-13 / SE-11).
 
     Sets the ``dp_*`` attributes the eval card reads, solves or validates the noise multiplier with the
     platform RDP accountant, records the accounted epsilon, and creates the dedicated noise generator.
     ``label`` names the strategy in error messages. One implementation keeps every DP strategy's privacy
-    claim identical: joint L2 clip to S, uniform average, Gaussian noise z*S/N per coordinate.
+    claim identical: joint L2 clip to S, uniform average over the fixed cohort, Gaussian noise c*z*S/N per
+    coordinate, where ``dp_adjacency`` picks c (1 for add/remove, 2 for replace-one) and so the neighbour
+    relation the accounted epsilon refers to. ``dp_accountant`` picks how z and epsilon are related: ``"rdp"``
+    (the default; an upper bound, valid for any q) or ``"gdp"`` (exact Gaussian-DP composition, q = 1 only,
+    which needs less noise for the same claim).
     """
     strategy.dp_enabled = bool(dp_enabled)
     strategy.dp_clip_norm = None if dp_clip_norm is None else float(dp_clip_norm)
@@ -341,6 +351,8 @@ def _configure_central_dp(strategy, label, initial_parameters, *, dp_enabled, dp
     strategy.dp_delta = None if dp_delta is None else float(dp_delta)
     strategy.dp_num_clients = None if dp_num_clients is None else int(dp_num_clients)
     strategy.dp_rounds = None if dp_rounds is None else int(dp_rounds)
+    strategy.dp_adjacency = dp_adjacency
+    strategy.dp_accountant = dp_accountant
     # Accounted (ε, δ) trace for the chosen noise multiplier (eval-card / SE-11). None when DP is
     # off or the accounting params (δ + round count) weren't supplied.
     strategy.dp_accounted_epsilon = None
@@ -348,15 +360,26 @@ def _configure_central_dp(strategy, label, initial_parameters, *, dp_enabled, dp
     if strategy.dp_enabled:
         if strategy.dp_clip_norm is None or strategy.dp_clip_norm <= 0:
             raise ValueError(f"{label} dp_enabled requires dp_clip_norm (S) > 0.")
+        from fedlearn.privacy.dp_mechanism import ADJACENCY_SENSITIVITY_FACTOR
+        if strategy.dp_adjacency not in ADJACENCY_SENSITIVITY_FACTOR:
+            raise ValueError(f"{label} dp_adjacency must be one of {sorted(ADJACENCY_SENSITIVITY_FACTOR)}, "
+                             f"got {strategy.dp_adjacency!r}.")
         # Subsampling rate for the accountant: cohort / enrolled population (q=1 if the population
         # is unknown — the conservative no-amplification assumption).
         strategy.dp_q = (strategy.clients_per_round / strategy.dp_num_clients) if strategy.dp_num_clients else 1.0
+        if strategy.dp_accountant not in ("rdp", "gdp"):
+            raise ValueError(f"{label} dp_accountant must be 'rdp' or 'gdp', got {strategy.dp_accountant!r}.")
+        if strategy.dp_accountant == "gdp" and strategy.dp_q != 1.0:
+            raise ValueError(
+                f"{label} dp_accountant='gdp' is exact only with every client in every round (q=1); "
+                f"q={strategy.dp_q} needs the RDP accountant.")
 
         # Calibrate the noise multiplier z: supplied directly, OR solved from a target-ε budget
-        # via the RDP accountant. Exactly one of the two must be given.
+        # via the chosen accountant. Exactly one of the two must be given.
         from fedlearn.privacy.dp_accountant import (
             compute_rdp, get_epsilon, required_noise_multiplier,
         )
+        from fedlearn.privacy.gdp_accountant import gdp_epsilon, gdp_required_noise_multiplier
         if strategy.dp_target_epsilon is not None:
             if strategy.dp_noise_multiplier is not None:
                 raise ValueError(
@@ -364,8 +387,12 @@ def _configure_central_dp(strategy, label, initial_parameters, *, dp_enabled, dp
             if strategy.dp_delta is None or strategy.dp_rounds is None:
                 raise ValueError(
                     f"{label} dp_target_epsilon requires dp_delta and dp_rounds to solve z.")
-            strategy.dp_noise_multiplier = float(required_noise_multiplier(
-                strategy.dp_target_epsilon, strategy.dp_q, strategy.dp_rounds, strategy.dp_delta))
+            if strategy.dp_accountant == "gdp":
+                strategy.dp_noise_multiplier = float(gdp_required_noise_multiplier(
+                    strategy.dp_target_epsilon, strategy.dp_rounds, strategy.dp_delta))
+            else:
+                strategy.dp_noise_multiplier = float(required_noise_multiplier(
+                    strategy.dp_target_epsilon, strategy.dp_q, strategy.dp_rounds, strategy.dp_delta))
         elif strategy.dp_noise_multiplier is None:
             raise ValueError(
                 f"{label} dp_enabled requires exactly one of dp_noise_multiplier (z) or "
@@ -375,9 +402,14 @@ def _configure_central_dp(strategy, label, initial_parameters, *, dp_enabled, dp
 
         # Best-effort accounted-ε trace: computable whenever δ and the round count are known.
         if strategy.dp_delta is not None and strategy.dp_rounds is not None:
-            strategy.dp_accounted_epsilon = float(get_epsilon(
-                compute_rdp(strategy.dp_q, strategy.dp_noise_multiplier, strategy.dp_rounds),
-                strategy.dp_delta)[0])
+            if strategy.dp_accountant == "gdp":
+                strategy.dp_accounted_epsilon = (
+                    float(gdp_epsilon(strategy.dp_noise_multiplier, strategy.dp_rounds, strategy.dp_delta))
+                    if strategy.dp_noise_multiplier > 0 else math.inf)
+            else:
+                strategy.dp_accounted_epsilon = float(get_epsilon(
+                    compute_rdp(strategy.dp_q, strategy.dp_noise_multiplier, strategy.dp_rounds),
+                    strategy.dp_delta)[0])
 
     # Running global reference for the DP delta (mirrors RobustAggregator._global). Kept float32
     # to match the aggregator's output dtype so a delta subtraction never silently upcasts. This
@@ -417,13 +449,15 @@ class DPFedAvg(FedAvg):
 
     def __init__(self, initial_parameters, evaluate_fn=None, min_fit_clients=1, clients_per_round=None,
                  dp_clip_norm=None, dp_noise_multiplier=None, dp_seed=None, dp_target_epsilon=None,
-                 dp_delta=None, dp_num_clients=None, dp_rounds=None):
+                 dp_delta=None, dp_num_clients=None, dp_rounds=None, dp_adjacency="add_remove",
+                 dp_accountant="rdp"):
         super().__init__(initial_parameters, evaluate_fn=evaluate_fn, min_fit_clients=min_fit_clients,
                          clients_per_round=clients_per_round)
         _configure_central_dp(
             self, "DPFedAvg", initial_parameters, dp_enabled=True, dp_clip_norm=dp_clip_norm,
             dp_noise_multiplier=dp_noise_multiplier, dp_seed=dp_seed, dp_target_epsilon=dp_target_epsilon,
-            dp_delta=dp_delta, dp_num_clients=dp_num_clients, dp_rounds=dp_rounds)
+            dp_delta=dp_delta, dp_num_clients=dp_num_clients, dp_rounds=dp_rounds, dp_adjacency=dp_adjacency,
+            dp_accountant=dp_accountant)
 
     def aggregate_fit(self, server_round, results):
         if not results:
@@ -433,7 +467,8 @@ class DPFedAvg(FedAvg):
         keys = list(FedLoRA._client_keys(results))
         aggregated = dp_aggregate(results, global_params=self._global, aggregatable_keys=keys,
                                   clip_norm=self.dp_clip_norm, noise_multiplier=self.dp_noise_multiplier,
-                                  generator=self._dp_generator)
+                                  generator=self._dp_generator, adjacency=self.dp_adjacency,
+                                  public_cohort=self.clients_per_round)
         for k, v in aggregated.items():
             self._global[k] = v.detach().clone().to(torch.float32)
         return aggregated

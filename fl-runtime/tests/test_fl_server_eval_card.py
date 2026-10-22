@@ -17,6 +17,7 @@ from argparse import Namespace
 from collections import OrderedDict
 
 import numpy as np
+import pytest
 import torch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -91,6 +92,8 @@ def test_eval_card_dp_on_commits_strategy_accounted_trace_verbatim():
     assert dp["q"] == strategy.dp_q
     assert dp["rounds"] == 5
     assert dp["target_epsilon"] == 8.0
+    assert dp["adjacency"] == "add_remove"
+    assert dp["accountant"] == "rdp"
 
 
 def test_eval_card_dp_raw_z_without_accounting_emits_null_accounted_epsilon():
@@ -203,3 +206,23 @@ def test_run_seed_is_independent_of_dp_seed():
     args = _parse(["--seed", "7", "--dp-seed", "99"])
     assert args.seed == 7
     assert args.dp_seed == 99
+
+
+def test_eval_card_dp_records_the_replace_one_adjacency():
+    card = json.loads(fl_server.build_eval_card(_args(), _HISTORY, _dp_strategy(dp_adjacency="replace_one")))
+    assert card["dp"]["adjacency"] == "replace_one"
+
+
+@pytest.mark.parametrize("argv, expected", [([], "add_remove"), (["--dp-adjacency", "replace-one"], "replace_one")])
+def test_arg_parser_dp_adjacency_defaults_to_add_remove(argv, expected):
+    assert fl_server.dp_adjacency_arg(_parse(argv)) == expected
+
+
+def test_arg_parser_rejects_an_unknown_dp_adjacency():
+    with pytest.raises(SystemExit):
+        _parse(["--dp-adjacency", "swap"])
+
+
+@pytest.mark.parametrize("argv, expected", [([], "rdp"), (["--dp-accountant", "gdp"], "gdp")])
+def test_arg_parser_dp_accountant_defaults_to_rdp(argv, expected):
+    assert _parse(argv).dp_accountant == expected

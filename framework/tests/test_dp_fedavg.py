@@ -18,7 +18,7 @@ def _update(scale, n=10):
 
 
 def test_zero_noise_is_the_uniform_mean_of_jointly_clipped_deltas():
-    strategy = DPFedAvg(_global(), dp_clip_norm=1.0, dp_noise_multiplier=0.0, dp_seed=0)
+    strategy = DPFedAvg(_global(), clients_per_round=2, dp_clip_norm=1.0, dp_noise_multiplier=0.0, dp_seed=0)
     small = _update(0.1, n=1)        # norm sqrt(6)*0.1 < 1: unclipped
     large = _update(10.0, n=1000)    # norm sqrt(6)*10 > 1: scaled to norm 1; its 1000 examples carry no extra weight
     out = strategy.aggregate_fit(1, [("a", *small), ("b", *large)])
@@ -29,7 +29,7 @@ def test_zero_noise_is_the_uniform_mean_of_jointly_clipped_deltas():
 
 def test_noise_std_is_z_times_clip_over_n():
     big = OrderedDict(w=torch.zeros(200_000))
-    strategy = DPFedAvg(big, dp_clip_norm=2.0, dp_noise_multiplier=1.5, dp_seed=7)
+    strategy = DPFedAvg(big, clients_per_round=4, dp_clip_norm=2.0, dp_noise_multiplier=1.5, dp_seed=7)
     results = [(f"c{i}", OrderedDict(w=torch.zeros(200_000)), 5) for i in range(4)]
     out = strategy.aggregate_fit(1, results)
     assert float(out["w"].std()) == pytest.approx(1.5 * 2.0 / 4, rel=0.02)

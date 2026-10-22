@@ -137,6 +137,7 @@ def test_select_strategy_passes_dp_epsilon_budget_to_fedlora():
     assert strategy.dp_accounted_epsilon is not None
     # q = clients_per_round / N = 1 / 1 = 1 (no subsampling amplification on a live run).
     assert strategy.dp_q == pytest.approx(1.0)
+    assert strategy.dp_adjacency == "add_remove"  # --dp-adjacency omitted
 
 
 def test_select_strategy_passes_raw_noise_multiplier_unchanged():
@@ -312,6 +313,14 @@ def test_select_strategy_builds_central_dp_fedavg_with_the_eval_card_trace():
     assert card["dp"]["enabled"] is True
     assert 0 < card["dp"]["accounted_epsilon"] <= 4.0 + 1e-6
     assert (card["dp"]["clip_norm"], card["dp"]["delta"], card["dp"]["q"], card["dp"]["rounds"]) == (0.05, 1e-5, 1.0, 20)
+    assert card["dp"]["adjacency"] == "add_remove"
+
+
+def test_select_strategy_passes_replace_one_adjacency_to_dp_fedavg():
+    strategy = fl_server.select_strategy(_dp_fedavg_args(dp_adjacency="replace-one"),
+                                         OrderedDict(head=torch.zeros(3)), None)
+    assert strategy.dp_adjacency == "replace_one"
+    assert strategy.clients_per_round == 8  # the fixed public denominator dp_aggregate enforces
 
 
 @pytest.mark.parametrize("overrides, message", [
@@ -322,3 +331,12 @@ def test_select_strategy_builds_central_dp_fedavg_with_the_eval_card_trace():
 def test_dp_fedavg_refuses_the_same_live_accounting_mismatches_as_fedlora(overrides, message):
     with pytest.raises(ValueError, match=message):
         fl_server.select_strategy(_dp_fedavg_args(**overrides), OrderedDict(head=torch.zeros(3)), None)
+
+
+def test_select_strategy_passes_the_exact_gdp_accountant_to_dp_fedavg():
+    strategy = fl_server.select_strategy(_dp_fedavg_args(dp_accountant="gdp"), OrderedDict(head=torch.zeros(3)), None)
+    assert strategy.dp_accountant == "gdp"
+    assert strategy.dp_accounted_epsilon == pytest.approx(4.0, abs=1e-6)
+    card = json.loads(fl_server.build_eval_card(Namespace(model_type="MLP", strategy="FedAvg", num_rounds=20,
+                                                          seed=1, training_arm=None), [], strategy))
+    assert card["dp"]["accountant"] == "gdp"

@@ -37,3 +37,17 @@ def test_invalid_inputs_are_refused(bad):
     base = dict(target_epsilon=4.0, delta=1e-5, rounds=20, clients=80, clip_norm=0.05, trainable_parameters=1026)
     with pytest.raises(ValueError):
         plan_central_dp(**{**base, **bad})
+
+
+def test_replace_one_doubles_the_noise_and_names_the_relation():
+    base = dict(target_epsilon=4.0, delta=1e-5, rounds=20, clients=80, clip_norm=0.05, trainable_parameters=1026)
+    add_remove = plan_central_dp(**base)
+    replace_one = plan_central_dp(**base, adjacency="replace_one")
+    assert replace_one["noise_multiplier"] == pytest.approx(add_remove["noise_multiplier"])
+    assert replace_one["accounted_epsilon"] == pytest.approx(add_remove["accounted_epsilon"])
+    assert replace_one["per_coordinate_noise_std"] == pytest.approx(2 * add_remove["per_coordinate_noise_std"])
+    assert replace_one["noise_norm_to_clip_ratio"] == pytest.approx(2 * add_remove["noise_norm_to_clip_ratio"])
+    assert add_remove["adjacency"] == "add_remove" and "add/remove" in add_remove["assumptions"]
+    assert replace_one["adjacency"] == "replace_one" and "replace-one" in replace_one["assumptions"]
+    with pytest.raises(ValueError, match="adjacency"):
+        plan_central_dp(**base, adjacency="swap")

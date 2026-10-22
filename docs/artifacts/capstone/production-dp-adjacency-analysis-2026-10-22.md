@@ -1,8 +1,9 @@
 # Production central DP: which neighbour relation the ε covers
 
 22 October 2026. This covers shortlist item 1 of the
-[literature check](literature-review-robust-private-fl-2026-10-22.md). It is analysis and tests only;
-no behaviour has changed. The tests are in `framework/tests/test_dp_adjacency.py`.
+[literature check](literature-review-robust-private-fl-2026-10-22.md). The tests are in
+`framework/tests/test_dp_adjacency.py`. The user chose option 3 ("offer both"); see
+[Implemented](#implemented) at the end.
 
 ## What the code does
 
@@ -54,7 +55,7 @@ On the live path, n is always the fixed, public cohort size:
   understated by about a factor of two in z. That path also uses Poisson-subsampling RDP for what is
   actually fixed-size sampling, which is a second mismatch.
 
-## Fix options (user decision)
+## Fix options
 
 1. **State the relation and fix the denominator (recommended).**
    - Record `adjacency: add/remove (fixed public denominator)` on the eval card and in the API.
@@ -69,3 +70,28 @@ On the live path, n is always the fixed, public cohort size:
 
 Whichever option is chosen, the capstone's simulator numbers are unaffected: they use replace-one
 throughout, and their ε is the stronger claim.
+
+## Implemented
+
+Option 3, at the framework and runtime layer:
+- `dp_aggregate(..., adjacency="add_remove" | "replace_one", public_cohort=None)`. Replace-one
+  multiplies the noise std by 2. With `public_cohort` set, a call with a different number of updates is
+  refused.
+- `FedLoRA` and `DPFedAvg` take `dp_adjacency` (validated at construction) and always pass
+  `public_cohort=clients_per_round`. That closes the data-dependent-denominator case for direct
+  framework use too. Seven existing tests had built a DP strategy with the default cohort of 1 and then
+  fed it 2–4 updates; they now declare their real cohort.
+- `fl_server.py --dp-adjacency add-remove|replace-one` (default `add-remove`), passed to both strategies.
+- The eval card's `dp` block has an `adjacency` field. The backend reads the card as a JSON tree, so it
+  accepts the field unchanged. The UI does not render the card's DP block.
+- `plan_central_dp(..., adjacency=...)` reports the matching noise scale and names the relation in
+  its assumptions.
+
+**The live default is unchanged:** add/remove, with the same noise as before.
+
+**Not done:** the backend does not yet pass `--dp-adjacency`. Every platform-spawned DP run is
+add/remove, and the card says so. Making it selectable per project needs:
+- a Flyway migration on `projects` and on the run-intent snapshot;
+- the `RunIntent` record and DTO;
+- the execution-contract proto, if clients should see it;
+- the project form.

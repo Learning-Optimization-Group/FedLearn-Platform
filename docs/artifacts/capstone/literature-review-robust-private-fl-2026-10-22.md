@@ -39,8 +39,8 @@ hit**, and our evaluation used weak attacks and no empirical privacy check.
 
 | # | What | Why | Effort |
 | --- | --- | --- | --- |
-| 1 | **Production DP adjacency.** Analysis and tests done; the fix choice is pending. | Correctness of shipped privacy claims (FedLoRA and DPFedAvg). | S–M |
-| 2 | **Exact GDP accountant for q = 1.** Add it beside RDP. | 13–24% less noise for the same ε, free, with no change to the unit or trust model. | S |
+| 1 | **Production DP adjacency.** Done: add/remove is the default, `--dp-adjacency replace-one` doubles the noise, the eval card records the relation, and the strategies enforce a fixed denominator. | Correctness of shipped privacy claims (FedLoRA and DPFedAvg). | S–M |
+| 2 | **Exact GDP accountant for q = 1.** Done: `fedlearn.privacy.gdp_accountant`, opt-in through `--dp-accountant gdp` and `plan_central_dp(accountant="gdp")`. RDP stays the default. | 13–24% less noise for the same ε, free, with no change to the unit or trust model. | S |
 | 3 | **Sensitivity-matched robust rule under central DP.** Clip each update's deviation from the previous released aggregate, with sensitivity 2τ/n; sweep τ. Also a small-k trimming sweep (k = 1–16). | Directly targets our negative A9 result. | S |
 | 4 | **Stronger attacks.** Fang et al.'s attack tailored to trimmed mean and median ✔ ([1911.11815](https://arxiv.org/abs/1911.11815)), IPM ([1903.03936](https://arxiv.org/abs/1903.03936)), min-max/min-sum (NDSS'21), and an attacker-fraction sweep of 1/5/10/20%. | Our trimmed-mean and median robustness claims are untested against attacks built for them. A 20% attacker fraction is a stress test by production standards (Shejwalkar et al., S&P'22, [2108.10241](https://arxiv.org/abs/2108.10241)). | S |
 | 5 | **Empirical client-level DP audit.** Canary clients, one run (Andrew et al., ICLR'24 ✔ (core), [2302.03098](https://arxiv.org/abs/2302.03098)), plus LiRA membership inference ([2112.03570](https://arxiv.org/abs/2112.03570)). | Tests whether the DP claims mean anything in practice. Cheap with a linear head. | S–M |

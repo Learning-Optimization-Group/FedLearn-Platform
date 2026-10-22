@@ -17,8 +17,12 @@ Steps (mirrors ``RobustAggregator``'s delta pattern, ``robust_aggregation.py:261
 3. **Uniform** average (weight ``1/N``), NOT num_examples-weighted — weighting by an
    attacker-reported example count would inflate that client's sensitivity above ``S`` and void
    the epsilon claim. The DP path deliberately drops the weighting (DP-path-only).
-4. Add Gaussian noise ``N(0, (z*S/N)^2)`` per coordinate on the aggregatable keys. ``z`` is the
-   noise multiplier; ``z=0`` is the noiseless clip+uniform-average sanity path.
+4. Add Gaussian noise ``N(0, (c*z*S/N)^2)`` per coordinate on the aggregatable keys. ``z`` is the
+   noise multiplier; ``z=0`` is the noiseless clip+uniform-average sanity path. ``c`` is the
+   adjacency factor: 1 for add/remove (one client's delta vs. none, over a fixed public
+   denominator ``N``), 2 for replace-one (one client's delta vs. any other clipped delta). The
+   accountant reads ``z`` as noise std / sensitivity under the chosen relation, so the same ``z``
+   carries the same epsilon, for a different neighbour definition.
 5. Return ``{k: global[k] + mean_delta[k]}`` for the aggregatable keys; the caller re-attaches
    the frozen keys.
 
@@ -45,6 +49,11 @@ from fedlearn.server.robust_aggregation import clip_l2_norm, trimmed_mean
 # deliberately absent: one client can move it by as much as S at any n, so it has no 1/n bound.
 _REPLACE_ONE_RULES = ("mean", "trimmed_mean")
 
+# Neighbour relations dp_aggregate calibrates for, and the sensitivity of its clipped mean under each,
+# in units of S/N. Add/remove holds only over a fixed public denominator: dividing by a cohort size that
+# depends on who took part makes one removal move the mean by up to 2S/N (tests/test_dp_adjacency.py).
+ADJACENCY_SENSITIVITY_FACTOR = {"add_remove": 1.0, "replace_one": 2.0}
+
 
 def replace_one_sensitivity(
     rule: str, num_clients: int, clip_norm: float, trim_ratio: float = 0.0
@@ -58,7 +67,7 @@ def replace_one_sensitivity(
     every coordinate of the trimmed SUM moves by at most the change in the replaced client's value
     at that coordinate, so the joint L2 change is at most ``||x - x'||_2 / (n - 2k)``.
 
-    This is replace-one adjacency, which is NOT the add/remove convention of :func:`dp_aggregate`
+    This is replace-one adjacency, which is NOT the default add/remove convention of :func:`dp_aggregate`
     (sensitivity ``S/n``); the two must not be mixed within one comparison.
 
     Raises:
@@ -133,6 +142,8 @@ def dp_aggregate(
     clip_norm: float,
     noise_multiplier: float,
     generator: Optional[torch.Generator] = None,
+    adjacency: str = "add_remove",
+    public_cohort: Optional[int] = None,
 ) -> "OrderedDict[str, torch.Tensor]":
     """Central-DP aggregation of adapter deltas over the aggregatable keys only.
 
@@ -146,10 +157,17 @@ def dp_aggregate(
         aggregatable_keys: the client keys to privatise (adapter ``B`` + head) — every client key
             that is NOT a frozen ``lora_A`` key. Clipping and noise touch ONLY these keys.
         clip_norm: the L2 clip bound ``S`` (> 0), applied jointly to each client's delta.
-        noise_multiplier: ``z`` (>= 0). Per-coordinate Gaussian std is ``z*S/N``; ``z=0`` => no
-            noise (deterministic clip + uniform average).
+        noise_multiplier: ``z`` (>= 0). Per-coordinate Gaussian std is ``c*z*S/N`` with ``c`` from
+            :data:`ADJACENCY_SENSITIVITY_FACTOR`; ``z=0`` => no noise (deterministic clip + uniform
+            average).
         generator: optional :class:`torch.Generator` for reproducible noise; ``None`` => fresh
             entropy.
+        adjacency: ``"add_remove"`` (default) or ``"replace_one"``: the neighbour relation the
+            accounted epsilon refers to.
+        public_cohort: the fixed, public cohort size the denominator must equal. When given, a call
+            with any other number of updates is refused, since the mean's sensitivity would no
+            longer be the calibrated one. ``None`` skips the check (offline callers that fix ``N``
+            themselves).
 
     Returns:
         ``OrderedDict`` ``{k: global_params[k] + mean_delta[k]}`` for ``k`` in ``aggregatable_keys``
@@ -157,9 +175,12 @@ def dp_aggregate(
 
     Raises:
         ValueError: on empty ``results``, non-positive ``clip_norm``, negative ``noise_multiplier``,
-            or empty ``aggregatable_keys``.
+            empty ``aggregatable_keys``, an unknown ``adjacency``, or a cohort that differs from
+            ``public_cohort``.
         KeyError: if a key is missing from ``global_params`` or from a client's params.
     """
+    if adjacency not in ADJACENCY_SENSITIVITY_FACTOR:
+        raise ValueError(f"adjacency must be one of {sorted(ADJACENCY_SENSITIVITY_FACTOR)}, got {adjacency!r}")
     if not results:
         raise ValueError("dp_aggregate requires at least one client update.")
     if clip_norm is None or clip_norm <= 0:
@@ -173,6 +194,12 @@ def dp_aggregate(
 
     ref, clipped_deltas = _clipped_deltas(results, global_params, keys, clip_norm)
     n = len(clipped_deltas)
+    if public_cohort is not None and n != public_cohort:
+        raise ValueError(
+            f"dp_aggregate received {n} client updates but the public cohort is {public_cohort}: the "
+            f"noise is calibrated for a fixed denominator, so releasing on a different cohort size "
+            f"would understate epsilon."
+        )
 
     # Sum of per-client CLIPPED deltas over the aggregatable keys.
     sum_delta: "OrderedDict[str, torch.Tensor]" = OrderedDict(
@@ -182,8 +209,8 @@ def dp_aggregate(
         for k in keys:
             sum_delta[k] = sum_delta[k] + clipped[k]
 
-    # Uniform average (1/N) + Gaussian noise N(0, (z*S/N)^2) per coordinate on the aggregatable keys.
-    std = float(noise_multiplier) * float(clip_norm) / n
+    # Uniform average (1/N) + Gaussian noise N(0, (c*z*S/N)^2) per coordinate on the aggregatable keys.
+    std = ADJACENCY_SENSITIVITY_FACTOR[adjacency] * float(noise_multiplier) * float(clip_norm) / n
     out: "OrderedDict[str, torch.Tensor]" = OrderedDict()
     for k in keys:
         mean_delta = sum_delta[k] / n

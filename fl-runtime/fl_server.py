@@ -201,6 +201,11 @@ def build_eval_card(args, history, strategy=None) -> str:
             "q": getattr(strategy, "dp_q", None),
             "rounds": getattr(strategy, "dp_rounds", None),
             "target_epsilon": getattr(strategy, "dp_target_epsilon", None),
+            # Which neighbouring client sets the epsilon distinguishes: "add_remove" (a client's
+            # update vs. none, over the fixed public cohort) or "replace_one" (vs. any other client's).
+            "adjacency": getattr(strategy, "dp_adjacency", None),
+            # "rdp" (upper bound) or "gdp" (exact composition at q=1): how z and accounted_epsilon relate.
+            "accountant": getattr(strategy, "dp_accountant", None),
         }
     return json.dumps(card)
 
@@ -357,6 +362,11 @@ def resolve_fedopt_settings(args):
     return settings
 
 
+def dp_adjacency_arg(args):
+    """The --dp-adjacency choice in the framework's spelling ("add_remove" / "replace_one")."""
+    return (getattr(args, "dp_adjacency", None) or "add-remove").replace("-", "_")
+
+
 def require_live_dp_accounting(args, clients_per_round):
     """Refuse DP settings whose accounted epsilon would not describe the live run (FR-24/FR-25).
 
@@ -504,6 +514,8 @@ def select_strategy(args, initial_parameters, evaluate_fn):
                 dp_delta=dp_delta,
                 dp_num_clients=dp_num_clients,
                 dp_rounds=dp_rounds,
+                dp_adjacency=dp_adjacency_arg(args),
+                dp_accountant=getattr(args, "dp_accountant", None) or "rdp",
             )
         except ValueError as e:
             # A bad DP config must fail loudly AT SPAWN — the backend's 3-second exit window
@@ -622,6 +634,8 @@ def select_strategy(args, initial_parameters, evaluate_fn):
                 dp_delta=getattr(args, "dp_delta", None),
                 dp_num_clients=getattr(args, "dp_num_clients", None),
                 dp_rounds=getattr(args, "dp_rounds", None),
+                dp_adjacency=dp_adjacency_arg(args),
+                dp_accountant=getattr(args, "dp_accountant", None) or "rdp",
             )
             logging.info("Using FedAvg strategy with CENTRAL DIFFERENTIAL PRIVACY (clip_norm=%s, z=%.4f, "
                          "accounted_epsilon=%s, delta=%s, rounds=%s)", strategy.dp_clip_norm,
@@ -715,6 +729,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dp-delta", type=float, default=None, help="DP δ for the accountant (required with --dp-target-epsilon)")
     parser.add_argument("--dp-num-clients", type=int, default=None, help="Enrolled client population N for the accountant's subsampling rate q = cohort/N (omit => q=1, conservative no-amplification assumption)")
     parser.add_argument("--dp-rounds", type=int, default=None, help="Round count T the ε budget is accounted over (required with --dp-target-epsilon)")
+    parser.add_argument("--dp-adjacency", choices=["add-remove", "replace-one"], default="add-remove",
+                        help="Neighbour relation the accounted ε refers to: add-remove (a client's update vs. none, "
+                             "the DP-FedAvg convention) or replace-one (vs. any other client's update; doubles the noise)")
+    parser.add_argument("--dp-accountant", choices=["rdp", "gdp"], default="rdp",
+                        help="How the noise multiplier and ε relate: rdp (Rényi DP, an upper bound) or gdp (exact "
+                             "Gaussian-DP composition; needs q=1, which live runs always have, and less noise)")
     parser.add_argument("--task-type", type=str, default="SEQ_CLASSIFICATION", choices=["SEQ_CLASSIFICATION", "CAUSAL_LM"], help="LLM_LORA task type (generative vs classification)")
     parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2", "ecg"], help="Dataset")
     return parser
