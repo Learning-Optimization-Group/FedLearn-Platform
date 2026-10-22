@@ -439,3 +439,27 @@ local DP with the plain mean only.
   - rule − mean, same condition, ε and seed.
   - Refusals and non-finite runs are reported as such. The ε 8, mean, clean cells repeat
     A11's configuration and must reproduce its margins exactly (replay check).
+
+## Amendment A13 — 22 October 2026: exact Gaussian-DP calibration on R0, before any A13 run
+
+**Question:** how much selection AUROC does exact noise calibration recover at the same claimed
+budget? All central-DP runs so far calibrated z with the RDP accountant. At q = 1 the T releases
+compose exactly to μ-GDP (μ = √T/z). The RDP z therefore over-delivers: at T = 20 and δ 10⁻⁵, the
+claimed ε 8/4/1 are really 6.76/3.25/0.74.
+
+- **Cells:** 15 runs, all retained.
+  - R0, A8 DP recipe (LR 0.03, clip 0.05), 80 whole-patient IID clients, 20 rounds,
+    seeds 20261101–20261105.
+  - Central DP, replace-one, at claimed ε ∈ {8, 4, 1} with δ 10⁻⁵, as in A8.
+  - The only change from A8: z is the smallest multiplier whose **exact** GDP ε meets the claim
+    (`fedlearn.privacy.gdp_accountant.gdp_required_noise_multiplier`). The engine is unchanged. The
+    harness passes the RDP-equivalent budget whose RDP-calibrated z equals that GDP z. Each run must
+    then record a z within 10⁻⁶ (relative) of the GDP z, with an exact ε at most the claim. Any run
+    that fails this is refused.
+  - Same seeds as A8, so noise draws are common random numbers up to the scale change.
+- **Reported** (selection half; paired patient bootstrap, 2,000 resamples, seed 20261032):
+  - absolute AUROC per cell;
+  - gain over A8 at the same claimed ε: GDP-calibrated − RDP-calibrated, same seed;
+  - DP cost against the A8 clean cells.
+  - Refusals and non-finite runs are reported as such. The A8 margins are read from the pinned
+    A8 output (`summary.json` `bd9868ae…`).
