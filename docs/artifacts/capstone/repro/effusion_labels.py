@@ -44,6 +44,30 @@ def load_labels(cache, lock_dir, *, pins=PINS):
     return labels, provenance
 
 
+def holdout_labels(cache, lock_dir, *, pins=PINS):
+    """Labels of the locked holdout rows. For the one-time protocol section 8 evaluation ONLY.
+
+    Verifies every pin and the partition first, then re-hashes the exact bytes it parses against the
+    lock, so the rows labelled are the rows that were locked.
+    """
+    _, provenance = holdout.verify_lock(cache, lock_dir, report_sha256=pins['report_sha256'],
+                                        lock_sha256=pins['lock_sha256'])
+    lock_dir, cache = Path(lock_dir), Path(cache)
+    raw_holdout = (lock_dir / 'holdout.csv').read_bytes()
+    raw_validation = (cache / 'validation.csv').read_bytes()
+    if (hashlib.sha256(raw_holdout).hexdigest() != provenance['lockManifestSha256']['holdout']
+            or hashlib.sha256(raw_validation).hexdigest() != provenance['inputManifestSha256']['validation']):
+        raise Refusal('holdout_bytes_changed_after_verification')
+    rows = holdout._manifest(raw_holdout, 'holdout', list(holdout.KEEP))
+    wanted = {row['image_index'] for row in rows}
+    validation = {row['image_index']: row for row in
+                  holdout._manifest(raw_validation, 'validation', extra=('findings',), keep_extra=wanted)}
+    if any({key: validation[row['image_index']][key] for key in holdout.KEEP} != row for row in rows):
+        raise Refusal('holdout_identity_mismatch')
+    y = np.array([_label(validation[row['image_index']]['findings']) for row in rows], dtype=np.int64)
+    return {'rows': rows, 'y': y, 'provenance': provenance}
+
+
 def effusion_labels(cache, lock_dir, *, pins=PINS):
     return load_labels(cache, lock_dir, pins=pins)[0]
 
