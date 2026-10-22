@@ -56,3 +56,28 @@ Against a background of 0.030, a 0.005 shift gives μ ≈ 0.15 whatever the DP s
 
 Private evidence: `summary.json`
 `9c6692759411903cb583433a024d85e14d78baa253753e060874c9e3cbb4c42c`.
+
+## Follow-up: A18 withdrawn, mechanism checked instead
+
+A18 was withdrawn before any run. The averaged all-iterates score telescopes to ⟨θ_T − θ_0, u⟩/T.
+That removes the init spread but not the erasure, and the projected clean μ (about 0.2, or about 0.6
+for weights-only canaries) could not test even the ε 8 claim. See the protocol.
+
+What can be verified instead is that the mechanism adds the noise it claims. Three links establish
+it together:
+1. `test_noise_std_is_multiplier_times_rule_sensitivity`
+   (`framework/tests/test_dp_robust_aggregate.py`) measures the noise `dp_robust_aggregate`
+   actually draws and checks it equals z × the rule's replace-one sensitivity.
+2. `test_bit_exact_with_dp_robust_aggregate_over_three_rounds`
+   (`framework/tests/test_composed_strategy.py`) shows the simulator's strategy is bit-identical to
+   that function.
+3. `repro/check_effusion_dp_noise_records.py` re-derives z·2C/(n − 2k) for every recorded
+   central-DP round from its own config and cohort:
+   - 404 runs and 7,235 rounds across A8, A9, A13, A14, A15, A16 and A17;
+   - 0 mismatches, worst relative error 2.2 × 10⁻¹⁶;
+   - private output `dp-noise-record-check.json`
+     `1eee2af54cf6254ece05605fa7c46c12436f7b5d6117dd13cee588a3d4276e9e`.
+
+This is a correctness check of the implementation against its own accounting. It is not an
+empirical privacy estimate. An informative one-run audit at this scale would need many more
+canaries and clients than the 80-client Effusion setup has; that is left open.

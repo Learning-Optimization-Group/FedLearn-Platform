@@ -622,3 +622,17 @@ central-DP mechanism leak no more than claimed?
     underpowered and is reported as such.
   - A lower bound above √T/(2z) under DP is a leak finding.
   - μ̂ below theory is expected only to the extent that honest updates add spread.
+
+**A18 withdrawn before any run (22 October).**
+- The round-averaged all-iterates score telescopes: Σ_t ⟨θ_t − θ_{t−1}, u⟩/T = ⟨θ_T − θ_0, u⟩/T.
+  So A18 is A16 with the public initial model subtracted.
+- That removes the init spread but not the erasure by honest training.
+- Projected from A16's measurements:
+  - The bias still moves about 0.65, which leaves an unseen spread of about 0.02 against a canary
+    shift of about 0.005, so clean μ ≈ 0.2. The positive control would fail again.
+  - Even weights-only canaries give clean μ ≈ 0.6, below the ε 8 theory of 0.83, so no leak
+    could be detected there.
+- No A18 run was made, and the engine hook written for it was removed uncommitted.
+- In its place, a deterministic mechanism check over existing records
+  (`repro/check_effusion_dp_noise_records.py`) is recorded in the
+  [A16 result](effusion-canary-audit-r0-v1-result-2026-10-22.md).
