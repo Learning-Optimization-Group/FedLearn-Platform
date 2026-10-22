@@ -50,6 +50,7 @@ class Refusal(ValueError):
 # Dated protocol amendments that authorise proceeding after a failed section 7 gate.
 FAILED_GATE_AMENDMENTS = {
     'A2': 'User decision 22 October 2026: proceed on R1 after gate (a) failed; R1 is not claimed superior to R0.',
+    'A6': 'User decision 22 October 2026: R0 is primary for all remaining work after gate (a) failed; R0 and R1 tied.',
 }
 
 
@@ -92,20 +93,27 @@ class EffusionWorkload(FeatureHeadWorkload):
         return classification_metrics(logits, labels, auc_score='margin_v2')
 
 
-def config(name, seed, *, clients, features_path, report_sha256, rounds=ROUNDS, privacy=None):
+RECIPE_KEYS = frozenset({'lr', 'clip_norm'})
+
+
+def config(name, seed, *, clients, features_path, report_sha256, rounds=ROUNDS, privacy=None, recipe=None):
+    """Engine config for the section 6 recipe; `recipe` may override only client LR and update clip."""
+    recipe = dict(recipe or {})
+    if not set(recipe) <= RECIPE_KEYS:
+        raise ValueError(f'unknown recipe keys {sorted(set(recipe) - RECIPE_KEYS)}')
     return {'name': name, 'seeds': default_seeds(seed),
             'workload': {'dataset': 'nih', 'features_path': str(features_path), 'features_report_sha256': report_sha256,
                          'evaluation_split': 'validation', 'balance': False, 'head': {'type': 'linear'}},
             'federation': {'num_clients': clients, 'rounds': rounds, 'partition': {'type': 'patient_iid'}},
-            'client': {'algorithm': 'fedavg', 'local_epochs': 7, 'lr': 0.003, 'batch_size': 256},
-            'server': {'clip_norm': 0.05, 'rule': 'mean'}, 'privacy': dict(privacy or {'mode': 'none'})}
+            'client': {'algorithm': 'fedavg', 'local_epochs': 7, 'lr': recipe.get('lr', 0.003), 'batch_size': 256},
+            'server': {'clip_norm': recipe.get('clip_norm', 0.05), 'rule': 'mean'}, 'privacy': dict(privacy or {'mode': 'none'})}
 
 
 def run_one(name, seed, train_x, train_y, patients, selection_x, selection_y, mean, std, *, clients,
-            features_path, report_sha256, rounds=ROUNDS, info=None, privacy=None):
+            features_path, report_sha256, rounds=ROUNDS, info=None, privacy=None, recipe=None):
     """One engine run; returns (record, float64 selection margins of the final head)."""
     cfg = config(name, seed, clients=clients, features_path=features_path, report_sha256=report_sha256, rounds=rounds,
-                 privacy=privacy)
+                 privacy=privacy, recipe=recipe)
     workload = EffusionWorkload(train_x, train_y, patients, selection_x, selection_y, mean, std, clients=clients,
                                 partition_seed=cfg['seeds']['partition'], info=dict(info or {}))
     final = {}
