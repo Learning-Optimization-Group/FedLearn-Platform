@@ -58,28 +58,49 @@ public class SimulationService {
         return new Limits(deadline >= 1 && deadline <= 180 ? deadline : 180, 4, 2147483648L, 1, SCOPE);
     }
 
+    /** Ordered choice map; the Lab exposes more settings than Map.of's ten-pair limit. */
+    private static Map<String, Object> supported(Object... pairs) {
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        for (int index = 0; index < pairs.length; index += 2) result.put((String) pairs[index], pairs[index + 1]);
+        return result;
+    }
+
     public Workloads workloads() {
         JsonNode metadata = SimulationJson.MAPPER.nullNode();
         boolean ready = false;
         try { metadata = runner.inspect(); ready = true; } catch (SimulationException ignored) { }
+        JsonNode effusion = SimulationJson.MAPPER.nullNode();
+        boolean effusionReady = false;
+        try { effusion = runner.inspect(SimulationProcessRunner.EFFUSION); effusionReady = true; } catch (SimulationException ignored) { }
         return new Workloads(List.of(new Workload("nih-qualified", ready, ready ? null : "Qualified workload unavailable or not configured.",
                 "No Finding (0) versus any finding (1)", "Frozen pretrained ResNet-18 features; validation only",
-                ready ? properties.getReportSha256() : null, metadata.path("splits"), Map.of(
+                ready ? properties.getReportSha256() : null, metadata.path("splits"), supported(
+                    "recipe", List.of("standard"),
                     "head", List.of("linear", "mlp8", "mlp128", "mlp512"), "numClients", List.of(10, 80, 1000),
                     "rounds", List.of(1, 20), "localEpochs", List.of(1, 7), "aggregation", List.of("mean", "trimmed_mean"),
                     "clipNorm", List.of(.05, .4), "privacy", List.of("none", "central"), "epsilon", List.of(1, 4, 8),
+                    "behavior", List.of("clean", "sign_flip", "label_flip"), "seed", List.of(0, 1000000000)), limits()),
+                new Workload(SimulationProcessRunner.EFFUSION, effusionReady,
+                        effusionReady ? null : "Effusion bundle unavailable or not configured.",
+                        "Effusion (1) versus not (0); report-derived labels",
+                        "Frozen ImageNet ResNet-18 features, train-standardised; development selection half only (holdout and official test excluded)",
+                        effusionReady ? properties.getEffusionReportSha256() : null, effusion.path("splits"), supported(
+                    "recipe", List.of("effusion-clean", "effusion-dp"),
+                    "head", List.of("linear", "mlp8", "mlp128", "mlp512"), "numClients", List.of(10, 80, 1000),
+                    "rounds", List.of(1, 20), "localEpochs", List.of(1, 7), "aggregation", List.of("mean", "trimmed_mean"),
+                    "privacy", List.of("none", "central"), "epsilon", List.of(1, 4, 8),
                     "behavior", List.of("clean", "sign_flip", "label_flip"), "seed", List.of(0, 1000000000)), limits())), SCOPE);
     }
 
     public Resolved resolve(JsonNode choices) {
-        runner.inspect();
         var resolution = runner.resolve(choices);
-        return new Resolved("nih-qualified", resolution.hash(), resolution.recipe(), limits(), SCOPE);
+        runner.inspect(resolution.workloadId());
+        return new Resolved(resolution.workloadId(), resolution.hash(), resolution.recipe(), limits(), SCOPE);
     }
 
     public Accepted start(JsonNode choices) {
         Long owner = authorization.currentUser().getId();
-        runner.inspect(); var resolution = runner.resolve(choices);
+        var resolution = runner.resolve(choices); runner.inspect(resolution.workloadId());
         synchronized (admission) {
             refresh();
             if (closing) throw SimulationException.unavailable();
@@ -94,7 +115,7 @@ public class SimulationService {
             run = repository.saveAndFlush(run);
             run.setStatus(SimulationStatus.STARTING); run = repository.saveAndFlush(run);
             try {
-                var child = runner.launch(run.getId(), resolution.config());
+                var child = runner.launch(run.getId(), resolution.config(), resolution.reportSha256());
                 active = new Active(run.getId(), child);
                 run.setStartedAt(Instant.now()); run.setWorkerPid(child.process().pid());
                 run.setWorkerStartIdentity(child.startIdentity()); run.setWorkerExecutableIdentity(child.executableIdentity());
@@ -240,7 +261,8 @@ public class SimulationService {
                     // This PID now belongs to another process. Leave that process alone.
                     interrupted(run); continue;
                 }
-                if (!runner.matches(handle.get(), run.getId(), run.getWorkerStartIdentity(), run.getWorkerExecutableIdentity())) {
+                String pin = SimulationJson.stored(run.getRecipeJson()).path("featureReportSha256").asText();
+                if (!runner.matches(handle.get(), run.getId(), pin, run.getWorkerStartIdentity(), run.getWorkerExecutableIdentity())) {
                     unresolved(run); continue;
                 }
                 try {

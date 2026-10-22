@@ -15,6 +15,9 @@ public class SimulationProperties {
     private Path sourceRoot;
     private Path cache;
     private String reportSha256;
+    /** Optional capstone Effusion R0 bundle (train + development selection only); unset means the workload is unavailable. */
+    private Path effusionBundle;
+    private String effusionReportSha256;
     private Path storage;
     private int deadlineSeconds = 180;
     private boolean reconcileOnStartup = true;

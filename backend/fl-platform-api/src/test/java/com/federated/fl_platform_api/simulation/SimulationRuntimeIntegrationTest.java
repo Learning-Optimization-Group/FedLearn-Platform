@@ -190,7 +190,8 @@ class SimulationRuntimeIntegrationTest {
     @Test void failedLaunchIsRetainedAndDoesNotOccupyAdmission() throws Exception {
         String owner = owner();
         org.mockito.Mockito.doThrow(new java.io.IOException("/private/launch-error"))
-                .when(runner).launch(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+                .when(runner).launch(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any());
         try {
             var response = start(owner, 42);
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);

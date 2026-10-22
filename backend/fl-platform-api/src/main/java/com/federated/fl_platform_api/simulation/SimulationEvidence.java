@@ -183,11 +183,12 @@ final class SimulationEvidence {
                 "auc_score", "auc_score_definition", "backbone", "curated_cohort_sha256", "dataset",
                 "evaluation_manifest_sha256", "evaluation_split", "feat_dim", "features_report_sha256", "model_state_sha256",
                 "n_classes", "n_test", "n_train", "parameters", "partition_algorithm", "pretrained", "source_dataset",
-                "torch_num_threads", "train_manifest_sha256", "training_device");
+                "torch_num_threads", "train_manifest_sha256", "training_device", "target", "bundle_version", "evaluation");
         workload.set("source_hashes", leaves(meta.path("workload").path("source_hashes"), "Data_Entry_2017.csv", "train_val_list.txt", "test_list.txt"));
         var splits = workload.putObject("split_counts");
-        for (String split : new String[]{"train", "validation", "test"}) splits.set(split,
-                selectedNumbers(meta.path("workload").path("split_counts").path(split), "images", "patients", "positive_images", "negative_images"));
+        for (String split : new String[]{"train", "validation", "test", "selection"}) splits.set(split,
+                selectedNumbers(meta.path("workload").path("split_counts").path(split), "images", "patients", "positive_images",
+                        "negative_images", "positives"));
         source.set("workload", workload);
         return source;
     }

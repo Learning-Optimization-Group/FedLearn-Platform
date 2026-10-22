@@ -23,13 +23,23 @@ public class SimulationProcessRunner implements AutoCloseable {
             if report['pretrained'] is not True: raise ValueError('pretrained cache required')
             print(json.dumps({'splits':report['splits'],'dataset':report['dataset'],'pretrained':True}))
             """;
+    private static final String BUNDLE_PROBE = """
+            import json,sys
+            from pathlib import Path
+            from fedlearn.simulation.effusion_bundle import load_effusion_bundle
+            report=load_effusion_bundle(Path(sys.argv[1]),expected_report_sha256=sys.argv[2])['report']
+            if report['pretrained'] is not True: raise ValueError('pretrained bundle required')
+            print(json.dumps({'splits':report['counts'],'dataset':report['dataset'],'target':report['target'],'pretrained':True}))
+            """;
     private final SimulationProperties properties;
     private final ExecutorService threads = Executors.newVirtualThreadPerTaskExecutor();
     private final Set<OwnedProcess> children = ConcurrentHashMap.newKeySet();
 
     public SimulationProcessRunner(SimulationProperties properties) { this.properties = properties; }
 
-    record Resolution(JsonNode config, String hash, JsonNode recipe) { }
+    record Resolution(JsonNode config, String hash, JsonNode recipe, String workloadId, String reportSha256) { }
+    record Target(String workloadId, Path cache, String reportSha256) { }
+    static final String HISTORICAL = "nih-qualified", EFFUSION = "nih-effusion-r0";
 
     boolean configured() {
         return properties.isEnabled() && properties.getInterpreter() != null && properties.getInterpreter().isAbsolute()
@@ -40,10 +50,24 @@ public class SimulationProcessRunner implements AutoCloseable {
                 && properties.getDeadlineSeconds() >= 1 && properties.getDeadlineSeconds() <= 180;
     }
 
-    JsonNode inspect() {
+    /** The cache and pin a workload resolves against; an unknown or unconfigured workload is unavailable. */
+    Target target(String workloadId) {
         if (!configured()) throw SimulationException.unavailable();
+        if (HISTORICAL.equals(workloadId)) return new Target(HISTORICAL, properties.getCache(), properties.getReportSha256());
+        if (EFFUSION.equals(workloadId) && properties.getEffusionBundle() != null
+                && properties.getEffusionReportSha256() != null && properties.getEffusionReportSha256().matches("[0-9a-f]{64}")) {
+            return new Target(EFFUSION, properties.getEffusionBundle(), properties.getEffusionReportSha256());
+        }
+        throw SimulationException.unavailable();
+    }
+
+    JsonNode inspect() { return inspect(HISTORICAL); }
+
+    JsonNode inspect(String workloadId) {
+        Target target = target(workloadId);
         try {
-            JsonNode result = command(List.of("-c", PROBE, properties.getCache().toAbsolutePath().normalize().toString(), properties.getReportSha256()));
+            JsonNode result = command(List.of("-c", EFFUSION.equals(workloadId) ? BUNDLE_PROBE : PROBE,
+                    target.cache().toAbsolutePath().normalize().toString(), target.reportSha256()));
             if (!result.path("splits").isObject() || !result.path("pretrained").asBoolean()) throw new IOException("Invalid probe");
             return result;
         } catch (IOException | InterruptedException error) {
@@ -53,19 +77,22 @@ public class SimulationProcessRunner implements AutoCloseable {
     }
 
     Resolution resolve(JsonNode choices) {
-        if (!configured()) throw SimulationException.unavailable();
+        JsonNode requested = choices.path("workloadId");
+        if (!requested.isMissingNode() && !requested.isTextual()) throw SimulationException.invalid();
+        Target target = target(requested.isTextual() ? requested.asText() : HISTORICAL);
         Path input = null;
         try {
             input = Files.createTempFile(storageRoot(), ".choices-", ".json");
             Files.writeString(input, choices.toString());
             JsonNode resolved = command(List.of("-m", "fedlearn.lab_worker", "resolve", "--choices", input.toString(),
-                    "--cache", properties.getCache().toAbsolutePath().normalize().toString(), "--report-sha256", properties.getReportSha256()));
+                    "--cache", target.cache().toAbsolutePath().normalize().toString(), "--report-sha256", target.reportSha256()));
             String hash = resolved.path("config_hash").asText();
             if (!hash.matches("[0-9a-f]{64}") || !resolved.path("config").isObject() || !resolved.path("display_recipe").isObject()
-                    || !properties.getReportSha256().equals(resolved.path("display_recipe").path("featureReportSha256").asText())) {
+                    || !target.reportSha256().equals(resolved.path("display_recipe").path("featureReportSha256").asText())
+                    || !target.workloadId().equals(resolved.path("display_recipe").path("workloadId").asText())) {
                 throw new IOException("Invalid resolver contract");
             }
-            return new Resolution(resolved.path("config"), hash, resolved.path("display_recipe"));
+            return new Resolution(resolved.path("config"), hash, resolved.path("display_recipe"), target.workloadId(), target.reportSha256());
         } catch (IOException | InterruptedException error) {
             if (error instanceof InterruptedException) Thread.currentThread().interrupt();
             // Includes every nonzero resolver exit, including private Python tracebacks.
@@ -132,11 +159,15 @@ public class SimulationProcessRunner implements AutoCloseable {
     Path jobDirectory(UUID id) { return properties.getStorage().toAbsolutePath().normalize().resolve(id.toString()); }
 
     public OwnedProcess launch(UUID id, JsonNode config) throws IOException {
+        return launch(id, config, properties.getReportSha256());
+    }
+
+    public OwnedProcess launch(UUID id, JsonNode config, String reportSha256) throws IOException {
         storageRoot(); Path job = jobDirectory(id); Files.createDirectory(job);
         try { Files.setPosixFilePermissions(job, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------")); }
         catch (UnsupportedOperationException ignored) { }
         Path input = job.resolve("config.json"); Files.writeString(input, config.toString(), StandardOpenOption.CREATE_NEW);
-        List<String> arguments = runArguments(id);
+        List<String> arguments = runArguments(id, reportSha256);
         long launched = System.nanoTime();
         Process process = builder(arguments).start();
         try {
@@ -147,19 +178,23 @@ public class SimulationProcessRunner implements AutoCloseable {
         }
     }
 
-    private List<String> runArguments(UUID id) {
+    private List<String> runArguments(UUID id, String reportSha256) {
         Path job = jobDirectory(id);
         return List.of("-m", "fedlearn.lab_worker", "run", "--config", job.resolve("config.json").toString(),
-                "--output", job.resolve("execution").toString(), "--report-sha256", properties.getReportSha256(),
+                "--output", job.resolve("execution").toString(), "--report-sha256", reportSha256,
                 "--run-id", id.toString(), "--deadline-seconds", Integer.toString(properties.getDeadlineSeconds()));
     }
 
     boolean matches(ProcessHandle handle, UUID id, String startIdentity, String executableIdentity) {
+        return matches(handle, id, properties.getReportSha256(), startIdentity, executableIdentity);
+    }
+
+    boolean matches(ProcessHandle handle, UUID id, String reportSha256, String startIdentity, String executableIdentity) {
         var info = handle.info();
         if (startIdentity == null || !info.startInstant().map(Object::toString).filter(startIdentity::equals).isPresent()) return false;
         try {
             return executableIdentity != null && info.command().isPresent() && Files.isSameFile(Path.of(info.command().get()), Path.of(executableIdentity))
-                    && info.arguments().map(args -> Arrays.asList(args).equals(runArguments(id))).orElse(false);
+                    && info.arguments().map(args -> Arrays.asList(args).equals(runArguments(id, reportSha256))).orElse(false);
         } catch (IOException error) { return false; }
     }
 
