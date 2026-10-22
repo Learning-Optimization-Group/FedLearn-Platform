@@ -1,9 +1,10 @@
 # Effusion follow-up: baseline and evaluation protocol v1
 
-22 October 2026. **Status: DRAFT, prospective.** Written after the condition decision
-and holdout lock, before any Effusion label is used to fit, select or score a model.
-It freezes on the user's sign-off; later changes must be dated amendments, and any
-analysis outside this plan is labelled post-hoc. The completed any-finding study,
+22 October 2026. **Status: FROZEN, 22 October 2026** — approved by the user as
+proposed, including the 0.80 AUROC floor, the sensitivity-0.90 operating point and the
+50/50 validation carve. Written after the condition decision and holdout lock, before
+any Effusion label was used to fit, select or score a model. Later changes must be
+dated amendments, and any analysis outside this plan is labelled post-hoc. The completed any-finding study,
 its cache and its results stay unchanged as the historical reference.
 
 ## 1. Target and intended use
@@ -98,8 +99,8 @@ patients each, no client is forced to lack a positive. The bound only bites at t
 
 R1 qualifies as the stronger centralised baseline only if both hold:
 (a) the paired ΔAUROC (R1 − R0) 95% interval lies entirely above 0, and
-(b) R1's AUROC is ≥ **0.80**. That floor is a proposed value awaiting sign-off,
-not derived from a clinical requirement.
+(b) R1's AUROC is ≥ **0.80**. That floor was approved with the protocol; it is a
+research threshold, not derived from a clinical requirement.
 Specificity at sensitivity 0.90 and calibration are always reported but not gated:
 calibration is only non-circular on the holdout. A failed gate is recorded as the
 result. Proceeding to privacy/attack studies on a failed baseline requires an explicit
@@ -116,10 +117,9 @@ labelled post-hoc. If the holdout itself proves unusable, report that.
 
 ## 9. Order and time budget (deadline 5 December)
 
-1. Sign-off on this draft, in particular the 0.80 floor, the sensitivity-0.90
-   operating point and the 50/50 validation carve.
-2. Build the versioned R1 cache (train + validation, about 86k images, CPU or
-   checked MPS) with its own report, then a target-specific duplicate/contradictory
+1. Sign-off: given 22 October.
+2. Build the versioned R1 cache for train + selection (77,725 images, deterministic
+   CPU) with its own report; holdout features are extracted only at §8, then a target-specific duplicate/contradictory
    label audit on train and selection only.
 3. §4 fits, §7 gate, then §6 federation. Privacy (central DP, local DP, secure
    aggregation where supported) and bounded attacks follow on the frozen recipe.

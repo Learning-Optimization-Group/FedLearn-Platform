@@ -106,15 +106,15 @@ def select_development(cache, expected_report):
     }
 
 
-def load_audit_rows(audit_dir, selected):
+def load_audit_rows(audit_dir, selected, *, report_sha256=AUDIT_REPORT_SHA256, images_sha256=AUDIT_IMAGES_SHA256):
     """Return pinned audit identities for the selected images only (no label column)."""
     audit_dir = Path(audit_dir)
     raw_report = (audit_dir / 'report.json').read_bytes()
-    if _sha256(raw_report) != AUDIT_REPORT_SHA256:
+    if _sha256(raw_report) != report_sha256:
         raise Refusal('audit_report_hash_mismatch')
     raw_images = (audit_dir / 'images.csv').read_bytes()
     images_sha = _sha256(raw_images)
-    if images_sha != AUDIT_IMAGES_SHA256 or images_sha != json.loads(raw_report)['payload_hashes']['images.csv']:
+    if images_sha != images_sha256 or images_sha != json.loads(raw_report)['payload_hashes']['images.csv']:
         raise Refusal('audit_images_hash_mismatch')
     wanted = {row['image_index']: row for row in selected}
     found = {}
