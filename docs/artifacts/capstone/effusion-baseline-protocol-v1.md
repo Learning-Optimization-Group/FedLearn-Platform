@@ -503,3 +503,26 @@ claimed ε 8/4/1 are really 6.76/3.25/0.74.
   - Refusals, non-finite runs and the engine's attack notes are reported as such. No pass/fail
     threshold.
 - **Limits:** IID, simulated, client-level, non-adaptive to clipping, one ε under DP.
+
+## Amendment A15 — 22 October 2026: number of DP releases on R0, before any A15 run
+
+**Question:** under central DP at a fixed claimed budget, does training for fewer rounds beat
+20 rounds? With exact GDP accounting at q = 1, z scales as √T. At claimed ε 4, z falls from
+4.84 (T = 20) to 1.08 (T = 1). Fewer releases therefore each carry much less noise, at the
+cost of fewer optimisation steps.
+
+- **Cells:** 75 runs, all retained.
+  - R0, A8 recipe (LR 0.03, clip 0.05, 7 local epochs), 80 whole-patient IID clients,
+    seeds 20261101–20261105.
+  - Rounds T ∈ {1, 2, 5, 10, 20}.
+  - Privacy ∈ {clean, claimed ε 8, claimed ε 4}, δ 10⁻⁵, replace-one central DP.
+  - z is calibrated exactly with GDP for each T, as in A13 (the same RDP-equivalent budget
+    mechanism and the same z check and refusal).
+  - The recipe is held fixed across T. It was tuned at T = 20, which is a stated limit.
+- **Reported** (selection half; paired patient bootstrap, 2,000 resamples, seed 20261034):
+  - absolute AUROC per cell;
+  - each T against T = 20 at the same privacy level and seed;
+  - DP cost against the clean cell with the same T.
+  - Refusals and non-finite runs are reported as such. The T = 20 ε 4 and ε 8 cells repeat
+    A13's configuration and must reproduce its margins exactly. The T = 20 clean cells must
+    likewise reproduce A8's clean cells.
