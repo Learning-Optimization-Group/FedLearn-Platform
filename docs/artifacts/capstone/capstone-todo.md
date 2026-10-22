@@ -74,7 +74,9 @@ pneumonia task. Preserve the completed study separately.
   performance differences to secure aggregation; mark incompatible combinations unavailable.
 - [ ] Freeze a supported follow-up comparison of central DP, local DP and secure
   aggregation, including clean controls and explicit privacy/trust/compatibility scope.
-  Central DP and secure aggregation done (A4/A5); local DP qualification remains.
+  Central DP and secure aggregation done (A4/A5); local DP done (A11:
+  [result](effusion-local-dp-r0-v1-result-2026-10-22.md), near chance at ε ≤ 8, needs about ε 128 to
+  match central ε 8).
 - [x] Run the bounded attack study across declared seeds, retaining all outcomes:
   [A9 result](effusion-attacks-r0-v1-result-2026-10-22.md), 100/100 cells usable.
 - [x] One-time holdout evaluation of the frozen list (A10):
@@ -84,6 +86,10 @@ pneumonia task. Preserve the completed study separately.
   `DPFedAvg` + planner (`969755a`); see [practical guidance](fedlearn-practical-guidance.md).
 - [x] Build absolute-performance and attack-drop heatmaps with uncertainty and costs:
   `figures/effusion-attack-heatmaps-v1.*`, rendered from the pinned record by `repro/plot_effusion_attacks.py`.
+- [x] Add the Effusion R0 workload to the Simulation Lab (framework bundle + workload, Lab
+  contract with measured recipes, API, UI). A Lab run reproduces the capstone A7 run exactly;
+  real-browser pass recorded in
+  [simulation-lab-effusion-browser-verification-2026-10-22.json](simulation-lab-effusion-browser-verification-2026-10-22.json).
 - [ ] Complete and browser-verify the integrated simulator, including persistence,
   ownership, live progress, stop/reopen, comparison, heatmaps and research export.
 
