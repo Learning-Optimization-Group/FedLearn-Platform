@@ -217,3 +217,40 @@ vs 1,026 head parameters). Does width change the utility cost of central DP at e
 - **Replay check:** the R1 clean cells must reproduce the §6 federated margins exactly.
 - **Excluded:** local DP, until a separate qualification amendment. Secure aggregation
   is covered by A5. There is no retuning.
+
+## Amendment A5 — 22 October 2026, secure-aggregation scope, before any secure run
+
+**Decision (user, 22 October):** do not build a new secure path for the head. Instead:
+show equivalence, measure overhead, and mark incompatible combinations.
+
+- **Mechanism under test:** the existing LightSecAgg implementation, run in-process:
+  - The real `SecureAggregationClient`: X25519 key agreement, Shamir shares of a
+    fresh `os.urandom` mask, sealed-share relay through the real servicer handlers,
+    and `quantize(x) + z` masking at scale 10⁶.
+  - The real `SecureAggregationSession`: masked submissions and a one-shot recovery.
+  - Threshold t = ⌊n/2⌋ + 1 = 41 of 80; no dropouts.
+  - Two harness adaptations:
+    - Summed shares are filed through the same holder-index check as the servicer,
+      but skip its DeComFL-specific completion hook (which applies a zeroth-order
+      update).
+    - No network: channel latency, retries and interceptors are not measured.
+- **Placement:** inside the §6 engine run (R1, seeds 20261101–20261105). Only the
+  `mean` reduction is swapped, within a scoped context, for the secure sum divided by n.
+  Everything else in training is identical.
+  - Each round runs the protocol once. The engine's noise-free previews of the same
+    inputs reuse that result.
+- **Trust change, disclosed:** clipping is applied per client before masking. Numerically
+  this matches server-side clipping, but under secure aggregation the server cannot
+  verify it; clients are trusted to self-clip.
+- **Reported:**
+  - Per-round recovered-vs-float-mean error against the fixed-point bound.
+  - Final margin difference and AUROC difference from the §6 plain runs, same seed
+    (paired bootstrap, 2,000 resamples, seed 20261025).
+  - Per-round protocol wall time by phase.
+  - Bytes per client per round, from serialised request and response protobufs,
+    compared with the plain 8,348-byte upload.
+- **Unavailable, by construction:** secure aggregation combined with trimmed mean,
+  median or Krum. The server learns only the sum, and those rules need individual
+  coordinates. The harness refuses them rather than silently falling back to a plain
+  path. Central DP on the recovered sum would be mechanically possible but is not run
+  here.
