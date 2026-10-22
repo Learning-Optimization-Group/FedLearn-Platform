@@ -31,6 +31,11 @@ pneumonia task. Preserve the completed study separately.
   checkpoint/library pinned; two synthetic CPU inputs yield finite 1,024-value
   features with exact fresh-process replay. Nine reproduction tests pass.
   The 512-wide legacy cache is unchanged; no new disease accuracy is available.
+- [x] Check real development inputs for that candidate without fitting:
+  [eight-image probe](medical-input-probe-2026-10-22.md). Pinned cache/manifests,
+  whole-set patient separation, label-free hash selection, raw-byte and decoded-pixel
+  audit bindings and an explicit grayscale contract pass; 8 × 1,024 frozen features
+  are finite and replay byte-identically. No test manifest, labels, fitting or scores.
 - [ ] Select the condition and define the prediction purpose, labels, baseline acceptance measures and a genuinely
   untouched final evaluation; do not tune to the already examined NIH test results.
 - [ ] Audit and improve a bounded centralized learning baseline on development data.

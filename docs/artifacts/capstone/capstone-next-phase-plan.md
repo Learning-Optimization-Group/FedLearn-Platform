@@ -28,7 +28,9 @@ now pins a CheXpert-specific DenseNet checkpoint and verifies synthetic CPU feat
 extraction/replay. It establishes technical preparation only: no condition selection,
 NIH fitting, utility gain or new clinical qualification. Its 1,024-wide features need
 a separately versioned cache and qualification; the existing 512-wide workload stays
-historical. The learning sequence below remains binding.
+historical. A [development-only real-image probe](medical-input-probe-2026-10-22.md)
+then bound eight train/validation X-rays to the original audit and confirmed the
+preprocessing contract and frozen 1,024-wide features; it is still not a utility result. The learning sequence below remains binding.
 
 ## Required sequence and gates
 
