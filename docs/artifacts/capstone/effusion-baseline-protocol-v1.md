@@ -557,3 +557,31 @@ Method: Andrew et al., ICLR'24 (arXiv:2302.03098).
   - AUROC with canaries present;
   - the clean control's μ̂, which must be large, or the audit has no power;
   - refusals and non-finite runs.
+
+## Amendment A17 — 22 October 2026: zero-initialised head under central DP on R0, before any A17 run
+
+**Why:** A15 found that with the A8 recipe the head barely leaves its random initialisation:
+- at T = 1 the weight norm is 0.81, the random-init scale;
+- from T = 1 to T = 20 the weights move only 0.24 while the bias moves 0.65.
+
+AUROC depends only on the weight direction, so the random init acts as a fixed perturbation
+that a binding clip cannot overcome. Zeroing the initial head is data-independent, so it costs
+no privacy.
+
+**Question:** does a zero-initialised head raise AUROC under central DP, and does it make fewer
+rounds viable?
+
+- **Cells:** 40 runs, all retained.
+  - R0, A8 recipe (LR 0.03, clip 0.05, 7 local epochs), 80 whole-patient IID clients,
+    seeds 20261101–20261105.
+  - Rounds T ∈ {5, 20}.
+  - Privacy ∈ {clean, claimed ε 8, 4, 1}, z calibrated exactly with GDP as in A13.
+  - The only change from A13/A15 is the initial global head: weights and bias are zero.
+    Everything else, including every seed, is identical.
+- **Reported** (selection half; paired patient bootstrap, 2,000 resamples, seed 20261036):
+  - absolute AUROC per cell;
+  - zero-init minus random-init, same T, privacy and seed. The random-init counterparts are
+    A13 (T = 20, DP), A8 (T = 20, clean) and A15 (T = 5, clean/ε 8/ε 4). T = 5 at ε 1 has no
+    counterpart and is reported as absolute only.
+  - DP cost against the zero-init clean cell with the same T.
+  - Refusals and non-finite runs are reported as such.
