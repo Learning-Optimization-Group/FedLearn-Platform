@@ -164,3 +164,25 @@ probe, with its frozen standardiser. The decision is recorded, not inferred.
   Nothing else in §4–§8 or A1 changes.
 - The federated harness refuses a failed gate unless it is given `--amendment A2`,
   and it records that authority in its output.
+
+## Amendment A3 — 22 October 2026, before any federated result was opened
+
+This is a reading rule for §6 only. It changes no procedure, and no run setting
+was changed. The §6 recipe was fixed for raw 512-wide any-finding features. Here it
+runs on standardised 1,024-wide Effusion features, and the 0.05 update clip bounds
+per-round movement in both arms.
+
+- **Primary contrast:** federated − central-SGD on the same seed. Both arms share the
+  recipe and the clip, so this gap is attributed to federation (partitioning and
+  averaging).
+- **Federated − convex and central-SGD − convex** are reported as federation cost
+  only if the recipe is not limiting. The recipe counts as limiting if either of these
+  holds:
+  - the mean last-round clip rate is ≥ 0.95 in either arm;
+  - the central-SGD seed mean is more than 0.02 AUROC below the convex R1 head (0.829).
+
+  If it is limiting, those gaps are labelled **recipe-limited** and are not called
+  the cost of federation.
+- **No retuning after seeing results.** LR, clip, epochs and rounds are not tuned
+  after these results. Any optimiser check needs its own declared amendment, with the
+  outcome reported as exploratory.
