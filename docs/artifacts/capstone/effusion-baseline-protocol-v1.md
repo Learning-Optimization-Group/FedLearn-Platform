@@ -724,3 +724,50 @@ the band: 82 of 1,600 at ε 128, costing 0.073. A deliberate attacker can do thi
   - attack drop against the matching clean cell;
   - honest and attacker drop counts;
   - refusals and non-finite runs.
+
+## Amendment A22 — 22 October 2026: stronger frozen encoders on R0's protocol, before any A22 cache is built
+
+**Question:** does a stronger frozen encoder raise centralised Effusion AUROC over R0? If it does,
+does it shrink the central-DP cost? Tramèr and Boneh (arXiv:2011.11660) report that better
+features make DP cheaper.
+
+**Leakage rule:** an encoder is admissible only if its documented training data excludes NIH
+ChestX-ray14 and datasets derived from it (for example RSNA Pneumonia). Checked before any build:
+- **RAD-DINO: excluded.** Its released checkpoint was trained on all 112,120 NIH-CXR images,
+  holdout included (model card).
+- **XRV `all`, `nih`, `rsna` and `resnet50-res512-all`: excluded.** Their training sets include
+  NIH or RSNA.
+- **R2 = DINOv2 ViT-B/14 (`facebook/dinov2-base`): admitted, with a caveat.**
+  - Self-supervised on LVD-142M: web images retrieved by similarity to ImageNet-22k/1k, Google
+    Landmarks and fine-grained natural-image datasets; no medical source datasets.
+  - Web chest X-rays cannot be ruled out entirely, but NIH ChestX-ray14 was not a training dataset.
+  - Feature: the final-layer CLS token, 768-wide.
+- **R3 = TorchXRayVision `densenet121-res224-mimic_ch`: admitted.**
+  - Trained on MIMIC-CXR only; the library's weights naming lists only `mimic_ch`.
+  - Feature: `features2()`, 1,024-wide, the same interface and preprocessing as R1.
+
+**Caches:**
+- **Splits:** built by `build_xrv_cache.build_cache` over train and the selection half only, with
+  the same pinned image, decode and partition contract as R1. Holdout and test images are never
+  read.
+- **R2 settings:**
+  - device: MPS, float32;
+  - preprocessing: decoded grayscale, divide by 255, bilinear antialiased resize to 224 × 224,
+    replicated to three channels, ImageNet mean/std.
+  - MPS was checked to give bit-identical features across repeats and batch sizes before the build.
+- **R3 settings:** CPU, deterministic, with the R1 contract.
+- **Weights:** pinned by SHA-256 at build.
+- **Verification:** each cache is verified by exact recomputation of a hash-chosen sample, as for R1.
+
+**Gate** (centralised, selection half, as the original gate):
+- Same L2 logistic grid, selection rule, standardisation and patient-cluster bootstrap
+  (2,000 resamples, seed 20261042), for R0, R1, R2 and R3.
+- A representation passes if its AUROC − R0 interval is above 0 and its AUROC is at least 0.80.
+- All results are reported, whether or not they pass.
+
+**Conditional DP follow-up (pre-registered now):** for each passing representation:
+- clean and central DP at claimed ε 8/4/1 with the best R0 configuration (A8 recipe LR 0.03,
+  clip 0.05, zero-initialised head, exact-GDP z, T = 20), five seeds;
+- each compared seed by seed with A17's R0 `zero_T20` cells (seed 20261043).
+- **Limits:** the recipe was tuned on R0. Wider heads (768/1,024 vs 512) add noise norm √d, as
+  in A4, and that cost is part of what is measured.
