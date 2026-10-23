@@ -37,6 +37,10 @@ BEHAVIOR_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "label_noise": {"flip_prob": 0.3},
 }
 
+# privacy.mode "distributed": field bits, the Section 5 signal-bound multiplier k, and the coded
+# LightSecAgg thresholds (null: privacy T = N // 2 colluders, target U = N - N // 5 survivors).
+DISTRIBUTED_DEFAULTS: Dict[str, Any] = {"bits": 16, "k": 4.0, "secagg": {"privacy": None, "target": None}}
+
 DEFAULTS: Dict[str, Any] = {
     "schema_version": SCHEMA_VERSION,
     "name": "run",
@@ -211,7 +215,27 @@ def _validate(r: Dict[str, Any]) -> None:
     _require(sv["optimizer"]["type"] in ("none", "adam", "yogi"), "server.optimizer.type",
              "must be 'none', 'adam' or 'yogi'")
     _require(float(sv["optimizer"]["lr"]) > 0, "server.optimizer.lr", "must be > 0")
-    _require(pv["mode"] in ("none", "central", "local"), "privacy.mode", "must be 'none', 'central' or 'local'")
+    _require(pv["mode"] in ("none", "central", "local", "distributed"), "privacy.mode",
+             "must be 'none', 'central', 'local' or 'distributed'")
+    _require((pv["mode"] == "distributed") == ("distributed" in pv), "privacy.distributed",
+             "is required with, and only with, privacy.mode 'distributed'")
+    if pv["mode"] == "distributed":
+        dd, n = pv["distributed"], int(fed["clients_per_round"])
+        _require(isinstance(dd, dict) and isinstance(dd.get("secagg"), dict), "privacy.distributed",
+                 "must be an object")
+        _require(isinstance(dd["bits"], int) and not isinstance(dd["bits"], bool) and 8 <= dd["bits"] <= 31,
+                 "privacy.distributed.bits", "must be an integer in [8, 31]")
+        _require(float(dd["k"]) > 0, "privacy.distributed.k", "must be > 0")
+        t_, u_ = dd["secagg"]["privacy"], dd["secagg"]["target"]
+        t_ = n // 2 if t_ is None else int(t_)
+        u_ = n - n // 5 if u_ is None else int(u_)
+        _require(0 <= t_ < u_ <= n, "privacy.distributed.secagg", "needs 0 <= privacy < target <= clients_per_round")
+        _require(sv["rule"] == "mean", "server.rule", "distributed DP releases only the secure sum: rule must be 'mean'")
+        _require(int(fed["clients_per_round"]) == int(fed["num_clients"]), "federation.clients_per_round",
+                 "distributed DP is accounted for full participation")
+        _require(not any(b["type"] in ("dropout", "straggler") for b in r["behaviors"])
+                 and fed["network"]["round_deadline_s"] is None, "behaviors",
+                 "distributed DP does not model clients that miss the upload")
     _require(pv["adjacency"] == "replace_one", "privacy.adjacency", "only 'replace_one' is supported")
     if pv["mode"] != "none":
         _require(float(pv["epsilon"]) > 0, "privacy.epsilon", "must be > 0")
@@ -248,6 +272,11 @@ def resolve(cfg: Dict[str, Any]) -> Dict[str, Any]:
         # Added only when a config asks for it, so every config written before it keeps its resolved form and hash.
         defaults = copy.deepcopy(defaults)
         defaults["server"]["norm_filter"] = None
+    privacy = cfg.get("privacy")
+    if isinstance(privacy, dict) and "distributed" in privacy:
+        # Distributed (Skellam + secure aggregation) parameters, likewise added only when given.
+        defaults = copy.deepcopy(defaults)
+        defaults["privacy"]["distributed"] = copy.deepcopy(DISTRIBUTED_DEFAULTS)
     out = _merge(defaults, {k: v for k, v in cfg.items() if k != "matrix"}, "")
     fed = out["federation"]
     if fed["clients_per_round"] is None:

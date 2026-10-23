@@ -396,3 +396,67 @@ def test_match_norm_and_privatize_are_exclusive():
     with pytest.raises(ConfigError, match="match_norm"):
         resolve({"workload": {"features_path": "x"},
                  "behaviors": [{"type": "label_flip", "fraction": 0.2, "privatize": True, "match_norm": True}]})
+
+
+def _final(cfg):
+    out = {}
+    rec = run(cfg, on_final_parameters=out.update)
+    return rec, torch.cat([v.reshape(-1) for v in out.values()])
+
+
+def test_distributed_dp_matches_central_dp_when_noise_and_rounding_vanish(tmp_path):
+    path = _features(tmp_path)
+    dist, a = _final(_cfg(path, privacy={"mode": "distributed", "epsilon": 1e6, "distributed": {"bits": 31}}))
+    _, b = _final(_cfg(path, privacy={"mode": "central", "epsilon": 1e6}))
+    assert (a - b).abs().max() < 1e-3
+    assert rec_ok(dist)
+
+
+def rec_ok(rec, wraps=False):
+    lines, meta = rec["rounds"], rec["meta"]
+    assert all(l["secagg"]["exact"] for l in lines)
+    assert wraps or all(l["secagg"]["wrapped_coordinates"] == 0 for l in lines)
+    assert all(l["refusal"] is None for l in lines)
+    assert meta["server_clip_norm"] is None and meta["noise_multiplier"] == 0.0
+    assert meta["distributed_dp"]["secagg"] == {"num_users": 10, "privacy": 5, "target": 8,
+                                                "prime": 2 ** 31 - 1 if meta["distributed_dp"]["bits"] == 31
+                                                else meta["distributed_dp"]["prime"]}
+    assert lines[0]["comm"]["up_bytes"] == pytest.approx(10 * lines[0]["secagg"]["bytes_per_client"]["total"])
+    return True
+
+
+def test_distributed_dp_records_accounting_and_is_deterministic(tmp_path):
+    cfg = _cfg(_features(tmp_path), privacy={"mode": "distributed", "epsilon": 4.0, "distributed": {"bits": 16}},
+               behaviors=[{"type": "sign_flip_scale", "fraction": 0.2}])
+    a, b = run(cfg), run(cfg)
+    assert _stable(a) == _stable(b) and a["meta"]["final_digest"] == b["meta"]["final_digest"]
+    eps = [l["privacy"]["epsilon_spent"] for l in a["rounds"]]
+    assert eps == sorted(eps) and eps[-1] == pytest.approx(4.0, abs=1e-6)
+    assert a["meta"]["accounted_epsilon"] == pytest.approx(a["meta"]["distributed_dp"]["epsilon"])
+    # Attackers skip the clip and nothing on the wire shows it: their uploads stay at full norm, and
+    # here they push the 16-bit secure sum past the field, which garbles those coordinates for everyone.
+    assert rec_ok(a, wraps=True)
+    assert all(l["updates"]["attacker_norm_mean"] > 0.5 for l in a["rounds"])
+    assert sum(l["secagg"]["wrapped_coordinates"] for l in a["rounds"]) > 0
+
+
+def test_distributed_config_is_validated_and_absent_by_default():
+    from fedlearn.simulation.config import ConfigError, resolve
+    base = {"workload": {"features_path": "x"}, "server": {"clip_norm": 0.5}}
+    assert "distributed" not in resolve({**base, "privacy": {"mode": "central"}})["privacy"]
+    ok = resolve({**base, "privacy": {"mode": "distributed", "distributed": {}}})
+    assert ok["privacy"]["distributed"] == {"bits": 16, "k": 4.0, "secagg": {"privacy": None, "target": None}}
+    for bad, match in [({"privacy": {"mode": "distributed"}}, "privacy.distributed"),
+                       ({"privacy": {"mode": "central", "distributed": {}}}, "privacy.distributed"),
+                       ({"privacy": {"mode": "distributed", "distributed": {"bits": 40}}}, "bits"),
+                       ({"privacy": {"mode": "distributed", "distributed": {"secagg": {"privacy": 9, "target": 9}}}},
+                        "secagg"),
+                       ({"privacy": {"mode": "distributed", "distributed": {}}, "server": {"clip_norm": 0.5,
+                                                                                          "rule": "median"}},
+                        "server.rule"),
+                       ({"privacy": {"mode": "distributed", "distributed": {}},
+                         "federation": {"num_clients": 10, "clients_per_round": 5}}, "clients_per_round"),
+                       ({"privacy": {"mode": "distributed", "distributed": {}},
+                         "behaviors": [{"type": "dropout", "fraction": 0.1}]}, "behaviors")]:
+        with pytest.raises(ConfigError, match=match):
+            resolve({**base, **bad})

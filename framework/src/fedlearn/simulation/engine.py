@@ -21,7 +21,9 @@ from torch.utils.flop_counter import FlopCounterMode
 
 from fedlearn.estimators.params import trainable_state
 from fedlearn.privacy.dp_accountant import compute_rdp, get_epsilon, required_noise_multiplier
+from fedlearn.privacy import distributed_skellam as skellam
 from fedlearn.privacy.local_dp import privatize
+from fedlearn.security import lightsecagg_coded as coded
 from fedlearn.server.composed_strategy import ComposedStrategy
 from fedlearn.server.subset_federation import apply_trainable_subset
 from fedlearn.simulation import costs
@@ -147,7 +149,7 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
     _start_checks(r, wl)
     rounds = int(fed["rounds"])
     z = (float(required_noise_multiplier(float(pv["epsilon"]), 1.0, rounds, float(pv["delta"])))
-         if pv["mode"] != "none" else 0.0)
+         if pv["mode"] in ("central", "local") else 0.0)
     rule_params = dict(sv["rule_params"])
     if rule_params["byzantine_fraction"] is None:
         rule_params["byzantine_fraction"] = plan.malicious_fraction
@@ -160,6 +162,20 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
     if pv["mode"] == "local":
         c = float(sv["clip_norm"])
         server_clip = c + 2.0 * z * c * (math.sqrt(d) + 4.0)
+    dist = None
+    if pv["mode"] == "distributed":
+        # Clients encode with Skellam noise, the coded secure sum is all the server receives, and it can
+        # neither clip nor inspect an upload.
+        dd, cohort = pv["distributed"], int(fed["clients_per_round"])
+        dist_plan = skellam.plan_distributed_skellam(float(pv["epsilon"]), float(pv["delta"]), rounds,
+                                                     float(sv["clip_norm"]), d, cohort, int(dd["bits"]), k=float(dd["k"]))
+        threshold = cohort // 2 if dd["secagg"]["privacy"] is None else int(dd["secagg"]["privacy"])
+        target = cohort - cohort // 5 if dd["secagg"]["target"] is None else int(dd["secagg"]["target"])
+        dist = {"plan": dist_plan, "secagg": coded.CodedParams(cohort, threshold, target, dist_plan.prime)}
+        dist["up_bytes"] = coded.bytes_per_client(dist_plan.d_pad, dist["secagg"], bits=dist_plan.bits)
+        dist["up_bytes_uncoded"] = coded.bytes_per_client(dist_plan.d_pad, dist["secagg"], bits=dist_plan.bits,
+                                                          coded=False)
+        server_clip = None
     clock = costs.StageClock()
     client_noise_std = 2.0 * z * float(sv["clip_norm"]) if pv["mode"] == "local" else 0.0
     norm_band = None
@@ -191,6 +207,35 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
 
     def preview(subs):
         return strategy.preview([(str(c), p, n) for c, p, n in subs]) if subs else None
+
+    def distributed_sum(round_num, uploads, global_params, keys):
+        """The decoded mean delta of one distributed-DP round, and what the protocol exchanged."""
+        plan, params = dist["plan"], dist["secagg"]
+        round_seed = int(seeds["noise"]) * 1_000_003 + int(round_num)
+        signs = skellam.rotation_signs(round_seed, plan.d_pad)
+        rng = np.random.default_rng([int(seeds["noise"]), int(round_num)])
+        index = {cid: i for i, cid in enumerate(sorted(uploads))}
+        messages, integer_sum, tries = {}, np.zeros(plan.d_pad, dtype=np.int64), []
+        # Honest clients encode first, so their draws do not depend on the attackers present.
+        for cid in sorted(uploads, key=lambda c: (c in attackers, c)):
+            delta = flat(OrderedDict((k, uploads[cid][k].float() - global_params[k].float()) for k in keys), keys)
+            field, integers, n_tries = skellam.encode(delta.double().numpy(), plan, signs, rng, clip=cid not in attackers)
+            messages[index[cid]] = field
+            integer_sum += integers
+            tries.append(n_tries)
+        total, record = coded.secure_sum(messages, params, round_seed, rng=rng)
+        mean = torch.from_numpy(skellam.decode(total, plan, signs) / plan.clients).float()
+        out, offset = OrderedDict(), 0
+        for k in keys:
+            numel = global_params[k].numel()
+            out[k] = mean[offset:offset + numel].reshape(global_params[k].shape)
+            offset += numel
+        info = {"exact": bool(np.array_equal(total, np.mod(integer_sum, plan.prime))),
+                "wrapped_coordinates": skellam.wrapped_coordinates(integer_sum, plan),
+                "max_rounding_tries": max(tries), "replies": record["replies"],
+                "piece_length": record["piece_length"], "bytes_per_client": dist["up_bytes"],
+                "bytes_per_client_uncoded": dist["up_bytes_uncoded"]}
+        return out, info
 
     def round_hook(round_num, collected, global_params, selected, dropped):
         strategy.last_round_stats = {}
@@ -225,10 +270,15 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
                         uploads[cid] = OrderedDict((k, global_params[k].float() + scale * attack[k]) for k in keys)
         if state["round0_digest"] is None:
             state["round0_digest"] = state_digest(uploads[c] for c in sorted(uploads))
+        secagg = None
+        if dist is not None:
+            with clock.stage("secagg"):
+                mean_delta, secagg = distributed_sum(round_num, uploads, global_params, keys)
+        up_transfer = dist["up_bytes"]["total"] if dist is not None else per_transfer
         for c in selected:
             state["client_bytes"][c] += per_transfer
         for c in records:
-            state["client_bytes"][c] += per_transfer
+            state["client_bytes"][c] += up_transfer
         finish = {cid: costs.finish_seconds(flops["measured"].get(cid, 0), plan.slowdown(cid), per_transfer,
                                             per_transfer, net_cfg) for cid in records}
         deadline = net_cfg["round_deadline_s"]
@@ -245,7 +295,7 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         extra = {
             "participants": {"sampled": len(selected), "dropped": len(dropped), "straggled": len(late),
                              "submitted": len(submissions)},
-            "comm": {"down_bytes": per_transfer * len(selected), "up_bytes": per_transfer * len(records)},
+            "comm": {"down_bytes": per_transfer * len(selected), "up_bytes": up_transfer * len(records)},
             # A server with a deadline cannot know a client is late or gone until the deadline passes.
             "simulated_round_s": (float(deadline) if deadline is not None and (late or dropped)
                                   else max([finish[c] for c, _, _ in submissions], default=0.0)),
@@ -258,6 +308,12 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
                         "honest_cosine": mean_pairwise_cosine(
                             [flat(records[c]["honest_delta"], keys) for c in sorted(records) if c not in attackers])},
         }
+        if dist is not None:
+            # The server receives only the decoded secure sum. The coordinator still expects one submission
+            # per cohort member, so every slot carries that aggregate and the mean rule returns it unchanged.
+            extra["secagg"] = secagg
+            released = OrderedDict((k, global_params[k].float() + mean_delta[k]) for k in keys)
+            submissions = [(cid, released, n) for cid, _, n in submissions]
         return submissions, extra
 
     lines: List[Dict] = []
@@ -291,8 +347,12 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
             participants["filtered"] = {"honest": sum(c not in attackers for c in filtered),
                                         "attacker": sum(c in attackers for c in filtered)}
         releases = len(lines) + 1
-        eps_spent = (float(get_epsilon(compute_rdp(1.0, z, releases), float(pv["delta"]))[0])
-                     if pv["mode"] != "none" else None)
+        if dist is not None:
+            plan = dist["plan"]
+            eps_spent = skellam.skellam_epsilon(plan.mu, plan.delta1, plan.delta2, releases, float(pv["delta"]))[0]
+        else:
+            eps_spent = (float(get_epsilon(compute_rdp(1.0, z, releases), float(pv["delta"]))[0])
+                         if pv["mode"] != "none" else None)
         noise_std = st.get("noise_std") or 0.0
         agg_norm = st.get("aggregate_delta_norm")
         line = {
@@ -321,6 +381,8 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
             "updates": extra.get("updates"),
             "refusal": refusal,
         }
+        if dist is not None:
+            line["secagg"] = extra.get("secagg")
         if r["workload"].get("auc_score") == "margin_v2":
             line["auc_probability"] = None if refusal is not None else m.get("auc_probability")
         lines.append(line)
@@ -351,7 +413,8 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         "noise_multiplier": z, "adjacency": pv["adjacency"], "privacy_mode": pv["mode"],
         "privacy_unit": "simulated client (replace-one)" if pv["mode"] != "none" else None,
         "server_clip_norm": server_clip,
-        "accounted_epsilon": (float(get_epsilon(compute_rdp(1.0, z, rounds), float(pv["delta"]))[0])
+        "accounted_epsilon": (dist["plan"].epsilon if dist is not None else
+                              float(get_epsilon(compute_rdp(1.0, z, rounds), float(pv["delta"]))[0])
                               if pv["mode"] != "none" else None),
         "behavior_assignment": plan.assignment(), "totals": totals, "refusals": state["refusals"],
         "round0_upload_digest": state["round0_digest"],
@@ -363,6 +426,10 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
                        "platform": platform.platform(), "host": platform.node(), "git_commit": _git_commit()},
         "clocks": "time.wall_s is measured on this machine; time.simulated_round_s is the deployment model",
     }
+    if dist is not None:
+        p = dist["secagg"]
+        meta["distributed_dp"] = {**dist["plan"].as_dict(), "secagg": {"num_users": p.num_users, "privacy": p.privacy,
+                                                                        "target": p.target, "prime": p.prime}}
     if on_final_parameters is not None and final is not None:
         on_final_parameters(OrderedDict((k, v.detach().cpu().clone()) for k, v in final.items()))
     return {"meta": meta, "rounds": lines}
