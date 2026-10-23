@@ -1,6 +1,7 @@
 package com.federated.fl_platform_api.orchestration;
 
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.TrainingArm;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -245,7 +246,33 @@ class FlServerManagerCommandTest {
                 "--dp-target-epsilon", "6.0",
                 "--dp-delta", "1.0E-5",
                 "--dp-rounds", "5",
-                "--dp-num-clients", "2"), cmd);
+                "--dp-num-clients", "2",
+                "--dp-accountant", "gdp"), cmd);
+    }
+
+    @Test
+    void frozenHeadDpRun_startsFromAZeroHead() {
+        Project p = dpProject();
+        p.setTrainingArm(TrainingArm.FROZEN_HEAD);
+        List<String> cmd = FlServerManager.buildServerCommand(
+                p, "FedAvg", 5, 2, 50000, "/x/run_fl_server.sh", false);
+        assertEquals("zero", cmd.get(cmd.indexOf("--head-init") + 1));
+        assertEquals("gdp", cmd.get(cmd.indexOf("--dp-accountant") + 1));
+    }
+
+    @Test
+    void zeroHeadIsNotRequestedForAFullArmOrAContinuedRunOrWithoutDp() {
+        Project full = dpProject();
+        assertFalse(FlServerManager.buildServerCommand(full, "FedAvg", 5, 2, 50000, "/x/run_fl_server.sh", false)
+                .contains("--head-init"));
+        Project continued = dpProject();
+        continued.setTrainingArm(TrainingArm.OVA_LP);
+        assertFalse(FlServerManager.buildServerCommand(continued, "FedAvg", 5, 2, 50000, "/x/run_fl_server.sh", false,
+                "/tmp/registry/head.npz").contains("--head-init"));
+        Project clear = project("CNN");
+        clear.setTrainingArm(TrainingArm.FROZEN_HEAD);
+        List<String> cmd = FlServerManager.buildServerCommand(clear, "FedAvg", 5, 2, 50000, "/x/run_fl_server.sh", false);
+        assertFalse(cmd.contains("--head-init") || cmd.contains("--dp-accountant"));
     }
 
     @Test

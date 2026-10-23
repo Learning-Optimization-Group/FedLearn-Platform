@@ -780,6 +780,17 @@ public class FlServerManager {
                 command.add(String.valueOf(numRounds));
                 command.add("--dp-num-clients");
                 command.add(String.valueOf(minClients));
+                // A live run always has every client in every round (q = 1, enforced by fl_server.py), the
+                // case exact Gaussian-DP accounting covers: same claimed epsilon, 13-24% less noise than RDP.
+                command.add("--dp-accountant");
+                command.add("gdp");
+                // A frozen-head DP run starts its head's output layer at zero: under a binding clip a random
+                // head barely moves and its direction caps utility. Data-independent, so no privacy cost.
+                // Not on a continued run, whose head is already trained (fl_server.py refuses that too).
+                if ((arm == TrainingArm.FROZEN_HEAD || arm == TrainingArm.OVA_LP) && initModelPath == null) {
+                    command.add("--head-init");
+                    command.add("zero");
+                }
             }
             // Robust aggregation rule and settings. The flag names are a pinned contract with fl_server.py's
             // argparse. The method comes from an enum (still allowlist-checked); numbers go through
