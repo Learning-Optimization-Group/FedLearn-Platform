@@ -636,3 +636,32 @@ central-DP mechanism leak no more than claimed?
 - In its place, a deterministic mechanism check over existing records
   (`repro/check_effusion_dp_noise_records.py`) is recorded in the
   [A16 result](effusion-canary-audit-r0-v1-result-2026-10-22.md).
+
+## Amendment A19 — 22 October 2026: non-IID clients on R0, before any A19 run
+
+**Question:** every earlier federated result used IID whole-patient clients. Under label skew:
+- does FedAvg still match its IID result?
+- do robust rules cost more without attackers (as reported for the median under heterogeneity)?
+- does skew change the cost of central DP and the damage of Fang's attack?
+
+- **Partition** (`fedlearn.simulation.partition.patient_dirichlet_partition`, partition seed as
+  in A9):
+  - Patients are kept whole. A patient is positive if any of their training images is Effusion-positive.
+  - Shuffled patients are dealt one per client first, so every client has at least one patient.
+  - Each class's remaining patients are then split across the 80 clients in Dirichlet(α)
+    proportions, drawn independently per class.
+  - α ∈ {1.0 (moderate skew), 0.1 (strong skew)}.
+- **Cells:** 60 runs, all retained. Seeds 20261101–20261105, 20 rounds, R0, random-init head.
+  - No DP (LR 0.1, clip 1.0): rules mean, trimmed (k = 16), median × α × clean (30 runs);
+    plus mean and median under Fang's attack at 16 of 80 attackers, b = 2 (20 runs).
+  - Central DP ε 4 (LR 0.03, clip 0.05, RDP z, replace-one): mean, clean × α (10 runs).
+  - Attacker slots and every other seed are exactly as in A14, so each cell differs from its A14
+    IID counterpart only in the partition.
+- **Reported** (selection half; paired patient bootstrap, 2,000 resamples, seed 20261039):
+  - absolute AUROC per cell;
+  - non-IID − IID (same rule, condition and seed, against A14);
+  - rule − mean under each α;
+  - attack drop under each α;
+  - heterogeneity per seed: clients without a positive patient, image-count coefficient of
+    variation, and min/median/max positive share.
+  - Refusals, non-finite runs and attack notes are reported as such.
