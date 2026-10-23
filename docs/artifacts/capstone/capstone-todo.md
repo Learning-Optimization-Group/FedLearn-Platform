@@ -114,7 +114,10 @@ pneumonia task. Preserve the completed study separately.
     A KS test is free but only partial (0.07–0.32 residual), so local DP needs verified noise.
   - **#10 Stronger encoder:** [A22](effusion-encoder-gate-v1-result-2026-10-23.md). Only DINOv2 passed the gate (+0.013, lower bound +0.0007);
     both chest-X-ray DenseNets failed. Under DP it keeps about +0.01 (n.s.), and its DP cost equals R0's because noise grows as √d.
-  - **Open:** #9 distributed DP.
+  - **#9 Distributed DP:** [A23](effusion-distributed-dp-r0-v1-result-2026-10-23.md). Skellam over coded LightSecAgg matches central DP with
+    the same accountant at 16 bits; it loses only the exact-GDP gap (0.017 at ε 4). Four clip-skipping clients out of 80 drive it below chance (0.25),
+    so it needs verified clipping. Coded shares: 4.4× a plain upload at 16 bits, against 81× uncoded.
+  - **Shortlist complete.**
 - [x] Zero-initialised-head option for DP frozen-head runs: `--head-init zero` (user approved, 22 October).
   Platform defaults chosen by the user ('smart defaults, no schema'): the backend passes `--dp-accountant gdp` for every DP run,
   and `--head-init zero` for DP runs on FROZEN_HEAD/OVA_LP that are not continued runs. Backend gate: 1,218 tests, 0 failures,

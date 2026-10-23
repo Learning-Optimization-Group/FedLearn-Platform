@@ -47,7 +47,7 @@ hit**, and our evaluation used weak attacks and no empirical privacy check.
 | 6 | **Non-IID clients.** Dirichlet label skew, quantity skew, and view/age site proxies, with bucketing ([2006.09365](https://arxiv.org/abs/2006.09365)). | Our FedAvg = centralised result and the robust-rule results are IID upper bounds. Median degrades under non-IID data even with no attacker. | S |
 | 7 | **Fewer rounds or a one-shot head** under DP (z falls with √T; DP from features: Mehta et al., [2211.13403](https://arxiv.org/abs/2211.13403)), and **dimension reduction with a non-private subspace**. | The biggest possible DP utility gains in our regime. | S–M |
 | 8 | **Noise-aware norm filtering under local DP** (Xiang et al., SIGMOD'23, [2304.09762](https://arxiv.org/abs/2304.09762)). | Robustness at zero privacy cost under local DP; complements A12. | S |
-| 9 | **Distributed DP: Skellam on secure aggregation, plus proper coded LightSecAgg shares.** | The realistic route to "no trusted server" with about central-DP utility, and a fix for the 158× upload. | M–L |
+| 9 | **Distributed DP: Skellam on secure aggregation, plus proper coded LightSecAgg shares.** Done ([A23](effusion-distributed-dp-r0-v1-result-2026-10-23.md)): central-RDP utility at 16 bits, 4.4× plain upload, but clip-skipping clients break it. | The realistic route to "no trusted server" with about central-DP utility, and a fix for the 158× upload. | M–L |
 | 10 | **Stronger frozen encoder** (e.g. RAD-DINO). | Better features shrink the DP gap (Tramèr & Boneh, [2011.11660](https://arxiv.org/abs/2011.11660)). **Caution:** the public RAD-DINO checkpoint was reportedly trained on all of NIH CXR14, including our holdout, so using it would leak. | M |
 
 Deliberately not prioritised:
