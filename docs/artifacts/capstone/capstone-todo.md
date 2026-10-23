@@ -109,7 +109,9 @@ pneumonia task. Preserve the completed study separately.
   - **#6 Non-IID:** [A19](effusion-noniid-r0-v1-result-2026-10-22.md). Moderate skew is benign. Strong skew costs DP 0.038,
     and under Fang's attack the mean falls to chance while the median keeps +0.129.
   - **#8 Noise-aware filtering:** [A20](effusion-local-filter-r0-v1-result-2026-10-22.md). It fixes A12 at no cost (9/120,000 honest drops).
-    Protocol-following attackers are capped at 0.015–0.059. A norm-only filter is evadable, so a KS test is needed.
+    Protocol-following attackers are capped at 0.015–0.059.
+    [A21](effusion-local-ks-r0-v1-result-2026-10-22.md): norm-matching attackers evade it (up to 0.54).
+    A KS test is free but only partial (0.07–0.32 residual), so local DP needs verified noise.
   - **Open:** #9 distributed DP, #10 encoder.
 - [x] Zero-initialised-head option for DP frozen-head runs: `--head-init zero` (user approved, 22 October).
   Platform defaults chosen by the user ('smart defaults, no schema'): the backend passes `--dp-accountant gdp` for every DP run,
