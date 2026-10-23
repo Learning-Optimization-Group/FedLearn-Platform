@@ -187,7 +187,8 @@ def _write_manifest(path, rows):
 
 
 def build_cache(cache, lock_dir, audit_dir, image_root, output, *, extractor, pins=PINS, preprocess=xrv_preprocess,
-                feat_dim=1024, workers=8, batch_size=64):
+                feat_dim=1024, workers=8, batch_size=64, cache_version=CACHE_VERSION,
+                source_names=('build_xrv_cache.py', 'probe_xray_development.py', 'qualify_xray_backbone.py')):
     output = Path(output)
     failure = Path(f'{output}.failed.json')
     if output.exists() or failure.exists():
@@ -233,10 +234,9 @@ def build_cache(cache, lock_dir, audit_dir, image_root, output, *, extractor, pi
             pool.shutdown(cancel_futures=True)
     if not extractor.state_unchanged():
         _fail(failure, staging, 'parameter_state_changed', {'inputs': provenance})
-    sources = {name: _sha256((Path(__file__).resolve().parent / name).read_bytes())
-               for name in ('build_xrv_cache.py', 'probe_xray_development.py', 'qualify_xray_backbone.py')}
+    sources = {name: _sha256((Path(__file__).resolve().parent / name).read_bytes()) for name in source_names}
     report = {
-        'schema_version': 1, 'cache_version': CACHE_VERSION, 'dataset': 'NIH_ChestXray14',
+        'schema_version': 1, 'cache_version': cache_version, 'dataset': 'NIH_ChestXray14',
         'feat_dim': feat_dim, 'feature_dtype': 'float32', 'splits': splits, 'payload_hashes': payload_hashes,
         'inputs': provenance, 'extractor': extractor.identity(), 'preprocess': getattr(preprocess, '__name__', str(preprocess)),
         'decodeContract': 'Pillow PNG; L or channel-identical opaque RGB/RGBA -> channel 0; audit raw-byte and RGB identity; imageio cross-decode equal',
@@ -253,7 +253,7 @@ def build_cache(cache, lock_dir, audit_dir, image_root, output, *, extractor, pi
 
 
 def verify_cache(cache, lock_dir, audit_dir, image_root, output, *, extractor, pins=PINS, preprocess=xrv_preprocess,
-                 feat_dim=1024, sample=32):
+                 feat_dim=1024, sample=32, cache_version=CACHE_VERSION):
     """Recheck pins and payload hashes, then recompute a hash-chosen sample exactly."""
     output = Path(output)
     plan, audit, provenance = plan_inputs(cache, lock_dir, audit_dir, pins)
@@ -262,7 +262,7 @@ def verify_cache(cache, lock_dir, audit_dir, image_root, output, *, extractor, p
     for name, digest in report['payload_hashes'].items():
         if _sha256((output / name).read_bytes()) != digest:
             raise Refusal(f'payload_hash_mismatch:{name}')
-    if report['inputs'] != provenance or report['feat_dim'] != feat_dim or report['cache_version'] != CACHE_VERSION:
+    if report['inputs'] != provenance or report['feat_dim'] != feat_dim or report['cache_version'] != cache_version:
         raise Refusal('report_provenance_mismatch')
     sampled = {}
     for split, rows in plan.items():
