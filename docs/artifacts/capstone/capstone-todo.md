@@ -108,7 +108,9 @@ pneumonia task. Preserve the completed study separately.
     A mechanism check over 7,235 recorded DP rounds found 0 mismatches.
   - **#6 Non-IID:** [A19](effusion-noniid-r0-v1-result-2026-10-22.md). Moderate skew is benign. Strong skew costs DP 0.038,
     and under Fang's attack the mean falls to chance while the median keeps +0.129.
-  - **Open:** #8 noise-aware filtering under local DP, #9 distributed DP, #10 encoder.
+  - **#8 Noise-aware filtering:** [A20](effusion-local-filter-r0-v1-result-2026-10-22.md). It fixes A12 at no cost (9/120,000 honest drops).
+    Protocol-following attackers are capped at 0.015–0.059. A norm-only filter is evadable, so a KS test is needed.
+  - **Open:** #9 distributed DP, #10 encoder.
 - [x] Zero-initialised-head option for DP frozen-head runs: `--head-init zero` (user approved, 22 October).
   Platform defaults chosen by the user ('smart defaults, no schema'): the backend passes `--dp-accountant gdp` for every DP run,
   and `--head-init zero` for DP runs on FROZEN_HEAD/OVA_LP that are not continued runs. Backend gate: 1,218 tests, 0 failures,
