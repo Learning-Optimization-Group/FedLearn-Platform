@@ -112,7 +112,9 @@ pneumonia task. Preserve the completed study separately.
     Protocol-following attackers are capped at 0.015–0.059.
     [A21](effusion-local-ks-r0-v1-result-2026-10-22.md): norm-matching attackers evade it (up to 0.54).
     A KS test is free but only partial (0.07–0.32 residual), so local DP needs verified noise.
-  - **Open:** #9 distributed DP, #10 encoder.
+  - **#10 Stronger encoder:** [A22](effusion-encoder-gate-v1-result-2026-10-23.md). Only DINOv2 passed the gate (+0.013, lower bound +0.0007);
+    both chest-X-ray DenseNets failed. Under DP it keeps about +0.01 (n.s.), and its DP cost equals R0's because noise grows as √d.
+  - **Open:** #9 distributed DP.
 - [x] Zero-initialised-head option for DP frozen-head runs: `--head-init zero` (user approved, 22 October).
   Platform defaults chosen by the user ('smart defaults, no schema'): the backend passes `--dp-accountant gdp` for every DP run,
   and `--head-init zero` for DP runs on FROZEN_HEAD/OVA_LP that are not continued runs. Backend gate: 1,218 tests, 0 failures,
