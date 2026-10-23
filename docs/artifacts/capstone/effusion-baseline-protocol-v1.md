@@ -665,3 +665,36 @@ central-DP mechanism leak no more than claimed?
   - heterogeneity per seed: clients without a positive patient, image-count coefficient of
     variation, and min/median/max positive share.
   - Refusals, non-finite runs and attack notes are reported as such.
+
+## Amendment A20 — 22 October 2026: noise-aware norm filtering under local DP on R0, before any A20 run
+
+**Question:** A12 found that under local DP, 20% non-compliant attackers break every aggregation
+rule. Does the noise-aware filter of Xiang et al. (SIGMOD'23) restore robustness? What remains
+against attackers that add the protocol's noise themselves?
+
+- **Filter** (`server.norm_filter = {"k": 4}`):
+  - The server drops any upload whose delta norm is outside the band an honest privatised update
+    clip(Δ, C) + N(0, s²I_d) occupies, with s = 2zC. The band is
+    `engine.local_dp_norm_band(C, s, d, k)`: s²·χ²_d ± k standard deviations plus the clip and
+    cross terms.
+  - It reads only privatised uploads, so it is post-processing and costs no privacy.
+  - Expected honest false-drop rate is of order 10⁻⁴ per upload. It is measured and reported.
+- **Attackers** (16 of 80, as A12):
+  - **non-compliant**: no local noise, exactly A12's sign flip ×−4 and label flip.
+  - **noise-matching**: the same attacks, but each attacker clips its own malicious delta to C
+    and adds N(0, s²I) (`privatize: true`), which places it inside the band by construction.
+- **Cells:** 105 runs, all retained. R0, A8 recipe (LR 0.03, clip 0.05), 20 rounds, local DP
+  ε ∈ {8, 32, 128}, δ 10⁻⁵, rule `mean`, seeds 20261101–20261105.
+  - Filter on: clean, non-compliant sign flip, non-compliant label flip, noise-matching sign
+    flip, noise-matching label flip (75 runs).
+  - Filter off: noise-matching sign flip and label flip (30 runs).
+  - Filter-off clean and non-compliant cells are A12's, compared seed by seed from the pinned A12
+    output (`summary.json` `5de3c331…`).
+- **Reported** (selection half; paired patient bootstrap, 2,000 resamples, seed 20261040):
+  - absolute AUROC per cell;
+  - filter on − off (same ε, condition and seed);
+  - attack drop with the filter on;
+  - honest and attacker drop counts per round;
+  - refusals and non-finite runs.
+- **Limit stated in advance:** a noise-matching attacker is the strongest attacker this filter can
+  face cheaply. An attacker that spends the band's slack on a larger malicious component is not run.
