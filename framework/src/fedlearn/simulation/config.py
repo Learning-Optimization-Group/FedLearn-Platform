@@ -99,6 +99,10 @@ def _resolve_behavior(b: Any, i: int) -> Dict[str, Any]:
     if kind not in BEHAVIOR_DEFAULTS:
         raise ConfigError(f"{where}.type", f"must be one of {sorted(BEHAVIOR_DEFAULTS)}")
     out = {"type": kind, "fraction": b.get("fraction"), **copy.deepcopy(BEHAVIOR_DEFAULTS[kind])}
+    if kind in MALICIOUS and "privatize" in b:
+        # Under local DP, a malicious client that adds the protocol's noise to its own upload (and so passes a
+        # noise-aware norm filter). Present only when given, so earlier behaviours keep their resolved form.
+        out["privatize"] = False
     for key, value in b.items():
         if key not in out:
             raise ConfigError(f"{where}.{key}", "unknown key")
@@ -111,6 +115,8 @@ def _resolve_behavior(b: Any, i: int) -> Dict[str, Any]:
     if kind == "backdoor" and out["trigger"] is not None and (
             not isinstance(out["trigger"], dict) or out["trigger"].get("type", "patch") != "patch"):
         raise ConfigError(f"{where}.trigger", "only patch triggers are supported (prepare_features --trigger-patch)")
+    if "privatize" in out and not isinstance(out["privatize"], bool):
+        raise ConfigError(f"{where}.privatize", "must be true or false")
     if kind == "free_rider" and out["mode"] not in ("zero", "noise"):
         raise ConfigError(f"{where}.mode", "must be 'zero' or 'noise'")
     if kind == "min_max" and out["perturbation"] not in ("std", "unit_vec", "sign"):
@@ -205,6 +211,12 @@ def _validate(r: Dict[str, Any]) -> None:
         _require(float(pv["epsilon"]) > 0, "privacy.epsilon", "must be > 0")
         _require(0.0 < float(pv["delta"]) < 1.0, "privacy.delta", "must be in (0, 1)")
         _require(sv["clip_norm"] is not None, "server.clip_norm", "DP needs a clip norm")
+    if sv.get("norm_filter") is not None:
+        nf = sv["norm_filter"]
+        _require(isinstance(nf, dict) and set(nf) == {"k"} and isinstance(nf["k"], (int, float))
+                 and not isinstance(nf["k"], bool) and float(nf["k"]) > 0, "server.norm_filter",
+                 "must be null or {\"k\": number > 0}")
+        _require(pv["mode"] == "local", "server.norm_filter", "needs privacy.mode 'local' (the band is the local-DP noise)")
     if pv["mode"] == "central":
         _require(sv["rule"] in CENTRAL_DP_RULES, "server.rule",
                  f"central DP needs a rule with a replace-one sensitivity bound: {list(CENTRAL_DP_RULES)}")
@@ -223,6 +235,11 @@ def resolve(cfg: Dict[str, Any]) -> Dict[str, Any]:
         defaults = copy.deepcopy(DEFAULTS)
         defaults["workload"].update(features_report_sha256=None, evaluation_split=None,
                                      allow_random_features=False, auc_score="margin_v2")
+    server = cfg.get("server")
+    if isinstance(server, dict) and "norm_filter" in server:
+        # Added only when a config asks for it, so every config written before it keeps its resolved form and hash.
+        defaults = copy.deepcopy(defaults)
+        defaults["server"]["norm_filter"] = None
     out = _merge(defaults, {k: v for k, v in cfg.items() if k != "matrix"}, "")
     fed = out["federation"]
     if fed["clients_per_round"] is None:

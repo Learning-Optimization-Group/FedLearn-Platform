@@ -94,7 +94,8 @@ class ComposedStrategy(Strategy):
                  rule_params: Optional[Dict] = None, central_noise_multiplier: float = 0.0,
                  noise_seed: int = 0, optimizer: str = "none", optimizer_lr: float = 0.01,
                  evaluate_fn: Optional[Callable] = None, min_fit_clients: int = 1,
-                 clients_per_round: Optional[int] = None):
+                 clients_per_round: Optional[int] = None,
+                 norm_band: Optional[Tuple[float, float]] = None):
         if rule not in RULES:
             raise ValueError(f"rule must be one of {RULES}, got {rule!r}")
         if clip_norm is not None and clip_norm <= 0:
@@ -106,6 +107,8 @@ class ComposedStrategy(Strategy):
                 raise ValueError(f"central DP needs a rule with a replace-one bound {CENTRAL_DP_RULES}, got {rule!r}")
             if clip_norm is None:
                 raise ValueError("central DP needs a clip_norm")
+        if norm_band is not None and not (0.0 <= float(norm_band[0]) < float(norm_band[1])):
+            raise ValueError(f"norm_band must be (low, high) with 0 <= low < high, got {norm_band}")
         if optimizer not in ("none", "adam", "yogi"):
             raise ValueError(f"optimizer must be 'none', 'adam' or 'yogi', got {optimizer!r}")
         self.initial_parameters = initial_parameters
@@ -115,6 +118,10 @@ class ComposedStrategy(Strategy):
         if self.rule_params["byzantine_fraction"] is None:
             self.rule_params["byzantine_fraction"] = 0.0
         self.z = float(central_noise_multiplier)
+        # Noise-aware filtering (Xiang et al., SIGMOD'23): an upload whose delta norm falls outside the band
+        # an honest privatized update occupies is dropped before clipping. It reads only privatized uploads,
+        # so it is post-processing and costs no privacy.
+        self.norm_band = None if norm_band is None else (float(norm_band[0]), float(norm_band[1]))
         self.evaluate_fn = evaluate_fn
         self.min_fit_clients = min_fit_clients
         self.clients_per_round = clients_per_round if clients_per_round is not None else min_fit_clients
@@ -142,10 +149,20 @@ class ComposedStrategy(Strategy):
         ok, dropped = [], []
         for cid, params, n in normalized:
             (ok if n > 0 and self._valid(params) else dropped).append((cid, params, n))
+        filtered = []
+        if self.norm_band is not None:
+            lo, hi = self.norm_band
+            keep = []
+            for cid, params, n in ok:
+                norm = math.sqrt(sum(float(((params[k].detach().float().cpu() - self._global[k]) ** 2).sum())
+                                     for k in self._global))
+                (keep if lo <= norm <= hi else filtered).append((cid, params, n))
+            ok = keep
         stats = {"aggregated": len(ok), "dropped": [str(c) for c, _, _ in dropped], "failed": False,
+                 "filtered": [str(c) for c, _, _ in filtered],
                  "message": None, "timings": {"clip": 0.0, "rule": 0.0, "noise": 0.0, "optimizer": 0.0}}
         if not ok:
-            stats.update(failed=True, message=f"round {server_round}: every client update was invalid")
+            stats.update(failed=True, message=f"round {server_round}: every client update was invalid or filtered")
             return None, stats
         t = time.perf_counter()
         raw = [OrderedDict((k, p[k].detach().float().cpu() - self._global[k]) for k in keys) for _, p, _ in ok]

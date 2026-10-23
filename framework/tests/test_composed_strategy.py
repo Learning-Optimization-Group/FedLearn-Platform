@@ -144,3 +144,19 @@ def test_preview_does_not_change_state_or_draw_noise():
 
 def test_registered_in_the_strategy_factory():
     assert isinstance(create_strategy("composed", initial_parameters=_global()), ComposedStrategy)
+
+
+def test_norm_band_drops_out_of_band_uploads_before_aggregating():
+    glob = _global()
+    near = OrderedDict((k, v + 0.5) for k, v in glob.items())        # delta norm 0.5 * sqrt(4) = 1.0
+    far = OrderedDict((k, v + 5.0) for k, v in glob.items())         # delta norm 10.0
+    s = ComposedStrategy(glob, rule="mean", norm_band=(0.5, 2.0))
+    out = s.aggregate_fit(1, [("a", near, 1), ("b", far, 1)])
+    assert s.last_round_stats["filtered"] == ["b"] and s.last_round_stats["aggregated"] == 1
+    assert all(torch.allclose(out[k], near[k]) for k in KEYS)
+
+
+def test_norm_band_must_be_ordered_and_non_negative():
+    for band in [(2.0, 1.0), (-1.0, 1.0)]:
+        with pytest.raises(ValueError, match="norm_band"):
+            ComposedStrategy(_global(), norm_band=band)

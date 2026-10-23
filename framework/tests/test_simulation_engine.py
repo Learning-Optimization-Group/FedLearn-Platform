@@ -333,3 +333,49 @@ def test_canary_clients_run_end_to_end_and_are_assigned(tmp_path):
                    behaviors=[{"type": "canary", "fraction": 0.2, "norm": 0.5}]))
     assert len(rec["rounds"]) == 3 and all(l["refusal"] is None for l in rec["rounds"])
     assert sorted(v for vs in rec["meta"]["behavior_assignment"].values() for v in vs) == ["canary", "canary"]
+
+
+def test_local_dp_norm_band_holds_honest_privatized_norms():
+    import math
+    from collections import OrderedDict
+    from fedlearn.privacy.local_dp import privatize
+    from fedlearn.simulation.engine import local_dp_norm_band
+    lo, hi = local_dp_norm_band(0.05, 0.3, 1026, 4.0)
+    g = torch.Generator().manual_seed(0)
+    norms = []
+    for i in range(2000):
+        delta = OrderedDict(w=torch.randn(1024, generator=g), b=torch.randn(2, generator=g))
+        out = privatize(delta, 0.05, 3.0, g)  # std 2 * 3.0 * 0.05 = 0.3
+        norms.append(math.sqrt(sum(float((v ** 2).sum()) for v in out.values())))
+    assert sum(not lo <= n <= hi for n in norms) <= 2
+    assert hi < 0.05 + 0.3 * (math.sqrt(1026) + 4.0)          # inside the engine's non-shrinking server clip
+
+
+def test_norm_filter_drops_noise_free_attackers_and_records_it(tmp_path):
+    path = _features(tmp_path)
+    # d = 34 here, too small for the noise norm to concentrate, so the band's floor is 0 and only an
+    # oversized upload is out of band; at the Effusion head's d = 1,026 noise-free uploads fall below it.
+    base = dict(privacy={"mode": "local", "epsilon": 8.0},
+                behaviors=[{"type": "sign_flip_scale", "fraction": 0.2, "scale": -1000.0}])
+    rec = run(_cfg(path, server={"norm_filter": {"k": 4.0}}, **base))
+    filtered = [l["participants"]["filtered"] for l in rec["rounds"]]
+    assert all(f["attacker"] == 2 for f in filtered) and sum(f["honest"] for f in filtered) == 0
+    assert "filtered" not in run(_cfg(path, **base))["rounds"][0]["participants"]
+
+
+def test_noise_matching_attackers_pass_the_filter(tmp_path):
+    rec = run(_cfg(_features(tmp_path), server={"norm_filter": {"k": 4.0}}, privacy={"mode": "local", "epsilon": 8.0},
+                   behaviors=[{"type": "sign_flip_scale", "fraction": 0.2, "scale": -4.0, "privatize": True}]))
+    assert all(l["participants"]["filtered"]["attacker"] == 0 for l in rec["rounds"])
+
+
+def test_new_keys_leave_existing_configs_and_hashes_unchanged():
+    from fedlearn.simulation.config import ConfigError, config_hash, resolve
+    cfg = {"workload": {"features_path": "x"}, "behaviors": [{"type": "sign_flip_scale", "fraction": 0.2}]}
+    r = resolve(cfg)
+    assert "norm_filter" not in r["server"] and "privatize" not in r["behaviors"][0]
+    assert config_hash(r) == config_hash(resolve(cfg))
+    with pytest.raises(ConfigError, match="norm_filter"):
+        resolve({**cfg, "server": {"norm_filter": {"k": 4.0}}})              # needs local DP
+    with pytest.raises(ConfigError, match="privatize"):
+        resolve({**cfg, "behaviors": [{"type": "label_flip", "fraction": 0.2, "privatize": "yes"}]})

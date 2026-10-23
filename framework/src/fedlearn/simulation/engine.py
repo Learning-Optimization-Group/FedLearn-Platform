@@ -12,7 +12,7 @@ import math
 import platform
 import subprocess
 from collections import OrderedDict
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -117,6 +117,19 @@ def _start_checks(resolved: Dict, workload) -> None:
                 raise ValueError(f"backdoor trigger {wrong} does not match the features file's trigger {have}")
 
 
+def local_dp_norm_band(clip_norm: float, noise_std: float, d: int, k: float) -> Tuple[float, float]:
+    """The delta-norm band an honest local-DP upload clip(delta, C) + N(0, s^2 I_d) occupies.
+
+    ||noise||^2 is s^2 * chi^2_d (mean s^2 d, sd s^2 sqrt(2d)); the clipped part adds at most C^2 and the
+    cross term 2<clipped, noise> ~ N(0, 4 s^2 ||clipped||^2) at most 2 k C s in magnitude. ``k`` standard
+    deviations on each side give [sqrt(lo^2), sqrt(hi^2)]; for k = 4 an honest upload falls outside with
+    probability of order 1e-4 (normal approximation to the chi-square).
+    """
+    lo2 = noise_std ** 2 * (d - k * math.sqrt(2.0 * d)) - 2.0 * k * clip_norm * noise_std
+    hi2 = noise_std ** 2 * (d + k * math.sqrt(2.0 * d)) + clip_norm ** 2 + 2.0 * k * clip_norm * noise_std
+    return math.sqrt(max(lo2, 0.0)), math.sqrt(hi2)
+
+
 def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         should_stop: Optional[Callable[[], bool]] = None, *,
         on_final_parameters: Optional[Callable[[Dict], None]] = None, workload=None) -> Dict:
@@ -149,6 +162,9 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         server_clip = c + 2.0 * z * c * (math.sqrt(d) + 4.0)
     clock = costs.StageClock()
     client_noise_std = 2.0 * z * float(sv["clip_norm"]) if pv["mode"] == "local" else 0.0
+    norm_band = None
+    if sv.get("norm_filter") is not None:
+        norm_band = local_dp_norm_band(float(sv["clip_norm"]), client_noise_std, d, float(sv["norm_filter"]["k"]))
     evaluate = wl.evaluate_fn(plan.backdoor_target())
     state = {"round0_digest": None, "params": None, "refusals": [],
              "client_bytes": {c: 0 for c in range(int(fed["num_clients"]))}}
@@ -162,7 +178,7 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         init_params, rule=sv["rule"], clip_norm=server_clip, rule_params=rule_params,
         central_noise_multiplier=z if pv["mode"] == "central" else 0.0, noise_seed=int(seeds["noise"]),
         optimizer=sv["optimizer"]["type"], optimizer_lr=float(sv["optimizer"]["lr"]),
-        evaluate_fn=timed_eval, clients_per_round=int(fed["clients_per_round"]))
+        evaluate_fn=timed_eval, clients_per_round=int(fed["clients_per_round"]), norm_band=norm_band)
     flops: Dict[str, Dict[int, int]] = {"measured": {}, "analytic": {}}
     local_gen = torch.Generator().manual_seed(int(seeds["noise"]) + 1)
     per_transfer = costs.transfer_bytes(init_params)
@@ -190,6 +206,14 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
                         uploads[cid] = OrderedDict((k, global_params[k].float() + delta[k]) for k in keys)
         with clock.stage("attack"):
             uploads.update(plan.upload_overrides(records, global_params, round_num))
+            if pv["mode"] == "local":
+                # Attackers that follow the noise protocol: clip and noise their own (malicious) delta, drawn after
+                # every honest client's noise so the honest draws are those of the same round without them.
+                for cid in sorted(records):
+                    if cid in attackers and plan.malicious[cid].get("privatize"):
+                        attack = OrderedDict((k, uploads[cid][k].float() - global_params[k].float()) for k in keys)
+                        delta = privatize(attack, float(sv["clip_norm"]), z, local_gen)
+                        uploads[cid] = OrderedDict((k, global_params[k].float() + delta[k]) for k in keys)
         if state["round0_digest"] is None:
             state["round0_digest"] = state_digest(uploads[c] for c in sorted(uploads))
         for c in selected:
@@ -253,6 +277,10 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         participants = {**extra.get("participants", {}), "admitted": len(rec.reported),
                         "accepted": accepted,
                         "aggregated": 0 if refusal is not None else accepted}
+        if norm_band is not None:
+            filtered = [int(c) for c in (st.get("filtered") or [])] if st else []
+            participants["filtered"] = {"honest": sum(c not in attackers for c in filtered),
+                                        "attacker": sum(c in attackers for c in filtered)}
         releases = len(lines) + 1
         eps_spent = (float(get_epsilon(compute_rdp(1.0, z, releases), float(pv["delta"]))[0])
                      if pv["mode"] != "none" else None)
