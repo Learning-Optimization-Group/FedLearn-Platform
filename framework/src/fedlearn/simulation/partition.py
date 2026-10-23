@@ -107,6 +107,48 @@ def patient_iid_partition(patient_ids: Sequence[str], num_clients: int, seed: in
             for chunk in np.array_split(ordered, int(num_clients))]
 
 
+def patient_dirichlet_partition(patient_ids: Sequence[str], labels: Sequence[int], num_clients: int,
+                                alpha: float, seed: int) -> List[np.ndarray]:
+    """Label-skewed clients that keep each patient whole.
+
+    A patient is positive if any of its rows has a positive label. Shuffled patients are dealt one
+    per client first, so every client has at least one patient. Each class's remaining patients
+    are then split across clients in Dirichlet(alpha) proportions, drawn independently per class.
+    Small ``alpha`` concentrates each class on few clients. Returns sorted int64 row indices per
+    client; the result depends only on the patient set, the labels, ``alpha`` and ``seed``.
+    """
+    if isinstance(num_clients, bool) or not isinstance(num_clients, Integral) or num_clients < 1:
+        raise ValueError("num_clients must be a positive integer")
+    if isinstance(seed, bool) or not isinstance(seed, Integral) or seed < 0:
+        raise ValueError("seed must be a nonnegative integer")
+    if not float(alpha) > 0:
+        raise ValueError("alpha must be > 0")
+    ids = np.asarray(patient_ids, dtype=object)
+    y = np.asarray(labels)
+    if ids.ndim != 1 or ids.size == 0 or y.shape != ids.shape:
+        raise ValueError("patient_ids and labels must be nonempty one-dimensional sequences of equal length")
+    groups: Dict[str, List[int]] = {}
+    for index, patient in enumerate(ids):
+        if not isinstance(patient, str) or not re.fullmatch(r"[1-9][0-9]*", patient):
+            raise ValueError("patient IDs must be canonical positive decimal strings")
+        groups.setdefault(patient, []).append(index)
+    if num_clients > len(groups):
+        raise ValueError(f"{num_clients} clients exceed {len(groups)} patients")
+    rng = np.random.default_rng(int(seed))
+    ordered = np.asarray(sorted(groups), dtype=object)
+    rng.shuffle(ordered)
+    owners: List[List[str]] = [[str(p)] for p in ordered[:num_clients]]
+    rest = ordered[num_clients:]
+    positive = np.array([bool((y[groups[p]] > 0).any()) for p in rest], dtype=bool)
+    for cls in (False, True):
+        members = rest[positive == cls]
+        share = rng.dirichlet(np.full(int(num_clients), float(alpha)))
+        cuts = (np.cumsum(share)[:-1] * len(members)).astype(np.int64)
+        for client, chunk in enumerate(np.split(members, cuts)):
+            owners[client].extend(str(p) for p in chunk)
+    return [np.sort(np.concatenate([np.asarray(groups[p], dtype=np.int64) for p in own])) for own in owners]
+
+
 # --------------------------------------------------------------------------------------
 # Dirichlet
 # --------------------------------------------------------------------------------------
