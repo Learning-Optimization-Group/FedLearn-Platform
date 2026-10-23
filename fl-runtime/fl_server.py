@@ -184,6 +184,9 @@ def build_eval_card(args, history, strategy=None) -> str:
         # The prefixes, not just the name — two runs can share an arm name while freezing
         # different modules, and the name alone is not a checkable provenance claim.
         "trainable_prefixes": _prefixes,
+        # How the initial global head was set: "default" (the model's own init) or "zero"
+        # (--head-init zero zeroed the output layer of the federated head).
+        "head_init": getattr(args, "head_init", None) or "default",
     }
     if args.model_type == "NIH_PNEUMONIA_CNN":
         from nih_dataset import CLASSES
@@ -365,6 +368,47 @@ def resolve_fedopt_settings(args):
 def dp_adjacency_arg(args):
     """The --dp-adjacency choice in the framework's spelling ("add_remove" / "replace_one")."""
     return (getattr(args, "dp_adjacency", None) or "add-remove").replace("-", "_")
+
+
+HEAD_INIT_ARMS = ("FROZEN_HEAD", "OVA_LP")
+
+
+def zero_output_layer(params, training_arm, init_model_path=None):
+    """Zero the output layer of a subset arm's federated initial head; returns (params, zeroed keys).
+
+    The output layer is the last 2-D ``.weight`` in the federated set plus its ``.bias``. Only that
+    layer is zeroed: zeroing a multi-layer head's hidden layers would leave its units identical and
+    unable to separate. The change is data-independent, so it costs no privacy. Under a binding DP
+    clip a randomly initialised head barely moves, and its random direction caps AUROC; the capstone
+    measured +0.019 AUROC at eps 4 and +0.15 to +0.20 at 5 rounds (A17).
+
+    Raises ValueError for a FULL arm (not measured), a continued run (it would erase trained weights),
+    or a federated set without a 2-D weight.
+    """
+    if training_arm not in HEAD_INIT_ARMS:
+        raise ValueError(f"--head-init zero applies to the {list(HEAD_INIT_ARMS)} arms, not {training_arm}.")
+    if init_model_path:
+        raise ValueError("--head-init zero would erase the trained head of a continued run (--init-model-path).")
+    weights = [k for k, v in params.items() if k.endswith(".weight") and v.dim() == 2]
+    if not weights:
+        raise ValueError("--head-init zero found no 2-D output weight in the federated set.")
+    weight = weights[-1]
+    keys = [weight] + ([weight[: -len("weight")] + "bias"] if weight[: -len("weight")] + "bias" in params else [])
+    out = OrderedDict((k, torch.zeros_like(v) if k in keys else v) for k, v in params.items())
+    return out, keys
+
+
+def apply_head_init(args, federated, full):
+    """Apply ``--head-init`` to the federated initial state; returns it. With ``zero``, the zeroed
+    output layer is also written into ``full`` (in place), so the saved model's frozen-arm merge pairs
+    the backbone with the head the run actually started from."""
+    if getattr(args, "head_init", None) != "zero":
+        return federated
+    federated, zeroed = zero_output_layer(federated, args.training_arm, getattr(args, "init_model_path", None))
+    for k in zeroed:
+        full[k] = federated[k]
+    logging.info(f"--head-init zero: zeroed the initial output layer {zeroed}.")
+    return federated
 
 
 def require_live_dp_accounting(args, clients_per_round):
@@ -732,6 +776,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dp-adjacency", choices=["add-remove", "replace-one"], default="add-remove",
                         help="Neighbour relation the accounted ε refers to: add-remove (a client's update vs. none, "
                              "the DP-FedAvg convention) or replace-one (vs. any other client's update; doubles the noise)")
+    parser.add_argument("--head-init", choices=["default", "zero"], default="default",
+                        help="Initial global head: default (the model's own init) or zero (zero the output layer "
+                             "of a FROZEN_HEAD/OVA_LP head; data-independent, recommended under DP)")
     parser.add_argument("--dp-accountant", choices=["rdp", "gdp"], default="rdp",
                         help="How the noise multiplier and ε relate: rdp (Rényi DP, an upper bound) or gdp (exact "
                              "Gaussian-DP composition; needs q=1, which live runs always have, and less noise)")
@@ -906,6 +953,12 @@ def main():
                 f"Arm {args.training_arm}: federating {len(_kept)}/{len(initial_parameters)} keys "
                 f"(prefixes={list(_pre)}); the rest stays local as the frozen backbone.")
             initial_parameters = _kept
+
+        try:
+            initial_parameters = apply_head_init(args, initial_parameters, full_initial_parameters)
+        except ValueError as e:
+            logging.error("Head initialisation rejected: %s", e)
+            sys.exit(1)
 
         logging.info(f"\n{'='*60}")
         logging.info(f"LOADED PARAMETERS FROM .NPZ FILE")

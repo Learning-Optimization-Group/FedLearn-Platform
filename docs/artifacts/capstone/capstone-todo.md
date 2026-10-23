@@ -107,7 +107,7 @@ pneumonia task. Preserve the completed study separately.
     (the clean control failed), and A18 was withdrawn before running.
     A mechanism check over 7,235 recorded DP rounds found 0 mismatches.
   - **Open:** #6 non-IID, #8 noise-aware filtering under local DP, #9 distributed DP, #10 encoder.
-- [ ] Decide whether to ship a zero-initialised-head option for DP frozen-head runs (platform change; needs a decision).
+- [x] Zero-initialised-head option for DP frozen-head runs: `--head-init zero` (user approved, 22 October). Backend and UI exposure is still open.
 - [ ] Complete and browser-verify the integrated simulator, including persistence,
   ownership, live progress, stop/reopen, comparison, heatmaps and research export.
 
