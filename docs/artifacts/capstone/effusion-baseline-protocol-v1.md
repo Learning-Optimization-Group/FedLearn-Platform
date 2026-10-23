@@ -698,3 +698,29 @@ against attackers that add the protocol's noise themselves?
   - refusals and non-finite runs.
 - **Limit stated in advance:** a noise-matching attacker is the strongest attacker this filter can
   face cheaply. An attacker that spends the band's slack on a larger malicious component is not run.
+
+## Amendment A21 — 22 October 2026: norm-matching attackers and a coordinate-distribution test under local DP, before any A21 run
+
+**Why:** A20 showed a norm-only filter passes an un-noised update whose norm happens to fall in
+the band: 82 of 1,600 at ε 128, costing 0.073. A deliberate attacker can do this every round.
+
+- **Attacker** (`match_norm: true`, 16 of 80):
+  - The A9 sign flip ×−4 and label-flip deltas are rescaled, without noise, to the expected
+    honest privatised norm √(C² + s²d), with s = 2zC.
+  - This places them at the centre of the norm band.
+- **Filter variants:**
+  - **norm only** (A20, k = 4);
+  - **norm + KS**: an upload in the band is also dropped if the Kolmogorov–Smirnov distance between
+    its delta coordinates and N(0, s²) exceeds the asymptotic critical value at α = 10⁻⁴.
+  - Both read only privatised uploads, so both are post-processing.
+- **Cells:** 75 runs, all retained. R0, A8 recipe, local DP ε ∈ {8, 32, 128}, rule `mean`,
+  seeds 20261101–20261105.
+  - Norm-matching sign flip and label flip under each filter variant (60 runs).
+  - Clean under norm + KS (15 runs), to measure the KS test's honest false drops and utility cost
+    against A20's norm-only clean cells.
+- **Reported** (selection half; paired patient bootstrap, 2,000 resamples, seed 20261041):
+  - absolute AUROC;
+  - norm + KS − norm only, same cell and seed;
+  - attack drop against the matching clean cell;
+  - honest and attacker drop counts;
+  - refusals and non-finite runs.
