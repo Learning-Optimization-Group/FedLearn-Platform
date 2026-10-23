@@ -771,3 +771,72 @@ ChestX-ray14 and datasets derived from it (for example RSNA Pneumonia). Checked 
 - each compared seed by seed with A17's R0 `zero_T20` cells (seed 20261043).
 - **Limits:** the recipe was tuned on R0. Wider heads (768/1,024 vs 512) add noise norm √d, as
   in A4, and that cost is part of what is measured.
+
+## Amendment A23 — 23 October 2026: distributed DP (Skellam over coded LightSecAgg) on R0, before any A23 run
+
+**Question:** can the trusted server be removed while keeping central-DP utility? If so, what does
+it cost in accuracy, bits and bytes, and what can a client that skips the clip do?
+
+**Mechanism:**
+- **Encoding:** distributed Skellam (Agarwal, Kairouz and Liu, NeurIPS'21, arXiv:2110.04995, Algorithm 1),
+  in `fedlearn.privacy.distributed_skellam`. Each client:
+  - clips its update to C;
+  - scales it by s and applies a shared randomized Hadamard rotation (d 1,026 padded to 2,048);
+  - rounds it stochastically, retrying until the Proposition 4.2 bound holds (β = e^(−1/2));
+  - adds Skellam(μ/n) noise and reduces modulo the largest prime below 2^b.
+- **Scale:** s is the largest scale with 2kσ̃ inside the field, where k = 4 and σ̃ follows Section 5's heuristic.
+- **Secure sum:** coded LightSecAgg (So et al., arXiv:2109.14236), in `fedlearn.security.lightsecagg_coded`.
+  - Privacy threshold T = 40 colluding clients and recovery target U = 64 (up to 16 dropouts tolerated).
+  - Each mask is cut into 24 pieces, so every coded share is 86 field elements instead of 2,048.
+  - Run in-process every round. Each round's decoded sum is checked against the direct modular sum.
+- **Accounting:**
+  - Corollary 3.6 RDP at integer orders, composed over T = 20 full-participation rounds.
+  - Converted to (ε, δ) with the same Mironov bound as the RDP accountant, at δ = 10⁻⁵.
+  - Replace-one adjacency: Δ₂ is twice the rounded-norm bound and Δ₁ = min(√d·Δ₂, Δ₂²).
+  - μ is the smallest value meeting the claimed ε.
+  - The modulo is post-processing.
+- **Checked before any run:**
+  - the bound dominates the exact numerically computed Rényi divergence of 1-D Skellam;
+  - at 31 bits the effective noise multiplier is within 1% of Gaussian RDP;
+  - the T-subset invertibility property of the coded shares holds.
+
+**Configuration:** A17's T = 20 zero-head configuration, with only the privacy mechanism changed.
+- R0, A8 recipe (LR 0.03, clip 0.05), 80 clients, mean rule, five seeds, selection half.
+- The server never sees an individual update, so it cannot clip.
+
+**Cells:**
+1. **Distributed DP:** b ∈ {12, 14, 16, 20} × claimed ε ∈ {8, 4, 1} × 5 seeds.
+   - b = 12 at ε 1 cannot fit the field at any scale. It is recorded as "not run: infeasible", not as a zero.
+2. **Central Gaussian, RDP-calibrated z, zero head:** ε ∈ {8, 4, 1} × 5 seeds. This is the
+   matched-accountant control.
+3. **Clip-skipping attackers:** sign flip ×10 (`sign_flip_scale`, scale −10) at 4 and 16 of 80
+   clients, ε 4, 5 seeds.
+   - Distributed DP at b = 16: the attackers skip the clip. Nothing on the wire reveals it.
+   - Central DP with RDP z: the server clips every upload.
+
+**Pre-registered contrasts** (paired patient bootstrap, 2,000 resamples, seed 20261044):
+- distributed(b, ε) − central RDP(ε): the price of removing the trusted server, at the same accountant;
+- distributed(b, ε) − A17 exact-GDP(ε): the total price against the best central configuration;
+- central RDP(ε) − A17 exact-GDP(ε): the accounting gap with a zero head;
+- attack damage (attacked − unattacked) per mode at ε 4, and distributed damage − central damage.
+
+**Also reported:**
+- analytic bytes per client per round for coded shares, full-length Shamir shares (the
+  `lightsecagg.py` scheme behind A5's 158×) and a plain float32 upload, all on the same
+  bit-packed basis;
+- secure-sum exactness every round;
+- wrapped-coordinate counts.
+
+**Predictions** (stated before running):
+- At b = 20, distributed DP is within ±0.005 of central RDP at every ε.
+- Fewer bits cost utility first at ε 1.
+- Against A17, distributed DP loses about A13's accounting gain (around 0.017 at ε 4).
+- Clip-skipping attackers do far more damage under distributed DP than under central DP.
+- Any secure-sum mismatch is an integrity failure.
+
+**Limits:**
+- Honest-but-curious server. Key agreement and authenticated channels are assumed, not modelled.
+- The secure sum runs in-process: bytes are analytic, not measured on a network.
+- No dropouts or stragglers.
+- The Hadamard padding doubles the masked upload; a non-power-of-two rotation would avoid it.
+- IID, one workload. The recipe was tuned for central DP.
