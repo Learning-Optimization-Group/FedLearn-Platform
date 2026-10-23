@@ -379,3 +379,20 @@ def test_new_keys_leave_existing_configs_and_hashes_unchanged():
         resolve({**cfg, "server": {"norm_filter": {"k": 4.0}}})              # needs local DP
     with pytest.raises(ConfigError, match="privatize"):
         resolve({**cfg, "behaviors": [{"type": "label_flip", "fraction": 0.2, "privatize": "yes"}]})
+
+
+def test_norm_matching_attackers_sit_at_the_honest_norm(tmp_path):
+    import math
+    rec = run(_cfg(_features(tmp_path), server={"norm_filter": {"k": 4.0, "ks_alpha": 1e-4}},
+                   privacy={"mode": "local", "epsilon": 8.0},
+                   behaviors=[{"type": "sign_flip_scale", "fraction": 0.2, "scale": -4.0, "match_norm": True}]))
+    s, d = rec["rounds"][0]["privacy"]["client_noise_std"], rec["meta"]["workload"]["parameters"]
+    target = math.sqrt(0.5 ** 2 + s ** 2 * d)
+    assert all(l["updates"]["attacker_norm_mean"] == pytest.approx(target, rel=1e-5) for l in rec["rounds"])
+
+
+def test_match_norm_and_privatize_are_exclusive():
+    from fedlearn.simulation.config import ConfigError, resolve
+    with pytest.raises(ConfigError, match="match_norm"):
+        resolve({"workload": {"features_path": "x"},
+                 "behaviors": [{"type": "label_flip", "fraction": 0.2, "privatize": True, "match_norm": True}]})

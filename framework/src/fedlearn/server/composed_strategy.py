@@ -89,13 +89,28 @@ def reduce_deltas(deltas: List["OrderedDict[str, torch.Tensor]"], weights: List[
     return out, kept
 
 
+def ks_statistic(values: "torch.Tensor", std: float) -> float:
+    """Kolmogorov-Smirnov distance between the empirical distribution of ``values`` and N(0, std^2)."""
+    x, _ = torch.sort(values.double().reshape(-1))
+    n = x.numel()
+    cdf = 0.5 * torch.erfc(-x / (std * math.sqrt(2.0)))
+    i = torch.arange(1, n + 1, dtype=torch.float64)
+    return float(torch.maximum(i / n - cdf, cdf - (i - 1) / n).max())
+
+
+def ks_critical(n: int, alpha: float) -> float:
+    """Asymptotic critical KS distance at level ``alpha`` for ``n`` values: sqrt(-ln(alpha/2) / 2) / sqrt(n)."""
+    return math.sqrt(-math.log(alpha / 2.0) / 2.0) / math.sqrt(n)
+
+
 class ComposedStrategy(Strategy):
     def __init__(self, initial_parameters, rule: str = "mean", clip_norm: Optional[float] = None,
                  rule_params: Optional[Dict] = None, central_noise_multiplier: float = 0.0,
                  noise_seed: int = 0, optimizer: str = "none", optimizer_lr: float = 0.01,
                  evaluate_fn: Optional[Callable] = None, min_fit_clients: int = 1,
                  clients_per_round: Optional[int] = None,
-                 norm_band: Optional[Tuple[float, float]] = None):
+                 norm_band: Optional[Tuple[float, float]] = None,
+                 ks_reference_std: Optional[float] = None, ks_alpha: float = 1e-4):
         if rule not in RULES:
             raise ValueError(f"rule must be one of {RULES}, got {rule!r}")
         if clip_norm is not None and clip_norm <= 0:
@@ -122,6 +137,12 @@ class ComposedStrategy(Strategy):
         # an honest privatized update occupies is dropped before clipping. It reads only privatized uploads,
         # so it is post-processing and costs no privacy.
         self.norm_band = None if norm_band is None else (float(norm_band[0]), float(norm_band[1]))
+        # With ks_reference_std, an in-band upload is also dropped when its delta coordinates are not
+        # plausibly N(0, s^2): a noise-free update rescaled to the band's norm passes the norm test but not this.
+        if ks_reference_std is not None and not (float(ks_reference_std) > 0 and 0 < float(ks_alpha) < 1):
+            raise ValueError("ks_reference_std must be > 0 and ks_alpha in (0, 1)")
+        self.ks_reference_std = None if ks_reference_std is None else float(ks_reference_std)
+        self.ks_alpha = float(ks_alpha)
         self.evaluate_fn = evaluate_fn
         self.min_fit_clients = min_fit_clients
         self.clients_per_round = clients_per_round if clients_per_round is not None else min_fit_clients
@@ -156,7 +177,12 @@ class ComposedStrategy(Strategy):
             for cid, params, n in ok:
                 norm = math.sqrt(sum(float(((params[k].detach().float().cpu() - self._global[k]) ** 2).sum())
                                      for k in self._global))
-                (keep if lo <= norm <= hi else filtered).append((cid, params, n))
+                in_band = lo <= norm <= hi
+                if in_band and self.ks_reference_std is not None:
+                    delta = torch.cat([(params[k].detach().float().cpu() - self._global[k]).reshape(-1)
+                                       for k in self._global])
+                    in_band = ks_statistic(delta, self.ks_reference_std) <= ks_critical(delta.numel(), self.ks_alpha)
+                (keep if in_band else filtered).append((cid, params, n))
             ok = keep
         stats = {"aggregated": len(ok), "dropped": [str(c) for c, _, _ in dropped], "failed": False,
                  "filtered": [str(c) for c, _, _ in filtered],

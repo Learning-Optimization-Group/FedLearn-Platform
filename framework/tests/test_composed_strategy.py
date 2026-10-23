@@ -1,6 +1,7 @@
 """ComposedStrategy: bit-exact with dp_robust_aggregate; float32-equivalent to FedAvg, FedOpt and
 RobustAggregator (it aggregates deltas, they aggregate absolute parameters — translation
 equivariance makes the two identical in exact arithmetic but not bit for bit)."""
+import math
 from collections import OrderedDict
 
 import pytest
@@ -160,3 +161,25 @@ def test_norm_band_must_be_ordered_and_non_negative():
     for band in [(2.0, 1.0), (-1.0, 1.0)]:
         with pytest.raises(ValueError, match="norm_band"):
             ComposedStrategy(_global(), norm_band=band)
+
+
+def test_ks_statistic_accepts_matching_gaussians_and_rejects_other_shapes():
+    from fedlearn.server.composed_strategy import ks_critical, ks_statistic
+    g = torch.Generator().manual_seed(0)
+    crit = ks_critical(1026, 1e-4)
+    gaussian = [ks_statistic(0.3 * torch.randn(1026, generator=g), 0.3) for _ in range(500)]
+    assert sum(d > crit for d in gaussian) <= 2                          # alpha = 1e-4 per test
+    uniform = torch.rand(1026, generator=g) - 0.5
+    uniform = uniform * (0.3 * math.sqrt(1026) / float(uniform.norm()))  # same norm as the noise
+    assert ks_statistic(uniform, 0.3) > crit
+    assert ks_statistic(0.6 * torch.randn(1026, generator=g), 0.3) > crit
+
+
+def test_ks_filter_drops_an_in_band_upload_that_is_not_gaussian():
+    glob = OrderedDict(w=torch.zeros(1024))
+    g = torch.Generator().manual_seed(1)
+    honest = OrderedDict(w=0.3 * torch.randn(1024, generator=g))
+    flat = torch.full((1024,), 0.3)                                     # norm 0.3*32, in band, but not N(0, 0.09)
+    s = ComposedStrategy(glob, rule="mean", norm_band=(8.0, 11.0), ks_reference_std=0.3, ks_alpha=1e-4)
+    s.aggregate_fit(1, [("h", honest, 1), ("a", OrderedDict(w=flat), 1)])
+    assert s.last_round_stats["filtered"] == ["a"]

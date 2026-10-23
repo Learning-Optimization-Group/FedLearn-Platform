@@ -178,7 +178,9 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         init_params, rule=sv["rule"], clip_norm=server_clip, rule_params=rule_params,
         central_noise_multiplier=z if pv["mode"] == "central" else 0.0, noise_seed=int(seeds["noise"]),
         optimizer=sv["optimizer"]["type"], optimizer_lr=float(sv["optimizer"]["lr"]),
-        evaluate_fn=timed_eval, clients_per_round=int(fed["clients_per_round"]), norm_band=norm_band)
+        evaluate_fn=timed_eval, clients_per_round=int(fed["clients_per_round"]), norm_band=norm_band,
+        ks_reference_std=(client_noise_std if norm_band is not None and "ks_alpha" in sv["norm_filter"] else None),
+        ks_alpha=float((sv.get("norm_filter") or {}).get("ks_alpha", 1e-4)))
     flops: Dict[str, Dict[int, int]] = {"measured": {}, "analytic": {}}
     local_gen = torch.Generator().manual_seed(int(seeds["noise"]) + 1)
     per_transfer = costs.transfer_bytes(init_params)
@@ -214,6 +216,13 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
                         attack = OrderedDict((k, uploads[cid][k].float() - global_params[k].float()) for k in keys)
                         delta = privatize(attack, float(sv["clip_norm"]), z, local_gen)
                         uploads[cid] = OrderedDict((k, global_params[k].float() + delta[k]) for k in keys)
+                    elif cid in attackers and plan.malicious[cid].get("match_norm"):
+                        # Noise-free, rescaled to the expected honest privatized norm sqrt(C^2 + s^2 d).
+                        attack = OrderedDict((k, uploads[cid][k].float() - global_params[k].float()) for k in keys)
+                        norm = math.sqrt(sum(float((v ** 2).sum()) for v in attack.values()))
+                        target = math.sqrt(float(sv["clip_norm"]) ** 2 + client_noise_std ** 2 * d)
+                        scale = target / norm if norm > 0 else 0.0
+                        uploads[cid] = OrderedDict((k, global_params[k].float() + scale * attack[k]) for k in keys)
         if state["round0_digest"] is None:
             state["round0_digest"] = state_digest(uploads[c] for c in sorted(uploads))
         for c in selected:

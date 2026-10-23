@@ -103,6 +103,9 @@ def _resolve_behavior(b: Any, i: int) -> Dict[str, Any]:
         # Under local DP, a malicious client that adds the protocol's noise to its own upload (and so passes a
         # noise-aware norm filter). Present only when given, so earlier behaviours keep their resolved form.
         out["privatize"] = False
+    if kind in MALICIOUS and "match_norm" in b:
+        # Under local DP, a malicious client that rescales its noise-free upload to an honest privatized norm.
+        out["match_norm"] = False
     for key, value in b.items():
         if key not in out:
             raise ConfigError(f"{where}.{key}", "unknown key")
@@ -115,8 +118,11 @@ def _resolve_behavior(b: Any, i: int) -> Dict[str, Any]:
     if kind == "backdoor" and out["trigger"] is not None and (
             not isinstance(out["trigger"], dict) or out["trigger"].get("type", "patch") != "patch"):
         raise ConfigError(f"{where}.trigger", "only patch triggers are supported (prepare_features --trigger-patch)")
-    if "privatize" in out and not isinstance(out["privatize"], bool):
-        raise ConfigError(f"{where}.privatize", "must be true or false")
+    for flag in ("privatize", "match_norm"):
+        if flag in out and not isinstance(out[flag], bool):
+            raise ConfigError(f"{where}.{flag}", "must be true or false")
+    if out.get("privatize") and out.get("match_norm"):
+        raise ConfigError(f"{where}.match_norm", "cannot be combined with privatize")
     if kind == "free_rider" and out["mode"] not in ("zero", "noise"):
         raise ConfigError(f"{where}.mode", "must be 'zero' or 'noise'")
     if kind == "min_max" and out["perturbation"] not in ("std", "unit_vec", "sign"):
@@ -213,9 +219,11 @@ def _validate(r: Dict[str, Any]) -> None:
         _require(sv["clip_norm"] is not None, "server.clip_norm", "DP needs a clip norm")
     if sv.get("norm_filter") is not None:
         nf = sv["norm_filter"]
-        _require(isinstance(nf, dict) and set(nf) == {"k"} and isinstance(nf["k"], (int, float))
-                 and not isinstance(nf["k"], bool) and float(nf["k"]) > 0, "server.norm_filter",
-                 "must be null or {\"k\": number > 0}")
+        _require(isinstance(nf, dict) and set(nf) in ({"k"}, {"k", "ks_alpha"})
+                 and isinstance(nf["k"], (int, float)) and not isinstance(nf["k"], bool) and float(nf["k"]) > 0
+                 and ("ks_alpha" not in nf or (isinstance(nf["ks_alpha"], (int, float))
+                                               and not isinstance(nf["ks_alpha"], bool) and 0 < float(nf["ks_alpha"]) < 1)),
+                 "server.norm_filter", "must be null or {\"k\": number > 0, optional \"ks_alpha\": in (0, 1)}")
         _require(pv["mode"] == "local", "server.norm_filter", "needs privacy.mode 'local' (the band is the local-DP noise)")
     if pv["mode"] == "central":
         _require(sv["rule"] in CENTRAL_DP_RULES, "server.rule",
