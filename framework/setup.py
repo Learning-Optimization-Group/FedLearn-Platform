@@ -54,6 +54,7 @@ setup(
 
     # Optional dependencies
     extras_require={
+        'byzfl': ['byzfl==0.0.11'],
         'xgboost': [
             'xgboost-cpu==3.4.1; platform_system == "Linux"',
             'xgboost==3.4.1; platform_system != "Linux"',

@@ -190,13 +190,19 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         with clock.stage("eval"):
             return evaluate(server_round, params)
 
-    strategy = ComposedStrategy(
+    strategy_type, external_kwargs = ComposedStrategy, {}
+    if sv.get("external_aggregation") is not None:
+        from fedlearn.simulation.byzfl_strategy import ByzFLStrategy
+        strategy_type = ByzFLStrategy
+        external_kwargs = {"bucket_size": sv["external_aggregation"]["bucket_size"],
+                           "bucket_seed": int(seeds["partition"]) + 4_347_482}
+    strategy = strategy_type(
         init_params, rule=sv["rule"], clip_norm=server_clip, rule_params=rule_params,
         central_noise_multiplier=z if pv["mode"] == "central" else 0.0, noise_seed=int(seeds["noise"]),
         optimizer=sv["optimizer"]["type"], optimizer_lr=float(sv["optimizer"]["lr"]),
         evaluate_fn=timed_eval, clients_per_round=int(fed["clients_per_round"]), norm_band=norm_band,
         ks_reference_std=(client_noise_std if norm_band is not None and "ks_alpha" in sv["norm_filter"] else None),
-        ks_alpha=float((sv.get("norm_filter") or {}).get("ks_alpha", 1e-4)))
+        ks_alpha=float((sv.get("norm_filter") or {}).get("ks_alpha", 1e-4)), **external_kwargs)
     flops: Dict[str, Dict[int, int]] = {"measured": {}, "analytic": {}}
     local_gen = torch.Generator().manual_seed(int(seeds["noise"]) + 1)
     per_transfer = costs.transfer_bytes(init_params)
@@ -381,6 +387,15 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
             "updates": extra.get("updates"),
             "refusal": refusal,
         }
+        if "aggregation_diagnostics" in st:
+            diagnostics = dict(st["aggregation_diagnostics"])
+            groups = diagnostics.pop("bucket_members_by_input_index")
+            accepted_ids = list(st["orig_norms"])
+            bad_ids = {str(c) for c in attackers}
+            contaminated = sum(any(accepted_ids[i] in bad_ids for i in group) for group in groups)
+            diagnostics.update(contaminated_bucket_count=contaminated,
+                               contaminated_bucket_fraction=contaminated / len(groups))
+            line["aggregation_diagnostics"] = diagnostics
         if dist is not None:
             line["secagg"] = extra.get("secagg")
         if r["workload"].get("auc_score") == "margin_v2":
@@ -426,6 +441,8 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
                        "platform": platform.platform(), "host": platform.node(), "git_commit": _git_commit()},
         "clocks": "time.wall_s is measured on this machine; time.simulated_round_s is the deployment model",
     }
+    if sv.get("external_aggregation") is not None:
+        meta["aggregation_backend"] = dict(strategy.provenance)
     if dist is not None:
         p = dist["secagg"]
         meta["distributed_dp"] = {**dist["plan"].as_dict(), "secagg": {"num_users": p.num_users, "privacy": p.privacy,

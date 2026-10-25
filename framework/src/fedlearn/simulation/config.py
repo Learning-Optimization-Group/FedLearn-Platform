@@ -11,6 +11,7 @@ import copy
 import hashlib
 import itertools
 import json
+import math
 import re
 from typing import Any, Dict, List, Tuple
 
@@ -206,6 +207,31 @@ def _validate(r: Dict[str, Any]) -> None:
     _require(0.0 <= float(sv["rule_params"]["trim_ratio"]) < 0.5, "server.rule_params.trim_ratio",
              "must be in [0, 0.5)")
     rp = sv["rule_params"]
+    external = sv.get("external_aggregation")
+    if external is not None:
+        _require(external["library"] == "byzfl", "server.external_aggregation.library", "must be 'byzfl'")
+        bucket = external["bucket_size"]
+        _require(isinstance(bucket, int) and not isinstance(bucket, bool) and bucket >= 1,
+                 "server.external_aggregation.bucket_size", "must be a positive integer")
+        _require(sv["rule"] in ("mean", "median", "trimmed_mean", "centered_clip"),
+                 "server.rule", "ByzFL benchmark supports mean, median, trimmed_mean and centered_clip")
+        _require(pv["mode"] in ("none", "central"), "privacy.mode", "ByzFL benchmark supports none or central")
+        _require(math.isfinite(float(rp["tau"])) and float(rp["tau"]) > 0,
+                 "server.rule_params.tau", "must be finite and positive")
+        _require(isinstance(rp["iterations"], int) and not isinstance(rp["iterations"], bool)
+                 and rp["iterations"] >= 1, "server.rule_params.iterations", "must be a positive integer")
+        if pv["mode"] == "central":
+            _require(bucket == 1, "server.external_aggregation.bucket_size", "private bucketing is not qualified")
+            _require(sv["rule"] != "median", "server.rule", "private median is not qualified")
+            _require(sv["rule"] != "centered_clip" or rp["iterations"] == 1,
+                     "server.rule_params.iterations", "private centered clipping requires one iteration")
+            _require(int(fed["clients_per_round"]) == int(fed["num_clients"]),
+                     "federation.clients_per_round", "private ByzFL requires full participation")
+            _require(fed["network"]["round_deadline_s"] is None
+                     and not any(b["type"] in ("dropout", "straggler") for b in r["behaviors"]),
+                     "behaviors", "private ByzFL requires a fixed complete cohort")
+            _require(not any(b["type"] in ("ipm", "alie", "min_max", "fang_trim") for b in r["behaviors"]),
+                     "behaviors", "raw-honest-update oracle attacks are not covered by client-DP sensitivity")
     _require(rp["byzantine_fraction"] is None or 0.0 <= float(rp["byzantine_fraction"]) < 1.0,
              "server.rule_params.byzantine_fraction", "must be null or in [0, 1)")
     _require(float(rp["tau"]) > 0, "server.rule_params.tau", "must be > 0")
@@ -250,7 +276,8 @@ def _validate(r: Dict[str, Any]) -> None:
                  "server.norm_filter", "must be null or {\"k\": number > 0, optional \"ks_alpha\": in (0, 1)}")
         _require(pv["mode"] == "local", "server.norm_filter", "needs privacy.mode 'local' (the band is the local-DP noise)")
     if pv["mode"] == "central":
-        _require(sv["rule"] in CENTRAL_DP_RULES, "server.rule",
+        permitted = (*CENTRAL_DP_RULES, "centered_clip") if external is not None else CENTRAL_DP_RULES
+        _require(sv["rule"] in permitted, "server.rule",
                  f"central DP needs a rule with a replace-one sensitivity bound: {list(CENTRAL_DP_RULES)}")
     malicious = sum(float(b["fraction"]) for b in r["behaviors"] if b["type"] in MALICIOUS)
     _require(malicious <= 1.0 + 1e-12, "behaviors", "malicious fractions must sum to at most 1")
@@ -268,6 +295,9 @@ def resolve(cfg: Dict[str, Any]) -> Dict[str, Any]:
         defaults["workload"].update(features_report_sha256=None, evaluation_split=None,
                                      allow_random_features=False, auc_score="margin_v2")
     server = cfg.get("server")
+    if isinstance(server, dict) and "external_aggregation" in server:
+        defaults = copy.deepcopy(defaults)
+        defaults["server"]["external_aggregation"] = {"library": "byzfl", "bucket_size": 1}
     if isinstance(server, dict) and "norm_filter" in server:
         # Added only when a config asks for it, so every config written before it keeps its resolved form and hash.
         defaults = copy.deepcopy(defaults)

@@ -94,11 +94,11 @@ class EffusionWorkload(FeatureHeadWorkload):
 
 
 RECIPE_KEYS = frozenset({'lr', 'clip_norm'})
-RULES = ('mean', 'trimmed_mean', 'median')
+RULES = ('mean', 'trimmed_mean', 'median', 'centered_clip')
 
 
 def config(name, seed, *, clients, features_path, report_sha256, rounds=ROUNDS, privacy=None, recipe=None,
-           rule='mean', behaviors=None, rule_params=None, norm_filter=None):
+           rule='mean', behaviors=None, rule_params=None, norm_filter=None, external_aggregation=None):
     """Engine config for the section 6 recipe; `recipe` may override only client LR and update clip.
 
     `rule_params` (e.g. a trim ratio) and `norm_filter` are written into the config only when given, so
@@ -115,18 +115,19 @@ def config(name, seed, *, clients, features_path, report_sha256, rounds=ROUNDS, 
             'client': {'algorithm': 'fedavg', 'local_epochs': 7, 'lr': recipe.get('lr', 0.003), 'batch_size': 256},
             'server': {'clip_norm': recipe.get('clip_norm', 0.05), 'rule': rule,
                        **({'rule_params': dict(rule_params)} if rule_params else {}),
-                       **({'norm_filter': dict(norm_filter)} if norm_filter else {})},
+                       **({'norm_filter': dict(norm_filter)} if norm_filter else {}),
+                       **({'external_aggregation': dict(external_aggregation)} if external_aggregation else {})},
             'privacy': dict(privacy or {'mode': 'none'}),
             'behaviors': [dict(b) for b in (behaviors or [])]}
 
 
 def run_one(name, seed, train_x, train_y, patients, selection_x, selection_y, mean, std, *, clients,
             features_path, report_sha256, rounds=ROUNDS, info=None, privacy=None, recipe=None, rule='mean',
-            behaviors=None, rule_params=None, norm_filter=None):
+            behaviors=None, rule_params=None, norm_filter=None, external_aggregation=None):
     """One engine run; returns (record, float64 selection margins of the final head)."""
     cfg = config(name, seed, clients=clients, features_path=features_path, report_sha256=report_sha256, rounds=rounds,
                  privacy=privacy, recipe=recipe, rule=rule, behaviors=behaviors, rule_params=rule_params,
-                 norm_filter=norm_filter)
+                 norm_filter=norm_filter, external_aggregation=external_aggregation)
     workload = EffusionWorkload(train_x, train_y, patients, selection_x, selection_y, mean, std, clients=clients,
                                 partition_seed=cfg['seeds']['partition'], info=dict(info or {}))
     final = {}

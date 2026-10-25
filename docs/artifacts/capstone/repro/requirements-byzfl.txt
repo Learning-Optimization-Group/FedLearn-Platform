@@ -1,0 +1,2 @@
+# Install into an isolated target with --no-deps, reusing the qualified numerical stack.
+byzfl==0.0.11 --hash=sha256:09b3cda93c78d0984637428097983b037cb6a674b448db3a4c716e2c68df7dc3

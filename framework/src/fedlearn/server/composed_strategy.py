@@ -155,6 +155,16 @@ class ComposedStrategy(Strategy):
     def initialize_parameters(self):
         return self.initial_parameters
 
+    def _reduce_deltas(self, deltas, weights, keys):
+        return reduce_deltas(deltas, weights, keys, self.rule, self.rule_params)
+
+    def _sensitivity(self, n):
+        return (replace_one_sensitivity(self.rule, n, self.clip_norm, self.rule_params["trim_ratio"])
+                if self.rule in CENTRAL_DP_RULES and self.clip_norm is not None else None)
+
+    def _reduction_diagnostics(self, deltas, keys):
+        return {}
+
     def _valid(self, params) -> bool:
         if set(params.keys()) != set(self._global.keys()):
             return False
@@ -201,14 +211,14 @@ class ComposedStrategy(Strategy):
         stats["timings"]["clip"] = time.perf_counter() - t
         t = time.perf_counter()
         try:
-            reduced, kept = reduce_deltas(deltas, [n for _, _, n in ok], keys, self.rule, self.rule_params)
+            reduced, kept = self._reduce_deltas(deltas, [n for _, _, n in ok], keys)
+            stats.update(self._reduction_diagnostics(deltas, keys))
         except ValueError as exc:  # the rule's own precondition, e.g. Krum's n >= 2f + 3
             stats.update(failed=True, message=f"round {server_round}: rule {self.rule!r} refused: {exc}")
             return None, stats
         stats["timings"]["rule"] = time.perf_counter() - t
         stats["aggregate_delta_norm"] = math.sqrt(sum(float((reduced[k] ** 2).sum()) for k in keys))
-        sens = (replace_one_sensitivity(self.rule, len(ok), self.clip_norm, self.rule_params["trim_ratio"])
-                if self.rule in CENTRAL_DP_RULES and self.clip_norm is not None else None)
+        sens = self._sensitivity(len(ok))
         std = self.z * sens if (sens is not None and self.z > 0) else 0.0
         t = time.perf_counter()
         if apply_noise and std > 0.0:
