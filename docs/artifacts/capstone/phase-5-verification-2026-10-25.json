@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-25",
+  "evidence": {
+    "finalist_cells": 196,
+    "finalist_contrasts_independently_reconciled": 31,
+    "original_measurement_tables_and_hashes_preserved_in_notes": 9,
+    "phase1_contrasts": 173,
+    "pilot_cells": 126,
+    "qualification_cells": 4,
+    "total_new_cells": 326,
+    "total_new_iterative_rounds": 6280
+  },
+  "holdout_or_official_test_reopened": false,
+  "independent_report_review": "All sixteen final arm means,31 contrasts,primary bounds,margin clearance,pilot shrinkage and claim scope reconciled",
+  "phase": 5,
+  "public_exports": "Aggregate schemas and figures inspected; no patient identities, heads, predictions or absolute machine paths",
+  "rendering": {
+    "accepted_layout": "No clipped text, overlap, replacement glyphs or orphan headings; prior layouts preserved locally",
+    "all_pages_visually_inspected": true,
+    "four_figures_visually_inspected": true,
+    "html_sha256": "0880d19f761b8ffd3100e376aea71f5a6755f2c09eaa78413d919bb7249afa05",
+    "pages": 11,
+    "pdf_sha256": "680782b2cab0d3574f540bd4477d09e6b25acc6bb413342440fc5528b6a10398",
+    "source_sha256": "43ea0e56f85f6210538dbabf6e0e01da288c0f6169aaa9e986bb8e4fafe2de33"
+  },
+  "scope": "Five-phase research remediation and working report complete; no claim of RIT approval,submission,external validation,NVFlare benchmark,production security or whole-study DP; later editorial feedback remains a proposed submission revision",
+  "status": "complete",
+  "tests": {
+    "framework_coverage_percent": 80.15,
+    "framework_deselected": 14,
+    "framework_full_permitted": 2378,
+    "frozen_finalist_analyzer": 31,
+    "plotting": 11,
+    "preflight_design_inference_runner_pilot_regressions": 93,
+    "renderer": 10,
+    "separate_audit": 15
+  },
+  "working_report": "capstone-final-report-v3-working.md"
+}

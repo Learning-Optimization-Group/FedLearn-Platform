@@ -3,6 +3,12 @@
 23 October 2026. Executes amendment A22, which was committed before any A22 cache was built.
 Everything is on the selection half; the holdout is untouched.
 
+**Claim correction, 24 October 2026:** the gate is a development screen after selecting fits
+on the same patients, and the federated intervals are conditional on realized heads. Intervals
+containing zero do not establish encoder equivalence or unchanged privacy cost. Numeric
+tables, gate outcomes and artifact identities are retained. See the
+[review](review-notes-2026-10-23.md).
+
 **Integrity:**
 - Both new caches cover 68,650 train and 9,075 selection images, with none refused.
   - R2 (DINOv2 ViT-B/14, MPS) built in 847 s.
@@ -21,6 +27,10 @@ Everything is on the selection half; the holdout is untouched.
 ## Pre-registered gate (centralised)
 
 Pass rule: the AUROC − R0 interval is above 0 and the AUROC is at least 0.80.
+The historical pass/fail outcomes below apply this rule mechanically. Each representation's
+best of ten fits was chosen using these same selection patients; the bootstrap holds that
+choice fixed and does not adjust for fit selection or the three candidate comparisons. The
+intervals are conditional on selected heads, not independent confirmation of encoder gains.
 
 | Representation | Width | AUROC [95%] | − R0 [95%] | Selected fit | Passed |
 | --- | ---: | --- | --- | --- | --- |
@@ -36,7 +46,9 @@ C 0.01 is an interior grid point for every representation (the grid runs 0.001�
 - **Setup:** A17's configuration, with only the features changed.
   - A8 recipe (LR 0.03, clip 0.05), 80 clients, zero-initialised head, exact-GDP z, T = 20.
   - Five seeds, paired seed by seed with A17's R0 `zero_T20` cells.
-- **Intervals:** paired patient bootstrap, 2,000 resamples, seed 20261043.
+- **Intervals:** paired patient bootstrap, 2,000 resamples, seed 20261043, conditional on the
+  five realized trained heads per cell. These intervals exclude training-seed, partition and
+  DP-noise variability and do not establish differences between training procedures.
 
 | Privacy | R2 AUROC | R2 − R0 (A17) | R2 DP cost | R2 DP cost − R0 DP cost |
 | --- | ---: | --- | --- | --- |
@@ -54,41 +66,52 @@ The ratio is about 1.25, close to the √(768/512) ≈ 1.22 expected from the wi
 
 ## Findings
 
-1. **A stronger frozen encoder buys about 0.01 AUROC, and only one of three clears the pre-registered bar.**
+1. **DINOv2 has about +0.01 selection AUROC and is the only candidate to clear the declared gate.**
    - DINOv2, a general-purpose self-supervised model, passes by a 0.0007 margin.
    - Neither chest-X-ray model passes. The CheXpert DenseNet (R1) gains +0.007 and the MIMIC DenseNet (R3) gains +0.009.
-   - R0's frozen features were not the binding limit on this task.
-2. **The better encoder does not make DP cheaper.**
-   - R2's DP cost is within 0.006 of R0's at every ε, and every interval includes 0.
-   - The noise grows as √d with the wider head (measured ratio 1.25). That cancels whatever the
-     better features gain.
-   - The Tramèr–Boneh effect (better features make DP cheaper) did not appear at this size of
-     encoder gain.
-3. **Under DP, R2 keeps a gain of about +0.01, but no difference at any ε is significant.**
+   - The screen does not identify a general representation ceiling; the small pass margin is
+     subject to selection optimism and unresolved pretraining overlap.
+2. **Differences in DP cost are unresolved.**
+   - R2's DP-cost point estimates are within 0.006 of R0's at every ε, and every conditional
+     patient interval includes 0. This does not establish equal cost or absence of benefit.
+   - The wider head raises the measured noise-to-signal ratio by about 1.25, close to the √d
+     scaling expectation. Width, features and optimization differ together, so these runs do
+     not show that extra noise cancels a representation gain.
+   - This screen does not isolate or refute a general benefit from better public representations.
+3. **Under DP, R2 has positive point differences of about +0.01, with uncertainty spanning zero.**
    - At ε 4 the point estimate is 0.743, against A17's 0.731. The interval just includes 0.
    - Fewer rounds (T = 5) were not run with R2; that was not pre-registered.
-4. **The federated-vs-centralised gap is similar for both encoders:** 0.019 for R2 (0.835 → 0.816) and 0.015
-   for R0 (0.822 → 0.807).
+4. **Observed federated-vs-centralised point gaps are 0.019 for R2 (0.835 → 0.816) and 0.015
+   for R0 (0.822 → 0.807).** No equivalence margin or procedure-level gap comparison was tested.
 
 ## Platform implications
 
-- **Do not switch the default frozen encoder for the DP path.** The wider head adds noise that
-  offsets the small feature gain. R0's 512-wide features are as good per unit of privacy.
-- **For non-DP centralised or federated use, DINOv2 is a defensible upgrade worth about +0.01.**
-  It is costlier to compute: a ViT-B/14 forward pass per image (847 s for 77,725 images on MPS).
-- If a stronger encoder is pursued for DP, it should be paired with a dimension reduction that is
-  data-independent or public-data-fitted. That is the only way to stop √d from absorbing the gain.
-  This is untested.
+- **Retain R0 as a conservative default pending stronger evidence.** These five-seed selection
+  comparisons do not establish that its utility per privacy budget equals R2's, or that a
+  stronger encoder cannot improve it.
+- **DINOv2 is a candidate for further evaluation.** Its observed gain is about +0.01, but
+  selection and procedure-level uncertainty prevent treating that gain as confirmed. It is
+  costlier to compute: a ViT-B/14 forward pass per image (847 s for 77,725 images on MPS).
+- Data-independent or public-data-fitted dimension reduction is one untested way to control
+  head dimension. Recipe tuning is another open factor. Neither is guaranteed to improve
+  utility, and dimension reduction is not established as the only route to improvement.
 
 **Limits:**
 - Selection half only, one workload, IID, five seeds.
 - The recipe was tuned on R0. A wider head may want a different LR or clip.
-- R2 passed by a margin of 0.0007. A different resample seed or the holdout could reverse the
-  pass, and the gate is only a gate, not a confirmation.
+- R2 passed by a margin of 0.0007. This fragile development gate is not confirmation; later
+  confirmation requires genuinely new evaluation data under a frozen plan. The existing
+  holdout remains closed.
 - **Grid selection on the selection half:** the gate picks the best of 10 grid points there, so
-  every AUROC in the gate table is optimistic by the same procedure.
+  the gate AUROCs are subject to optimism. Applying the same procedure to each representation
+  does not establish that selection bias cancels in their differences. Repeated selection and
+  three nominal candidate intervals are not a familywise confirmatory test.
 - **R2 leakage caveat:** web-crawled chest X-rays in LVD-142M cannot be ruled out. NIH
   ChestX-ray14 was not a listed source.
+
+At epsilon 8, the retrospective R2-minus-R0 seed interval is [0.00196, 0.01725] while its patient interval includes zero. These different targets do not establish a population-wide improvement.
+
+Retrospective uncertainty update: the [24 October selection-only seed reanalysis](selection-seed-reanalysis-2026-10-24.md) reproduces the original points and reports separate paired-seed intervals. The original patient intervals remain conditional and unchanged.
 
 Private evidence:
 - **Gate:** `encoder-gate-v1/summary.json` `f7bf0f4966a709f13b20fb3096fb8b7b07cdc505d29f329c0684b2bb4846d706`.

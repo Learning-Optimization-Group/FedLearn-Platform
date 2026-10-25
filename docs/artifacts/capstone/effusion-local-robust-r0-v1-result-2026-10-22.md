@@ -3,6 +3,11 @@
 22 October 2026. Executes amendment A12, which was committed before the run. Everything is
 on the selection half.
 
+**Correction, 24 October 2026:** patient intervals below are conditional on the realized
+trained heads. The [paired-seed reanalysis](selection-seed-reanalysis-2026-10-24.md) separately
+quantifies training-seed variation and preserves all original points. Conclusions concern the
+tested rules, local-noise protocol and attacker fraction, not every local-DP defence.
+
 **Integrity:**
 - All 135 runs were finite with no refusals.
 - Every attacked run had exactly 16 of 80 attacker slots.
@@ -49,19 +54,19 @@ on the selection half.
    AUROC to about 0.30, below chance: the model learns the inverted direction. This happens at
    every ε and under every rule. Label flip does similar damage, growing with ε (0.45 → 0.31 for
    the mean).
-2. **Robust aggregation does not help under local DP.** It is often worse: the median under
+2. **The tested coordinate-wise rules did not improve this local-DP recipe.** They were often worse: the median under
    label flip loses up to 0.23 AUROC relative to the mean.
 3. **The mechanism:**
    - Local DP makes honest updates very noisy, so the server's norm bound has to be generous.
      That effectively removes the norm bounding that kept attacks small without DP and under
      central DP (A9).
    - Coordinate-wise rules cannot separate a consistent attacker direction from noise-dominated
-     honest updates. That is the noise-dominance failure described by Guerraoui et al. (PODC'21)
-     and Allouah et al. (ICML'23).
+     honest updates in these experiments. Related work discusses privacy/robustness tensions,
+     but its privacy units and algorithms differ; those theorems do not establish this recipe's mechanism.
    - Damage grows with ε here because honest updates become *less* noisy while attackers keep
      the same large, consistent pushes.
 4. **What to try next:** the literature's remedy is noise-aware filtering (Xiang et al.,
-   SIGMOD'23). Honest privatised update norms concentrate around √(C² + (2zC)²d), so the server
+  SIGMOD'23). Honest privatised update norms concentrate around √(C² + (2zC)²d), so the server
    can reject uploads that don't look like "clip plus noise". Rejection is post-processing, so it
    costs no privacy. This is shortlist item 8 in the
    [literature check](literature-review-robust-private-fl-2026-10-22.md).
@@ -70,13 +75,15 @@ on the selection half.
 
 Local DP is not just costly in utility (A11). Without norm validation it is also **fragile
 against poisoning**: noise that hides honest clients also hides attackers. If a local-DP option
-ever ships, it needs server-side noise-aware norm validation, or a verifiable client norm proof.
-It should not be paired with coordinate-wise robust rules as a defence.
+ever ships, it needs an explicit evaluated threat model and suitable integrity controls.
+The tested coordinate-wise rules alone do not provide an effective defence here. A20/A21 later
+show that norm validation and a marginal KS test are insufficient against some adaptive uploads;
+a norm proof alone also permits malicious directions inside the allowed norm.
 
 **Limits:**
 - One attacker fraction (20%), non-adaptive attacks, attackers that skip local noise.
-- The engine's generous local-mode server clip is one reasonable design. A tighter, noise-aware
-  bound is the remedy and has not been tested here.
+- The engine's generous local-mode server clip is one design. Later filtering experiments
+  evaluate alternatives but do not establish a universal remedy.
 
 Private evidence: `summary.json`
 `5de3c331fb35693a057320fa882c28ed75c568d44c3e08fe2701ff0683b1bc17`.

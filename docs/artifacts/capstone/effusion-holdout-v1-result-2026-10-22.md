@@ -16,6 +16,9 @@ were loaded. The holdout has not been scored again, and any later scoring is pos
 
 Uncertainty: 2,000 patient-cluster bootstrap resamples (seed 20261029); none skipped.
 Federated rows are five-seed means, with the mean taken inside each replicate.
+These intervals condition on the realized fitted heads; they do not include training-seed
+variation or establish equivalence. Claim wording below was corrected on 25 October without
+changing the published numeric tables, artifact hashes, thresholds or evaluating the holdout again.
 
 | Model | AUROC | AP | Sensitivity | Specificity | PPV | NPV | Brier | Cal. slope | Patient AUROC |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: |
@@ -34,21 +37,26 @@ Federated rows are five-seed means, with the mean taken inside each replicate.
 | DP ε 1 − FedAvg no DP | −0.2557 [−0.2718, −0.2381] |
 
 The DP contrasts compare against the clean-optimal A7 recipe, so they include the
-roughly 0.045 cost of the DP recipe itself as well as the noise. That is the realistic
-cost of switching a project to DP.
+roughly 0.045 cost of the DP recipe itself as well as the noise. This is the observed
+cost of switching to these tested recipes, not an isolated or universal cost of DP.
 
 ## Conclusions
 
-1. **Federated learning matched centralised training on unseen patients.** With the
-   A7 recipe, 80 whole-patient clients reached the centralised probe's holdout AUROC to
-   within ±0.004. Selection-half estimates (0.819–0.822) were slightly *below* the holdout,
-   so there is no sign of selection optimism.
-2. **The operating point transferred.** Every model kept sensitivity at about 0.91 on the
-   holdout against a 0.90 target. Calibration after Platt is close to ideal for clean
-   models (slope about 1.07–1.10, ECE ≤ 0.01).
-3. **Client-level central DP costs specificity, not sensitivity.** At 0.91 sensitivity,
+1. **The clean federated and centralised point estimates are close on this internal cohort.**
+   The A7 recipe gives a FedAvg-minus-convex difference of +0.0011, with a conditional
+   patient interval [−0.0021, +0.0044]. No prospective equivalence margin or equivalence
+   test is supplied. Selection-half points (0.819–0.822) were below the holdout points;
+   this does not rule out selection optimism or establish external generalization.
+2. **The preselected operating points retained high observed sensitivity.** Sensitivities
+   ranged from 0.908 to 0.923 against a selection target of 0.90. Post-Platt clean slopes
+   were about 1.07–1.10 and ECE ≤ 0.01. Those measurements do not establish perfect
+   calibration or transfer beyond this internal cohort.
+3. **The tested private recipes had substantially lower specificity at those operating points.**
+   At sensitivities near 0.91,
    specificity falls from 0.55 (no DP) to 0.39 (ε 8), 0.30 (ε 4) and 0.14 (ε 1). At ε 1
-   the model flags 86% of negatives and is not useful for triage.
+   the model flags about 86% of negatives. This is a substantial benchmark burden;
+   clinical triage usefulness was not evaluated. It is not a general finding that DP
+   preserves sensitivity while affecting only specificity.
 4. **Clinical usefulness is not established.** Even the best model has PPV 0.19 at
    prevalence 0.10: about one flagged image in five is Effusion-positive. Labels are
    report-derived; this is a research triage signal on an internal holdout, not a

@@ -3,12 +3,19 @@
 22 October 2026. Executes amendment A19, which was committed before the run. Everything is on the
 selection half; the holdout is untouched.
 
+**Claim correction, 24 October 2026:** the private-AUROC decline under strong skew is 0.0384;
+the additional privacy cost after subtracting the clean decline is about 0.0326. Recommendations
+below are restricted to the tested label/quantity-skew simulation. Numeric tables and artifact
+identities are retained. See the [review](review-notes-2026-10-23.md).
+
 **Integrity:**
 - All 60 runs were finite with no refusals and no attack notes.
 - Every attacked run had exactly 16 of 80 attackers.
 - Each cell differs from its A14 IID counterpart only in the partition: same seeds, attacker
   slots and recipe.
-- Intervals are paired patient bootstraps (2,000 resamples, seed 20261039).
+- Intervals are paired patient bootstraps (2,000 resamples, seed 20261039), conditional on the
+  five realized trained heads per cell. They exclude variation over training seeds, partitions,
+  initialization and DP noise draws; they are not procedure-level intervals.
 
 **Partition:** `patient_dirichlet_partition` keeps patients whole, gives every client at least one
 patient, and splits each class's remaining patients in Dirichlet(α) proportions. Heterogeneity
@@ -48,31 +55,41 @@ The IID column is A14's seed mean for the same cells (Fang rows: 0.819 − 0.155
 
 ## Findings
 
-1. **Moderate skew is benign.** At α 1.0, FedAvg, the trimmed mean and the median all match
-   their IID results within ±0.001, and DP costs only 0.004 more.
+1. **Moderate skew has small clean point differences in this simulation.** At α 1.0, FedAvg,
+   the trimmed mean and the median differ from their clean IID point means by about 0.001 or
+   less. Private mean AUROC declines by 0.0036; this is not a test of equivalence. Under Fang,
+   the nonprivate mean declines by 0.0297, so this result does not make moderate skew benign
+   across all tested conditions.
 2. **Strong skew costs little without DP, more under DP.**
-   - At α 0.1 the clean mean loses 0.006. The median loses 0.018, which reproduces the known
-     heterogeneity penalty of median-type rules (0.015 below the mean).
-   - Central DP at ε 4 loses 0.038, ten times what the non-private mean loses.
+   - At α 0.1 the clean mean loses 0.0058 and the median loses 0.0183 (about 0.015 below
+     the mean). These are observed penalties for these configurations.
+   - Central DP at ε 4 loses 0.0384 AUROC, about 6.6 times the nonprivate mean's decline.
+     The increase in the clean-minus-private gap is approximately 0.0384 − 0.0058 = 0.0326.
+     The retrospective seed analysis gives +0.03253 [0.01162, 0.05343] from the saved unrounded run values; the subtraction above uses rounded table values.
    - **Hypothesis, not tested:** with uniform averaging and a binding clip, every client
      contributes a full-norm-C vote however little data it has. Under skew those votes disagree
      more and partly cancel, which shrinks the signal against fixed noise.
-3. **Skew amplifies attacks, and the median is still the better rule.**
+3. **The tested skew amplifies Fang's damage, and the median retains higher attacked AUROC.**
    - Fang's attack drives the mean to chance at α 0.1 (drop 0.305).
    - The median keeps a large advantage (+0.129), but its own drop rises from 0.063 to 0.161.
-   - Honest disagreement widens the range attackers can hide in.
+   - Widening honest disagreement is a possible explanation, not an isolated causal result.
 4. **Platform guidance:**
-   - IID-based recommendations hold for moderately heterogeneous sites.
-   - For strongly skewed federations, expect a larger DP cost and stronger attacks, and budget
-     for both.
-   - The A14 recommendation (median when no DP and attackers are plausible) holds; its margin
-     over the mean grows with skew.
+   - These results qualify only the tested patient-whole label/quantity-skew construction;
+     they do not establish generalization to moderately heterogeneous hospitals or sites.
+   - Strong simulated skew lowers private AUROC and increases the clean-minus-private gap in
+     this recipe; requalify both privacy cost and attack damage for an intended federation.
+   - For the tested nonprivate Fang conditions, the median has higher AUROC than the mean,
+     with a larger margin under skew. This is not a universal recommendation for all attacks.
 
 **Limits:**
 - Label skew plus the quantity skew it induces, not feature or site shift. A real hospital
   split (view, age, scanner) is a separate test.
 - One workload, random-init head, five seeds, selection half.
+- The clean DP recipe uses the older RDP calibration; these results do not qualify the later
+  zero-init/GDP defaults. Fang cells are nonprivate raw-update-oracle stress tests.
 - The DP mechanism hypothesis in finding 2 is untested.
+
+Retrospective uncertainty update: the [24 October selection-only seed reanalysis](selection-seed-reanalysis-2026-10-24.md) reproduces the original points and reports separate paired-seed intervals. The original patient intervals remain conditional and unchanged.
 
 Private evidence: `summary.json`
 `6c1e4010dff279db5a974d0fea9e219dd0850d2fb0113cf98dd6cb8f9dd8215e`.

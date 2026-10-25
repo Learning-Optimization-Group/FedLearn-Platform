@@ -1,0 +1,58 @@
+{
+  "commits_made": 0,
+  "contrast_counts": {
+    "A11": 13,
+    "A12": 63,
+    "A19": 34,
+    "A22": 14,
+    "A23": 49
+  },
+  "date": "2026-10-24",
+  "derived_json_sha256": "c56a6f087dc7bd3be2a5c66627bf78c0d65836b29d7a673dc06bfc04ab971468",
+  "holdout_access": false,
+  "independent_interval_check_count": 173,
+  "limitations": [
+    "Five already-used development seeds; not independent confirmation",
+    "Unadjusted approximate t intervals; normality is not verified",
+    "Patient and seed intervals are separate, not a joint uncertainty interval",
+    "No equivalence test; selection/tuning optimism is not removed",
+    "No private release guarantee for research outputs or oracle attacks"
+  ],
+  "new_model_fits": 0,
+  "next_phase": "real-workload and one-step mechanism qualification",
+  "original_contrasts_reproduced": 173,
+  "phase": 1,
+  "preservation_checks": {
+    "effusion-distributed-dp-r0-v1-result-2026-10-23.md": {
+      "original_artifact_hashes_preserved": true,
+      "original_scientific_tables_preserved": true
+    },
+    "effusion-encoder-gate-v1-result-2026-10-23.md": {
+      "original_artifact_hashes_preserved": true,
+      "original_scientific_tables_preserved": true
+    },
+    "effusion-local-dp-r0-v1-result-2026-10-22.md": {
+      "original_artifact_hashes_preserved": true,
+      "original_scientific_tables_preserved": true
+    },
+    "effusion-local-ks-r0-v1-result-2026-10-22.md": {
+      "original_artifact_hashes_preserved": true,
+      "original_scientific_tables_preserved": true
+    },
+    "effusion-local-robust-r0-v1-result-2026-10-22.md": {
+      "original_artifact_hashes_preserved": true,
+      "original_scientific_tables_preserved": true
+    },
+    "effusion-noniid-r0-v1-result-2026-10-22.md": {
+      "original_artifact_hashes_preserved": true,
+      "original_scientific_tables_preserved": true
+    },
+    "effusion-strong-attacks-r0-v1-result-2026-10-22.md": {
+      "original_artifact_hashes_preserved": true,
+      "original_scientific_tables_preserved": true
+    }
+  },
+  "source_summary_hashes_reverified": 8,
+  "status": "complete",
+  "synthetic_tests_passed": 30
+}

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Selection-only seed reanalysis — 24 October 2026</title>
+<style>
+:root{color-scheme:light}*{box-sizing:border-box}
+body{margin:0;background:#f5f3ee;color:#202b32;font:17px/1.65 ui-sans-serif,system-ui,sans-serif}
+main{max-width:1040px;margin:32px auto;padding:44px 56px;background:white;border:1px solid #dddcd5}
+h1{font-size:34px;line-height:1.2;letter-spacing:-.02em;margin:0 0 22px}
+h2{font-size:25px;line-height:1.3;margin:44px 0 18px;border-top:1px solid #ddd;padding-top:28px}
+h3{font-size:20px;line-height:1.4;margin:30px 0 14px;color:#723729}
+p{margin:14px 0}a{color:#125b72;text-underline-offset:3px}li{margin:8px 0}
+code{font:14px/1.6 ui-monospace,monospace;background:#f0f2f2;padding:2px 4px;overflow-wrap:anywhere}
+pre{overflow:auto;background:#f0f2f2;padding:18px}pre code{padding:0;white-space:pre}
+.table-scroll{overflow-x:auto;margin:24px 0}table{width:100%;border-collapse:collapse;font-size:14px;line-height:1.55}
+th{text-align:left;background:#eef2f2}th,td{padding:12px;border:1px solid #d5dddd;vertical-align:top;min-width:90px}
+@media(max-width:700px){body{font-size:16px}main{margin:0;padding:28px 20px;border:0}h1{font-size:28px}h2{font-size:23px}}
+@media print{body{background:white}main{margin:0;padding:0;border:0;max-width:none}h2,h3{break-after:avoid}tr{break-inside:avoid}}
+</style></head><body><main><h1>Selection-only paired-seed reanalysis</h1>
+<p>24 October 2026. Retrospective correction of uncertainty interpretation; no new model fits.</p>
+<p>Eight pinned aggregate summaries were hash-verified. All 173 original contrast points in A11, A12, A19, A22 and A23 were reproduced from saved per-run AUROC scalars to tolerance 1e-10. No patient manifests, per-image scores or raw holdout/test inputs were read. Original artifacts and conditional patient intervals remain unchanged.</p>
+<h2>What these intervals measure</h2>
+<p>The original patient-cluster intervals condition on five realized heads. The new paired seed-mean t intervals describe variation across those five development training replicates on the fixed selection cohort. These are separate uncertainty targets: the new intervals can be wider or narrower, and neither is a joint patient-and-training interval.</p>
+<p>The t intervals are approximate, retrospective and unadjusted for multiple comparisons. Normality is unverified. Five seeds, including seeds used during recipe development, do not establish independent confirmation, equivalence, population generalization or privacy of the research exports.</p>
+<h2>Complete coverage</h2>
+<div class="table-scroll"><table><thead><tr>
+<th>Study</th>
+<th>Original contrasts reproduced</th>
+<th>Effect intervals excluding zero: patient</th>
+<th>Effect intervals excluding zero: seed</th>
+</tr></thead><tbody>
+<tr><td>A11</td><td>13</td><td>8</td><td>7</td></tr>
+<tr><td>A12</td><td>63</td><td>29</td><td>26</td></tr>
+<tr><td>A19</td><td>34</td><td>15</td><td>12</td></tr>
+<tr><td>A22</td><td>14</td><td>3</td><td>5</td></tr>
+<tr><td>A23</td><td>49</td><td>24</td><td>9</td></tr>
+</tbody></table></div>
+<p>Interval classifications are descriptive, not multiplicity-adjusted discovery counts. Absolute-AUROC contrasts are excluded from the zero-comparison columns.</p>
+<h2>Selected decision-relevant contrasts</h2>
+<div class="table-scroll"><table><thead><tr>
+<th>Study / contrast</th>
+<th>Point</th>
+<th>Original conditional patient 95% interval</th>
+<th>New paired-seed 95% interval</th>
+</tr></thead><tbody>
+<tr><td>A11: Local DP epsilon 1</td><td>+0.5252</td><td>[+0.5162, +0.5347]</td><td>[+0.4024, +0.6481]</td></tr>
+<tr><td>A11: Local minus central, epsilon 8</td><td>-0.1860</td><td>[-0.2042, -0.1672]</td><td>[-0.2839, -0.0881]</td></tr>
+<tr><td>A12: Local mean sign-flip damage, epsilon 8</td><td>+0.2528</td><td>[+0.2258, +0.2767]</td><td>[+0.1093, +0.3964]</td></tr>
+<tr><td>A12: Local mean label-flip damage, epsilon 8</td><td>+0.1050</td><td>[+0.0935, +0.1155]</td><td>[+0.0583, +0.1517]</td></tr>
+<tr><td>A19: Strong-skew private AUROC change</td><td>-0.0384</td><td>[-0.0425, -0.0341]</td><td>[-0.0615, -0.0152]</td></tr>
+<tr><td>A22: DINOv2 minus R0, epsilon 8</td><td>+0.0096</td><td>[-0.0011, +0.0212]</td><td>[+0.0020, +0.0172]</td></tr>
+<tr><td>A22: DINOv2 minus R0, epsilon 4</td><td>+0.0117</td><td>[-0.0007, +0.0241]</td><td>[-0.0074, +0.0309]</td></tr>
+<tr><td>A22: DINOv2 minus R0 privacy cost, epsilon 4</td><td>-0.0033</td><td>[-0.0119, +0.0060]</td><td>[-0.0225, +0.0160]</td></tr>
+<tr><td>A23: Distributed b16 minus central RDP, epsilon 4</td><td>+0.0043</td><td>[-0.0048, +0.0127]</td><td>[-0.0450, +0.0535]</td></tr>
+<tr><td>A23: Distributed b16 minus central RDP, epsilon 1</td><td>+0.0021</td><td>[-0.0157, +0.0175]</td><td>[-0.1148, +0.1190]</td></tr>
+<tr><td>A23: Extra distributed damage, four attackers</td><td>+0.4502</td><td>[+0.4121, +0.4886]</td><td>[+0.4007, +0.4998]</td></tr>
+</tbody></table></div>
+<h2>Interpretation</h2>
+<ul>
+<li>A11&#x27;s epsilon-1 local-DP interval is much wider over seeds than over patients. Its observed point remains weak, while the local-minus-central epsilon-8 gap remains negative under the seed view. This is not a conversion between their different trust guarantees.</li>
+<li>A12&#x27;s large attack damage survives the seed analysis in the highlighted mean cells. This supports a failure of the tested local protocol/rules, not a general impossibility for all local-DP defences.</li>
+<li>A19&#x27;s strong-skew private utility decline remains negative. The additional privacy-cost contrast below separates that decline from the clean nonprivate decline.</li>
+<li>A22&#x27;s epsilon-8 encoder gain has a positive seed interval while its original patient interval includes zero. At epsilon 4 the gain remains unresolved; all DP-cost differences remain unresolved. This illustrates the different inference targets and does not justify either equivalence or a confirmed population-wide encoder upgrade.</li>
+<li>A23&#x27;s b16-minus-central intervals permit material gains and losses. Close calibrated noise and a seed interval crossing zero do not establish utility equivalence. The large additional damage from four clip-skipping clients remains clear across seeds.</li>
+</ul>
+<h2>Additional exploratory A19 privacy-cost contrasts</h2>
+<p>These four-term contrasts were added retrospectively: (non-IID clean minus private) minus (IID clean minus private). They are not original preregistered endpoints.</p>
+<div class="table-scroll"><table><thead><tr>
+<th>Skew</th>
+<th>Additional privacy cost</th>
+<th>Paired-seed 95% interval</th>
+</tr></thead><tbody>
+<tr><td>a0p1</td><td>+0.03253</td><td>[+0.0116, +0.0534]</td></tr>
+<tr><td>a1</td><td>+0.00321</td><td>[-0.0034, +0.0099]</td></tr>
+</tbody></table></div>
+<p>The strong-skew value is 0.03253 from saved run scalars; subtraction of the rounded published table entries gives approximately 0.0326. It is not the full 0.03836 private-AUROC decline.</p>
+<h2>Claim boundaries</h2>
+<p>A14 raw-honest oracle attacked cells retain only nominal aggregate-input noise calibration; the reused one-upload argument does not establish their client-data epsilon. A23&#x27;s mu/N noise allocation does not establish protection against its coded-share collusion threshold. Those mechanism issues are independent of this statistical reanalysis. Public/shared preprocessing, deterministic research randomness, selection/tuning and diagnostic export limitations remain.</p>
+<h2>Reproduction and provenance</h2>
+<p><a href="selection-seed-reanalysis-2026-10-24.json">All derived contrasts</a> and <a href="selection-seed-reanalysis-2026-10-24.csv">CSV table</a> contain only aggregate metrics and nonidentifying source provenance. SHA-256 of the JSON: <code>c56a6f087dc7bd3be2a5c66627bf78c0d65836b29d7a673dc06bfc04ab971468</code>.</p>
+<p>Run <code>repro/reanalyze_selection_seeds.py</code> with the declared selection evidence root and a fresh output directory, then render this addendum with <code>repro/render_selection_seed_addendum.py</code>. The analysis script accepts only its eight pinned summary inputs and reconciles complete seed/contrast coverage before writing results.</p>
+<p>The analysis and contrast-specification tests pass 30 synthetic checks. No full framework gate was repeated for this analysis-only phase; the prior ByzFL gate remains historical evidence.</p></main></body></html>

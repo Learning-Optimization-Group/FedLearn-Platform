@@ -1,0 +1,107 @@
+{
+  "accounting": {
+    "anchors_planned": 4,
+    "completed": 196,
+    "main_planned": 192,
+    "planned": 196
+  },
+  "backend_comparisons": [
+    {
+      "max_parameter_difference": 0.0,
+      "private": false,
+      "seed": 13001,
+      "status": "passed"
+    },
+    {
+      "max_parameter_difference": 0.0,
+      "private": true,
+      "seed": 13001,
+      "status": "passed"
+    },
+    {
+      "max_parameter_difference": 0.0,
+      "private": false,
+      "seed": 13002,
+      "status": "passed"
+    },
+    {
+      "max_parameter_difference": 0.0,
+      "private": true,
+      "seed": 13002,
+      "status": "passed"
+    }
+  ],
+  "checkpoint_commit": "1a9f0ef",
+  "date": "2026-10-25",
+  "execution_audit": {
+    "counts": {
+      "cells": 196,
+      "contrasts": 31,
+      "main_cells": 192,
+      "pgd_rounds": 1920,
+      "private_cells": 98,
+      "rounds": 3920,
+      "source_files": 150
+    },
+    "hashes": {
+      "analysis_sha256": "582a4a04ef7f37abf27ff9cefed6bd1096a9de934e0c32f3e476ed246cb5e71f",
+      "plan_sha256": "c8b261d059e02891ebecc3e4658217cce4d8e40aa3c1b43cda4afd09d123ddc9",
+      "public_manifest_sha256": "000c0180849716a7d95b37dd649d4d257313722ec5414b8b7c76bcf7b9f72a37",
+      "summary_sha256": "83f38253f61c5c674d408f4baac141ed7aff2661d304383aa2f8ba8c647f0409"
+    },
+    "maximum_calibration_multiplier_difference": 3.395488334945185e-10,
+    "maximum_delta_at_epsilon4": 9.999999984911015e-06,
+    "maximum_seed_interval_difference": 5.551115123125783e-17,
+    "schema": "capstone.effusion_finalist_execution_audit.v1",
+    "scope": "Execution/hash reconciliation and independent paired-seed t arithmetic; no private-data access, head rescoring or independent patient-bootstrap verification.",
+    "status": "verified"
+  },
+  "holdout_access": false,
+  "interpretation": "Selected policies and fresh training seeds on repeatedly used development-selection cohort; separate seed and fixed-head patient targets, no external or clinical confirmation",
+  "phase": 4,
+  "primary": {
+    "clinical_claim": null,
+    "conclusion": "practically_positive_seed_mean_gain",
+    "contrast": "alternative_minus_mean:projected128:private:clean",
+    "patient_interval": {
+      "ci_high": 0.02589348963959565,
+      "ci_low": 0.013135936475838864,
+      "draws": 2000,
+      "invalid_draws": 0,
+      "n_heads": 12,
+      "n_images": 9075,
+      "n_patients": 2800,
+      "point": 0.019175643175840962,
+      "scope": "patient-cluster percentile interval conditional on realized heads; image-level AUROC; not training-seed or joint uncertainty"
+    },
+    "seed_interval": {
+      "ci_high": 0.02734003264561017,
+      "ci_low": 0.011011253706071684,
+      "df": 11,
+      "n": 12,
+      "point": 0.019175643175840928,
+      "sample_sd": 0.012849825278996325,
+      "scope": "training-seed interval conditional on fixed evaluation cohort; approximate t; not population/joint interval",
+      "se": 0.0037094250419340935,
+      "seed_effects": {
+        "13001": 0.014937014363079704,
+        "13002": 0.016796502416461467,
+        "13003": -0.00525345907180752,
+        "13004": 0.020454493301353294,
+        "13005": 0.031085377315193452,
+        "13006": 0.016965614810853458,
+        "13007": 0.020898849836175404,
+        "13008": 0.025187021347072513,
+        "13009": 0.01475443283993072,
+        "13010": 0.00041941370379083853,
+        "13011": 0.03874207815686459,
+        "13012": 0.0351203790911232
+      }
+    },
+    "technical_margin": 0.01,
+    "technical_success": true
+  },
+  "privacy_boundary": "Attacked arms protect one honest client with fixed coalition identities/data conditional on released history; public research exports are not a whole-study DP release",
+  "saved_head_metrics": "all five metrics rescored within1e-10; independent weighted AUROC checked",
+  "status": "complete"
+}

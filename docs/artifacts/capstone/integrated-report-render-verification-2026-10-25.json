@@ -1,0 +1,47 @@
+{
+  "dependencies": {
+    "pypdf": "6.21.1",
+    "pypdfium2": "5.14.0",
+    "reportlab": "5.0.1"
+  },
+  "figure_sha256": {
+    "figures/remediation-2026-10-25/finalist-methods.png": "818c2f40f5e80fb53310ac67e23138590fb06fa80444c13b5e6938895eedda40",
+    "figures/remediation-2026-10-25/pilot-buckets.png": "6245f63c46e390d7989f3a5421a7c81836e0caa821d90e896343741862b5b825",
+    "figures/remediation-2026-10-25/pilot-projection.png": "336d6e1414dc506c5905bb4f5ed4f0b1320877cf6e68138df7063e4fcaaceca9",
+    "figures/remediation-2026-10-25/primary-paired-gain.png": "fae691b87f15a5de7052e059847d1608ea334faf061e1a03651b2d84e286c28e"
+  },
+  "font_sha256": {
+    "DejaVuSerif-Bold.ttf": "c3753f2ed6bc673f15846dc45addbeb3b9c872f32fb18fd53a21f1bef1ed7676",
+    "DejaVuSerif-BoldItalic.ttf": "d93efec7a9d2e826768d1a2ee95b95870e15e29599a84f3484af1de1cec2e181",
+    "DejaVuSerif-Italic.ttf": "3e7994fbc54fa10ce3352a42d548fadd7d9cadb69cb1109bc9d960f6dac57f04",
+    "DejaVuSerif.ttf": "107244956e9962b9e96faccdc551825e0ae0898ae13737133e1b921a2fd35ffa"
+  },
+  "html_sha256": "0880d19f761b8ffd3100e376aea71f5a6755f2c09eaa78413d919bb7249afa05",
+  "pages": 11,
+  "pdf_sha256": "680782b2cab0d3574f540bd4477d09e6b25acc6bb413342440fc5528b6a10398",
+  "rendered_pages": {
+    "page-01.png": "a32ebc9ce6243d4b4e8f1bf4100b60ca498520ffedfb036502f589f1c0e57660",
+    "page-02.png": "58ae42a3a3b2091650d0c002f8109dd15c4624cc846c28c000e5558fb27c689a",
+    "page-03.png": "e96d4794ed2a4da76e21710056dfff55397e4bb8bafc4817d1d4e4687933aa1f",
+    "page-04.png": "9862b4c8afbea5959beb94be83731fb327e547efd5cf2c9988afb18ca7fdcc6a",
+    "page-05.png": "02460d83964deaf63e530bde53372bd881d685f45719c7fac4527b9851386043",
+    "page-06.png": "880881b9cac61dd580b6674d23f0a4b19d696c7ddd7080f7f60afe0eee302f28",
+    "page-07.png": "f949914d3a277f851f603210abd3fecec0e3f2c6b44c36547bf18abea7ffa9a2",
+    "page-08.png": "1f7e1953ccbc7e93197504c8fbfd81bd60fb3a91772bdc2dea2499c55ac5e654",
+    "page-09.png": "5eb4fe3c666e73d4eb3d08c714beb1e1699b002ca090c6e24afce1b583432378",
+    "page-10.png": "9465fb6180f9dd57e52bbddf30357c0bdf115e38c1a7ce7dcfe2fe5ce28da715",
+    "page-11.png": "c75da788f2e122fbdc93fe66d366d96c74f3af0f49b751eee3f34874c821b7a6"
+  },
+  "renderer_sha256": "fc137786dbc18cde3ab3477d96824301ba381703937a0640ebf8eadd0a03d7a2",
+  "report_date": "25 October 2026",
+  "required_tokens": [
+    "0.019176",
+    "0.011011",
+    "0.027340",
+    "196",
+    "0.002266150"
+  ],
+  "scope": "Source manuscript reading copies; page PNGs require visual review before acceptance.",
+  "source_sha256": "43ea0e56f85f6210538dbabf6e0e01da288c0f6169aaa9e986bb8e4fafe2de33",
+  "text_characters": 27942
+}

@@ -3,6 +3,11 @@
 22 October 2026. Executes amendment A11, which was committed before the run. Everything is
 on the selection half; the holdout was opened once in A10 and is not reused here.
 
+**Correction, 24 October 2026:** the intervals below resample patients conditional on the five
+realized trained heads; they do not include training/DP-noise variation. The retrospective
+[paired-seed reanalysis](selection-seed-reanalysis-2026-10-24.md) reproduces the original points
+and supplies a separate uncertainty view. Neither analysis removes selection/tuning optimism.
+
 **Setup:**
 - R0 with the A8 DP recipe (LR 0.03, clip 0.05), 80 whole-patient IID clients, 20 rounds,
   mean rule, seeds 20261101–20261105.
@@ -25,16 +30,19 @@ in every cell. Intervals are paired patient bootstraps (2,000 resamples, seed 20
 
 ## Findings
 
-1. **At useful privacy levels (ε ≤ 8), client-level local DP is near chance on this
-   workload.** Seed-to-seed spread is wide, and some runs fall below 0.5.
-2. **Removing the trusted server costs about a 16× larger ε here.** Local DP at ε 128
-   (0.742) roughly matches central DP at ε 8 (0.743, A8). This is the expected √n penalty:
+1. **At ε ≤ 8, the observed local-DP seed means were 0.525–0.557.** Training variation is
+   substantial: the ε 1 seed interval is [0.402, 0.648], and some fitted heads score below 0.5.
+   These are weak observed results for this recipe, not precise bounds on procedure utility.
+2. **The observed local ε 128 point is close to the central ε 8 point.** Local DP at ε 128
+   (0.742) is numerically close to central DP at ε 8 (0.743, A8); this is not an equivalence test
+   or a general 16× conversion between their different trust guarantees. The noise scaling has the √n penalty:
    each of the 80 clients adds noise at the full 2zC scale, against one noise draw at
    2zC/n for central DP.
 3. **Local DP is not a drop-in alternative** for small-cohort, frozen-feature federations
    like this one. Options are to keep central DP with a trusted aggregator (or secure
-   aggregation plus distributed noise, not implemented here), or to accept much weaker
-   privacy.
+   aggregation plus correctly calibrated distributed noise), or to evaluate another explicitly
+   specified privacy/utility compromise. A23 later tested distributed noise in-process; its
+   collusion and validation limits must be retained.
 
 **Platform implication:** production has no local-DP path, and this evidence does not argue
 for adding one as a default. If one is added, it should ship with the planner's

@@ -3,16 +3,26 @@
 22 October 2026. Executes amendment A14, which was committed before the run. Everything is on the
 selection half; the holdout is untouched.
 
+**Claim correction, 24 October 2026:** the attacked noisy cells are oracle stress tests with
+nominal aggregate-input ε 4 calibration, not an established client-data ε 4 guarantee. The
+attacks read current raw honest updates, so replacing one honest input can change several
+attacker uploads and invalidate the one-upload sensitivity premise. Numeric results and
+artifact identities below are retained. See the [review](review-notes-2026-10-23.md).
+
 **Integrity:**
 - All 350 runs were finite with no refusals.
 - Every attacked run had exactly the declared 4, 8 or 16 attackers.
 - No run fell back to attacker-only statistics (no attack notes).
 - The 25 clean cells shared with A9 reproduced A9's margins exactly.
-- Intervals are paired patient bootstraps (2,000 resamples, seed 20261033).
+- Intervals are paired patient bootstraps (2,000 resamples, seed 20261033), conditional on the
+  five realized trained heads per cell. They exclude variation over training seeds, partitions,
+  initialization and DP noise draws; they are not procedure-level intervals.
 
 **Setup:**
-- As A9: no-DP recipe LR 0.1 with clip 1.0; DP recipe LR 0.03 with clip 0.05 at central DP
-  ε 4 (RDP z, replace-one).
+- As A9: no-DP recipe LR 0.1 with clip 1.0; DP-oriented recipe LR 0.03 with clip 0.05 and
+  central Gaussian noise nominally calibrated to ε 4 (RDP z, replace-one, aggregate-input
+  boundary). The historical table label `DP ε 4` denotes this calibration for oracle attacked
+  cells, not a proven client-data guarantee through the oracle.
 - R0, 80 clients, 20 rounds, five seeds, random-init head.
 - Attacks, all with full knowledge of the honest updates and none adapted to the server clip:
   - **min-max**: Shejwalkar and Houmansadr, std perturbation;
@@ -53,40 +63,48 @@ Selected intervals:
 
 ## Findings
 
-1. **Without DP, Fang's attack is the threat, and the median is the right defence at high
-   attacker fractions.**
+1. **Without DP, Fang causes the largest observed damage, and the median performs best
+   against it at the higher tested attacker fractions.**
    - At 20% attackers Fang removes 0.155 AUROC from the mean, 0.106 from the trimmed mean and
      0.063 from the median.
-   - At realistic fractions (5%) every rule loses at most 0.006.
+   - At the lowest tested fraction (5%) every rule loses at most 0.006.
    - Min-max and IPM 0.1 do not change AUROC without DP. They move the model (min-max's
      deviation ratio is about 5), but not along the direction that ranks patients.
-2. **Under central DP, use the mean.**
-   - The binding clip already bounds each attacker to C. Trimming adds sensitivity (2C/(n − 2k)),
-     so it adds noise.
-   - Small k keeps the clean cost small (−0.0025 at k = 1) but buys **no** robustness: the attack
-     drops are identical to the mean's.
+2. **With the DP-oriented recipe, the mean has the highest observed AUROC among the tested rules.**
+   - The clip bounds each final upload to C. Trimming uses the larger one-upload sensitivity
+     calibration (2C/(n − 2k)), so these cells receive more noise. That calibration does not
+     establish client-data privacy through the oracle attacks.
+   - Small k keeps the clean cost small (−0.0025 at k = 1) but shows no material reduction in
+     attack drops at the reported precision.
    - Large k buys some robustness but costs more clean AUROC than it saves under any attack
      tested.
-   - A9's conclusion therefore survives attacks built for robust rules.
-3. **DP turns tiny attacks into full-strength votes.**
-   - IPM with scale 0.1 is harmless without DP but costs 0.053 at 20% attackers under DP.
-   - Under a binding clip, every opposing update is clipped to norm C, so it cancels a full honest
-     contribution. The DP noise does not shrink, so lost signal becomes lost AUROC.
-   - DP models are therefore more sensitive to attacker *count* than to attacker *strength*.
-4. **Attacker fraction matters most.** Every attack's damage grows superlinearly from 5% to
-   20%. At 5% the worst observed drop is 0.014 (DP, Fang).
+   - This supports A9's observed rule ordering within the tested configurations; it does not
+     rank untested private robust methods or validate the later zero-init/GDP recipe.
+3. **The DP-oriented recipe is more vulnerable to the tested IPM attack.**
+   - IPM with scale 0.1 costs about 0.001 without DP and 0.053 with the DP-oriented recipe at
+     20% attackers. Learning rate, clip and noise all differ between these recipes.
+   - Clipping limits uploads above C to norm C; an opposing clipped upload can cancel part of
+     the honest aggregate while the configured noise remains. Clipping does not amplify an
+     update whose norm is below C.
+   - A matched attacked zero-noise control at the same LR and clip was not run here, so the
+     contribution of DP noise to the difference is unresolved.
+4. **Damage rises with attacker fraction in these cells.** At 5% the worst observed drop is
+   0.014 (DP-oriented recipe, Fang). The three tested fractions do not establish a general
+   scaling law or rank attacker count against attack strength.
 
 ## Platform guidance
 
 | Setting | Recommendation |
 | --- | --- |
-| No DP, possible coordinated attackers (≥10%) | Median, or trimmed mean if the median's small clean cost matters. |
-| No DP, few attackers | Mean, or trimmed mean. |
-| Central DP | Mean with a binding clip. Do not combine with trimming. Limit and vet participation, because DP amplifies the per-attacker effect. |
+| No DP, Fang-like coordinated attackers at the tested 10–20% fractions | Median is the strongest tested option against Fang; compare its clean cost and its poorer IPM result before choosing. |
+| No DP, tested attacks at 5% | Mean or trimmed mean have small observed damage; this does not cover arbitrary informed attacks. |
+| DP-oriented recipe and tested oracle stresses | Prefer mean over the tested trimming settings for this workload. Treat attacked ε as nominal calibration and vet participation; broader robustness and client-data privacy require separate qualification. |
 
 **Limits:**
 - IID, one workload, simulated, random-init head (A17 shows zero init changes absolute levels).
-- One ε under DP.
+- One nominal ε under the DP-oriented recipe; no established client-data guarantee for oracle
+  attacked cells. Raw-honest-update dependence is separate from adaptation to clipping.
+- The LR/clip change prevents attributing cross-recipe attack differences to DP noise alone.
 - Attacks not adaptive to the clip; an adversary who scales uploads to exactly C may do better.
 - min-max with std perturbation only.
 

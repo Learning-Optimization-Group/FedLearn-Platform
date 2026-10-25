@@ -7,6 +7,8 @@ selection half; the holdout is untouched.
 - All 40 runs were finite with no refusals.
 - Each DP run's z matched its exact-GDP calibration.
 - Intervals are paired patient bootstraps (2,000 resamples, seed 20261036).
+  They condition on the five realized heads and do not quantify training-seed variability.
+  Claim wording below was corrected on 25 October; numeric tables and artifact hashes are unchanged.
 
 **Setup:**
 - Identical to A13/A15: R0, A8 recipe (LR 0.03, clip 0.05), 80 clients, same seeds, exact-GDP z.
@@ -38,14 +40,18 @@ Without DP, T 5 − T 20 is −0.0107 [−0.0142, −0.0075].
 
 ## Findings
 
-1. **A zero-initialised head is a free improvement at every privacy level and both round counts.**
+1. **Zero initialization improved the observed points in every tested matching cell.**
+   It is data-independent and adds no privacy expenditure. The utility finding is
+   conditional on these heads, recipes and cohort; it is not a universal improvement guarantee.
    - At T = 20 it adds 0.019–0.034 AUROC except at ε 1.
    - It also improves the clean DP-recipe model from 0.774 to 0.807.
 2. **It removes A15's collapse.** With random init, T = 5 was 0.59 clean. With zero init it is
    0.80, because the learned direction is no longer swamped by the random starting weights.
 3. **Fewer releases now pay off under strong privacy (exploratory).**
-   - With zero init, T = 5 matches T = 20 at ε 8 and ε 4 (intervals include 0), and beats it at
-     ε 1.
+   - With zero init, the T = 5 minus T = 20 point differences are −0.0046 at ε 8,
+     +0.0064 at ε 4 and +0.0124 at ε 1. The first two conditional patient intervals
+     include zero; that does not establish equivalence or noninferiority. The ε 1
+     interval is positive conditional on these fitted heads.
    - Five releases need much less noise per release (exact-GDP z 2.42 vs 4.84 at ε 4), which
      offsets having fewer steps.
 4. **Cumulative effect of this session's DP work at ε 4 (selection half):**
@@ -64,15 +70,17 @@ Without DP, T 5 − T 20 is −0.0107 [−0.0142, −0.0075].
 
 - **For DP runs that train a fresh linear head on frozen features, initialise the head at zero.**
   It is data-independent, so it has no privacy cost. This applies to the frozen-head training arms.
-- With exact accounting and zero init, **fewer rounds are a legitimate DP lever**. T = 5 is no
-  worse at ε 4–8, better at ε 1, and four times cheaper in communication.
+- With exact accounting and zero init, **fewer rounds are a useful candidate to test**.
+  The observed ε 4–8 differences remain unresolved by the conditional patient intervals;
+  the ε 1 point and interval favor T = 5. Five rounds use one-quarter of the modeled
+  round-dependent communication of twenty rounds, with the same payload and participation.
 
 **Limits:**
 - Selection half, five seeds, one workload, IID.
 - The recipe (LR, clip) was tuned in A8 for random init at T = 20; zero init may shift the optimum.
 - The T 5 vs T 20 and "best vs A8/A13" comparisons were chosen after seeing the pre-registered
-  cells, so they are exploratory. Only a holdout evaluation could confirm a recommended
-  configuration.
+  cells, so they are exploratory. Independent future data under a frozen plan would be needed to confirm a recommended
+  configuration; the existing A10 holdout must not be reopened.
 
 Private evidence:
 - `summary.json` `54d584fcc0dd92f7ba86d4edb530f433e02c08cb965f7e80208a068f8f3fc225`.

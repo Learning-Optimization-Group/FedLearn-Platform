@@ -1,0 +1,24 @@
+{
+  "dependencies": {
+    "matplotlib": "3.9.4",
+    "numpy": "2.1.2"
+  },
+  "input_sha256": {
+    "finalists": "582a4a04ef7f37abf27ff9cefed6bd1096a9de934e0c32f3e476ed246cb5e71f",
+    "pilot": "eab1d007740a667179853059ab32028535cb14d67b8a8a1ffae79ae0b813a5d9"
+  },
+  "output_sha256": {
+    "finalist-methods.png": "818c2f40f5e80fb53310ac67e23138590fb06fa80444c13b5e6938895eedda40",
+    "finalist-methods.svg": "40f394286e8602c20e39ecad3ea039b167786dc00ed9fa9b8be5acf82baee2d9",
+    "pilot-buckets.png": "6245f63c46e390d7989f3a5421a7c81836e0caa821d90e896343741862b5b825",
+    "pilot-buckets.svg": "c7b74bb25a280c1b65eb778b5d7939f93fff656efdc026c97f615a1ed5a0fc88",
+    "pilot-projection.png": "336d6e1414dc506c5905bb4f5ed4f0b1320877cf6e68138df7063e4fcaaceca9",
+    "pilot-projection.svg": "c684efd3878f34ce1394bd7320ceb87105656291382b3d963fa4916dc4106906",
+    "plot-data.json": "21f14815be938a0b051664bd171118df19ff899d0446f3851dc745491bc2cba5",
+    "primary-paired-gain.png": "fae691b87f15a5de7052e059847d1608ea334faf061e1a03651b2d84e286c28e",
+    "primary-paired-gain.svg": "fe8d72e363e5109af475f77a772741292d0f87c546e0fe956f4948165684f340"
+  },
+  "renderer_sha256": "c4435f539ca5b2d355b244009d4a2caec0cb9c4928f767f522f2d7ca80eb7ae3",
+  "schema": "capstone.remediation_plot_receipt.v1",
+  "scope": "Public aggregate figures on a repeatedly used development-selection cohort; descriptive SD bars and separate interval targets."
+}

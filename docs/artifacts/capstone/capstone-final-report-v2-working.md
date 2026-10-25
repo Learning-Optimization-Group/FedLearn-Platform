@@ -5,8 +5,9 @@ The fixed study completed all 360 cells and passed independent reconciliation.
 The additional source-bound reader reproduced all saved analysis exactly. Final
 study review and its validation correction are complete. Submission layout, advisor
 requirements and final delivery remain open; this is a working report. The refreshed
-PDF includes the verified dashboard checkpoint. The disease-specific follow-up has
-not been selected or trained; the results below describe the historical any-finding study.
+PDF includes the verified dashboard checkpoint. The results below describe the historical any-finding study. Effusion follow-ups now exist;
+the24 October correction and integration work is tracked separately and is not yet synthesized here.
+The existing PDF remains the historical 21 October rendering until the revised report phase.
 
 ## Abstract
 

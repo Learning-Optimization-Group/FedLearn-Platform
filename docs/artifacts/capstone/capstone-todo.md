@@ -1,24 +1,28 @@
 # Capstone work checklist
 
-Updated 20 October 2026. Scope: the capstone and the FedLearn foundations it uses.
+Updated 25 October 2026. Scope: the capstone and the FedLearn foundations it uses.
 This is the current completion checklist; older reports/decks remain historical
 records. Checked items have completed evidence; an unchecked item may be underway.
 The final capstone is **not complete**. The fixed 360-cell study has finished and
 independent and original-source analyses agree. Study review and its validation
-correction are complete; assessed deliverables and the working dashboard remain open.
+correction are complete. Effusion A1–A23 and the bounded dashboard checkpoint are completed
+historical work; the fresh-seed ByzFL comparison and integrated research report are complete; assessed
+deliverables remain open. The full integrated dashboard checklist is separate.
 
 ## Live checkpoint
 
-**Priority update, 20 October:** follow the approved
-[next-phase plan](capstone-next-phase-plan.md): stronger centralized and federated
-learning baselines first, then clean privacy/security comparisons, attacks and
-heatmaps. A good integrated Simulation Lab remains a required final deliverable.
-The completed study stays intact as the earlier reference. The older schedule
-below is superseded where this order differs.
+**25 October status:** all five accepted [research-remediation phases](../../superpowers/plans/2026-10-24-capstone-evidence-remediation.md)
+are complete: claim/seed corrections, exact native/ByzFL qualification,126 audited pilot cells,
+196 audited finalist cells and an integrated11-page working report with four figures/PDF/HTML.
+See the [completion audit](remediation-completion-audit-2026-10-25.md) and [report](capstone-final-report-v3-working.md).
+The primary private-clean projection gain is+0.0192, seedt95[+0.0110,+0.0273]; the pilot overstated
+its fresh-seed point, and clean no-noise utility loses0.0149. The holdout stays closed.
+Assessed deliverables, advisor requirements and any later submission-oriented editorial revision
+remain separate. Older preparation statuses below are historical and superseded where noted.
 
-**Follow-up target:** one specific condition, as requested. Condition selection is
-pending; do not silently reuse the earlier any-finding labels or the mobile
-pneumonia task. Preserve the completed study separately.
+**Follow-up target:** Effusion, selected on 22 October. Do not substitute the historical
+any-finding labels or the mobile pneumonia task. A10 opened the internal holdout once;
+new studies use permitted training/selection data only.
 
 ### Next-phase work, in priority order
 
@@ -30,13 +34,14 @@ pneumonia task. Preserve the completed study separately.
   [CheXpert DenseNet-121 check](medical-backbone-candidate-2026-10-21.md). Exact
   checkpoint/library pinned; two synthetic CPU inputs yield finite 1,024-value
   features with exact fresh-process replay. Nine reproduction tests pass.
-  The 512-wide legacy cache is unchanged; no new disease accuracy is available.
+  At that preparation checkpoint the 512-wide legacy cache was unchanged and disease accuracy
+  had not yet been measured; later Effusion results are listed below.
 - [x] Check real development inputs for that candidate without fitting:
   [eight-image probe](medical-input-probe-2026-10-22.md). Pinned cache/manifests,
   whole-set patient separation, label-free hash selection, raw-byte and decoded-pixel
   audit bindings and an explicit grayscale contract pass; 8 × 1,024 frozen features
   are finite and replay byte-identically. No test manifest, labels, fitting or scores.
-- [ ] Select the condition and define the prediction purpose, labels, baseline acceptance measures and a genuinely
+- [x] Select the condition and define the prediction purpose, labels, baseline acceptance measures and a genuinely
   untouched final evaluation; do not tune to the already examined NIH test results.
   **22 Oct:** user selected `Effusion` and a locked internal holdout. Label-blind,
   patient-whole 50/50 validation carve locked (2,800/2,800 patients; receipt
@@ -102,22 +107,21 @@ pneumonia task. Preserve the completed study separately.
     The ε 4 cost against clean A7 falls from 0.124 to 0.081 (exploratory best, T = 5).
   - **#3/#4 Small-k trimming and stronger attacks:** [A14](effusion-strong-attacks-r0-v1-result-2026-10-22.md).
     Without DP, Fang's attack at 20% costs the mean 0.155 and the median 0.063.
-    Under DP the mean beats every trimmed variant in every condition, and small k buys no robustness.
+    Under the DP-oriented recipe and nominal aggregate-input noise calibration, mean beats the tested trimming variants. These oracle attacked cells do not inherit a complete client-data DP guarantee.
   - **#5 Canary audit:** [A16](effusion-canary-audit-r0-v1-result-2026-10-22.md) was underpowered
     (the clean control failed), and A18 was withdrawn before running.
     A mechanism check over 7,235 recorded DP rounds found 0 mismatches.
-  - **#6 Non-IID:** [A19](effusion-noniid-r0-v1-result-2026-10-22.md). Moderate skew is benign. Strong skew costs DP 0.038,
+  - **#6 Non-IID:** [A19](effusion-noniid-r0-v1-result-2026-10-22.md). Clean moderate-skew points are close. Strong skew lowers private AUROC 0.038; the additional privacy cost is about 0.03253,
     and under Fang's attack the mean falls to chance while the median keeps +0.129.
   - **#8 Noise-aware filtering:** [A20](effusion-local-filter-r0-v1-result-2026-10-22.md). It fixes A12 at no cost (9/120,000 honest drops).
     Protocol-following attackers are capped at 0.015–0.059.
     [A21](effusion-local-ks-r0-v1-result-2026-10-22.md): norm-matching attackers evade it (up to 0.54).
-    A KS test is free but only partial (0.07–0.32 residual), so local DP needs verified noise.
+    A KS test is free but only partial (0.07–0.32 residual), these two filters do not establish robust protection; neither verified-noise necessity nor sufficiency was established.
   - **#10 Stronger encoder:** [A22](effusion-encoder-gate-v1-result-2026-10-23.md). Only DINOv2 passed the gate (+0.013, lower bound +0.0007);
-    both chest-X-ray DenseNets failed. Under DP it keeps about +0.01 (n.s.), and its DP cost equals R0's because noise grows as √d.
-  - **#9 Distributed DP:** [A23](effusion-distributed-dp-r0-v1-result-2026-10-23.md). Skellam over coded LightSecAgg matches central DP with
-    the same accountant at 16 bits; it loses only the exact-GDP gap (0.017 at ε 4). Four clip-skipping clients out of 80 drive it below chance (0.25),
-    so it needs verified clipping. Coded shares: 4.4× a plain upload at 16 bits, against 81× uncoded.
-  - **Shortlist complete.**
+    both chest-X-ray DenseNets failed. Under DP it keeps about +0.01; original patient intervals include zero, while the epsilon-8 paired-seed interval is positive on the fixed selection cohort, and its DP-cost difference from R0 is unresolved; the experiment does not isolate a causal width effect.
+  - **#9 Distributed DP:** [A23](effusion-distributed-dp-r0-v1-result-2026-10-23.md). Skellam over coded LightSecAgg has close calibrated noise to central RDP at 16 bits, with unresolved utility differences and unqualified server/client collusion. Four clip-skipping clients out of 80 drive it below chance (0.25),
+    so input validation is necessary; collusion/noise and transport assumptions also need qualification. Coded shares: 4.4× a plain upload at 16 bits, against 81× uncoded.
+  - **Shortlist partially covered.** The25October pilots now test one-step released-history clipping, nonprivate bucketing under simulated skew, scalar output-perturbed ERM and fixed/public dimension reduction. Full client-momentum methods, real site shift and private bucketing remain untested. A16 was unsuccessful empirical validation. See the24 October phased-remediation plan.
 - [x] Zero-initialised-head option for DP frozen-head runs: `--head-init zero` (user approved, 22 October).
   Platform defaults chosen by the user ('smart defaults, no schema'): the backend passes `--dp-accountant gdp` for every DP run,
   and `--head-init zero` for DP runs on FROZEN_HEAD/OVA_LP that are not continued runs. Backend gate: 1,218 tests, 0 failures,
@@ -367,10 +371,9 @@ see the verification receipt and demonstration guide below.
 | 1–5 December | Correction/reproduction buffer; stated deadline 5 December |
 
 Keep the primary study, honest reporting and reproducibility ahead of GUI extras.
-Local DP remains outside the completed frozen matrix, but is now a required
-follow-up investigation after the learning-baseline gate. Candidate model/fine-tuning
-scope will be bounded by the new baseline audit; physical thousand-device deployment
-remains outside scope.
+Local DP remains outside the historical any-finding matrix; Effusion A11/A12/A20/A21 later
+investigated it with recipe-specific limits. New candidate scope follows the phased plan;
+physical thousand-device deployment remains outside scope.
 Mobile release/signing/production TLS remains parked while capstone work has priority.
 There is no defensible single completion percentage: experiment preparation is
 complete and the scientific result is measured and reconciled. The working
