@@ -1,0 +1,41 @@
+{
+  "attack_qualified": "owned_pgd under declared own-data/public-history knowledge",
+  "bucket_audit": {
+    "cells": 46,
+    "cohort": 80,
+    "holdout_access": false,
+    "maximum_separate_saved_head_metric_difference": 1.1102230246251565e-16,
+    "rounds": 920,
+    "scope": "Nonprivate bucket pilot; direct linear scorer shares Torch kernel; rank/AP recalculated separately; oracle Fang remains outside DPclaims",
+    "screen_reference_sha256": "034084f9c1b96c8bd680c1136d37c213bc19adb74ba0d1bcdadff0830001214c",
+    "selected_recipe": "loose",
+    "source_hashes_unchanged": 140,
+    "status": "all_46_bucket_cells_verified",
+    "summary_sha256": "249eabd87615839c289ded26bfefee75cd9bbd8bdaefd92ee0df832f63a48996"
+  },
+  "bucket_cells_completed": 46,
+  "bucket_summary_sha256": "249eabd87615839c289ded26bfefee75cd9bbd8bdaefd92ee0df832f63a48996",
+  "convex_comparator": "implemented and screened; weak observed private utility under tested scalar output-perturbation recipe",
+  "date": "2026-10-25",
+  "finalist_precision_proposal": {
+    "limitation": "Two pilot seeds give an unstable variance estimate; fixed 12-seed budget is not a precision guarantee, equivalence design or population confirmation",
+    "nominal_95_halfwidth_using_two_seed_sd": 0.004121657642390948,
+    "pilot_pair_sd": 0.006487022790947346,
+    "pilot_paired_effects": [
+      0.03605430104201146,
+      0.045228336652392565
+    ],
+    "proposed_fresh_seed_count": 12,
+    "sensitivity_halfwidth_if_true_sd_0p02": 0.01270739374661279,
+    "sensitivity_halfwidth_if_true_sd_0p04": 0.02541478749322558
+  },
+  "holdout_access": false,
+  "interpretation": "All pilot comparisons exploratory on reused development cohort; no global method ranking or whole-study DP release claim",
+  "phase": 3,
+  "screen_cells_completed": 80,
+  "screen_references_reused": 2,
+  "screen_summary_sha256": "034084f9c1b96c8bd680c1136d37c213bc19adb74ba0d1bcdadff0830001214c",
+  "status": "complete",
+  "total_iterative_rounds": 2280,
+  "total_new_cells_completed": 126
+}

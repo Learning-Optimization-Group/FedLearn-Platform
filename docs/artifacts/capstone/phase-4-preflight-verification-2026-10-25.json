@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-25",
+  "declared_cells": 196,
+  "generated_data_checks": {
+    "design_inference_runner_pilot_regressions": 93,
+    "finalist_analyzer": 31
+  },
+  "holdout_access": false,
+  "independent_review": "bootstrap settings and raw identity findings closed; actual workload constructor checked with generated bundle",
+  "main_cells": 192,
+  "model_fits": 0,
+  "native_anchors": 4,
+  "parent_cells_complete": 126,
+  "phase": 4,
+  "plan_sha256": "c8b261d059e02891ebecc3e4658217cce4d8e40aa3c1b43cda4afd09d123ddc9",
+  "public_manifest_sha256": "000c0180849716a7d95b37dd649d4d257313722ec5414b8b7c76bcf7b9f72a37",
+  "scope": "Fresh seed study on reused selection cohort; no untouched-cohort confirmation or whole-study DP release",
+  "source_files": 150,
+  "source_snapshot_verified": true,
+  "stage": "preflight",
+  "status": "ready_for_source_checkpoint"
+}

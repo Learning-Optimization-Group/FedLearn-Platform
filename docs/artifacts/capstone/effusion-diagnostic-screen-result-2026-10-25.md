@@ -48,7 +48,9 @@ enforces the reducer input radius. Final intended PGD norms are not separately l
 | 64 | 0.7693 | 0.7465 |
 
 Width128 is the strongest private point in this bounded screen. Its paired private gains
-over width512 are about0.0371 and0.0442, while its clean mean falls by0.0147. The clean-to-private
+over width512 are about0.0361 and0.0452, while its clean mean falls by0.0147. These paired
+values follow the exact seed identities in the source JSON/CSV; the aggregate point is unchanged.
+The clean-to-private
 gap therefore shrinks for two separate reasons: better private utility and worse clean utility.
 Both components must be reported. Width selection used this same development cohort and
 needs a fresh-seed comparison; it does not provide untouched-cohort confirmation.

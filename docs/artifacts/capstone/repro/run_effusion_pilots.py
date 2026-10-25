@@ -31,6 +31,7 @@ from run_effusion_gdp_recipe import calibration, check_calibration
 
 PROTOCOL = ROOT/'docs/artifacts/capstone/effusion-diagnostic-pilot-protocol-2026-10-25.md'
 QUALIFICATION = ROOT/'docs/artifacts/capstone/phase-2-qualification-verification-2026-10-25.json'
+PHASE3 = ROOT/'docs/artifacts/capstone/phase-3-verification-2026-10-25.json'
 PROJECTION_SEED = 20261025
 RECIPES = {'tight': {'clip_norm': .05, 'lr': .03}, 'loose': {'clip_norm': 1., 'lr': .1}}
 
@@ -134,6 +135,16 @@ def validate_design(cells, *, stage, reference):
         expected = screen_cells()
     elif stage == 'buckets' and reference and reference.get('selected_recipe') in RECIPES:
         expected = bucket_cells(reference['selected_recipe'])
+    elif stage == 'finalists' and reference:
+        from finalist_design import cells as finalist_cells
+        receipt = json.loads(PHASE3.read_text())
+        if receipt.get('status') != 'complete' or receipt.get('total_new_cells_completed') != 126 \
+                or reference.get('screen_summary_sha256') != receipt.get('screen_summary_sha256') \
+                or reference.get('bucket_summary_sha256') != receipt.get('bucket_summary_sha256') \
+                or reference.get('phase3_verification_sha256') != sha(PHASE3) \
+                or reference.get('selected_width') != 128 or reference.get('selected_center_tau') != .0125:
+            raise ValueError('finalist comparison requires verified completed diagnostics and declared policies')
+        expected = finalist_cells()
     else:
         raise ValueError('unknown or incomplete declared pilot stage')
     if cells != expected:
@@ -203,7 +214,11 @@ def _paths():
     paths = _source_paths()
     for path in (Path(__file__).resolve(), HERE/'capstone_pilot_mechanisms.py', HERE/'client_private_erm.py',
                  HERE/'test_run_effusion_pilots.py', HERE/'test_client_private_erm.py',
-                 HERE/'analyze_effusion_pilots.py', HERE/'test_analyze_effusion_pilots.py', PROTOCOL, QUALIFICATION):
+                 HERE/'analyze_effusion_pilots.py', HERE/'test_analyze_effusion_pilots.py', PROTOCOL, QUALIFICATION,
+                 HERE/'finalist_design.py', HERE/'test_finalist_design.py', HERE/'finalist_inference.py',
+                 HERE/'test_finalist_inference.py', HERE/'run_effusion_finalists.py', HERE/'test_run_effusion_finalists.py',
+                 HERE/'analyze_effusion_finalists.py', HERE/'test_analyze_effusion_finalists.py',
+                 ROOT/'docs/artifacts/capstone/effusion-finalist-protocol-2026-10-25.md', PHASE3):
         paths[path.relative_to(ROOT).as_posix()] = path
     return paths
 
@@ -241,7 +256,9 @@ def preflight(bundle, bundle_sha256, output, *, cells, settings=None, synthetic=
               'source_sha256': {name: sha(path) for name, path in paths.items()},
               'configuration_sha256': {name: _configuration_hash(cfg) for name, cfg in configs.items()},
               'runtime': runtime(), 'reference': reference,
-              'scope': 'fixed train/development selection; exploratory pilots; raw research diagnostics outside DP release claims'}
+              'scope': ('prespecified fresh-seed comparison conditional on reused development cohort and selected policies; '
+                        'raw research diagnostics outside DP release claims' if stage == 'finalists' else
+                        'fixed train/development selection; exploratory pilots; raw research diagnostics outside DP release claims')}
     output.mkdir(parents=True, exist_ok=False)
     write_research_record(output/'public-manifest.json', public)
     plan = {**public, 'bundle_path': str(bundle), 'configurations': configs,
