@@ -1,0 +1,78 @@
+# Effusion diagnostic pilot analysis
+
+Status: complete.
+
+These are exploratory development-selection results from two paired seeds. Means, observed ranges and sample standard deviations are descriptive. No confidence intervals, significance, equivalence or clinical/external-validity claims follow from this screen. The probability-0.5 operating point is fixed and descriptive. No candidate selection is performed here.
+
+Contrasts use the stated left-minus-right direction for every metric. Higher AUROC/AP and sensitivity/specificity are better; lower Brier is better. Attack damage and privacy cost are clean-minus-attacked and clean-minus-private respectively, so positive AUROC means damage/cost.
+
+Scalar ERM is contextual: scalar versus two-logit geometry, row-norm bound, regularization and trusted-coordinator assumptions differ. Fang arms are distinct nonprivate raw-honest oracle stress tests. Diagnostics are research-only and do not extend released-model DP claims.
+
+The frozen runner retains initial_norm (intended initialization) and upload_norm (represented final pre-server norm). It does not separately log the final intended PGD norm. The mandatory server outer clip enforces the reducer input bound; a represented pre-server norm slightly above the radius is not classified here as a privacy violation.
+
+## Accounting
+
+| Stage | Planned | Completed | Failed or unrun |
+| --- | ---: | ---: | ---: |
+| screen | 80 | 80 | 0 |
+
+Every seed and all five metrics appear in summary.json and the CSV exports. No incomplete arm is ranked.
+
+## Nonprivate mean attack qualification
+
+Qualification requires two completed paired seeds and mean clean-to-attack AUROC loss at least 0.02. Failed qualification does not establish defense robustness. PGD is compared separately with full-norm sign flip and is not guaranteed stronger.
+
+| Attack | Paired seeds | Mean AUROC loss | Qualified |
+| --- | ---: | ---: | --- |
+| sign_flip_scale | 2 | 0.005044188719454945 | False |
+| owned_sign_flip | 2 | 0.007505422571466247 | False |
+| owned_pgd | 2 | 0.28719817927310604 | True |
+
+## Arm AUROC
+
+| Arm | Seeds | Mean | Min | Max | Sample SD |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| mean:native:nonprivate | 2 | 0.8072590747007857 | 0.8064849115826525 | 0.8080332378189191 | 0.001094831981153201 |
+| mean:byzfl:nonprivate | 2 | 0.8072590747007857 | 0.8064849115826525 | 0.8080332378189191 | 0.001094831981153201 |
+| mean:native:private | 2 | 0.7295129563041509 | 0.7289943948470107 | 0.7300315177612913 | 0.0007333566456117647 |
+| mean:byzfl:private | 2 | 0.7295129563041509 | 0.7289943948470107 | 0.7300315177612913 | 0.0007333566456117647 |
+| center_r0.25_clean:byzfl:nonprivate | 2 | 0.8050505740841989 | 0.8042645007642482 | 0.8058366474041497 | 0.0011116755500940473 |
+| center_r0.25_owned_pgd:byzfl:nonprivate | 2 | 0.7028049211207912 | 0.7020020113898944 | 0.7036078308516879 | 0.0011354858307955165 |
+| center_r1_clean:byzfl:nonprivate | 2 | 0.8072590747007857 | 0.8064850362968077 | 0.8080331131047639 | 0.0010946556087034617 |
+| center_r1_owned_pgd:byzfl:nonprivate | 2 | 0.603345507097732 | 0.6005490415966606 | 0.6061419725988035 | 0.003954799438323771 |
+| center_r4_clean:byzfl:nonprivate | 2 | 0.8072591058793246 | 0.8064850362968077 | 0.8080331754618414 | 0.001094699701815818 |
+| center_r4_owned_pgd:byzfl:nonprivate | 2 | 0.5200608954276797 | 0.5184347475585958 | 0.5216870432967637 | 0.002299720370882692 |
+| mean_sign_flip_scale_f16:byzfl:nonprivate | 2 | 0.8022148859813308 | 0.7986230559557496 | 0.8058067160069121 | 0.005079614735915943 |
+| mean_owned_sign_flip_f16:byzfl:nonprivate | 2 | 0.7997536521293196 | 0.794750930866454 | 0.8047563733921851 | 0.007074916258716719 |
+| mean_owned_pgd_f16:byzfl:nonprivate | 2 | 0.5200608954276797 | 0.5184347475585958 | 0.5216870432967637 | 0.002299720370882692 |
+| trim16_clean:byzfl:nonprivate | 2 | 0.8069949301201647 | 0.8067672644299265 | 0.8072225958104027 | 0.00032196790682172035 |
+| trim16_owned_pgd:byzfl:nonprivate | 2 | 0.5863909294896097 | 0.5848003875118228 | 0.5879814714673967 | 0.0022493660365099713 |
+| mean_k64:byzfl:nonprivate | 2 | 0.7693195009538139 | 0.7690873143754514 | 0.7695516875321763 | 0.00032836140812116127 |
+| mean_k128:byzfl:nonprivate | 2 | 0.7926072816105487 | 0.7922885745870465 | 0.7929259886340508 | 0.000450719795060335 |
+| mean_k256:byzfl:nonprivate | 2 | 0.7974966688849159 | 0.7967983007945789 | 0.7981950369752527 | 0.0009876416248830561 |
+| erm_l0.01:scalar:nonprivate | 2 | 0.7842511837867607 | 0.7842092174735505 | 0.7842931500999709 | 5.9349329304639964e-05 |
+| erm_l0.1:scalar:nonprivate | 2 | 0.7690810786676936 | 0.7690412324951211 | 0.7691209248402661 | 5.6350997660640774e-05 |
+| erm_l1:scalar:nonprivate | 2 | 0.7557419644175549 | 0.7556034069911762 | 0.7558805218439337 | 0.00019594979155233882 |
+| center_r0.25_clean:byzfl:private | 2 | 0.6714485087679041 | 0.6668520750439992 | 0.6760449424918088 | 0.00650033891089521 |
+| center_r0.25_owned_pgd:byzfl:private | 2 | 0.5423403309614364 | 0.5096072302283168 | 0.575073431694556 | 0.04629159499530249 |
+| center_r1_clean:byzfl:private | 2 | 0.5603782380783244 | 0.5585749961089184 | 0.5621814800477306 | 0.0025501692493745073 |
+| center_r1_owned_pgd:byzfl:private | 2 | 0.530243120268345 | 0.5091254594469476 | 0.5513607810897423 | 0.029864882339215047 |
+| center_r4_clean:byzfl:private | 2 | 0.7288973048772214 | 0.7279661266377462 | 0.7298284831166965 | 0.001316884895252443 |
+| center_r4_owned_pgd:byzfl:private | 2 | 0.5966953118452507 | 0.5348657127862938 | 0.6585249109042075 | 0.08744025754526753 |
+| mean_sign_flip_scale_f16:byzfl:private | 2 | 0.669079345140937 | 0.6680328686650199 | 0.6701258216168542 | 0.0014799412249464456 |
+| mean_owned_sign_flip_f16:byzfl:private | 2 | 0.6563470899697892 | 0.6555133134854912 | 0.6571808664540871 | 0.0011791380120819094 |
+| mean_owned_pgd_f16:byzfl:private | 2 | 0.5963000926875601 | 0.5335380058904989 | 0.6590621794846212 | 0.08875899435124122 |
+| trim16_clean:byzfl:private | 2 | 0.6585739235671839 | 0.6524765238074334 | 0.6646713233269346 | 0.008623025435449749 |
+| trim16_owned_pgd:byzfl:private | 2 | 0.6135501181292478 | 0.5888042107489634 | 0.6382960255095322 | 0.0349959978304267 |
+| mean_k64:byzfl:private | 2 | 0.746537311482083 | 0.7460874675244339 | 0.7469871554397322 | 0.0006361754258589906 |
+| mean_k128:byzfl:private | 2 | 0.770154275151353 | 0.7660858188033027 | 0.7742227314994032 | 0.005753666145335581 |
+| mean_k256:byzfl:private | 2 | 0.7559802931680588 | 0.7499892745826565 | 0.761971311753461 | 0.008472579735905124 |
+| erm_l0.01:scalar:private | 2 | 0.5345226865025362 | 0.4294949725229773 | 0.6395504004820951 | 0.14853161753493452 |
+| erm_l0.1:scalar:private | 2 | 0.5434154293359621 | 0.44049650700594245 | 0.6463343516659816 | 0.1455493357839369 |
+| erm_l1:scalar:private | 2 | 0.5483426985349579 | 0.44704499786489366 | 0.649640399205022 | 0.14325658212481493 |
+| median_recipe_tight:byzfl:nonprivate | 2 | 0.8062944107106511 | 0.8060515298934842 | 0.8065372915278182 | 0.0003434853456778337 |
+| median_recipe_loose:byzfl:nonprivate | 2 | 0.8198279543286787 | 0.8186186011661272 | 0.8210373074912303 | 0.0017102836441791989 |
+
+## Failure accounting
+
+No failed or unrun cells.

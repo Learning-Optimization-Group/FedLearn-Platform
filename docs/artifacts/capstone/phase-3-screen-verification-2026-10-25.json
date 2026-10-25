@@ -1,0 +1,54 @@
+{
+  "checkpoint_commit": "8ea4b7d",
+  "date": "2026-10-25",
+  "execution_audit": {
+    "backend_comparisons_exact": 4,
+    "cells": 80,
+    "cohort": 80,
+    "erm_cells": 12,
+    "fl_cells": 68,
+    "holdout_access": false,
+    "largest_independent_delta_at_epsilon4": 9.999999999854343e-06,
+    "largest_pre_server_represented_norm_excess": 1.055296541124795e-08,
+    "private_cells": 38,
+    "rounds": 1360,
+    "scope": "hash/cohort/source/noise/budget/finiteness audit; selection scoring audited separately",
+    "screen_sha256": "034084f9c1b96c8bd680c1136d37c213bc19adb74ba0d1bcdadff0830001214c",
+    "source_hashes_unchanged": 140,
+    "status": "screen_execution_verified"
+  },
+  "focused_tests": 113,
+  "framework_tests": {
+    "coverage_percent": 80.15,
+    "deselected": 14,
+    "passed": 2378,
+    "warnings": 2079
+  },
+  "phase": 3,
+  "public_csv_exports": {
+    "effusion-diagnostic-screen-2026-10-25-arms.csv": {
+      "line_endings": "LF",
+      "semantic_rows_unchanged": true,
+      "sha256": "05651aa70e884de6be6ef46bf3ea76792116733fa698d0e9c9376f77e7154a50"
+    },
+    "effusion-diagnostic-screen-2026-10-25-contrasts.csv": {
+      "line_endings": "LF",
+      "semantic_rows_unchanged": true,
+      "sha256": "504b4dad207784f93321e4fec5af55b8bd49a0229867f10c87cbc1ff5d5bd705"
+    }
+  },
+  "scoring_audit": {
+    "holdout_access": false,
+    "maximum_metric_differences": {
+      "auroc": 2.220446049250313e-16,
+      "average_precision": 1.1102230246251565e-16,
+      "brier": 0.0,
+      "sensitivity_at_half": 0.0,
+      "specificity_at_half": 0.0
+    },
+    "scope": "Selection-only; separate direct linear scorer shares Torch linear kernel for two-logit heads; rank-sum AUROC and tied-threshold AP calculated separately",
+    "status": "all_80_saved_heads_rescored"
+  },
+  "stage": "screen",
+  "status": "screen_complete_bucket_stage_pending"
+}
