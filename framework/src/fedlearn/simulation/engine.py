@@ -104,6 +104,9 @@ def _start_checks(resolved: Dict, workload) -> None:
     if have_dataset is not None and have_dataset != resolved["workload"]["dataset"]:
         raise ConfigError("workload.dataset",
                           f"config says {resolved['workload']['dataset']!r} but the features file holds {have_dataset!r}")
+    if any(b["type"] in ("owned_pgd", "owned_sign_flip") for b in resolved["behaviors"]):
+        if workload.n_classes != 2 or workload.head["type"] != "linear":
+            raise ConfigError("workload.head", "owned attacks require a binary linear workload")
     for i, b in enumerate(resolved["behaviors"]):
         if b["type"] != "backdoor":
             continue
@@ -207,6 +210,11 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
     local_gen = torch.Generator().manual_seed(int(seeds["noise"]) + 1)
     per_transfer = costs.transfer_bytes(init_params)
     attackers = plan.malicious_ids()
+    owned_enabled = any(b["type"] in ("owned_pgd", "owned_sign_flip") for b in r["behaviors"])
+    owned_ids = plan.owned_ids()
+    if owned_enabled:
+        released_history = {"delta": flat(init_params, list(init_params)).new_zeros(d), "round": 0,
+                            "params": OrderedDict((k, v.detach().clone()) for k, v in init_params.items())}
 
     def client_factory(cid, client_rng):
         return HeadClient(wl, cid, plan, r["client"], client_rng.torch_seed(), flops, clock)
@@ -250,6 +258,14 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         records = {cid: {"client_state": p, "n_examples": n,
                          "honest_delta": OrderedDict((k, p[k].float() - global_params[k].float()) for k in keys)}
                    for cid, p, n in collected}
+        if owned_enabled:
+            if dropped or set(selected) != set(range(int(fed["num_clients"]))) or set(records) != set(selected):
+                raise ValueError("owned attacks require a fixed complete submitted cohort")
+            if any(rec["n_examples"] <= 0 or set(rec["client_state"]) != set(global_params)
+                   or any(rec["client_state"][k].shape != global_params[k].shape
+                          or not torch.isfinite(rec["client_state"][k]).all() for k in global_params)
+                   for rec in records.values()):
+                raise ValueError("owned attacks require valid complete-cohort submissions")
         uploads = {cid: rec["client_state"] for cid, rec in records.items()}
         with clock.stage("local_dp"):
             if pv["mode"] == "local":
@@ -259,6 +275,15 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
                         uploads[cid] = OrderedDict((k, global_params[k].float() + delta[k]) for k in keys)
         with clock.stage("attack"):
             uploads.update(plan.upload_overrides(records, global_params, round_num))
+            if owned_enabled:
+                owned_data = {}
+                for cid in sorted(owned_ids):
+                    idx = torch.as_tensor(wl.parts[cid], dtype=torch.long)
+                    owned_data[cid] = (wl.train_x[idx], wl.train_y[idx])
+                uploads.update(plan.owned_upload_overrides(
+                    {cid: records[cid] for cid in owned_ids}, global_params, round_num,
+                    owned_data=owned_data, clip_norm=float(sv["clip_norm"]), total_submitted=len(records),
+                    released_delta=released_history["delta"], history_release_round=released_history["round"]))
             if pv["mode"] == "local":
                 # Attackers that follow the noise protocol: clip and noise their own (malicious) delta, drawn after
                 # every honest client's noise so the honest draws are those of the same round without them.
@@ -314,6 +339,8 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
                         "honest_cosine": mean_pairwise_cosine(
                             [flat(records[c]["honest_delta"], keys) for c in sorted(records) if c not in attackers])},
         }
+        if owned_enabled:
+            extra["owned_attack_diagnostics"] = plan.last_owned_attack_diagnostics
         if dist is not None:
             # The server receives only the decoded secure sum. The coordinator still expects one submission
             # per cohort member, so every slot carries that aggregate and the mean rule returns it unchanged.
@@ -387,6 +414,14 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
             "updates": extra.get("updates"),
             "refusal": refusal,
         }
+        if owned_enabled:
+            line["owned_attack_diagnostics"] = extra.get("owned_attack_diagnostics", [])
+            if refusal is None and state["params"] is not None:
+                current = state["params"]
+                released_history["delta"] = flat(OrderedDict(
+                    (k, current[k].float() - released_history["params"][k].float()) for k in init_params), list(init_params))
+                released_history["params"] = OrderedDict((k, v.detach().clone()) for k, v in current.items())
+                released_history["round"] = rec.round
         if "aggregation_diagnostics" in st:
             diagnostics = dict(st["aggregation_diagnostics"])
             groups = diagnostics.pop("bucket_members_by_input_index")

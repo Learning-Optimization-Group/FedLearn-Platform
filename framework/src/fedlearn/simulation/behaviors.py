@@ -8,13 +8,18 @@ attackers. Identities persist across rounds. Upload-time attack arithmetic is th
 """
 from __future__ import annotations
 
+import math
 from collections import OrderedDict
 from typing import Dict, List, Optional, Set
 
 import numpy as np
 import torch
 
-MALICIOUS = ("sign_flip_scale", "ipm", "alie", "label_flip", "backdoor", "free_rider", "min_max", "fang_trim", "canary")
+from fedlearn.simulation.owned_data_attack import ascent_upload
+
+OWNED = ("owned_pgd", "owned_sign_flip")
+
+MALICIOUS = ("sign_flip_scale", "ipm", "alie", "label_flip", "backdoor", "free_rider", "min_max", "fang_trim", "canary", *OWNED)
 _OMNISCIENT = ("ipm", "alie", "min_max", "fang_trim")  # built from the honest clients' deltas
 
 
@@ -50,6 +55,7 @@ class BehaviorPlan:
         self.dropout_fraction = sum(float(b["fraction"]) for b in behaviors if b["type"] == "dropout")
         self.malicious_fraction = len(self.malicious) / self.n
         self.last_attack_note: Optional[str] = None
+        self.last_owned_attack_diagnostics: List[dict] = []
 
     def malicious_ids(self) -> Set[int]:
         return set(self.malicious)
@@ -102,6 +108,74 @@ class BehaviorPlan:
                 shift = torch.randint(1, self.n_classes, (len(y),), generator=g)
                 y = torch.where(flip, (y + shift) % self.n_classes, y)
         return x, y, True
+
+    def owned_ids(self) -> Set[int]:
+        return {c for c, b in self.malicious.items() if b["type"] in OWNED}
+
+    def owned_upload_overrides(self, owned_records: Dict[int, dict], global_params, round_num: int, *,
+                               owned_data, clip_norm, total_submitted, released_delta,
+                               history_release_round=0) -> Dict[int, "OrderedDict"]:
+        """Share one bounded upload per coalition, accepting malicious-only input views.
+
+        Current honest records and evaluation labels have no place in this interface.
+        The engine enforces a complete cohort before constructing these views.
+        Diagnostics are research artifacts, outside released-model DP claims.
+        """
+        self.last_owned_attack_diagnostics = []
+        expected = self.owned_ids()
+        if set(owned_records) != expected or set(owned_data) != expected:
+            raise ValueError("owned attack requires exactly the malicious owned-client views")
+        if total_submitted != self.n:
+            raise ValueError("owned attack requires a fixed complete submitted cohort")
+        if not math.isfinite(float(clip_norm)) or float(clip_norm) <= 0:
+            raise ValueError("owned attack needs a finite positive clip norm")
+        keys = ["head.weight", "head.bias"]
+        if set(global_params) != set(keys) or global_params[keys[0]].ndim != 2 \
+                or global_params[keys[0]].shape[0] != 2 or global_params[keys[1]].shape != (2,):
+            raise ValueError("owned attack requires a binary linear head")
+        out = {}
+        for kind in OWNED:
+            group = sorted(c for c in expected if self.malicious[c]["type"] == kind)
+            if not group:
+                continue
+            b = self.malicious[group[0]]
+            own_mean = torch.stack([torch.cat([owned_records[c]["honest_delta"][k].detach().double().reshape(-1)
+                                              for k in keys]) for c in group]).mean(0)
+            if not torch.isfinite(own_mean).all():
+                raise ValueError("nonfinite owned mean update")
+            norm = torch.linalg.vector_norm(own_mean)
+            initial = -float(clip_norm) * own_mean / norm if norm > 0 else torch.zeros_like(own_mean)
+            rho = len(group) / total_submitted
+            diag = {"type": kind, "scope": "research-only; outside released-model DP claims",
+                    "knowledge": "same-type coalition-owned training examples/updates and public model/history only",
+                    "coalition_size": len(group), "total_submitted": total_submitted, "coalition_fraction": rho,
+                    "clip_norm": float(clip_norm), "initialization": "negative full-norm coalition mean; zero when mean is zero",
+                    "initial_norm": float(initial.norm()), "history_release_round": history_release_round,
+                    "history_norm": float(released_delta.double().norm()),
+                    "gradient_evaluations": 0, "loss_evaluations": 0}
+            delta = initial
+            if kind == "owned_pgd":
+                x = torch.cat([owned_data[c][0] for c in group])
+                y = torch.cat([owned_data[c][1] for c in group])
+                seed = (self.attack_seed * 1_000_003 + round_num * 10_007) % (2 ** 63)
+                result = ascent_upload(weight=global_params[keys[0]], bias=global_params[keys[1]],
+                                       owned_x=x, owned_y=y, initial_delta=initial, clip_norm=clip_norm,
+                                       coalition_fraction=rho, seed=seed, released_delta=released_delta,
+                                       steps=b["steps"], restarts=b["restarts"], step_ratio=b["step_ratio"])
+                delta = result["delta"]
+                diag.update({k: v for k, v in result.items() if k != "delta"})
+                diag.update(steps=b["steps"], restarts=b["restarts"], step_ratio=b["step_ratio"], search_seed=seed)
+            upload, at = OrderedDict(), 0
+            for k in keys:
+                size = global_params[k].numel()
+                upload[k] = global_params[k].float() + delta[at:at + size].reshape(global_params[k].shape).float()
+                at += size
+            actual = torch.cat([(upload[k].double() - global_params[k].float().double()).reshape(-1) for k in keys])
+            diag["upload_norm"] = float(actual.norm())
+            self.last_owned_attack_diagnostics.append(diag)
+            for c in group:
+                out[c] = OrderedDict((k, v.clone()) for k, v in upload.items())
+        return out
 
     def upload_overrides(self, records: Dict[int, dict], global_params, round_num: int) -> Dict[int, "OrderedDict"]:
         """Final uploads for this round's attackers (honest clients are untouched by the caller).

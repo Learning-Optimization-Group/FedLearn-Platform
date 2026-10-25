@@ -1,0 +1,34 @@
+{
+  "checkpoint_commit": "016677f6ab6b4e4292a4afc3f681ba8f40fbabe4",
+  "clients_per_round": 80,
+  "date": "2026-10-25",
+  "gaussian_mu_over_20_releases": 0.9249308976013488,
+  "gdp_noise_multiplier": 4.835102780756167,
+  "head_init": "zero",
+  "holdout_access": false,
+  "independent_gaussian_delta_at_epsilon4": 9.999999984911015e-06,
+  "parameter_and_reference_reconciliation": [
+    {
+      "auroc_difference": 0.0,
+      "condition": "clean",
+      "maximum_parameter_difference": 0.0,
+      "native_auroc": 0.8075528388932567
+    },
+    {
+      "auroc_difference": 0.0,
+      "condition": "gdp4",
+      "maximum_parameter_difference": 0.0,
+      "native_auroc": 0.7035003272499432
+    }
+  ],
+  "phase": 2,
+  "private_coordinate_noise_std": 0.006043878475945209,
+  "private_summary_sha256": "e0f784c41e8954fb133cc742261a1e0e8a41d393534d8814211526cd8398205e",
+  "public_manifest_sha256": "3177c50a811263d3c58b7fb086017422ea1ae63f5dea9eba17c6627d4b445ece",
+  "rounds_completed": 80,
+  "runs_completed": 4,
+  "schema": "capstone.phase2_qualification_verification.v1",
+  "scope": "Implementation reconciliation on fixed training/development selection inputs; no new method ranking or whole-program DP claim",
+  "separate_audit": "Record hashes, completed journals/cohorts, all head coordinates and native/external/prior equality checked separately using NumPy; Gaussian trade-off recomputed from scipy normal CDF",
+  "status": "complete"
+}

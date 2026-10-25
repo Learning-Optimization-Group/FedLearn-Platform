@@ -19,11 +19,13 @@ SCHEMA_VERSION = 1
 RULES = ("mean", "weighted_mean", "trimmed_mean", "median", "krum", "multi_krum", "bulyan",
          "centered_clip")
 CENTRAL_DP_RULES = ("mean", "trimmed_mean")
-MALICIOUS = ("sign_flip_scale", "ipm", "alie", "label_flip", "backdoor", "free_rider", "min_max", "fang_trim", "canary")
+MALICIOUS = ("sign_flip_scale", "ipm", "alie", "label_flip", "backdoor", "free_rider", "min_max", "fang_trim", "canary", "owned_pgd", "owned_sign_flip")
 FAULTY = ("dropout", "straggler", "label_noise")
 SEED_KEYS = ("partition", "init", "client", "attack", "noise")
 
 BEHAVIOR_DEFAULTS: Dict[str, Dict[str, Any]] = {
+    "owned_pgd": {"steps": 20, "restarts": 3, "step_ratio": 0.25},
+    "owned_sign_flip": {},
     "sign_flip_scale": {"scale": -10.0},
     "ipm": {"scale": 4.0},
     "min_max": {"perturbation": "std"},
@@ -104,17 +106,24 @@ def _resolve_behavior(b: Any, i: int) -> Dict[str, Any]:
     if kind not in BEHAVIOR_DEFAULTS:
         raise ConfigError(f"{where}.type", f"must be one of {sorted(BEHAVIOR_DEFAULTS)}")
     out = {"type": kind, "fraction": b.get("fraction"), **copy.deepcopy(BEHAVIOR_DEFAULTS[kind])}
-    if kind in MALICIOUS and "privatize" in b:
+    if kind in MALICIOUS and kind not in ("owned_pgd", "owned_sign_flip") and "privatize" in b:
         # Under local DP, a malicious client that adds the protocol's noise to its own upload (and so passes a
         # noise-aware norm filter). Present only when given, so earlier behaviours keep their resolved form.
         out["privatize"] = False
-    if kind in MALICIOUS and "match_norm" in b:
+    if kind in MALICIOUS and kind not in ("owned_pgd", "owned_sign_flip") and "match_norm" in b:
         # Under local DP, a malicious client that rescales its noise-free upload to an honest privatized norm.
         out["match_norm"] = False
     for key, value in b.items():
         if key not in out:
             raise ConfigError(f"{where}.{key}", "unknown key")
         out[key] = value
+    if kind == "owned_pgd":
+        for key in ("steps", "restarts"):
+            if type(out[key]) is not int or out[key] < 1:
+                raise ConfigError(f"{where}.{key}", "must be a positive integer")
+        value = out["step_ratio"]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+            raise ConfigError(f"{where}.step_ratio", "must be finite and positive")
     f = out["fraction"]
     if not isinstance(f, (int, float)) or not 0.0 <= float(f) <= 1.0:
         raise ConfigError(f"{where}.fraction", "must be a number in [0, 1]")
@@ -279,6 +288,18 @@ def _validate(r: Dict[str, Any]) -> None:
         permitted = (*CENTRAL_DP_RULES, "centered_clip") if external is not None else CENTRAL_DP_RULES
         _require(sv["rule"] in permitted, "server.rule",
                  f"central DP needs a rule with a replace-one sensitivity bound: {list(CENTRAL_DP_RULES)}")
+    owned = [b for b in r["behaviors"] if b["type"] in ("owned_pgd", "owned_sign_flip")]
+    if owned:
+        _require(wl["head"]["type"] == "linear", "workload.head.type", "owned attacks need a binary linear head")
+        _require(pv["mode"] in ("none", "central"), "privacy.mode", "owned attacks support none or central only")
+        _require(sv["clip_norm"] is not None and math.isfinite(float(sv["clip_norm"])),
+                 "server.clip_norm", "owned attacks need a finite clip norm")
+        _require(int(fed["clients_per_round"]) == int(fed["num_clients"]),
+                 "federation.clients_per_round", "owned attacks require full participation")
+        _require(net["round_deadline_s"] is None
+                 and not any(b["type"] in ("dropout", "straggler") for b in r["behaviors"]),
+                 "behaviors", "owned attacks require a fixed complete cohort")
+        _require(len({b["type"] for b in owned}) == len(owned), "behaviors", "one coalition per owned attack type")
     malicious = sum(float(b["fraction"]) for b in r["behaviors"] if b["type"] in MALICIOUS)
     _require(malicious <= 1.0 + 1e-12, "behaviors", "malicious fractions must sum to at most 1")
     _require(sum(1 for b in r["behaviors"] if b["type"] == "dropout") <= 1, "behaviors",
