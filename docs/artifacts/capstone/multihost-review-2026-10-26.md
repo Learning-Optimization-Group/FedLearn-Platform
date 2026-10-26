@@ -14,3 +14,10 @@
 The four twenty-round anchors now compare separately against pinned historical selection-stage simulator heads and against paired transport placement heads. Reusing the historical seed is labelled a replay. Source inventory includes the parity helper, protocol and new tests.
 
 Timing and communication claims remain narrower than the original aspirational measurement list: actual protobuf message counts exclude wire framing/SSH, and serialization time is not isolated. CPU load and available-memory snapshots constrain interpretation; they do not remove background-workload confounding. Prospective shuffled execution order avoids always placing Mac-only first. Three hosts remain three failure domains, regardless of logical-client count.
+
+
+## Postprocessing review and outcome
+
+The separate audit initially trusted exported comparison booleans and did not reconcile all public values. Four injected cases—changed AUROC, changed speedup, contradictory difference/acceptance, duplicated placement pair—failed to be rejected. The correction regenerates the complete analysis from bound artifacts and strictly reconciles canonical JSON before issuing a receipt. All seven audit regressions then passed, as did the actual generated and medical audits. Source fix inspection reported no remaining material blocker.
+
+Aggregate-only results review independently recomputed budgets, medians, numerical maxima, RSS and communication values. It found no material misstatement in the results note or reportv5 AppendixD, within public-evidence limits. All52cells completed and passed artifact reconciliation; the result remains a CPU execution qualification with an observed whole-cell slowdown, not a general scaling or security claim.

@@ -1,0 +1,2880 @@
+{
+  "cells": [
+    {
+      "completed_client_rounds": 15,
+      "elapsed_s": 13.381938625010662,
+      "first_round_since_strategy_init_s": 1.1523339589912212,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.427856959984638,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 633012224,
+          "queue_wait_sum_s": 0.6541490829840768,
+          "system_observations": {
+            "end_available_memory_bytes": 12313165824,
+            "end_load_1m": 1.9580078125,
+            "process_system_s": 0.228729,
+            "process_user_s": 2.427261,
+            "start_available_memory_bytes": 12209668096,
+            "start_load_1m": 1.7919921875
+          },
+          "training_rpc_protobuf_bytes": 271140
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n003_mean512_s14001_mac_only",
+      "num_clients": 3,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.8199063371751945,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.1475977289992443,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 15,
+      "elapsed_s": 34.311391208990244,
+      "first_round_since_strategy_init_s": 20.52543454199622,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 3.2930259709992242,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 391860224,
+          "queue_wait_sum_s": 4.738899951917119e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 11094233088,
+            "end_load_1m": 0.33544921875,
+            "process_system_s": 0.250359,
+            "process_user_s": 4.089203,
+            "start_available_memory_bytes": 11099017216,
+            "start_load_1m": 0.3125
+          },
+          "training_rpc_protobuf_bytes": 113644
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.0040426649939036,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 417398784,
+          "queue_wait_sum_s": 4.595798964146525e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 10706567168,
+            "end_load_1m": 4.6201171875,
+            "process_system_s": 0.20749099999999998,
+            "process_user_s": 1.503968,
+            "start_available_memory_bytes": 10928766976,
+            "start_load_1m": 3.70703125
+          },
+          "training_rpc_protobuf_bytes": 122832
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 9.265908500179648,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 416219136,
+          "queue_wait_sum_s": 9.49762761592865e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 12536823808,
+            "end_load_1m": 0.5419921875,
+            "process_system_s": 0.397945,
+            "process_user_s": 11.154659,
+            "start_available_memory_bytes": 12620705792,
+            "start_load_1m": 0.505859375
+          },
+          "training_rpc_protobuf_bytes": 81243
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n003_mean512_s14001_three_hosts",
+      "num_clients": 3,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.8199061501039617,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 1.9847751874985988,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 15,
+      "elapsed_s": 13.816389208004694,
+      "first_round_since_strategy_init_s": 1.3526779579988215,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.735699750992353,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 632242176,
+          "queue_wait_sum_s": 0.6849539590475615,
+          "system_observations": {
+            "end_available_memory_bytes": 10529456128,
+            "end_load_1m": 5.2041015625,
+            "process_system_s": 0.294796,
+            "process_user_s": 2.686064,
+            "start_available_memory_bytes": 10397089792,
+            "start_load_1m": 5.06787109375
+          },
+          "training_rpc_protobuf_bytes": 271140
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n003_mean512_s14002_mac_only",
+      "num_clients": 3,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.8189901246343381,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.156324520747148,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 15,
+      "elapsed_s": 32.144860875007,
+      "first_round_since_strategy_init_s": 18.760085333997267,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 3.440545388000828,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 389869568,
+          "queue_wait_sum_s": 4.538400025921874e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 11050561536,
+            "end_load_1m": 0.48486328125,
+            "process_system_s": 0.279239,
+            "process_user_s": 4.229464,
+            "start_available_memory_bytes": 11065257984,
+            "start_load_1m": 0.32861328125
+          },
+          "training_rpc_protobuf_bytes": 109023
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 0.9114799579838291,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 422543360,
+          "queue_wait_sum_s": 4.745900514535606e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 11991433216,
+            "end_load_1m": 1.9912109375,
+            "process_system_s": 0.158001,
+            "process_user_s": 1.365397,
+            "start_available_memory_bytes": 12388990976,
+            "start_load_1m": 2.033203125
+          },
+          "training_rpc_protobuf_bytes": 118265
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 9.21998721593991,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 412106752,
+          "queue_wait_sum_s": 0.00010761711746454239,
+          "system_observations": {
+            "end_available_memory_bytes": 12552581120,
+            "end_load_1m": 0.64501953125,
+            "process_system_s": 0.374585,
+            "process_user_s": 11.119686,
+            "start_available_memory_bytes": 12641566720,
+            "start_load_1m": 0.63818359375
+          },
+          "training_rpc_protobuf_bytes": 81243
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n003_mean512_s14002_three_hosts",
+      "num_clients": 3,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.8189901246343381,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 1.9011164375006047,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 15,
+      "elapsed_s": 13.509165374998702,
+      "first_round_since_strategy_init_s": 1.1043502920074388,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.422021832986502,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 633782272,
+          "queue_wait_sum_s": 0.6346206670132233,
+          "system_observations": {
+            "end_available_memory_bytes": 11999543296,
+            "end_load_1m": 2.51806640625,
+            "process_system_s": 0.23729999999999998,
+            "process_user_s": 2.4022419999999998,
+            "start_available_memory_bytes": 11836030976,
+            "start_load_1m": 2.61279296875
+          },
+          "training_rpc_protobuf_bytes": 271140
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n003_mean512_s14003_mac_only",
+      "num_clients": 3,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.8190270400242644,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.145470760497119,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 15,
+      "elapsed_s": 32.25234483399254,
+      "first_round_since_strategy_init_s": 18.89536149999185,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 3.450343462001001,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 391897088,
+          "queue_wait_sum_s": 4.850200093642343e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 11074523136,
+            "end_load_1m": 0.3203125,
+            "process_system_s": 0.27538,
+            "process_user_s": 4.269396,
+            "start_available_memory_bytes": 11084529664,
+            "start_load_1m": 0.3056640625
+          },
+          "training_rpc_protobuf_bytes": 109023
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.0301347079803236,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 419250176,
+          "queue_wait_sum_s": 4.445703234523535e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 10517676032,
+            "end_load_1m": 4.5498046875,
+            "process_system_s": 0.210944,
+            "process_user_s": 1.5191729999999999,
+            "start_available_memory_bytes": 10724147200,
+            "start_load_1m": 5.0185546875
+          },
+          "training_rpc_protobuf_bytes": 118265
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 9.168605325743556,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 415313920,
+          "queue_wait_sum_s": 0.0001010233536362648,
+          "system_observations": {
+            "end_available_memory_bytes": 12552994816,
+            "end_load_1m": 0.74169921875,
+            "process_system_s": 0.402623,
+            "process_user_s": 11.029431,
+            "start_available_memory_bytes": 12637171712,
+            "start_load_1m": 0.65966796875
+          },
+          "training_rpc_protobuf_bytes": 76676
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n003_mean512_s14003_three_hosts",
+      "num_clients": 3,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.8190270400242644,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 1.8796704375017725,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 15,
+      "elapsed_s": 13.579635000001872,
+      "first_round_since_strategy_init_s": 1.20435324999562,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.3963950829638634,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 392757248,
+          "queue_wait_sum_s": 0.7755822079780046,
+          "system_observations": {
+            "end_available_memory_bytes": 10728128512,
+            "end_load_1m": 3.86083984375,
+            "process_system_s": 0.335823,
+            "process_user_s": 2.129216,
+            "start_available_memory_bytes": 10833002496,
+            "start_load_1m": 3.4423828125
+          },
+          "training_rpc_protobuf_bytes": 87345
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n003_projected128_s14001_mac_only",
+      "num_clients": 3,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.796772547321539,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.140345968749898,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 15,
+      "elapsed_s": 27.298361667009885,
+      "first_round_since_strategy_init_s": 13.913566375005757,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 3.0630290589997458,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 358150144,
+          "queue_wait_sum_s": 5.167899962543743e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 11114385408,
+            "end_load_1m": 0.2138671875,
+            "process_system_s": 0.23893299999999998,
+            "process_user_s": 3.842089,
+            "start_available_memory_bytes": 11190267904,
+            "start_load_1m": 0.30029296875
+          },
+          "training_rpc_protobuf_bytes": 33956
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 0.818280292005511,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 339034112,
+          "queue_wait_sum_s": 3.624997043516487e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 10690674688,
+            "end_load_1m": 4.35009765625,
+            "process_system_s": 0.193735,
+            "process_user_s": 1.304426,
+            "start_available_memory_bytes": 10755391488,
+            "start_load_1m": 4.45556640625
+          },
+          "training_rpc_protobuf_bytes": 37015
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 8.22885079914704,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 382222336,
+          "queue_wait_sum_s": 8.927937597036362e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 12578385920,
+            "end_load_1m": 0.5908203125,
+            "process_system_s": 0.438206,
+            "process_user_s": 10.020422,
+            "start_available_memory_bytes": 12662439936,
+            "start_load_1m": 0.67236328125
+          },
+          "training_rpc_protobuf_bytes": 26161
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n003_projected128_s14001_three_hosts",
+      "num_clients": 3,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.796772547321539,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 1.8929799375000584,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 15,
+      "elapsed_s": 13.395856874994934,
+      "first_round_since_strategy_init_s": 1.0909002499975031,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.0845361669780686,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 392282112,
+          "queue_wait_sum_s": 0.7132992080150871,
+          "system_observations": {
+            "end_available_memory_bytes": 12494389248,
+            "end_load_1m": 3.39990234375,
+            "process_system_s": 0.29617099999999996,
+            "process_user_s": 1.877138,
+            "start_available_memory_bytes": 12193349632,
+            "start_load_1m": 3.74169921875
+          },
+          "training_rpc_protobuf_bytes": 87345
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n003_projected128_s14002_mac_only",
+      "num_clients": 3,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.7976247191437226,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.128517489752994,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 15,
+      "elapsed_s": 26.280264666987932,
+      "first_round_since_strategy_init_s": 12.711692208002205,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 3.047205051000674,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 358039552,
+          "queue_wait_sum_s": 5.151699861016823e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 11086106624,
+            "end_load_1m": 0.18212890625,
+            "process_system_s": 0.277638,
+            "process_user_s": 3.913092,
+            "start_available_memory_bytes": 11147939840,
+            "start_load_1m": 0.23486328125
+          },
+          "training_rpc_protobuf_bytes": 33956
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 0.7034184580261353,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 340295680,
+          "queue_wait_sum_s": 5.1499984692782164e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 12437061632,
+            "end_load_1m": 2.82470703125,
+            "process_system_s": 0.149443,
+            "process_user_s": 1.148563,
+            "start_available_memory_bytes": 12417433600,
+            "start_load_1m": 2.0927734375
+          },
+          "training_rpc_protobuf_bytes": 37015
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 8.220654086209834,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 377884672,
+          "queue_wait_sum_s": 9.948806837201118e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 12602970112,
+            "end_load_1m": 0.42529296875,
+            "process_system_s": 0.461416,
+            "process_user_s": 9.999937,
+            "start_available_memory_bytes": 12689682432,
+            "start_load_1m": 0.3642578125
+          },
+          "training_rpc_protobuf_bytes": 26161
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n003_projected128_s14002_three_hosts",
+      "num_clients": 3,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.7976247191437226,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 1.9793459897518915,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 15,
+      "elapsed_s": 13.325575167007628,
+      "first_round_since_strategy_init_s": 1.052544999998645,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.0333729579579085,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 391593984,
+          "queue_wait_sum_s": 0.708013747993391,
+          "system_observations": {
+            "end_available_memory_bytes": 12257247232,
+            "end_load_1m": 2.36865234375,
+            "process_system_s": 0.288095,
+            "process_user_s": 1.814525,
+            "start_available_memory_bytes": 12257902592,
+            "start_load_1m": 2.53125
+          },
+          "training_rpc_protobuf_bytes": 87345
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n003_projected128_s14003_mac_only",
+      "num_clients": 3,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.797386951606917,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.1281756874996063,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 15,
+      "elapsed_s": 24.868797792005353,
+      "first_round_since_strategy_init_s": 12.368627957999706,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 3.069952755000486,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 358293504,
+          "queue_wait_sum_s": 3.151900000375463e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 11088654336,
+            "end_load_1m": 0.345703125,
+            "process_system_s": 0.247436,
+            "process_user_s": 3.849354,
+            "start_available_memory_bytes": 11155005440,
+            "start_load_1m": 0.44482421875
+          },
+          "training_rpc_protobuf_bytes": 32397
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 0.6896176660084166,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 339886080,
+          "queue_wait_sum_s": 4.8542002332396805e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 12311068672,
+            "end_load_1m": 2.30908203125,
+            "process_system_s": 0.145693,
+            "process_user_s": 1.126118,
+            "start_available_memory_bytes": 12329009152,
+            "start_load_1m": 2.09716796875
+          },
+          "training_rpc_protobuf_bytes": 35515
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 8.24954521888867,
+          "peak_active_fits": 1,
+          "peak_process_rss_bytes": 379613184,
+          "queue_wait_sum_s": 9.001558646559715e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 12595621888,
+            "end_load_1m": 0.376953125,
+            "process_system_s": 0.38950399999999996,
+            "process_user_s": 10.070998,
+            "start_available_memory_bytes": 12685221888,
+            "start_load_1m": 0.26318359375
+          },
+          "training_rpc_protobuf_bytes": 26161
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n003_projected128_s14003_three_hosts",
+      "num_clients": 3,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.7973867021786066,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 1.6704429062483541,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 30,
+      "elapsed_s": 13.347799875002238,
+      "first_round_since_strategy_init_s": 1.151658792005037,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.6267494170024293,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 631701504,
+          "queue_wait_sum_s": 2.0689072059903992,
+          "system_observations": {
+            "end_available_memory_bytes": 12186206208,
+            "end_load_1m": 1.740234375,
+            "process_system_s": 0.312059,
+            "process_user_s": 2.523764,
+            "start_available_memory_bytes": 12110839808,
+            "start_load_1m": 1.7802734375
+          },
+          "training_rpc_protobuf_bytes": 542250
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n006_mean512_s14001_mac_only",
+      "num_clients": 6,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.8159949894841024,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.0908383437490556,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 30,
+      "elapsed_s": 34.18813604199386,
+      "first_round_since_strategy_init_s": 19.533563459001016,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 5.99211437899794,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 393089024,
+          "queue_wait_sum_s": 7.581199770356761e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 11075112960,
+            "end_load_1m": 0.50048828125,
+            "process_system_s": 0.38671,
+            "process_user_s": 4.506583,
+            "start_available_memory_bytes": 11104677888,
+            "start_load_1m": 0.18017578125
+          },
+          "training_rpc_protobuf_bytes": 227278
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.5917058749910211,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 419971072,
+          "queue_wait_sum_s": 5.700199108105153e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 10794106880,
+            "end_load_1m": 4.5263671875,
+            "process_system_s": 0.246108,
+            "process_user_s": 1.612101,
+            "start_available_memory_bytes": 10641260544,
+            "start_load_1m": 4.51025390625
+          },
+          "training_rpc_protobuf_bytes": 245762
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 16.706915171816945,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 418594816,
+          "queue_wait_sum_s": 0.00019977521151304245,
+          "system_observations": {
+            "end_available_memory_bytes": 12530434048,
+            "end_load_1m": 0.5908203125,
+            "process_system_s": 0.720297,
+            "process_user_s": 12.56794,
+            "start_available_memory_bytes": 12616880128,
+            "start_load_1m": 0.5771484375
+          },
+          "training_rpc_protobuf_bytes": 167151
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n006_mean512_s14001_three_hosts",
+      "num_clients": 6,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.8159949894841024,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.2126593539978785,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 30,
+      "elapsed_s": 13.141996332997223,
+      "first_round_since_strategy_init_s": 1.1420374999870546,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.6023421249556122,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 632635392,
+          "queue_wait_sum_s": 2.0602831219584914,
+          "system_observations": {
+            "end_available_memory_bytes": 12196462592,
+            "end_load_1m": 2.4296875,
+            "process_system_s": 0.302888,
+            "process_user_s": 2.50134,
+            "start_available_memory_bytes": 12253085696,
+            "start_load_1m": 2.41357421875
+          },
+          "training_rpc_protobuf_bytes": 542250
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n006_mean512_s14002_mac_only",
+      "num_clients": 6,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.814360610480778,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.086199343750195,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 30,
+      "elapsed_s": 33.48464608300128,
+      "first_round_since_strategy_init_s": 17.68326341699867,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 6.003552834999027,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 392364032,
+          "queue_wait_sum_s": 5.980500009172829e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 11055734784,
+            "end_load_1m": 0.20703125,
+            "process_system_s": 0.381194,
+            "process_user_s": 4.544928,
+            "start_available_memory_bytes": 11057561600,
+            "start_load_1m": 0.2900390625
+          },
+          "training_rpc_protobuf_bytes": 227278
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.4395109589968342,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 421593088,
+          "queue_wait_sum_s": 6.61249941913411e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 12390449152,
+            "end_load_1m": 2.26513671875,
+            "process_system_s": 0.219274,
+            "process_user_s": 1.479816,
+            "start_available_memory_bytes": 12319621120,
+            "start_load_1m": 2.9052734375
+          },
+          "training_rpc_protobuf_bytes": 245762
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 14.864947422407568,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 416010240,
+          "queue_wait_sum_s": 0.00019347341731190681,
+          "system_observations": {
+            "end_available_memory_bytes": 12559716352,
+            "end_load_1m": 0.38134765625,
+            "process_system_s": 0.49024399999999996,
+            "process_user_s": 11.470963,
+            "start_available_memory_bytes": 12643471360,
+            "start_load_1m": 0.44677734375
+          },
+          "training_rpc_protobuf_bytes": 176447
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n006_mean512_s14002_three_hosts",
+      "num_clients": 6,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.814360610480778,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.480563875000371,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 30,
+      "elapsed_s": 13.335760959002073,
+      "first_round_since_strategy_init_s": 1.149856499992893,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.634743626054842,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 632553472,
+          "queue_wait_sum_s": 2.1234459559927927,
+          "system_observations": {
+            "end_available_memory_bytes": 12389269504,
+            "end_load_1m": 3.806640625,
+            "process_system_s": 0.300743,
+            "process_user_s": 2.548938,
+            "start_available_memory_bytes": 12452478976,
+            "start_load_1m": 3.9462890625
+          },
+          "training_rpc_protobuf_bytes": 542250
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n006_mean512_s14003_mac_only",
+      "num_clients": 6,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.8152622938225587,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.088849958501669,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 30,
+      "elapsed_s": 33.37762312499399,
+      "first_round_since_strategy_init_s": 19.18615054099064,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 5.996865260000959,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 396754944,
+          "queue_wait_sum_s": 6.279899935179856e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 11045183488,
+            "end_load_1m": 0.333984375,
+            "process_system_s": 0.371256,
+            "process_user_s": 4.5462489999999995,
+            "start_available_memory_bytes": 11048620032,
+            "start_load_1m": 0.46728515625
+          },
+          "training_rpc_protobuf_bytes": 227278
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.3897159560001455,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 418234368,
+          "queue_wait_sum_s": 7.016697782091796e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 12058869760,
+            "end_load_1m": 2.77099609375,
+            "process_system_s": 0.22245299999999998,
+            "process_user_s": 1.436245,
+            "start_available_memory_bytes": 11906039808,
+            "start_load_1m": 2.74755859375
+          },
+          "training_rpc_protobuf_bytes": 245762
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 16.19281900767237,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 416796672,
+          "queue_wait_sum_s": 0.00019260821864008904,
+          "system_observations": {
+            "end_available_memory_bytes": 12556206080,
+            "end_load_1m": 0.68896484375,
+            "process_system_s": 0.584418,
+            "process_user_s": 12.335715,
+            "start_available_memory_bytes": 12640374784,
+            "start_load_1m": 0.41064453125
+          },
+          "training_rpc_protobuf_bytes": 162584
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n006_mean512_s14003_three_hosts",
+      "num_clients": 6,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.8152620443942484,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.1426523125010135,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 30,
+      "elapsed_s": 13.360659291996853,
+      "first_round_since_strategy_init_s": 1.196752292002202,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.609391793012037,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 392806400,
+          "queue_wait_sum_s": 2.3886944990226766,
+          "system_observations": {
+            "end_available_memory_bytes": 10904190976,
+            "end_load_1m": 4.33984375,
+            "process_system_s": 0.439992,
+            "process_user_s": 2.188438,
+            "start_available_memory_bytes": 10962567168,
+            "start_load_1m": 4.59130859375
+          },
+          "training_rpc_protobuf_bytes": 174660
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n006_projected128_s14001_mac_only",
+      "num_clients": 6,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.7960845616846188,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.0906144165019214,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 30,
+      "elapsed_s": 26.663519207999343,
+      "first_round_since_strategy_init_s": 12.568158458991093,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 5.640626684999006,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 362020864,
+          "queue_wait_sum_s": 7.867699969210662e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 11105968128,
+            "end_load_1m": 0.40185546875,
+            "process_system_s": 0.40047499999999997,
+            "process_user_s": 4.192319,
+            "start_available_memory_bytes": 11166445568,
+            "start_load_1m": 0.310546875
+          },
+          "training_rpc_protobuf_bytes": 67902
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.4664893729641335,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 339722240,
+          "queue_wait_sum_s": 4.220698610879481e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 10857185280,
+            "end_load_1m": 3.814453125,
+            "process_system_s": 0.26625499999999996,
+            "process_user_s": 1.388245,
+            "start_available_memory_bytes": 10708140032,
+            "start_load_1m": 3.87158203125
+          },
+          "training_rpc_protobuf_bytes": 74020
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 15.417932191397995,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 386379776,
+          "queue_wait_sum_s": 0.00017747189849615097,
+          "system_observations": {
+            "end_available_memory_bytes": 12569804800,
+            "end_load_1m": 0.49169921875,
+            "process_system_s": 0.599228,
+            "process_user_s": 11.423379,
+            "start_available_memory_bytes": 12666769408,
+            "start_load_1m": 0.544921875
+          },
+          "training_rpc_protobuf_bytes": 55312
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n006_projected128_s14001_three_hosts",
+      "num_clients": 6,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.7960844993275413,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.067747604000033,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 30,
+      "elapsed_s": 13.356155625006068,
+      "first_round_since_strategy_init_s": 1.2218756249931175,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.620514964030008,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 392593408,
+          "queue_wait_sum_s": 2.274288707994856,
+          "system_observations": {
+            "end_available_memory_bytes": 10605576192,
+            "end_load_1m": 4.1103515625,
+            "process_system_s": 0.43593499999999996,
+            "process_user_s": 2.212938,
+            "start_available_memory_bytes": 10904453120,
+            "start_load_1m": 4.3125
+          },
+          "training_rpc_protobuf_bytes": 174660
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n006_projected128_s14002_mac_only",
+      "num_clients": 6,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.7958689932674311,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.0821459062499343,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 30,
+      "elapsed_s": 28.88208716599911,
+      "first_round_since_strategy_init_s": 14.215557082992746,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 5.628514672000165,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 362692608,
+          "queue_wait_sum_s": 5.939999846305e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 11093807104,
+            "end_load_1m": 0.37451171875,
+            "process_system_s": 0.382733,
+            "process_user_s": 4.08226,
+            "start_available_memory_bytes": 11161214976,
+            "start_load_1m": 0.34912109375
+          },
+          "training_rpc_protobuf_bytes": 70902
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.3280841690429952,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 337920000,
+          "queue_wait_sum_s": 6.516599387396127e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 12505743360,
+            "end_load_1m": 2.537109375,
+            "process_system_s": 0.251999,
+            "process_user_s": 1.2617639999999999,
+            "start_available_memory_bytes": 12536283136,
+            "start_load_1m": 2.89599609375
+          },
+          "training_rpc_protobuf_bytes": 77256
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 15.137796454131603,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 384016384,
+          "queue_wait_sum_s": 0.0001961914822459221,
+          "system_observations": {
+            "end_available_memory_bytes": 12578807808,
+            "end_load_1m": 0.5390625,
+            "process_system_s": 0.6242449999999999,
+            "process_user_s": 11.191394,
+            "start_available_memory_bytes": 12668280832,
+            "start_load_1m": 0.60595703125
+          },
+          "training_rpc_protobuf_bytes": 55312
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n006_projected128_s14002_three_hosts",
+      "num_clients": 6,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.7958691803386638,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.255275166749925,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 30,
+      "elapsed_s": 13.130089999991469,
+      "first_round_since_strategy_init_s": 1.0573567919927882,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.2839287479728227,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 391774208,
+          "queue_wait_sum_s": 2.1377437069895677,
+          "system_observations": {
+            "end_available_memory_bytes": 12449087488,
+            "end_load_1m": 2.0322265625,
+            "process_system_s": 0.39691299999999996,
+            "process_user_s": 1.8941949999999999,
+            "start_available_memory_bytes": 12454100992,
+            "start_load_1m": 2.31494140625
+          },
+          "training_rpc_protobuf_bytes": 174660
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n006_projected128_s14003_mac_only",
+      "num_clients": 6,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.7957685983725301,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.085162781251711,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 30,
+      "elapsed_s": 27.495080082997447,
+      "first_round_since_strategy_init_s": 14.52130966700497,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 5.62659946399981,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 362606592,
+          "queue_wait_sum_s": 6.453199966927059e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 11099508736,
+            "end_load_1m": 0.26708984375,
+            "process_system_s": 0.389088,
+            "process_user_s": 4.10671,
+            "start_available_memory_bytes": 11166339072,
+            "start_load_1m": 0.2861328125
+          },
+          "training_rpc_protobuf_bytes": 67902
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.60311774998263,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 336887808,
+          "queue_wait_sum_s": 6.874800601508468e-05,
+          "system_observations": {
+            "end_available_memory_bytes": 12873089024,
+            "end_load_1m": 4.1162109375,
+            "process_system_s": 0.27997299999999997,
+            "process_user_s": 1.301803,
+            "start_available_memory_bytes": 10345381888,
+            "start_load_1m": 4.080078125
+          },
+          "training_rpc_protobuf_bytes": 74020
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 16.020353532396257,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 387518464,
+          "queue_wait_sum_s": 0.00015952019020915031,
+          "system_observations": {
+            "end_available_memory_bytes": 12584288256,
+            "end_load_1m": 0.66455078125,
+            "process_system_s": 0.729082,
+            "process_user_s": 11.676252999999999,
+            "start_available_memory_bytes": 12670459904,
+            "start_load_1m": 0.37060546875
+          },
+          "training_rpc_protobuf_bytes": 52312
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n006_projected128_s14003_three_hosts",
+      "num_clients": 6,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.7957685983725301,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 1.8069470937516598,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 120,
+      "elapsed_s": 13.394642583007226,
+      "first_round_since_strategy_init_s": 1.344478833998437,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 3.0282414589601103,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 639401984,
+          "queue_wait_sum_s": 13.677268168015871,
+          "system_observations": {
+            "end_available_memory_bytes": 10526752768,
+            "end_load_1m": 4.85693359375,
+            "process_system_s": 0.587874,
+            "process_user_s": 2.797019,
+            "start_available_memory_bytes": 10317512704,
+            "start_load_1m": 4.80908203125
+          },
+          "training_rpc_protobuf_bytes": 2169360
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n024_mean512_s14001_mac_only",
+      "num_clients": 24,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.8100166917425261,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.053704197751358,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 120,
+      "elapsed_s": 35.844305332997465,
+      "first_round_since_strategy_init_s": 20.432741167009226,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 6.08888797900272,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 401973248,
+          "queue_wait_sum_s": 14.332866916000967,
+          "system_observations": {
+            "end_available_memory_bytes": 11039285248,
+            "end_load_1m": 0.33251953125,
+            "process_system_s": 0.509382,
+            "process_user_s": 4.821871,
+            "start_available_memory_bytes": 11112370176,
+            "start_load_1m": 0.3837890625
+          },
+          "training_rpc_protobuf_bytes": 946248
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.4509499539854005,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 422035456,
+          "queue_wait_sum_s": 2.81810762603709,
+          "system_observations": {
+            "end_available_memory_bytes": 12223709184,
+            "end_load_1m": 2.62841796875,
+            "process_system_s": 0.345074,
+            "process_user_s": 1.487517,
+            "start_available_memory_bytes": 12166184960,
+            "start_load_1m": 2.1806640625
+          },
+          "training_rpc_protobuf_bytes": 983224
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 20.145864902995527,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 451076096,
+          "queue_wait_sum_s": 35.404581596143544,
+          "system_observations": {
+            "end_available_memory_bytes": 12544458752,
+            "end_load_1m": 0.58154296875,
+            "process_system_s": 1.081893,
+            "process_user_s": 15.551817,
+            "start_available_memory_bytes": 12638498816,
+            "start_load_1m": 0.2001953125
+          },
+          "training_rpc_protobuf_bytes": 719770
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n024_mean512_s14001_three_hosts",
+      "num_clients": 24,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.810016567028371,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.3783466562490503,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 120,
+      "elapsed_s": 13.338668791009695,
+      "first_round_since_strategy_init_s": 1.3038639169972157,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.951396290984121,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 638255104,
+          "queue_wait_sum_s": 13.366781166987494,
+          "system_observations": {
+            "end_available_memory_bytes": 10807312384,
+            "end_load_1m": 4.41552734375,
+            "process_system_s": 0.573113,
+            "process_user_s": 2.747057,
+            "start_available_memory_bytes": 10758324224,
+            "start_load_1m": 4.48388671875
+          },
+          "training_rpc_protobuf_bytes": 2169360
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n024_mean512_s14002_mac_only",
+      "num_clients": 24,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.8087116204658922,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.051079281252896,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 120,
+      "elapsed_s": 39.09176920900063,
+      "first_round_since_strategy_init_s": 23.301944124992588,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 5.973530497001775,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 404217856,
+          "queue_wait_sum_s": 14.272562299998754,
+          "system_observations": {
+            "end_available_memory_bytes": 11033391104,
+            "end_load_1m": 0.2978515625,
+            "process_system_s": 0.500463,
+            "process_user_s": 4.773969,
+            "start_available_memory_bytes": 11058032640,
+            "start_load_1m": 0.22802734375
+          },
+          "training_rpc_protobuf_bytes": 946140
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.4411653330171248,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 423149568,
+          "queue_wait_sum_s": 2.996620961028384,
+          "system_observations": {
+            "end_available_memory_bytes": 12379389952,
+            "end_load_1m": 1.76123046875,
+            "process_system_s": 0.35237999999999997,
+            "process_user_s": 1.479273,
+            "start_available_memory_bytes": 12324143104,
+            "start_load_1m": 2.1318359375
+          },
+          "training_rpc_protobuf_bytes": 983224
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 19.801808013115078,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 445513728,
+          "queue_wait_sum_s": 35.07183779543266,
+          "system_observations": {
+            "end_available_memory_bytes": 12541132800,
+            "end_load_1m": 0.25732421875,
+            "process_system_s": 1.041519,
+            "process_user_s": 15.274697,
+            "start_available_memory_bytes": 12638580736,
+            "start_load_1m": 0.2724609375
+          },
+          "training_rpc_protobuf_bytes": 719770
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n024_mean512_s14002_three_hosts",
+      "num_clients": 24,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.8087115581088146,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.395981812500395,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 120,
+      "elapsed_s": 13.164935374996276,
+      "first_round_since_strategy_init_s": 1.1645104170020204,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.6067858719907235,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 638779392,
+          "queue_wait_sum_s": 11.745308081110124,
+          "system_observations": {
+            "end_available_memory_bytes": 12217417728,
+            "end_load_1m": 2.12353515625,
+            "process_system_s": 0.522151,
+            "process_user_s": 2.414522,
+            "start_available_memory_bytes": 12104744960,
+            "start_load_1m": 2.349609375
+          },
+          "training_rpc_protobuf_bytes": 2169360
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n024_mean512_s14003_mac_only",
+      "num_clients": 24,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.8096536488368659,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.0469409894976707,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 120,
+      "elapsed_s": 35.60568241699366,
+      "first_round_since_strategy_init_s": 20.13194854199537,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 5.992012854999302,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 403152896,
+          "queue_wait_sum_s": 13.506484145998002,
+          "system_observations": {
+            "end_available_memory_bytes": 11059245056,
+            "end_load_1m": 0.25927734375,
+            "process_system_s": 0.47336399999999995,
+            "process_user_s": 4.770155,
+            "start_available_memory_bytes": 11076853760,
+            "start_load_1m": 0.283203125
+          },
+          "training_rpc_protobuf_bytes": 946248
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.685232538919081,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 422395904,
+          "queue_wait_sum_s": 3.3573001689946977,
+          "system_observations": {
+            "end_available_memory_bytes": 10858725376,
+            "end_load_1m": 4.97119140625,
+            "process_system_s": 0.371932,
+            "process_user_s": 1.689755,
+            "start_available_memory_bytes": 10591059968,
+            "start_load_1m": 4.9482421875
+          },
+          "training_rpc_protobuf_bytes": 983224
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 19.00863006617874,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 451551232,
+          "queue_wait_sum_s": 35.729880723170936,
+          "system_observations": {
+            "end_available_memory_bytes": 12545810432,
+            "end_load_1m": 0.908203125,
+            "process_system_s": 0.9617739999999999,
+            "process_user_s": 14.707222,
+            "start_available_memory_bytes": 12612677632,
+            "start_load_1m": 0.44970703125
+          },
+          "training_rpc_protobuf_bytes": 724392
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n024_mean512_s14003_three_hosts",
+      "num_clients": 24,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.8096536488368659,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.3620965832524234,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 120,
+      "elapsed_s": 13.591069665999385,
+      "first_round_since_strategy_init_s": 1.3858913339936407,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.8593320850632153,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 397885440,
+          "queue_wait_sum_s": 14.915722790043219,
+          "system_observations": {
+            "end_available_memory_bytes": 10533502976,
+            "end_load_1m": 4.80908203125,
+            "process_system_s": 0.628953,
+            "process_user_s": 2.198925,
+            "start_available_memory_bytes": 10526801920,
+            "start_load_1m": 4.96142578125
+          },
+          "training_rpc_protobuf_bytes": 699000
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n024_projected128_s14001_mac_only",
+      "num_clients": 24,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.7916159287912106,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.039531031248771,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 120,
+      "elapsed_s": 28.121794499995303,
+      "first_round_since_strategy_init_s": 12.760094166995259,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 5.735151212001256,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 365342720,
+          "queue_wait_sum_s": 14.14674028999707,
+          "system_observations": {
+            "end_available_memory_bytes": 11094900736,
+            "end_load_1m": 0.2490234375,
+            "process_system_s": 0.558644,
+            "process_user_s": 4.349009,
+            "start_available_memory_bytes": 11173498880,
+            "start_load_1m": 0.24609375
+          },
+          "training_rpc_protobuf_bytes": 283760
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.3796772500645602,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 340770816,
+          "queue_wait_sum_s": 2.8104304609732935,
+          "system_observations": {
+            "end_available_memory_bytes": 12467781632,
+            "end_load_1m": 2.25390625,
+            "process_system_s": 0.350581,
+            "process_user_s": 1.318069,
+            "start_available_memory_bytes": 12443353088,
+            "start_load_1m": 2.51318359375
+          },
+          "training_rpc_protobuf_bytes": 296712
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 19.13189655356109,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 407072768,
+          "queue_wait_sum_s": 35.62343578413129,
+          "system_observations": {
+            "end_available_memory_bytes": 12566274048,
+            "end_load_1m": 0.63916015625,
+            "process_system_s": 1.172018,
+            "process_user_s": 14.296985,
+            "start_available_memory_bytes": 12675551232,
+            "start_load_1m": 0.53564453125
+          },
+          "training_rpc_protobuf_bytes": 234312
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n024_projected128_s14001_three_hosts",
+      "num_clients": 24,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.7916159911482882,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.3364247707504546,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 120,
+      "elapsed_s": 13.303563499997836,
+      "first_round_since_strategy_init_s": 1.2056702080008108,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.664487503003329,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 398376960,
+          "queue_wait_sum_s": 13.013929208027548,
+          "system_observations": {
+            "end_available_memory_bytes": 10833739776,
+            "end_load_1m": 4.125,
+            "process_system_s": 0.643208,
+            "process_user_s": 2.206912,
+            "start_available_memory_bytes": 10636541952,
+            "start_load_1m": 4.34521484375
+          },
+          "training_rpc_protobuf_bytes": 699000
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n024_projected128_s14002_mac_only",
+      "num_clients": 24,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.7919912560411537,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.0486380729998928,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 120,
+      "elapsed_s": 28.429705624992494,
+      "first_round_since_strategy_init_s": 13.299597292003455,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 5.758613218999926,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 366342144,
+          "queue_wait_sum_s": 13.742416649000916,
+          "system_observations": {
+            "end_available_memory_bytes": 11101319168,
+            "end_load_1m": 0.291015625,
+            "process_system_s": 0.49918799999999997,
+            "process_user_s": 4.295837,
+            "start_available_memory_bytes": 11169337344,
+            "start_load_1m": 0.4072265625
+          },
+          "training_rpc_protobuf_bytes": 283760
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.3490535000164527,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 339361792,
+          "queue_wait_sum_s": 2.8599088789633242,
+          "system_observations": {
+            "end_available_memory_bytes": 12435619840,
+            "end_load_1m": 2.732421875,
+            "process_system_s": 0.344759,
+            "process_user_s": 1.320872,
+            "start_available_memory_bytes": 12551962624,
+            "start_load_1m": 2.0205078125
+          },
+          "training_rpc_protobuf_bytes": 296712
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 18.351074169389904,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 405680128,
+          "queue_wait_sum_s": 34.58468287112191,
+          "system_observations": {
+            "end_available_memory_bytes": 12561920000,
+            "end_load_1m": 0.498046875,
+            "process_system_s": 1.028668,
+            "process_user_s": 13.839535,
+            "start_available_memory_bytes": 12671037440,
+            "start_load_1m": 0.251953125
+          },
+          "training_rpc_protobuf_bytes": 234312
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n024_projected128_s14002_three_hosts",
+      "num_clients": 24,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.7919912560411537,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.331975822999084,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 120,
+      "elapsed_s": 12.910587250007666,
+      "first_round_since_strategy_init_s": 1.0173002920055296,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.344713453989243,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 398131200,
+          "queue_wait_sum_s": 11.640624590960215,
+          "system_observations": {
+            "end_available_memory_bytes": 11949637632,
+            "end_load_1m": 2.89990234375,
+            "process_system_s": 0.563443,
+            "process_user_s": 1.944135,
+            "start_available_memory_bytes": 12057133056,
+            "start_load_1m": 2.69287109375
+          },
+          "training_rpc_protobuf_bytes": 699000
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n024_projected128_s14003_mac_only",
+      "num_clients": 24,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.7923874729120856,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.047945479000191,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 120,
+      "elapsed_s": 27.80833033300587,
+      "first_round_since_strategy_init_s": 12.504489665996516,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 5.705246387994521,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 364929024,
+          "queue_wait_sum_s": 14.013481987999512,
+          "system_observations": {
+            "end_available_memory_bytes": 11087949824,
+            "end_load_1m": 0.3779296875,
+            "process_system_s": 0.5026579999999999,
+            "process_user_s": 4.388793,
+            "start_available_memory_bytes": 11158339584,
+            "start_load_1m": 0.21044921875
+          },
+          "training_rpc_protobuf_bytes": 283760
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.358034374032286,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 339476480,
+          "queue_wait_sum_s": 2.8883520839881385,
+          "system_observations": {
+            "end_available_memory_bytes": 12397264896,
+            "end_load_1m": 1.849609375,
+            "process_system_s": 0.343356,
+            "process_user_s": 1.305658,
+            "start_available_memory_bytes": 12555894784,
+            "start_load_1m": 2.220703125
+          },
+          "training_rpc_protobuf_bytes": 296712
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 18.95191237842664,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 404803584,
+          "queue_wait_sum_s": 34.54857279499993,
+          "system_observations": {
+            "end_available_memory_bytes": 12588703744,
+            "end_load_1m": 0.71826171875,
+            "process_system_s": 1.038903,
+            "process_user_s": 14.271012,
+            "start_available_memory_bytes": 12687126528,
+            "start_load_1m": 0.64599609375
+          },
+          "training_rpc_protobuf_bytes": 232752
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n024_projected128_s14003_three_hosts",
+      "num_clients": 24,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.7923874729120856,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.3503850312517898,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 400,
+      "elapsed_s": 13.387808582992875,
+      "first_round_since_strategy_init_s": 1.4330285410105716,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 3.520916363049764,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 657113088,
+          "queue_wait_sum_s": 48.96205566114804,
+          "system_observations": {
+            "end_available_memory_bytes": 10714382336,
+            "end_load_1m": 4.40869140625,
+            "process_system_s": 1.186399,
+            "process_user_s": 3.1701259999999998,
+            "start_available_memory_bytes": 10696196096,
+            "start_load_1m": 4.5703125
+          },
+          "training_rpc_protobuf_bytes": 7231200
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n080_mean512_s14001_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.7972963467731958,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.0405186667485395,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 400,
+      "elapsed_s": 37.584609749988886,
+      "first_round_since_strategy_init_s": 22.27893770900846,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 6.418264017998808,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 432906240,
+          "queue_wait_sum_s": 68.25938581100036,
+          "system_observations": {
+            "end_available_memory_bytes": 11032399872,
+            "end_load_1m": 0.31787109375,
+            "process_system_s": 0.801214,
+            "process_user_s": 5.721933,
+            "start_available_memory_bytes": 11088039936,
+            "start_load_1m": 0.3720703125
+          },
+          "training_rpc_protobuf_bytes": 3258295
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.6691480368608609,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 429195264,
+          "queue_wait_sum_s": 13.058225542932632,
+          "system_observations": {
+            "end_available_memory_bytes": 12378144768,
+            "end_load_1m": 3.14599609375,
+            "process_system_s": 0.657076,
+            "process_user_s": 1.82568,
+            "start_available_memory_bytes": 12440027136,
+            "start_load_1m": 3.1103515625
+          },
+          "training_rpc_protobuf_bytes": 3443175
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 23.96216371282935,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 497696768,
+          "queue_wait_sum_s": 158.1756314150989,
+          "system_observations": {
+            "end_available_memory_bytes": 12496683008,
+            "end_load_1m": 0.587890625,
+            "process_system_s": 1.685558,
+            "process_user_s": 19.287718,
+            "start_available_memory_bytes": 12637261824,
+            "start_load_1m": 0.287109375
+          },
+          "training_rpc_protobuf_bytes": 2354274
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n080_mean512_s14001_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.7972963467731958,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.3185938332499063,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 400,
+      "elapsed_s": 13.366969708993565,
+      "first_round_since_strategy_init_s": 1.4355711249954766,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 3.49150638600986,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 655998976,
+          "queue_wait_sum_s": 50.3787831269874,
+          "system_observations": {
+            "end_available_memory_bytes": 10884857856,
+            "end_load_1m": 4.8173828125,
+            "process_system_s": 1.180661,
+            "process_user_s": 3.140918,
+            "start_available_memory_bytes": 10596990976,
+            "start_load_1m": 4.11474609375
+          },
+          "training_rpc_protobuf_bytes": 7231200
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n080_mean512_s14002_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.7958209783176958,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.042050791751535,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 400,
+      "elapsed_s": 35.11135762500635,
+      "first_round_since_strategy_init_s": 20.267852042001323,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 6.4089880639930925,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 432709632,
+          "queue_wait_sum_s": 63.62034405399481,
+          "system_observations": {
+            "end_available_memory_bytes": 11013947392,
+            "end_load_1m": 0.2470703125,
+            "process_system_s": 0.8021349999999999,
+            "process_user_s": 5.586824,
+            "start_available_memory_bytes": 11063447552,
+            "start_load_1m": 0.37646484375
+          },
+          "training_rpc_protobuf_bytes": 3193155
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.5890780009649461,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 426934272,
+          "queue_wait_sum_s": 12.308370256985654,
+          "system_observations": {
+            "end_available_memory_bytes": 12436766720,
+            "end_load_1m": 1.92822265625,
+            "process_system_s": 0.61057,
+            "process_user_s": 1.694485,
+            "start_available_memory_bytes": 12475973632,
+            "start_load_1m": 1.89013671875
+          },
+          "training_rpc_protobuf_bytes": 3318381
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 24.456067798659205,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 493383680,
+          "queue_wait_sum_s": 147.72383545013145,
+          "system_observations": {
+            "end_available_memory_bytes": 12499783680,
+            "end_load_1m": 0.66162109375,
+            "process_system_s": 1.572935,
+            "process_user_s": 19.737957,
+            "start_available_memory_bytes": 12636131328,
+            "start_load_1m": 0.44873046875
+          },
+          "training_rpc_protobuf_bytes": 2354274
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n080_mean512_s14002_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.7958209783176958,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.2089469062520948,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 400,
+      "elapsed_s": 13.157330082991393,
+      "first_round_since_strategy_init_s": 1.2780386250087759,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 3.0959047051874222,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 655179776,
+          "queue_wait_sum_s": 43.135202012213995,
+          "system_observations": {
+            "end_available_memory_bytes": 12311953408,
+            "end_load_1m": 2.18798828125,
+            "process_system_s": 1.078238,
+            "process_user_s": 2.804498,
+            "start_available_memory_bytes": 12065292288,
+            "start_load_1m": 2.05224609375
+          },
+          "training_rpc_protobuf_bytes": 7231200
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n080_mean512_s14003_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.7967347589325267,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.038511708498845,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 400,
+      "elapsed_s": 35.808091333004995,
+      "first_round_since_strategy_init_s": 20.94771100000071,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 6.59573625799203,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 433455104,
+          "queue_wait_sum_s": 61.444967284000995,
+          "system_observations": {
+            "end_available_memory_bytes": 11005558784,
+            "end_load_1m": 0.63916015625,
+            "process_system_s": 0.8180419999999999,
+            "process_user_s": 5.619317,
+            "start_available_memory_bytes": 11045613568,
+            "start_load_1m": 0.556640625
+          },
+          "training_rpc_protobuf_bytes": 3193425
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.5888480829889886,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 424935424,
+          "queue_wait_sum_s": 12.963873043030617,
+          "system_observations": {
+            "end_available_memory_bytes": 11974361088,
+            "end_load_1m": 2.54345703125,
+            "process_system_s": 0.636846,
+            "process_user_s": 1.708855,
+            "start_available_memory_bytes": 11942363136,
+            "start_load_1m": 2.39794921875
+          },
+          "training_rpc_protobuf_bytes": 3443175
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 24.27495544590056,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 488325120,
+          "queue_wait_sum_s": 151.5336156282574,
+          "system_observations": {
+            "end_available_memory_bytes": 12505669632,
+            "end_load_1m": 0.5458984375,
+            "process_system_s": 1.643267,
+            "process_user_s": 19.501144,
+            "start_available_memory_bytes": 12648517632,
+            "start_load_1m": 0.4775390625
+          },
+          "training_rpc_protobuf_bytes": 2354274
+        }
+      },
+      "method": "mean512",
+      "name": "systems_n080_mean512_s14003_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.7967347589325267,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.214060593749309,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 400,
+      "elapsed_s": 13.103461542006698,
+      "first_round_since_strategy_init_s": 1.1554031670093536,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.9294197679846548,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 413843456,
+          "queue_wait_sum_s": 43.80737698599114,
+          "system_observations": {
+            "end_available_memory_bytes": 12070256640,
+            "end_load_1m": 2.28369140625,
+            "process_system_s": 1.113195,
+            "process_user_s": 2.445951,
+            "start_available_memory_bytes": 12336414720,
+            "start_load_1m": 2.1123046875
+          },
+          "training_rpc_protobuf_bytes": 2330000
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n080_projected128_s14001_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.7844088848359559,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.044830958249804,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 400,
+      "elapsed_s": 28.194107290997636,
+      "first_round_since_strategy_init_s": 13.345781374999206,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 6.23154571300347,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 377774080,
+          "queue_wait_sum_s": 63.07405597400157,
+          "system_observations": {
+            "end_available_memory_bytes": 11058667520,
+            "end_load_1m": 0.41259765625,
+            "process_system_s": 0.725524,
+            "process_user_s": 5.166392,
+            "start_available_memory_bytes": 11147132928,
+            "start_load_1m": 0.482421875
+          },
+          "training_rpc_protobuf_bytes": 957690
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.5226350008015288,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 345882624,
+          "queue_wait_sum_s": 11.484486746965558,
+          "system_observations": {
+            "end_available_memory_bytes": 12337299456,
+            "end_load_1m": 2.29345703125,
+            "process_system_s": 0.588117,
+            "process_user_s": 1.539804,
+            "start_available_memory_bytes": 12490571776,
+            "start_load_1m": 1.9365234375
+          },
+          "training_rpc_protobuf_bytes": 1001403
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 22.2484051133506,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 458276864,
+          "queue_wait_sum_s": 143.86774702044204,
+          "system_observations": {
+            "end_available_memory_bytes": 12529967104,
+            "end_load_1m": 0.74853515625,
+            "process_system_s": 1.641383,
+            "process_user_s": 17.295377,
+            "start_available_memory_bytes": 12689764352,
+            "start_load_1m": 0.66845703125
+          },
+          "training_rpc_protobuf_bytes": 761514
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n080_projected128_s14001_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "selection_auc": 0.7844089471930336,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.2062951144980616,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 400,
+      "elapsed_s": 13.082157166994875,
+      "first_round_since_strategy_init_s": 1.1448860829987098,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.91555270277604,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 413040640,
+          "queue_wait_sum_s": 42.98872372180631,
+          "system_observations": {
+            "end_available_memory_bytes": 12254330880,
+            "end_load_1m": 2.1123046875,
+            "process_system_s": 1.124152,
+            "process_user_s": 2.418139,
+            "start_available_memory_bytes": 12355584000,
+            "start_load_1m": 2.40185546875
+          },
+          "training_rpc_protobuf_bytes": 2330000
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n080_projected128_s14002_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.7847148086585546,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.0405097499969997,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 400,
+      "elapsed_s": 29.099796666007023,
+      "first_round_since_strategy_init_s": 14.248150541010546,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 6.223220500995922,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 377405440,
+          "queue_wait_sum_s": 62.28489179200278,
+          "system_observations": {
+            "end_available_memory_bytes": 11064578048,
+            "end_load_1m": 0.44189453125,
+            "process_system_s": 0.736379,
+            "process_user_s": 5.035582,
+            "start_available_memory_bytes": 11148136448,
+            "start_load_1m": 0.58447265625
+          },
+          "training_rpc_protobuf_bytes": 957690
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.4960088299994823,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 345178112,
+          "queue_wait_sum_s": 11.849599505134393,
+          "system_observations": {
+            "end_available_memory_bytes": 12015894528,
+            "end_load_1m": 2.81201171875,
+            "process_system_s": 0.608704,
+            "process_user_s": 1.541333,
+            "start_available_memory_bytes": 12037898240,
+            "start_load_1m": 2.57177734375
+          },
+          "training_rpc_protobuf_bytes": 1043523
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 22.970297740772367,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 453844992,
+          "queue_wait_sum_s": 147.94255233043805,
+          "system_observations": {
+            "end_available_memory_bytes": 12539224064,
+            "end_load_1m": 0.755859375,
+            "process_system_s": 1.68442,
+            "process_user_s": 17.674123,
+            "start_available_memory_bytes": 12692807680,
+            "start_load_1m": 0.6845703125
+          },
+          "training_rpc_protobuf_bytes": 759954
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n080_projected128_s14002_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "selection_auc": 0.7847148086585546,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.20171736474731,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 400,
+      "elapsed_s": 13.120104166999226,
+      "first_round_since_strategy_init_s": 1.1486953330022516,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 2.912147044102312,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 412860416,
+          "queue_wait_sum_s": 43.84663970601105,
+          "system_observations": {
+            "end_available_memory_bytes": 12259115008,
+            "end_load_1m": 2.28955078125,
+            "process_system_s": 1.118314,
+            "process_user_s": 2.427688,
+            "start_available_memory_bytes": 12366020608,
+            "start_load_1m": 2.06640625
+          },
+          "training_rpc_protobuf_bytes": 2330000
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n080_projected128_s14003_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.784770181743444,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.042190500000288,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 400,
+      "elapsed_s": 28.80696629200247,
+      "first_round_since_strategy_init_s": 13.86152616700565,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 6.170600093997564,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 378880000,
+          "queue_wait_sum_s": 62.012957573992935,
+          "system_observations": {
+            "end_available_memory_bytes": 11098492928,
+            "end_load_1m": 0.11181640625,
+            "process_system_s": 0.715009,
+            "process_user_s": 5.196215,
+            "start_available_memory_bytes": 11184517120,
+            "start_load_1m": 0.06982421875
+          },
+          "training_rpc_protobuf_bytes": 957690
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 1.729010490947985,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 346832896,
+          "queue_wait_sum_s": 13.427261707023717,
+          "system_observations": {
+            "end_available_memory_bytes": 10947444736,
+            "end_load_1m": 3.341796875,
+            "process_system_s": 0.631092,
+            "process_user_s": 1.717426,
+            "start_available_memory_bytes": 10931421184,
+            "start_load_1m": 3.97119140625
+          },
+          "training_rpc_protobuf_bytes": 1021683
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 22.474137550219893,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 460554240,
+          "queue_wait_sum_s": 145.38724253326654,
+          "system_observations": {
+            "end_available_memory_bytes": 12522823680,
+            "end_load_1m": 0.6806640625,
+            "process_system_s": 1.653152,
+            "process_user_s": 17.418124,
+            "start_available_memory_bytes": 12662571008,
+            "start_load_1m": 0.4755859375
+          },
+          "training_rpc_protobuf_bytes": 761514
+        }
+      },
+      "method": "projected128",
+      "name": "systems_n080_projected128_s14003_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "selection_auc": 0.784770181743444,
+      "selection_rescore_verified": true,
+      "stage": "systems",
+      "status": "complete",
+      "steady_round_mean_s": 2.201550781250262,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 1600,
+      "elapsed_s": 43.56304912499036,
+      "first_round_since_strategy_init_s": 1.2746344579936704,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 10.558992121950723,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 655884288,
+          "queue_wait_sum_s": 61.7968258773908,
+          "system_observations": {
+            "end_available_memory_bytes": 12445417472,
+            "end_load_1m": 2.05224609375,
+            "process_system_s": 3.670968,
+            "process_user_s": 8.825433,
+            "start_available_memory_bytes": 12351635456,
+            "start_load_1m": 2.654296875
+          },
+          "training_rpc_protobuf_bytes": 28918400
+        }
+      },
+      "method": "mean512",
+      "name": "anchor_n080_mean512_s13001_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 20,
+      "seed": 13001,
+      "selection_auc": 0.8071349217593277,
+      "selection_rescore_verified": true,
+      "stage": "anchor",
+      "status": "complete",
+      "steady_round_mean_s": 2.0332139539478753,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 1600,
+      "elapsed_s": 67.93083429201215,
+      "first_round_since_strategy_init_s": 19.786162875010632,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 13.084947181992902,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 433668096,
+          "queue_wait_sum_s": 72.5067572179878,
+          "system_observations": {
+            "end_available_memory_bytes": 11044356096,
+            "end_load_1m": 0.25830078125,
+            "process_system_s": 1.8311579999999998,
+            "process_user_s": 13.094452,
+            "start_available_memory_bytes": 11066503168,
+            "start_load_1m": 0.38671875
+          },
+          "training_rpc_protobuf_bytes": 10521333
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 4.882280582911335,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 429244416,
+          "queue_wait_sum_s": 17.90552008996019,
+          "system_observations": {
+            "end_available_memory_bytes": 10516234240,
+            "end_load_1m": 5.04541015625,
+            "process_system_s": 1.709513,
+            "process_user_s": 4.499572,
+            "start_available_memory_bytes": 10737090560,
+            "start_load_1m": 4.4248046875
+          },
+          "training_rpc_protobuf_bytes": 10770867
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 63.61734795430675,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 492761088,
+          "queue_wait_sum_s": 157.41784933488816,
+          "system_observations": {
+            "end_available_memory_bytes": 12497084416,
+            "end_load_1m": 1.04052734375,
+            "process_system_s": 5.022951,
+            "process_user_s": 55.539752,
+            "start_available_memory_bytes": 12619726848,
+            "start_load_1m": 0.40869140625
+          },
+          "training_rpc_protobuf_bytes": 9419278
+        }
+      },
+      "method": "mean512",
+      "name": "anchor_n080_mean512_s13001_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 20,
+      "seed": 13001,
+      "selection_auc": 0.8071349217593277,
+      "selection_rescore_verified": true,
+      "stage": "anchor",
+      "status": "complete",
+      "steady_round_mean_s": 2.203327603052266,
+      "width": 512
+    },
+    {
+      "completed_client_rounds": 1600,
+      "elapsed_s": 43.47788683300314,
+      "first_round_since_strategy_init_s": 1.2122192090027966,
+      "hosts": {
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 9.828879526918172,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 416940032,
+          "queue_wait_sum_s": 57.198851283523254,
+          "system_observations": {
+            "end_available_memory_bytes": 12409241600,
+            "end_load_1m": 2.15966796875,
+            "process_system_s": 3.905936,
+            "process_user_s": 7.417311,
+            "start_available_memory_bytes": 12269846528,
+            "start_load_1m": 1.91162109375
+          },
+          "training_rpc_protobuf_bytes": 9313600
+        }
+      },
+      "method": "projected128",
+      "name": "anchor_n080_projected128_s13001_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 20,
+      "seed": 13001,
+      "selection_auc": 0.7923367142509369,
+      "selection_rescore_verified": true,
+      "stage": "anchor",
+      "status": "complete",
+      "steady_round_mean_s": 2.02952024778872,
+      "width": 128
+    },
+    {
+      "completed_client_rounds": 1600,
+      "elapsed_s": 59.85679970799538,
+      "first_round_since_strategy_init_s": 12.30386924999766,
+      "hosts": {
+        "g14": {
+          "architecture": "x86_64",
+          "fit_elapsed_sum_s": 12.25014858499344,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 380186624,
+          "queue_wait_sum_s": 67.17966418400829,
+          "system_observations": {
+            "end_available_memory_bytes": 11073658880,
+            "end_load_1m": 0.4833984375,
+            "process_system_s": 1.8560699999999999,
+            "process_user_s": 11.575479,
+            "start_available_memory_bytes": 11160444928,
+            "start_load_1m": 0.435546875
+          },
+          "training_rpc_protobuf_bytes": 3324618
+        },
+        "mac": {
+          "architecture": "arm64",
+          "fit_elapsed_sum_s": 4.069521455239737,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 346832896,
+          "queue_wait_sum_s": 15.443414367138757,
+          "system_observations": {
+            "end_available_memory_bytes": 12428099584,
+            "end_load_1m": 2.1943359375,
+            "process_system_s": 1.592727,
+            "process_user_s": 3.546016,
+            "start_available_memory_bytes": 12330205184,
+            "start_load_1m": 1.7607421875
+          },
+          "training_rpc_protobuf_bytes": 3408804
+        },
+        "orin": {
+          "architecture": "aarch64",
+          "fit_elapsed_sum_s": 55.92513571633026,
+          "peak_active_fits": 2,
+          "peak_process_rss_bytes": 456421376,
+          "queue_wait_sum_s": 149.48087819572538,
+          "system_observations": {
+            "end_available_memory_bytes": 12539637760,
+            "end_load_1m": 0.75537109375,
+            "process_system_s": 4.644429,
+            "process_user_s": 47.502662,
+            "start_available_memory_bytes": 12677668864,
+            "start_load_1m": 0.16845703125
+          },
+          "training_rpc_protobuf_bytes": 3042466
+        }
+      },
+      "method": "projected128",
+      "name": "anchor_n080_projected128_s13001_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 20,
+      "seed": 13001,
+      "selection_auc": 0.7923367142509369,
+      "selection_rescore_verified": true,
+      "stage": "anchor",
+      "status": "complete",
+      "steady_round_mean_s": 2.1752006754732545,
+      "width": 128
+    }
+  ],
+  "historical_replays": [
+    {
+      "historical_record_sha256": "d56b38c74c83ca9db769abe16e2a31ae203836639fb250e4b1500c4766019793",
+      "max_abs_head_difference": 0.0,
+      "name": "anchor_n080_mean512_s13001_mac_only",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "historical_record_sha256": "d56b38c74c83ca9db769abe16e2a31ae203836639fb250e4b1500c4766019793",
+      "max_abs_head_difference": 1.862645149230957e-09,
+      "name": "anchor_n080_mean512_s13001_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "historical_record_sha256": "740f12ba11e2a970a54b354f6279b7e02e04d3a0d4309b7321c0889d3c509dad",
+      "max_abs_head_difference": 0.0,
+      "name": "anchor_n080_projected128_s13001_mac_only",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "historical_record_sha256": "740f12ba11e2a970a54b354f6279b7e02e04d3a0d4309b7321c0889d3c509dad",
+      "max_abs_head_difference": 3.725290298461914e-09,
+      "name": "anchor_n080_projected128_s13001_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    }
+  ],
+  "placement_pairs": [
+    {
+      "elapsed_speedup": 0.39001445739991847,
+      "max_abs_head_difference": 9.313225746154785e-10,
+      "steady_round_speedup": 1.0820357602846948,
+      "three_host_cell": "systems_n003_mean512_s14001_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.4298164257648754,
+      "max_abs_head_difference": 9.313225746154785e-10,
+      "steady_round_speedup": 1.1342411638826633,
+      "three_host_cell": "systems_n003_mean512_s14002_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.4188583944681331,
+      "max_abs_head_difference": 1.3969838619232178e-09,
+      "steady_round_speedup": 1.1414079392282275,
+      "three_host_cell": "systems_n003_mean512_s14003_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.4974523806830826,
+      "max_abs_head_difference": 2.9802322387695312e-08,
+      "steady_round_speedup": 1.1306754637751315,
+      "three_host_cell": "systems_n003_projected128_s14001_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.5097306684213952,
+      "max_abs_head_difference": 1.862645149230957e-09,
+      "steady_round_speedup": 1.07536403477383,
+      "three_host_cell": "systems_n003_projected128_s14002_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.5358351166975768,
+      "max_abs_head_difference": 1.4901161193847656e-08,
+      "steady_round_speedup": 1.274018812339581,
+      "three_host_cell": "systems_n003_projected128_s14003_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.39042198318758625,
+      "max_abs_head_difference": 6.984919309616089e-10,
+      "steady_round_speedup": 0.9449436217876402,
+      "three_host_cell": "systems_n006_mean512_s14001_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.3924782809536354,
+      "max_abs_head_difference": 1.4901161193847656e-08,
+      "steady_round_speedup": 0.8410181913779112,
+      "three_host_cell": "systems_n006_mean512_s14002_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.3995419598651986,
+      "max_abs_head_difference": 9.313225746154785e-10,
+      "steady_round_speedup": 0.9748898345823809,
+      "three_host_cell": "systems_n006_mean512_s14003_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.5010838662283001,
+      "max_abs_head_difference": 1.4901161193847656e-08,
+      "steady_round_speedup": 1.011058802562582,
+      "three_host_cell": "systems_n006_projected128_s14001_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.46243734215750687,
+      "max_abs_head_difference": 9.313225746154785e-10,
+      "steady_round_speedup": 0.9232336421504223,
+      "three_host_cell": "systems_n006_projected128_s14002_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.47754325356960586,
+      "max_abs_head_difference": 1.4901161193847656e-08,
+      "steady_round_speedup": 1.1539700240599784,
+      "three_host_cell": "systems_n006_projected128_s14003_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.3736895570598886,
+      "max_abs_head_difference": 4.656612873077393e-10,
+      "steady_round_speedup": 0.8635007820896496,
+      "three_host_cell": "systems_n024_mean512_s14001_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.34121425202568095,
+      "max_abs_head_difference": 4.656612873077393e-10,
+      "steady_round_speedup": 0.8560496037791013,
+      "three_host_cell": "systems_n024_mean512_s14002_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.36974253774484594,
+      "max_abs_head_difference": 4.656612873077393e-10,
+      "steady_round_speedup": 0.8665780239515829,
+      "three_host_cell": "systems_n024_mean512_s14003_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.4832931150962523,
+      "max_abs_head_difference": 9.313225746154785e-10,
+      "steady_round_speedup": 0.8729281835997988,
+      "three_host_cell": "systems_n024_projected128_s14001_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.46794587589055797,
+      "max_abs_head_difference": 1.4901161193847656e-08,
+      "steady_round_speedup": 0.8784988475417387,
+      "three_host_cell": "systems_n024_projected128_s14002_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.464270493603998,
+      "max_abs_head_difference": 4.656612873077393e-10,
+      "steady_round_speedup": 0.8713234009618744,
+      "three_host_cell": "systems_n024_projected128_s14003_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.3562045388271414,
+      "max_abs_head_difference": 6.984919309616089e-10,
+      "steady_round_speedup": 0.8800673224807137,
+      "three_host_cell": "systems_n080_mean512_s14001_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.38070216058730794,
+      "max_abs_head_difference": 4.656612873077393e-10,
+      "steady_round_speedup": 0.9244453934007264,
+      "three_host_cell": "systems_n080_mean512_s14002_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.3674401397335589,
+      "max_abs_head_difference": 9.313225746154785e-10,
+      "steady_round_speedup": 0.9207117972533949,
+      "three_host_cell": "systems_n080_mean512_s14003_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.46475887343276967,
+      "max_abs_head_difference": 1.4901161193847656e-08,
+      "steady_round_speedup": 0.9268166098056239,
+      "three_host_cell": "systems_n080_projected128_s14001_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.4495618068107266,
+      "max_abs_head_difference": 1.3969838619232178e-09,
+      "steady_round_speedup": 0.9267809677429637,
+      "three_host_cell": "systems_n080_projected128_s14002_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.45544900611910993,
+      "max_abs_head_difference": 9.313225746154785e-10,
+      "steady_round_speedup": 0.9276145330795081,
+      "three_host_cell": "systems_n080_projected128_s14003_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.6412853541254512,
+      "max_abs_head_difference": 1.862645149230957e-09,
+      "steady_round_speedup": 0.9227923941638398,
+      "three_host_cell": "anchor_n080_mean512_s13001_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    },
+    {
+      "elapsed_speedup": 0.7263650419852897,
+      "max_abs_head_difference": 3.725290298461914e-09,
+      "steady_round_speedup": 0.9330266722849196,
+      "three_host_cell": "anchor_n080_projected128_s13001_three_hosts",
+      "within_prospective_1e_5_tolerance": true
+    }
+  ],
+  "public_manifest_sha256": "a02da5d262fc59d054f67bdff6c5ad7ca71dd42f721d141af7cb1acebd9dc935",
+  "schema": "fedlearn.multihost_analysis.v1",
+  "scope": {
+    "attacks": "none",
+    "bytes": "training RPC protobuf messages; excludes registration, heartbeat, framing, TLS and SSH",
+    "device": "CPU",
+    "evaluation": "selection only",
+    "fit_concurrency": "two per host; two total Mac-only, six total three-host",
+    "physical_hosts": 3,
+    "privacy": "nonprivate",
+    "timing": "supervisor wall time includes process startup/staging/shutdown; steady rounds use server monotonic clock",
+    "transport": "loopback gRPC wrapped in private SSH reverse forwarding"
+  },
+  "synthetic": false
+}

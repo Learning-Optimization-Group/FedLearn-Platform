@@ -69,23 +69,23 @@
 
 **Interfaces:** Runner modes `preflight`, `execute`, `analyze`; fresh outputs only. Exact source/runtime hashes, logical/physical assignments, settings and all declared outcomes bound in private/public manifests. Only Mac loads the verified canonical train/selection bundle. Remote host packs contain assigned training rows/labels and immutable projection metadata only.
 
-- [ ] Failing tests for prospective cell budget, host mappings, source/runtime changes, selection leakage, changed source/shards, incomplete cohorts and export allowlist.
-- [ ] Implement explicit seed IDs14001–14003 for systems cells and14004 for anchors; identify them as training-seed IDs, not dates. Pair shards and streams across placement/method cells for each client count.
-- [ ] Use uniform clipped mean, C0.05, LR0.03, SGD, seven local epochs, batch256, zero head, fixed projection seed20261025. Systems cells have five rounds; anchors twenty; no noise or attacks.
-- [ ] Generated-data reference with independent batch-generator implementation, then CPU one-client-per-host smoke over the qualified private transport. Verify distinct physical contributors and five complete rounds before medical preflight.
-- [ ] Freeze startup, steady-state, serialization/transport scope, memory and per-host fit limits. Measure elapsed times locally; no subtraction of unsynchronized host clocks. Freeze public deadline600seconds per round after readiness; missing cohort aborts, never partial aggregate.
-- [ ] Create local source/protocol/public-manifest checkpoint before the52 medical cells; retain all failures and unrun cells, no replacement fitting.
+- [x] Failing tests for prospective cell budget, host mappings, source/runtime changes, selection leakage, changed source/shards, incomplete cohorts and export allowlist.
+- [x] Implement explicit seed IDs14001–14003 for systems cells and14004 for anchors; identify them as training-seed IDs, not dates. Pair shards and streams across placement/method cells for each client count.
+- [x] Use uniform clipped mean, C0.05, LR0.03, SGD, seven local epochs, batch256, zero head, fixed projection seed20261025. Systems cells have five rounds; anchors twenty; no noise or attacks.
+- [x] Generated-data reference with independent batch-generator implementation, then CPU one-client-per-host smoke over the qualified private transport. Verify distinct physical contributors and five complete rounds before medical preflight.
+- [x] Freeze startup, steady-state, serialization/transport scope, memory and per-host fit limits. Measure elapsed times locally; no subtraction of unsynchronized host clocks. Freeze public deadline600seconds per round after readiness; missing cohort aborts, never partial aggregate.
+- [x] Create local source/protocol/public-manifest checkpoint before the52 medical cells; retain all failures and unrun cells, no replacement fitting.
 
 ## Task5 — Execution, analysis, report and review
 
 **Files:** New aggregate result/verification notes under `docs/artifacts/capstone/`; contribution-first reportv4 and reading copies; no changes to old measurements.
 
-- [ ] Execute all52 declared nonprivate cells with owned process handles, progress journals and immutable source. Record all outcomes.
-- [ ] Independently rescore all returned heads on selection, compare transport/placement/reference heads and execution cohorts, and report measured numerical differences without retroactive tolerance changes.
-- [ ] Export aggregate completion, strong-scaling timing, memory and communication tables; keep endpoints, raw shards and models private.
-- [ ] Render and inspect the approved contribution-first report. Add multi-host claims only for verified actual runs; preserve previous report versions.
-- [ ] Run framework/runtime gates appropriate to code changes and a fresh whole-change review. Resolve material findings with regression tests; record remaining limitations accurately.
-- [ ] Preserve reviewed work locally. No push, merge, service interruption or external publication is included.
+- [x] Execute all52 declared nonprivate cells with owned process handles, progress journals and immutable source. Record all outcomes.
+- [x] Independently rescore all returned heads on selection, compare transport/placement/reference heads and execution cohorts, and report measured numerical differences without retroactive tolerance changes.
+- [x] Export aggregate completion, strong-scaling timing, memory and communication tables; keep endpoints, raw shards and models private.
+- [x] Render and inspect the approved contribution-first report. Add multi-host claims only for verified actual runs; preserve previous report versions.
+- [x] Run framework/runtime gates appropriate to code changes and a fresh whole-change review. Resolve material findings with regression tests; record remaining limitations accurately.
+- [x] Preserve reviewed work locally. No push, merge, service interruption or external publication is included.
 
 ## Current ledger
 
@@ -107,3 +107,9 @@ Ruling: use the existing private SSH route/tunnels if direct Mac network routing
 - Medical fits remain zero while final qualification, reviewed test gates and source/public-manifest checkpoint are pending.
 
 Final pre-fit gates: reviewed source passed2403 framework tests,14deselected,80.23%coverage (583.06s); runtime802passed,30deselected (56.81s); final actual transport2passed (20.38s); preparation/supervisor17passed. Hardened generated snapshot completed four qualification cells/twenty rounds and independent simulator comparison, with the same7.45e-9/1.86e-9 cross-host maxima. No remaining material blocker from the fix review. The medical preflight contains52cells/320rounds and public manifest SHA256 a02da5d262fc59d054f67bdff6c5ad7ca71dd42f721d141af7cb1acebd9dc935. Medical fitting is zero before this local source/protocol checkpoint.
+
+Execution completed at the frozen source checkpoint8ac59c4:52/52cells,320rounds,13,180client fits/acknowledged uploads; no failed or replacement fitting. All26placement comparisons passed1e-5; observed max2.9802322387695312e-8. Four historical anchors passed; observed max3.725290298461914e-9 (Mac-only exact). All52heads independently rescored for loss/AUROC; every host JSONL, batch budget, example count and evaluated aggregate reconciled. The public analysis was independently regenerated before verification. Postprocessing review caught a false-pass export gap; four tamper regressions failed before correction and all seven audit tests pass afterward. Final combined preparation/supervisor/audit suite24passed.
+
+Performance ruling: retain the negative result. All24five-round paired whole-cell ratios favor Mac-only; three-host time1.87–2.93×Mac-only. Three-client steady rounds improve,24/80-client steady rounds worsen. Startup/data staging and background/host differences are confounded; no causal attribution or GPU ranking. A new frozen experiment, not retuning this one, is the route to isolate overhead.
+
+Integration: preserve the existing worktree/branch and local checkpoints, with no push/merge/publication. As authorized, reportv5 integrates verified systems evidence while preservingv3/v4. Final rendering/receipt status is recorded in its separate verification artifact. No pending training or source-review blocker remains.

@@ -1,0 +1,74 @@
+{
+  "artifact_sha256": {
+    "REVIEW-HANDOFF.md": "8b615ce065534c120f7b7722efa63958496311e7f019c9b0646a8df73591d647",
+    "capstone-final-report-v5-working.html": "c323c664f814ba007258b6902ffb0ffd427629170f300c9b0411bfc4453e1313",
+    "capstone-final-report-v5-working.md": "a2aceebe15cb9653f73be35cdacb96066103c17ee42f808c47e964a3dcfcde81",
+    "capstone-final-report-v5-working.pdf": "e003d2c4015ad9294114d2867aaea89d756c1fd143fadb6f16fa841381f510de",
+    "figures/multihost-2026-10-26/cpu-placement-speedup.png": "272f7d372b73f4febe42404c8d40d79682e328a125dfc8dd01a1f5cfa22e7979",
+    "integrated-report-v5-verification-2026-10-26.json": "e7cc12bae5a55996d13c8b6782fd6492e671905cb169becccbf6279d1cad3adc",
+    "multihost-protocol-2026-10-26.md": "1484bbba021ce2879fdb1c768126a96eecb8b96c2dc55694da18f4977f57b59d",
+    "multihost-public-manifest-2026-10-26.json": "a02da5d262fc59d054f67bdff6c5ad7ca71dd42f721d141af7cb1acebd9dc935",
+    "multihost-qualification-2026-10-26.json": "d5988f801126e4b82bae44eb8f53002390baa564b2b52e09a3dd84e713d47d4f",
+    "multihost-reproduction.md": "ce32d6ff1efc924a30ff477a386896e4b38e3f580b84ce6625cdb8e17d899151",
+    "multihost-results-2026-10-26.json": "d6d1af7a0c5e5e45e7a3be1a01e878f71e363ca7c0c5ced21974a5f89a3ac8fd",
+    "multihost-results-2026-10-26.md": "d968b82ddade7ba75b3fcf9af18aa4faed0a89b8e3166f9ffc74a25b53bf8888",
+    "multihost-review-2026-10-26.md": "c398365f8f9ff24400816dced3eb29c0aceac225723d1aaa2aa26e65ac8adb91",
+    "multihost-verification-2026-10-26.json": "e7039f70f2d55d4a5abd10ede1e42660a9bf44526170ec4923513ff991dd3050",
+    "repro/audit_multihost_results.py": "4743dd56071be0a7b7978ecafd87ce05a58280efd410d55c3f88b17e7a256060",
+    "repro/render_multihost_results.py": "60f796328e33b072d181c890383dfe4cdf6dbc3c82a9d90fdc60b42bd6636d4a",
+    "repro/test_audit_multihost_results.py": "0852b0112beb84d17721a3c16e7ee04fcf5b0e6a1667d8e6d541c332845d2a81"
+  },
+  "completion": {
+    "cells": 52,
+    "client_rounds": 13180,
+    "failed_cells": 0,
+    "replacement_fits": 0,
+    "rounds": 320
+  },
+  "date": "2026-10-26",
+  "integration": "Local branch/worktree retained; no push, merge or external publication",
+  "numerical_acceptance": {
+    "historical_replays": 4,
+    "observed_max_abs_historical": 3.725290298461914e-09,
+    "observed_max_abs_placement": 2.9802322387695312e-08,
+    "placement_pairs": 26,
+    "prospective_max_abs_tolerance": 1e-05
+  },
+  "private_test_log_sha256": {
+    "framework-reviewed-final.log": "696e176e10fb75bc8ea85a00f0007026ba8b4dbdbebd8da647d6b07fd858842a",
+    "postprocessing-final-tests.log": "bb80ba732dcc4b8e57190304309e413e83b992399da300afdec76aa2b78e1aec",
+    "runtime-reviewed-final.log": "14d5f8502a2818141a92337a5a6ce8f04060d61c5dabce6bfe54e9a1998c2b57",
+    "transport-qualified-final.log": "6e306eeeedc43e46b82b39ad79d3d60fd0e431dd381723bba635b90fd08d6299"
+  },
+  "remote_end_state": {
+    "orin_existing_inference_health_status": 200,
+    "remote_study_directory_mode": "0700",
+    "shared_service_changes": false,
+    "task_owned_client_processes": {
+      "g14": 0,
+      "mac": "all supervised processes exited successfully",
+      "orin": 0
+    }
+  },
+  "report": {
+    "all_pages_visually_inspected": true,
+    "earlier_versions_and_scientific_inputs_preserved": true,
+    "pages": 14,
+    "root_rechecked_systems_pages": [
+      12,
+      13
+    ],
+    "version": 5
+  },
+  "review": "No remaining material findings after core, postprocessing and aggregate-results review; export false-pass corrected with failing-then-passing regressions",
+  "schema": "capstone.multihost_finalization.v1",
+  "scope": "52 nonprivate CPU transport fits; selection only; no GPU/DP/clinical qualification",
+  "source_checkpoint": "8ac59c4",
+  "status": "complete",
+  "test_gates": {
+    "actual_transport": "2 passed",
+    "framework": "2403 passed, 14 deselected; 80.23% coverage",
+    "preparation_supervisor_postprocessing": "24 passed",
+    "runtime": "802 passed, 30 deselected"
+  }
+}

@@ -1,0 +1,546 @@
+{
+  "schema": "capstone.integrated_report_v5_verification.v1",
+  "date": "2026-10-26",
+  "status": "accepted",
+  "report": "capstone-final-report-v5-working.md",
+  "pdf": "capstone-final-report-v5-working.pdf",
+  "html": "capstone-final-report-v5-working.html",
+  "word_count_whitespace": 4709,
+  "scope": "Public-artifact numerical reconciliation and reading-copy render/visual review. No fitting, code edits, private raw-artifact inspection or independent saved-head rescoring performed in this report check. Original benchmark audit is referenced separately.",
+  "preservation": {
+    "unchanged": true,
+    "earlier_reports_receipt_and_benchmark_sources_sha256": {
+      "capstone-final-report-v3-working.md": "43ea0e56f85f6210538dbabf6e0e01da288c0f6169aaa9e986bb8e4fafe2de33",
+      "capstone-final-report-v3-working.pdf": "680782b2cab0d3574f540bd4477d09e6b25acc6bb413342440fc5528b6a10398",
+      "capstone-final-report-v3-working.html": "0880d19f761b8ffd3100e376aea71f5a6755f2c09eaa78413d919bb7249afa05",
+      "capstone-final-report-v4-working.md": "e205bda0b51c709bb7c606ea105536ef4883fce0ae7c67b3b8855a65d3419ada",
+      "capstone-final-report-v4-working.pdf": "df43d42f2c3aaaa1220f5dc6e9463f30f0aa0be67610cec1a0cce3cf1c3f08b7",
+      "capstone-final-report-v4-working.html": "a6c041c4054fa5c24bcebac60da309f80358850d6801c15fe90d63a0c164a1e3",
+      "editorial-revision-verification-2026-10-25.json": "ecd32e2ef6821acdb6b489253e6fa6caa5d0d47e66733c9043b289ec77ca1f23",
+      "multihost-results-2026-10-26.json": "d6d1af7a0c5e5e45e7a3be1a01e878f71e363ca7c0c5ced21974a5f89a3ac8fd",
+      "multihost-verification-2026-10-26.json": "e7039f70f2d55d4a5abd10ede1e42660a9bf44526170ec4923513ff991dd3050"
+    },
+    "scientific_inputs_and_figures_sha256": {
+      "capstone-final-report-v3-working.md": "43ea0e56f85f6210538dbabf6e0e01da288c0f6169aaa9e986bb8e4fafe2de33",
+      "effusion-finalists-2026-10-25.json": "582a4a04ef7f37abf27ff9cefed6bd1096a9de934e0c32f3e476ed246cb5e71f",
+      "effusion-diagnostic-pilots-2026-10-25.json": "eab1d007740a667179853059ab32028535cb14d67b8a8a1ffae79ae0b813a5d9",
+      "phase-4-verification-2026-10-25.json": "c834fea151fc2b8cd606a5648d28e2c7ca3b28dd156b2e4eb7c34f86a7a5a860",
+      "phase-5-verification-2026-10-25.json": "953d3f7b83530e96c75ae35d601ad4201ef2853cd4c292c3669b6e9b80334f67",
+      "literature-refresh-2026-10-25.md": "7e76ec4ea7febe8ceb66b9ecf73910a18ed04b3ffd317fe549461a4afa23bf0d",
+      "figures/remediation-2026-10-25/finalist-methods.png": "818c2f40f5e80fb53310ac67e23138590fb06fa80444c13b5e6938895eedda40",
+      "figures/remediation-2026-10-25/primary-paired-gain.png": "fae691b87f15a5de7052e059847d1608ea334faf061e1a03651b2d84e286c28e",
+      "figures/remediation-2026-10-25/pilot-projection.png": "336d6e1414dc506c5905bb4f5ed4f0b1320877cf6e68138df7063e4fcaaceca9",
+      "figures/remediation-2026-10-25/pilot-buckets.png": "6245f63c46e390d7989f3a5421a7c81836e0caa821d90e896343741862b5b825"
+    }
+  },
+  "numeric_binding": {
+    "finalist_summary_sha256": "582a4a04ef7f37abf27ff9cefed6bd1096a9de934e0c32f3e476ed246cb5e71f",
+    "main_means_checked": 16,
+    "main_means": [
+      {
+        "arm": "mean512:nonprivate:clean",
+        "source_value": 0.807298354463237,
+        "printed": "0.807298"
+      },
+      {
+        "arm": "mean512:nonprivate:owned_pgd",
+        "source_value": 0.5285448512426186,
+        "printed": "0.528545"
+      },
+      {
+        "arm": "mean512:private:clean",
+        "source_value": 0.7403606558767306,
+        "printed": "0.740361"
+      },
+      {
+        "arm": "mean512:private:owned_pgd",
+        "source_value": 0.5513040725241081,
+        "printed": "0.551304"
+      },
+      {
+        "arm": "projected128:nonprivate:clean",
+        "source_value": 0.7923752976926883,
+        "printed": "0.792375"
+      },
+      {
+        "arm": "projected128:nonprivate:owned_pgd",
+        "source_value": 0.7618389432670319,
+        "printed": "0.761839"
+      },
+      {
+        "arm": "projected128:private:clean",
+        "source_value": 0.7595362990525715,
+        "printed": "0.759536"
+      },
+      {
+        "arm": "projected128:private:owned_pgd",
+        "source_value": 0.6833307122575057,
+        "printed": "0.683331"
+      },
+      {
+        "arm": "trim16:nonprivate:clean",
+        "source_value": 0.8070020388270085,
+        "printed": "0.807002"
+      },
+      {
+        "arm": "trim16:nonprivate:owned_pgd",
+        "source_value": 0.5994418864878366,
+        "printed": "0.599442"
+      },
+      {
+        "arm": "trim16:private:clean",
+        "source_value": 0.678365477991111,
+        "printed": "0.678365"
+      },
+      {
+        "arm": "trim16:private:owned_pgd",
+        "source_value": 0.6051138394965405,
+        "printed": "0.605114"
+      },
+      {
+        "arm": "center_quarter:nonprivate:clean",
+        "source_value": 0.8051066279005187,
+        "printed": "0.805107"
+      },
+      {
+        "arm": "center_quarter:nonprivate:owned_pgd",
+        "source_value": 0.7227250194637225,
+        "printed": "0.722725"
+      },
+      {
+        "arm": "center_quarter:private:clean",
+        "source_value": 0.6664966085232646,
+        "printed": "0.666497"
+      },
+      {
+        "arm": "center_quarter:private:owned_pgd",
+        "source_value": 0.5083004441320493,
+        "printed": "0.508300"
+      }
+    ],
+    "primary_point_and_bounds": [
+      {
+        "source_path": "primary.seed_interval.point",
+        "source_value": 0.019175643175840928,
+        "printed": "+0.019176",
+        "decimal_places": 6
+      },
+      {
+        "source_path": "primary.seed_interval.ci_low",
+        "source_value": 0.011011253706071684,
+        "printed": "+0.011011",
+        "decimal_places": 6
+      },
+      {
+        "source_path": "primary.seed_interval.ci_high",
+        "source_value": 0.02734003264561017,
+        "printed": "+0.027340",
+        "decimal_places": 6
+      },
+      {
+        "source_path": "primary.patient_interval.point",
+        "source_value": 0.019175643175840962,
+        "printed": "+0.019176",
+        "decimal_places": 6
+      },
+      {
+        "source_path": "primary.patient_interval.ci_low",
+        "source_value": 0.013135936475838864,
+        "printed": "+0.013136",
+        "decimal_places": 6
+      },
+      {
+        "source_path": "primary.patient_interval.ci_high",
+        "source_value": 0.02589348963959565,
+        "printed": "+0.025893",
+        "decimal_places": 6
+      }
+    ],
+    "pilot_summary_sha256": "eab1d007740a667179853059ab32028535cb14d67b8a8a1ffae79ae0b813a5d9",
+    "pilot_arms_checked": 64,
+    "pilot_columns": "AUROC mean,min,max,sample_SD at four decimals; rows also matched in extracted PDF",
+    "multihost_results_sha256": "d6d1af7a0c5e5e45e7a3be1a01e878f71e363ca7c0c5ced21974a5f89a3ac8fd",
+    "multihost_verification_sha256": "e7039f70f2d55d4a5abd10ede1e42660a9bf44526170ec4923513ff991dd3050",
+    "benchmark_counts": {
+      "cells": 52,
+      "systems_cells": 48,
+      "placement_pairs": 26,
+      "systems_pairs": 24,
+      "rounds": 320,
+      "client_fits_and_acknowledged_uploads": 13180,
+      "historical_replays": 4
+    },
+    "maximum_placement_parameter_difference": 2.9802322387695312e-08,
+    "maximum_historical_parameter_difference": 3.725290298461914e-09,
+    "maximum_placement_auroc_difference": 2.494283103393613e-07,
+    "table4": [
+      {
+        "method": "mean512",
+        "logical_clients": 3,
+        "paired_seeds": 3,
+        "source_values": {
+          "mac_median_s": 13.509165374998702,
+          "three_host_median_s": 32.25234483399254,
+          "paired_median_whole_ratio": 0.4188583944681331,
+          "paired_median_steady_ratio": 1.1342411638826633
+        },
+        "printed": [
+          "13.51",
+          "32.25",
+          "0.419",
+          "1.134"
+        ]
+      },
+      {
+        "method": "mean512",
+        "logical_clients": 6,
+        "paired_seeds": 3,
+        "source_values": {
+          "mac_median_s": 13.335760959002073,
+          "three_host_median_s": 33.48464608300128,
+          "paired_median_whole_ratio": 0.3924782809536354,
+          "paired_median_steady_ratio": 0.9449436217876402
+        },
+        "printed": [
+          "13.34",
+          "33.48",
+          "0.392",
+          "0.945"
+        ]
+      },
+      {
+        "method": "mean512",
+        "logical_clients": 24,
+        "paired_seeds": 3,
+        "source_values": {
+          "mac_median_s": 13.338668791009695,
+          "three_host_median_s": 35.844305332997465,
+          "paired_median_whole_ratio": 0.36974253774484594,
+          "paired_median_steady_ratio": 0.8635007820896496
+        },
+        "printed": [
+          "13.34",
+          "35.84",
+          "0.370",
+          "0.864"
+        ]
+      },
+      {
+        "method": "mean512",
+        "logical_clients": 80,
+        "paired_seeds": 3,
+        "source_values": {
+          "mac_median_s": 13.366969708993565,
+          "three_host_median_s": 35.808091333004995,
+          "paired_median_whole_ratio": 0.3674401397335589,
+          "paired_median_steady_ratio": 0.9207117972533949
+        },
+        "printed": [
+          "13.37",
+          "35.81",
+          "0.367",
+          "0.921"
+        ]
+      },
+      {
+        "method": "projected128",
+        "logical_clients": 3,
+        "paired_seeds": 3,
+        "source_values": {
+          "mac_median_s": 13.395856874994934,
+          "three_host_median_s": 26.280264666987932,
+          "paired_median_whole_ratio": 0.5097306684213952,
+          "paired_median_steady_ratio": 1.1306754637751315
+        },
+        "printed": [
+          "13.40",
+          "26.28",
+          "0.510",
+          "1.131"
+        ]
+      },
+      {
+        "method": "projected128",
+        "logical_clients": 6,
+        "paired_seeds": 3,
+        "source_values": {
+          "mac_median_s": 13.356155625006068,
+          "three_host_median_s": 27.495080082997447,
+          "paired_median_whole_ratio": 0.47754325356960586,
+          "paired_median_steady_ratio": 1.011058802562582
+        },
+        "printed": [
+          "13.36",
+          "27.50",
+          "0.478",
+          "1.011"
+        ]
+      },
+      {
+        "method": "projected128",
+        "logical_clients": 24,
+        "paired_seeds": 3,
+        "source_values": {
+          "mac_median_s": 13.303563499997836,
+          "three_host_median_s": 28.121794499995303,
+          "paired_median_whole_ratio": 0.46794587589055797,
+          "paired_median_steady_ratio": 0.8729281835997988
+        },
+        "printed": [
+          "13.30",
+          "28.12",
+          "0.468",
+          "0.873"
+        ]
+      },
+      {
+        "method": "projected128",
+        "logical_clients": 80,
+        "paired_seeds": 3,
+        "source_values": {
+          "mac_median_s": 13.103461542006698,
+          "three_host_median_s": 28.80696629200247,
+          "paired_median_whole_ratio": 0.45544900611910993,
+          "paired_median_steady_ratio": 0.9268166098056239
+        },
+        "printed": [
+          "13.10",
+          "28.81",
+          "0.455",
+          "0.927"
+        ]
+      }
+    ],
+    "figure5_source_ratio_summaries": [
+      {
+        "method": "mean512",
+        "logical_clients": 3,
+        "whole_cell_ratio": {
+          "min": 0.39001445739991847,
+          "median": 0.4188583944681331,
+          "max": 0.4298164257648754
+        },
+        "steady_round_ratio": {
+          "min": 1.0820357602846948,
+          "median": 1.1342411638826633,
+          "max": 1.1414079392282275
+        }
+      },
+      {
+        "method": "mean512",
+        "logical_clients": 6,
+        "whole_cell_ratio": {
+          "min": 0.39042198318758625,
+          "median": 0.3924782809536354,
+          "max": 0.3995419598651986
+        },
+        "steady_round_ratio": {
+          "min": 0.8410181913779112,
+          "median": 0.9449436217876402,
+          "max": 0.9748898345823809
+        }
+      },
+      {
+        "method": "mean512",
+        "logical_clients": 24,
+        "whole_cell_ratio": {
+          "min": 0.34121425202568095,
+          "median": 0.36974253774484594,
+          "max": 0.3736895570598886
+        },
+        "steady_round_ratio": {
+          "min": 0.8560496037791013,
+          "median": 0.8635007820896496,
+          "max": 0.8665780239515829
+        }
+      },
+      {
+        "method": "mean512",
+        "logical_clients": 80,
+        "whole_cell_ratio": {
+          "min": 0.3562045388271414,
+          "median": 0.3674401397335589,
+          "max": 0.38070216058730794
+        },
+        "steady_round_ratio": {
+          "min": 0.8800673224807137,
+          "median": 0.9207117972533949,
+          "max": 0.9244453934007264
+        }
+      },
+      {
+        "method": "projected128",
+        "logical_clients": 3,
+        "whole_cell_ratio": {
+          "min": 0.4974523806830826,
+          "median": 0.5097306684213952,
+          "max": 0.5358351166975768
+        },
+        "steady_round_ratio": {
+          "min": 1.07536403477383,
+          "median": 1.1306754637751315,
+          "max": 1.274018812339581
+        }
+      },
+      {
+        "method": "projected128",
+        "logical_clients": 6,
+        "whole_cell_ratio": {
+          "min": 0.46243734215750687,
+          "median": 0.47754325356960586,
+          "max": 0.5010838662283001
+        },
+        "steady_round_ratio": {
+          "min": 0.9232336421504223,
+          "median": 1.011058802562582,
+          "max": 1.1539700240599784
+        }
+      },
+      {
+        "method": "projected128",
+        "logical_clients": 24,
+        "whole_cell_ratio": {
+          "min": 0.464270493603998,
+          "median": 0.46794587589055797,
+          "max": 0.4832931150962523
+        },
+        "steady_round_ratio": {
+          "min": 0.8713234009618744,
+          "median": 0.8729281835997988,
+          "max": 0.8784988475417387
+        }
+      },
+      {
+        "method": "projected128",
+        "logical_clients": 80,
+        "whole_cell_ratio": {
+          "min": 0.4495618068107266,
+          "median": 0.45544900611910993,
+          "max": 0.46475887343276967
+        },
+        "steady_round_ratio": {
+          "min": 0.9267809677429637,
+          "median": 0.9268166098056239,
+          "max": 0.9276145330795081
+        }
+      }
+    ],
+    "whole_cell_three_over_mac_range": [
+      1.8662457327603559,
+      2.9307099397616505
+    ],
+    "whole_cell_three_over_mac_range_printed": [
+      "1.87",
+      "2.93"
+    ],
+    "all_24_five_round_pairs_slower_end_to_end_on_three_hosts": true,
+    "steady_round_scope": "All three-client pairs faster; all 24/80-client pairs slower; six-client projected128 mixed. Descriptive protocol timing, not confidence intervals or hardware ranking.",
+    "peak_client_process_rss_mib": {
+      "mac": 626.671875,
+      "g14": 413.578125,
+      "orin": 474.640625
+    }
+  },
+  "visual_qa": {
+    "all_pages_visually_inspected": true,
+    "pages": 14,
+    "initial_layout_reviewed_pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "final_layout_reinspected_pages": [
+      12
+    ],
+    "other_final_page_images_identical_to_inspected_initial_images": true,
+    "all_five_figures_visually_inspected": true,
+    "table4_all_eight_rows_visually_checked": true,
+    "table4_rows_and_columns_match_source_and_extracted_pdf": true,
+    "layout_change": "Changed only Table 4 first-column heading from Method to Training method to widen that column and keep projected128 unbroken. Scientific values and figure bytes unchanged.",
+    "findings": "No clipping, overlap, replacement glyphs, orphan headings or unreadable table/figure labels observed. Figure captions stay with figures; repeated pilot-table headers, page numbers, mathematical symbols and references are readable.",
+    "html_checks": "Five embedded PNG figures, four embedded font faces, web-only rendered hyperlinks.",
+    "page_notes": {
+      "1-3": "Contributions, architecture and methods; Unicode equations legible.",
+      "4-5": "Final AUROC table and primary figures/intervals.",
+      "6-8": "Related systems, validity, conclusions and preserved historical/pilot evidence.",
+      "9-11": "Complete 64-arm pilot table and reproduction details.",
+      "12": "Benchmark counts, exact numerical differences and all eight Table 4 timing rows.",
+      "13": "Figure 5, descriptive timing interpretation, RSS and scope.",
+      "14": "Primary-source references."
+    }
+  },
+  "results_note_review": {
+    "file": "multihost-results-2026-10-26.md",
+    "current_sha256": "d968b82ddade7ba75b3fcf9af18aa4faed0a89b8e3166f9ffc74a25b53bf8888",
+    "edited_in_this_report_task": false,
+    "material_inconsistencies_found": false,
+    "scope": "Read against public results/audit; timing table, counts, parameter/AUROC differences, timing direction/range and RSS agree. Concurrent editorial note edits are outside this report task."
+  },
+  "render": {
+    "dependencies": {
+      "pypdf": "6.21.1",
+      "pypdfium2": "5.14.0",
+      "reportlab": "5.0.1"
+    },
+    "figure_sha256": {
+      "figures/multihost-2026-10-26/cpu-placement-speedup.png": "272f7d372b73f4febe42404c8d40d79682e328a125dfc8dd01a1f5cfa22e7979",
+      "figures/remediation-2026-10-25/finalist-methods.png": "818c2f40f5e80fb53310ac67e23138590fb06fa80444c13b5e6938895eedda40",
+      "figures/remediation-2026-10-25/pilot-buckets.png": "6245f63c46e390d7989f3a5421a7c81836e0caa821d90e896343741862b5b825",
+      "figures/remediation-2026-10-25/pilot-projection.png": "336d6e1414dc506c5905bb4f5ed4f0b1320877cf6e68138df7063e4fcaaceca9",
+      "figures/remediation-2026-10-25/primary-paired-gain.png": "fae691b87f15a5de7052e059847d1608ea334faf061e1a03651b2d84e286c28e"
+    },
+    "font_sha256": {
+      "DejaVuSerif-Bold.ttf": "c3753f2ed6bc673f15846dc45addbeb3b9c872f32fb18fd53a21f1bef1ed7676",
+      "DejaVuSerif-BoldItalic.ttf": "d93efec7a9d2e826768d1a2ee95b95870e15e29599a84f3484af1de1cec2e181",
+      "DejaVuSerif-Italic.ttf": "3e7994fbc54fa10ce3352a42d548fadd7d9cadb69cb1109bc9d960f6dac57f04",
+      "DejaVuSerif.ttf": "107244956e9962b9e96faccdc551825e0ae0898ae13737133e1b921a2fd35ffa"
+    },
+    "html_sha256": "c323c664f814ba007258b6902ffb0ffd427629170f300c9b0411bfc4453e1313",
+    "pages": 14,
+    "pdf_sha256": "e003d2c4015ad9294114d2867aaea89d756c1fd143fadb6f16fa841381f510de",
+    "rendered_pages": {
+      "page-01.png": "d13daf98da602ce96728351f27cbe31b04e572ca1b10520fca13e7a522ed3230",
+      "page-02.png": "ff6d534c6050d9f44ba06e15da61acaaeb3606d41f3c9a63b1dfd9307ec7de91",
+      "page-03.png": "7fbbfa01494893f870a92eb7ed8fc66d6aa7bf0bc143d792e2bb744a0af8f182",
+      "page-04.png": "6c5eefd3d47b54c0a0bd3e5b978530cc66abe89cd9456628baa8cb89a40a646f",
+      "page-05.png": "9afe1c441eb09e9aff5bbbde05eb90355851c7db3511aca3b0f18dbb0af88205",
+      "page-06.png": "dce569bac033d913db534b817e9cb61d9c4a8ffbe61607e5ead64602e52a358f",
+      "page-07.png": "5ac788e6dd1861b67ccc54b042a5c34e4e42285152fb9305459984cc9a535bd2",
+      "page-08.png": "e4efaed28bfebd4fd4510fc61a06991883aae551165743c1bd9dd3e570337052",
+      "page-09.png": "3a2930f2fab72b75cb678a9eac36265f7642755ea72f14c5d0a7320fd6b02551",
+      "page-10.png": "66cdd944bc0e6e45cdd88f15089bd5a8d0ecd90e1dd03d356f798521503a3b37",
+      "page-11.png": "7ca21214907935d6735283544c86a00b2ad0b16943c21997d8cefc41db375f66",
+      "page-12.png": "e3945aec6c82eaff48aadd3612f376bc0d3e116f1231e918c6b0b59d7fbaf36b",
+      "page-13.png": "aef90f08702aae7630c1c90468c5684b0b7e3ed404029ff57beab0e5442e9799",
+      "page-14.png": "e0fa45c827c14f74d70a64d0392ded05ac471877b7672e8bde40107302e82742"
+    },
+    "renderer_sha256": "fc137786dbc18cde3ab3477d96824301ba381703937a0640ebf8eadd0a03d7a2",
+    "report_date": "26 October 2026",
+    "required_tokens": [
+      "0.019176",
+      "0.011011",
+      "0.027340",
+      "13,180",
+      "320",
+      "2.9802322387695312e-8",
+      "3.725290298461914e-9",
+      "0.419",
+      "1.134"
+    ],
+    "scope": "Source manuscript reading copies; page PNGs require visual review before acceptance.",
+    "source_sha256": "a2aceebe15cb9653f73be35cdacb96066103c17ee42f808c47e964a3dcfcde81",
+    "text_characters": 33686
+  },
+  "tests": "No training or source-code tests run for this report-only rendering; renderer preflight, source/output hash checks, text/glyph/HTML checks and exact numeric-row reconciliation passed."
+}
