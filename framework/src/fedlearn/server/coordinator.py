@@ -1,4 +1,5 @@
 import logging
+from inspect import getattr_static
 import math
 import os
 import threading
@@ -63,6 +64,18 @@ class FLCoordinator:
         self.strategy = strategy
         self.min_clients = min_clients_for_aggregation
         self.clients_per_round = clients_per_round
+        self._allowed_client_order = None
+        self._fixed_head_layout = None
+        undeclared = object()
+        if getattr_static(strategy, "allowed_client_ids", undeclared) is not undeclared:
+            client_ids = strategy.allowed_client_ids
+            if (not isinstance(client_ids, (tuple, list)) or not client_ids
+                    or any(not isinstance(cid, str) or not cid.strip() for cid in client_ids)
+                    or len(set(client_ids)) != len(client_ids)):
+                raise ValueError("allowed_client_ids must be a nonempty ordered list of unique identities")
+            if min_clients_for_aggregation != len(client_ids) or clients_per_round != len(client_ids):
+                raise ValueError("fixed cohort requires minimum and target to equal allowed_client_ids count")
+            self._allowed_client_order = {cid: index for index, cid in enumerate(client_ids)}
         # Network servers acknowledge receipt before potentially slow evaluation.
         # In-process callers can retain synchronous round completion.
         self.async_round_completion = async_round_completion
@@ -463,6 +476,11 @@ class FLCoordinator:
                 # Client is ahead, something is wrong. Ignore.
                 return False
 
+            if self._allowed_client_order is not None:
+                if (client_id not in self._allowed_client_order
+                        or client_id not in self._registered_clients):
+                    return False
+
             # FR-5: dedup. A retried FedAvg submit (ABORTED/UNAVAILABLE/DEADLINE_EXCEEDED are
             # client-retryable, so the server can see the same client's update twice in a round)
             # must be counted ONCE — a second append both inflates that client's weight in the
@@ -476,6 +494,17 @@ class FLCoordinator:
                     client_id, self.current_round,
                 )
                 return False
+
+            if self._allowed_client_order is not None:
+                if self._fixed_head_layout is None:
+                    raise ValueError("fixed cohort requires initial head parameters before accepting updates")
+                if not isinstance(params, dict) or set(params) != set(self._fixed_head_layout):
+                    raise ValueError("head keys differ from the fixed cohort initial parameters")
+                for key, (shape, dtype) in self._fixed_head_layout.items():
+                    value = params[key]
+                    if (not isinstance(value, torch.Tensor) or tuple(value.shape) != shape
+                            or value.dtype != dtype):
+                        raise ValueError(f"head layout mismatch for '{key}' against initial parameters")
 
             # Sanitize num_examples to prevent model poisoning
             if num_examples <= 0:
@@ -629,7 +658,7 @@ class FLCoordinator:
             len(self._client_updates_received), self.current_round,
         )
 
-        results = list(self._client_updates_received)
+        results = self._ordered_client_updates()
         self._client_updates_received.clear()
 
         aggregated_parameters = self.strategy.aggregate_fit(self.current_round, results)
@@ -669,7 +698,7 @@ class FLCoordinator:
         if self._aggregation_in_progress:
             return
         round_number = self.current_round
-        results = list(self._client_updates_received)
+        results = self._ordered_client_updates()
         self._client_updates_received.clear()
         self._aggregation_in_progress = True
 
@@ -711,7 +740,20 @@ class FLCoordinator:
         self._aggregation_worker.start()
 
     def set_initial_parameters(self, params: Optional[OrderedDict[str, torch.Tensor]]):
+        if self._allowed_client_order is not None:
+            if (not isinstance(params, dict) or not params
+                    or any(not isinstance(value, torch.Tensor) or value.dtype != torch.float32
+                           or not torch.isfinite(value).all() for value in params.values())):
+                raise ValueError("fixed cohort initial parameters must be finite float32 head tensors")
+            self._fixed_head_layout = {key: (tuple(value.shape), value.dtype) for key, value in params.items()}
         self._global_model_params = params
+
+    def _ordered_client_updates(self):
+        """Keep fixed-cohort reduction independent of network arrival order."""
+        results = list(self._client_updates_received)
+        if self._allowed_client_order is not None:
+            results.sort(key=lambda update: self._allowed_client_order[update[0]])
+        return results
 
     def get_latest_metrics(self, round_number=None) -> Optional[dict]:
         """Returns the metrics from the last completed round."""
@@ -741,6 +783,8 @@ class FLCoordinator:
 
     def register_client(self, client_id: str) -> bool:
         with self._lock:
+            if self._allowed_client_order is not None and client_id not in self._allowed_client_order:
+                return False
             self._registered_clients.add(client_id)
             return True
 
@@ -886,6 +930,9 @@ class FLCoordinator:
                 )
                 return
 
+            if self._allowed_client_order is not None:
+                raise ValueError("fixed tensor head cohort does not accept DeComFL scalar updates")
+
             log.debug(
                 "Received DeComFL update from %s for round %d (%d/%d)",
                 client_id, self.current_round,
@@ -965,7 +1012,7 @@ class FLCoordinator:
             len(self._client_updates_received), self.current_round,
         )
 
-        results = list(self._client_updates_received)
+        results = self._ordered_client_updates()
         self._client_updates_received.clear()
 
         # Aggregate gradient scalars

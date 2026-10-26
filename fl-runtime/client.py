@@ -1,4 +1,40 @@
+def _effusion_client_factory(data, client_id, limiter, journal):
+    import fedlearn as fl
+    from effusion_runtime import FeatureState, FitCancelled
+    from effusion_host import MeasuredStub, validate_config
+
+    class EffusionFeatureClient(fl.Client):
+        def __init__(self):
+            self.state = FeatureState(data, client_id, dict(data.settings))
+            self.grpc_client = None
+
+        def get_parameters(self):
+            return self.state.get_parameters()
+
+        def set_grpc_client(self, client):
+            self.grpc_client = client
+            client.stub = MeasuredStub(client.stub, journal, client_id)
+
+        def fit(self, parameters, config):
+            current = validate_config(data, config)
+            stopped = self.grpc_client.should_stop_training if self.grpc_client is not None else lambda: False
+            with limiter.acquire(stopped) as queued:
+                if self.grpc_client is not None:
+                    _, fresh_round, fresh_config = self.grpc_client.get_global_model()
+                    if fresh_round != current or validate_config(data, fresh_config | {'server_round':fresh_round}) != current:
+                        raise FitCancelled('round changed while queued')
+                _, examples, stats = self.state.fit(parameters,current,stopped)
+                journal.record(dict(stats,event='fit',round=current,queue_s=queued))
+                return self.get_parameters(), examples
+
+    return EffusionFeatureClient()
+
+
 if __name__ == "__main__":
+    import sys
+    if '--effusion-host-plan' in sys.argv:
+        from effusion_host import cli_main
+        raise SystemExit(cli_main(_effusion_client_factory))
     from workload_dispatch import dispatch_tree_cli
     dispatch_tree_cli("client")
 

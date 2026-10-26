@@ -1,5 +1,6 @@
 import hashlib
 import logging
+from inspect import getattr_static
 import os
 import time
 from typing import List, Dict
@@ -280,7 +281,8 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
             # Step 2: Submit to coordinator
             logging.info(f"[Server] Step 2: Submitting to coordinator...")
-            if self.coordinator.submit_client_update(client_id, params, num_examples, trained_on_round):
+            admitted = self.coordinator.submit_client_update(client_id, params, num_examples, trained_on_round)
+            if admitted:
                 logging.info(f"[Server] Coordinator accepted update")
             else:
                 logging.info(f"[Server] Update from {client_id} for round {trained_on_round} was not counted "
@@ -288,7 +290,8 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
             logging.info(f"[Server] SubmitModelUpdate SUCCESS")
             logging.info(f"=" * 60)
-            return fedlearn_pb2.SubmitModelUpdateResponse(received=True)
+            fixed_cohort = getattr_static(self.coordinator, '_allowed_client_order', None) is not None
+            return fedlearn_pb2.SubmitModelUpdateResponse(received=bool(admitted) if fixed_cohort else True)
 
         except ValueError as e:
             # A malformed / non-finite payload is rejected by the serializer — a client error, so it
@@ -406,11 +409,13 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             logging.info(f"[Server] Model reconstructed successfully. Submitting to coordinator...")
 
             # Submit to coordinator
-            if not self.coordinator.submit_client_update(client_id, parameters, num_examples, round_num):
+            admitted = self.coordinator.submit_client_update(client_id, parameters, num_examples, round_num)
+            if not admitted:
                 logging.info(f"[Server] Streamed update from {client_id} for round {round_num} was not counted "
                              f"(the run ended, another round is current, or it already reported)")
 
-            return fedlearn_pb2.SubmitModelUpdateResponse(received=True)
+            fixed_cohort = getattr_static(self.coordinator, '_allowed_client_order', None) is not None
+            return fedlearn_pb2.SubmitModelUpdateResponse(received=bool(admitted) if fixed_cohort else True)
 
         except _StreamLimitExceeded as e:
             # SE-18: a size cap (RESOURCE_EXHAUSTED) or the wall-clock deadline (DEADLINE_EXCEEDED)

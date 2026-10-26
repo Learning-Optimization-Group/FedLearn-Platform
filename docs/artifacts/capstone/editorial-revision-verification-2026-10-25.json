@@ -1,0 +1,329 @@
+{
+  "schema": "capstone.editorial_revision_verification.v1",
+  "date": "2026-10-25",
+  "status": "editorial_revision_rendered_and_verified",
+  "report": "capstone-final-report-v4-working.md",
+  "source_report": "capstone-final-report-v3-working.md",
+  "report_sha256": "e205bda0b51c709bb7c606ea105536ef4883fce0ae7c67b3b8855a65d3419ada",
+  "source_preservation": {
+    "unchanged": true,
+    "sha256": {
+      "capstone-final-report-v3-working.md": "43ea0e56f85f6210538dbabf6e0e01da288c0f6169aaa9e986bb8e4fafe2de33",
+      "effusion-finalists-2026-10-25.json": "582a4a04ef7f37abf27ff9cefed6bd1096a9de934e0c32f3e476ed246cb5e71f",
+      "effusion-diagnostic-pilots-2026-10-25.json": "eab1d007740a667179853059ab32028535cb14d67b8a8a1ffae79ae0b813a5d9",
+      "phase-4-verification-2026-10-25.json": "c834fea151fc2b8cd606a5648d28e2c7ca3b28dd156b2e4eb7c34f86a7a5a860",
+      "phase-5-verification-2026-10-25.json": "953d3f7b83530e96c75ae35d601ad4201ef2853cd4c292c3669b6e9b80334f67",
+      "literature-refresh-2026-10-25.md": "7e76ec4ea7febe8ceb66b9ecf73910a18ed04b3ffd317fe549461a4afa23bf0d",
+      "figures/remediation-2026-10-25/finalist-methods.png": "818c2f40f5e80fb53310ac67e23138590fb06fa80444c13b5e6938895eedda40",
+      "figures/remediation-2026-10-25/primary-paired-gain.png": "fae691b87f15a5de7052e059847d1608ea334faf061e1a03651b2d84e286c28e",
+      "figures/remediation-2026-10-25/pilot-projection.png": "336d6e1414dc506c5905bb4f5ed4f0b1320877cf6e68138df7063e4fcaaceca9",
+      "figures/remediation-2026-10-25/pilot-buckets.png": "6245f63c46e390d7989f3a5421a7c81836e0caa821d90e896343741862b5b825"
+    },
+    "v3_reading_copies_sha256": {
+      "pdf": "680782b2cab0d3574f540bd4477d09e6b25acc6bb413342440fc5528b6a10398",
+      "html": "0880d19f761b8ffd3100e376aea71f5a6755f2c09eaa78413d919bb7249afa05"
+    }
+  },
+  "scope": "Editorial revision and reading-copy rendering of existing public evidence; no fitting, new dataset, private artifact access, holdout access or official-test access.",
+  "structure": [
+    "problem and contributions",
+    "implemented architecture and current simulator boundary",
+    "workload, methods and privacy",
+    "final findings",
+    "related systems table",
+    "consolidated validity",
+    "conclusions",
+    "Appendix A historical matrix and chronology",
+    "Appendix B complete pilot AUROC arms",
+    "Appendix C reproduction",
+    "references"
+  ],
+  "moved_sections": {
+    "v3 section 2 evidence chronology": "Appendix A",
+    "v3 section 5 historical findings": "Appendix A",
+    "v3 section 6 diagnostic findings": "Appendix B",
+    "v3 section 9 reproduction details": "Appendix C; essential execution integrity retained in architecture/results"
+  },
+  "numeric_binding": {
+    "source_summary_sha256": "582a4a04ef7f37abf27ff9cefed6bd1096a9de934e0c32f3e476ed246cb5e71f",
+    "final_means_checked": 16,
+    "final_means": [
+      {
+        "arm": "mean512:nonprivate:clean",
+        "source_value": 0.807298354463237,
+        "printed": "0.807298",
+        "decimal_places": 6
+      },
+      {
+        "arm": "mean512:nonprivate:owned_pgd",
+        "source_value": 0.5285448512426186,
+        "printed": "0.528545",
+        "decimal_places": 6
+      },
+      {
+        "arm": "mean512:private:clean",
+        "source_value": 0.7403606558767306,
+        "printed": "0.740361",
+        "decimal_places": 6
+      },
+      {
+        "arm": "mean512:private:owned_pgd",
+        "source_value": 0.5513040725241081,
+        "printed": "0.551304",
+        "decimal_places": 6
+      },
+      {
+        "arm": "projected128:nonprivate:clean",
+        "source_value": 0.7923752976926883,
+        "printed": "0.792375",
+        "decimal_places": 6
+      },
+      {
+        "arm": "projected128:nonprivate:owned_pgd",
+        "source_value": 0.7618389432670319,
+        "printed": "0.761839",
+        "decimal_places": 6
+      },
+      {
+        "arm": "projected128:private:clean",
+        "source_value": 0.7595362990525715,
+        "printed": "0.759536",
+        "decimal_places": 6
+      },
+      {
+        "arm": "projected128:private:owned_pgd",
+        "source_value": 0.6833307122575057,
+        "printed": "0.683331",
+        "decimal_places": 6
+      },
+      {
+        "arm": "trim16:nonprivate:clean",
+        "source_value": 0.8070020388270085,
+        "printed": "0.807002",
+        "decimal_places": 6
+      },
+      {
+        "arm": "trim16:nonprivate:owned_pgd",
+        "source_value": 0.5994418864878366,
+        "printed": "0.599442",
+        "decimal_places": 6
+      },
+      {
+        "arm": "trim16:private:clean",
+        "source_value": 0.678365477991111,
+        "printed": "0.678365",
+        "decimal_places": 6
+      },
+      {
+        "arm": "trim16:private:owned_pgd",
+        "source_value": 0.6051138394965405,
+        "printed": "0.605114",
+        "decimal_places": 6
+      },
+      {
+        "arm": "center_quarter:nonprivate:clean",
+        "source_value": 0.8051066279005187,
+        "printed": "0.805107",
+        "decimal_places": 6
+      },
+      {
+        "arm": "center_quarter:nonprivate:owned_pgd",
+        "source_value": 0.7227250194637225,
+        "printed": "0.722725",
+        "decimal_places": 6
+      },
+      {
+        "arm": "center_quarter:private:clean",
+        "source_value": 0.6664966085232646,
+        "printed": "0.666497",
+        "decimal_places": 6
+      },
+      {
+        "arm": "center_quarter:private:owned_pgd",
+        "source_value": 0.5083004441320493,
+        "printed": "0.508300",
+        "decimal_places": 6
+      }
+    ],
+    "primary_values": [
+      {
+        "source_path": "primary.seed_interval.point",
+        "source_value": 0.019175643175840928,
+        "printed": "+0.019176",
+        "decimal_places": 6
+      },
+      {
+        "source_path": "primary.seed_interval.ci_low",
+        "source_value": 0.011011253706071684,
+        "printed": "+0.011011",
+        "decimal_places": 6
+      },
+      {
+        "source_path": "primary.seed_interval.ci_high",
+        "source_value": 0.02734003264561017,
+        "printed": "+0.027340",
+        "decimal_places": 6
+      },
+      {
+        "source_path": "primary.patient_interval.point",
+        "source_value": 0.019175643175840962,
+        "printed": "+0.019176",
+        "decimal_places": 6
+      },
+      {
+        "source_path": "primary.patient_interval.ci_low",
+        "source_value": 0.013135936475838864,
+        "printed": "+0.013136",
+        "decimal_places": 6
+      },
+      {
+        "source_path": "primary.patient_interval.ci_high",
+        "source_value": 0.02589348963959565,
+        "printed": "+0.025893",
+        "decimal_places": 6
+      }
+    ],
+    "pilot_arms_checked": 64,
+    "pilot_table_format": "all public pilot arms; AUROC mean,min,max,sample_sd at 4dp; n=2 for each; all metrics and per-seed values retained in source JSON",
+    "anchors_excluded_from_main_arm_means": true
+  },
+  "figures": [
+    {
+      "number": 1,
+      "path": "figures/remediation-2026-10-25/finalist-methods.png",
+      "caption": "Figure 1. Final main-arm AUROC on the fixed Effusion selection cohort, twelve paired training seeds per condition. Higher is better; chance ranking is 0.5. Whiskers show one across-seed sample SD, not a 95% interval or patient uncertainty. GDP4 denotes ε=4, δ=0.00001.",
+      "sha256": "818c2f40f5e80fb53310ac67e23138590fb06fa80444c13b5e6938895eedda40"
+    },
+    {
+      "number": 2,
+      "path": "figures/remediation-2026-10-25/primary-paired-gain.png",
+      "caption": "Figure 2. Projected128 minus mean512 private-clean AUROC: individual seed effects and separate conditional 95% intervals. Positive favors projection; the technical margin is +0.01. The paired-seed t interval holds patients fixed; the patient-cluster percentile interval holds fitted heads fixed. Neither combines both uncertainty sources.",
+      "sha256": "fae691b87f15a5de7052e059847d1608ea334faf061e1a03651b2d84e286c28e"
+    },
+    {
+      "number": 3,
+      "path": "figures/remediation-2026-10-25/pilot-projection.png",
+      "caption": "Figure 3. Projection pilot AUROC, two paired development seeds. Width 128 was selected before final fitting. Whiskers show one sample SD across seeds, not confidence intervals. Higher AUROC is better; the clean/private trade-off changes with width.",
+      "sha256": "336d6e1414dc506c5905bb4f5ed4f0b1320877cf6e68138df7063e4fcaaceca9"
+    },
+    {
+      "number": 4,
+      "path": "figures/remediation-2026-10-25/pilot-buckets.png",
+      "caption": "Figure 4. Nonprivate median/bucket AUROC under IID and simulated label skew, two paired seeds. Higher is better. Whiskers show one sample SD; attacked seed variability is substantial. Owned PGD and oracle Fang have distinct information boundaries.",
+      "sha256": "6245f63c46e390d7989f3a5421a7c81836e0caa821d90e896343741862b5b825"
+    }
+  ],
+  "claim_corrections": [
+    "PGD receives projected128 features and matching head; dimension/noise-energy cause not proven",
+    "fixed-preprocessing patient change within honest client is a subset of client replacement; no automatic amplification",
+    "end-to-end preprocessing, research exports and public randomness are unqualified",
+    "center-staleness mechanism is a hypothesis; convex head loss has no local-minimum explanation",
+    "2378 is the full framework suite total",
+    "zero numerical parameter differences are not described as bitwise identity",
+    "Mac/G14/Orin 3/6/24/80 CPU-first study is proposed and implementation ongoing; no physical multi-host completion claim"
+  ],
+  "math": "Unicode μ = √T/z, ε,δ,τ and plaintext equations; no LaTeX delimiters",
+  "word_count_whitespace": 3988,
+  "render_and_visual_qa": {
+    "status": "accepted",
+    "verified_date": "2026-10-26",
+    "pages": 12,
+    "all_pages_visually_inspected": true,
+    "all_four_figures_visually_inspected": true,
+    "initial_layout_all_pages_reviewed": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "final_layout_reinspected_pages": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "other_final_page_images_identical_to_inspected_initial_images": true,
+    "layout_change": "Moved the related-systems introduction after its table, allowing the existing renderer to keep the section heading with the table. No wording, results, figure files or numeric tables changed.",
+    "checks": [
+      "No clipping, overlap, replacement glyphs or orphan headings observed",
+      "All four figure captions remain adjacent to their figures",
+      "All 16 final means and six primary point/bound bindings found in extracted PDF and reconciled to source JSON",
+      "All 64 pilot mean/min/max/SD rows retained and reconciled to source JSON",
+      "Unicode μ,√,ε,δ,τ,Δ,σ retained in PDF text and mathematical paragraph visually checked",
+      "Twelve page numbers and reading-copy footers inspected",
+      "HTML embeds four PNG figures and four font faces; links use web destinations only",
+      "v3 Markdown/PDF/HTML, source summaries, receipts and original figures unchanged"
+    ],
+    "page_observations": {
+      "1-3": "Contribution, architecture and methods; mathematical symbols legible.",
+      "4-5": "Final means and primary effects; figures 1 and 2 readable with complete captions.",
+      "6": "Related-systems heading and table stay together; consolidated validity remains legible.",
+      "7-8": "Conclusions, historical evidence and pilot introduction; figure 3 caption retained.",
+      "9-11": "Figure 4 and complete 64-arm pilot table; repeated headers, long IDs and numeric columns readable.",
+      "12": "Primary-source references and URLs legible."
+    },
+    "render_engine": "pypdfium2 5.14.0; system Poppler unavailable",
+    "render": {
+      "dependencies": {
+        "pypdf": "6.21.1",
+        "pypdfium2": "5.14.0",
+        "reportlab": "5.0.1"
+      },
+      "figure_sha256": {
+        "figures/remediation-2026-10-25/finalist-methods.png": "818c2f40f5e80fb53310ac67e23138590fb06fa80444c13b5e6938895eedda40",
+        "figures/remediation-2026-10-25/pilot-buckets.png": "6245f63c46e390d7989f3a5421a7c81836e0caa821d90e896343741862b5b825",
+        "figures/remediation-2026-10-25/pilot-projection.png": "336d6e1414dc506c5905bb4f5ed4f0b1320877cf6e68138df7063e4fcaaceca9",
+        "figures/remediation-2026-10-25/primary-paired-gain.png": "fae691b87f15a5de7052e059847d1608ea334faf061e1a03651b2d84e286c28e"
+      },
+      "font_sha256": {
+        "DejaVuSerif-Bold.ttf": "c3753f2ed6bc673f15846dc45addbeb3b9c872f32fb18fd53a21f1bef1ed7676",
+        "DejaVuSerif-BoldItalic.ttf": "d93efec7a9d2e826768d1a2ee95b95870e15e29599a84f3484af1de1cec2e181",
+        "DejaVuSerif-Italic.ttf": "3e7994fbc54fa10ce3352a42d548fadd7d9cadb69cb1109bc9d960f6dac57f04",
+        "DejaVuSerif.ttf": "107244956e9962b9e96faccdc551825e0ae0898ae13737133e1b921a2fd35ffa"
+      },
+      "html_sha256": "a6c041c4054fa5c24bcebac60da309f80358850d6801c15fe90d63a0c164a1e3",
+      "pages": 12,
+      "pdf_sha256": "df43d42f2c3aaaa1220f5dc6e9463f30f0aa0be67610cec1a0cce3cf1c3f08b7",
+      "rendered_pages": {
+        "page-01.png": "42ffe2954a0e00cb405b40b32d81b399a4df6fa36bb12dde50a7713483c0e9e4",
+        "page-02.png": "e44c3e9113a1a545c6247d0c1ba71de5357ccf3b1447c9b0651ad0699ef4338c",
+        "page-03.png": "f433e6084c88ad20cc96ae9958399e6391ca2d6e35b2c3a6c051d142ca3e80d5",
+        "page-04.png": "0f40cf91871ee1c4ff6fda0368baf5b23696bfaadf22f48824366d7fcc2eb51d",
+        "page-05.png": "174651c1751893b33ebcdf91b1b5f9c20ca478c5ca8203807fff87832df24acc",
+        "page-06.png": "243fec294ef2b3b4c75984003bca5e596fd9003335ca9ba09e174b8a97934d86",
+        "page-07.png": "eb8e7b20fc9f158589b5eb4f7af423dd046c97656537dbd16f7a7752e5f6d496",
+        "page-08.png": "471115c59bb454dd8689b9f16e614248d6cf23f94608f66c8ac6e74029e74a53",
+        "page-09.png": "ddd52e16e58c1e469e78485a567ab359592fea447aad5cfdf37649edef2207b5",
+        "page-10.png": "bc302a8a8f4c70e953365e3b3d26a0176aa14d0692fa79c031e0cf278eaf40c5",
+        "page-11.png": "dc69793c2443c92aa1044c8a23f54ca8455eb18779b2532bd8440cb3d5d9c52d",
+        "page-12.png": "f694d0d696f80f03d487c962ca17e26dea5b1d80fc4559ebc8e61d52fd7486f7"
+      },
+      "renderer_sha256": "fc137786dbc18cde3ab3477d96824301ba381703937a0640ebf8eadd0a03d7a2",
+      "report_date": "25 October 2026",
+      "required_tokens": [
+        "0.019176",
+        "0.011011",
+        "0.027340",
+        "0.013136",
+        "0.025893",
+        "0.002266150",
+        "196"
+      ],
+      "scope": "Source manuscript reading copies; page PNGs require visual review before acceptance.",
+      "source_sha256": "e205bda0b51c709bb7c606ea105536ef4883fce0ae7c67b3b8855a65d3419ada",
+      "text_characters": 28903
+    }
+  },
+  "reading_copies": {
+    "pdf": "capstone-final-report-v4-working.pdf",
+    "html": "capstone-final-report-v4-working.html"
+  }
+}

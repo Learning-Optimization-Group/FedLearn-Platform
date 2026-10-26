@@ -1,0 +1,1168 @@
+{
+  "bundle_report_sha256": "dec54dfb580232ed6bf8da16ea9466248db58de4925285c8fb0d07a381562ffa",
+  "cells": [
+    {
+      "method": "mean512",
+      "name": "systems_n003_mean512_s14001_mac_only",
+      "num_clients": 3,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n003_mean512_s14001_three_hosts",
+      "num_clients": 3,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n003_mean512_s14002_mac_only",
+      "num_clients": 3,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n003_mean512_s14002_three_hosts",
+      "num_clients": 3,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n003_mean512_s14003_mac_only",
+      "num_clients": 3,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n003_mean512_s14003_three_hosts",
+      "num_clients": 3,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n003_projected128_s14001_mac_only",
+      "num_clients": 3,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n003_projected128_s14001_three_hosts",
+      "num_clients": 3,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n003_projected128_s14002_mac_only",
+      "num_clients": 3,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n003_projected128_s14002_three_hosts",
+      "num_clients": 3,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n003_projected128_s14003_mac_only",
+      "num_clients": 3,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n003_projected128_s14003_three_hosts",
+      "num_clients": 3,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n006_mean512_s14001_mac_only",
+      "num_clients": 6,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n006_mean512_s14001_three_hosts",
+      "num_clients": 6,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n006_mean512_s14002_mac_only",
+      "num_clients": 6,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n006_mean512_s14002_three_hosts",
+      "num_clients": 6,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n006_mean512_s14003_mac_only",
+      "num_clients": 6,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n006_mean512_s14003_three_hosts",
+      "num_clients": 6,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n006_projected128_s14001_mac_only",
+      "num_clients": 6,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n006_projected128_s14001_three_hosts",
+      "num_clients": 6,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n006_projected128_s14002_mac_only",
+      "num_clients": 6,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n006_projected128_s14002_three_hosts",
+      "num_clients": 6,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n006_projected128_s14003_mac_only",
+      "num_clients": 6,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n006_projected128_s14003_three_hosts",
+      "num_clients": 6,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n024_mean512_s14001_mac_only",
+      "num_clients": 24,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n024_mean512_s14001_three_hosts",
+      "num_clients": 24,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n024_mean512_s14002_mac_only",
+      "num_clients": 24,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n024_mean512_s14002_three_hosts",
+      "num_clients": 24,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n024_mean512_s14003_mac_only",
+      "num_clients": 24,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n024_mean512_s14003_three_hosts",
+      "num_clients": 24,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n024_projected128_s14001_mac_only",
+      "num_clients": 24,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n024_projected128_s14001_three_hosts",
+      "num_clients": 24,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n024_projected128_s14002_mac_only",
+      "num_clients": 24,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n024_projected128_s14002_three_hosts",
+      "num_clients": 24,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n024_projected128_s14003_mac_only",
+      "num_clients": 24,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n024_projected128_s14003_three_hosts",
+      "num_clients": 24,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n080_mean512_s14001_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n080_mean512_s14001_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n080_mean512_s14002_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n080_mean512_s14002_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n080_mean512_s14003_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "systems_n080_mean512_s14003_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 512
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n080_projected128_s14001_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n080_projected128_s14001_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14001,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n080_projected128_s14002_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n080_projected128_s14002_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14002,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n080_projected128_s14003_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "systems_n080_projected128_s14003_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 5,
+      "seed": 14003,
+      "stage": "systems",
+      "width": 128
+    },
+    {
+      "method": "mean512",
+      "name": "anchor_n080_mean512_s13001_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 20,
+      "seed": 13001,
+      "stage": "anchor",
+      "width": 512
+    },
+    {
+      "method": "mean512",
+      "name": "anchor_n080_mean512_s13001_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 20,
+      "seed": 13001,
+      "stage": "anchor",
+      "width": 512
+    },
+    {
+      "method": "projected128",
+      "name": "anchor_n080_projected128_s13001_mac_only",
+      "num_clients": 80,
+      "placement": "mac_only",
+      "rounds": 20,
+      "seed": 13001,
+      "stage": "anchor",
+      "width": 128
+    },
+    {
+      "method": "projected128",
+      "name": "anchor_n080_projected128_s13001_three_hosts",
+      "num_clients": 80,
+      "placement": "three_hosts",
+      "rounds": 20,
+      "seed": 13001,
+      "stage": "anchor",
+      "width": 128
+    }
+  ],
+  "execution_order": [
+    "systems_n080_projected128_s14003_three_hosts",
+    "systems_n003_projected128_s14001_mac_only",
+    "systems_n006_projected128_s14001_three_hosts",
+    "systems_n003_mean512_s14001_three_hosts",
+    "systems_n080_mean512_s14001_mac_only",
+    "systems_n003_projected128_s14001_three_hosts",
+    "systems_n006_mean512_s14001_three_hosts",
+    "systems_n024_mean512_s14002_mac_only",
+    "anchor_n080_mean512_s13001_three_hosts",
+    "systems_n024_projected128_s14001_mac_only",
+    "systems_n024_mean512_s14001_mac_only",
+    "systems_n024_mean512_s14003_three_hosts",
+    "systems_n003_mean512_s14002_mac_only",
+    "systems_n003_mean512_s14003_three_hosts",
+    "systems_n024_projected128_s14002_mac_only",
+    "systems_n080_mean512_s14002_mac_only",
+    "systems_n006_projected128_s14001_mac_only",
+    "systems_n006_projected128_s14002_mac_only",
+    "systems_n006_projected128_s14003_three_hosts",
+    "systems_n006_mean512_s14003_mac_only",
+    "systems_n003_projected128_s14002_mac_only",
+    "systems_n080_mean512_s14001_three_hosts",
+    "systems_n006_projected128_s14002_three_hosts",
+    "systems_n006_mean512_s14002_mac_only",
+    "systems_n006_projected128_s14003_mac_only",
+    "systems_n024_projected128_s14002_three_hosts",
+    "systems_n024_projected128_s14001_three_hosts",
+    "systems_n024_projected128_s14003_three_hosts",
+    "systems_n003_mean512_s14001_mac_only",
+    "systems_n080_mean512_s14002_three_hosts",
+    "anchor_n080_mean512_s13001_mac_only",
+    "systems_n080_mean512_s14003_mac_only",
+    "systems_n003_projected128_s14002_three_hosts",
+    "systems_n006_mean512_s14002_three_hosts",
+    "systems_n024_mean512_s14002_three_hosts",
+    "systems_n006_mean512_s14001_mac_only",
+    "anchor_n080_projected128_s13001_three_hosts",
+    "systems_n080_projected128_s14001_three_hosts",
+    "systems_n024_mean512_s14003_mac_only",
+    "systems_n003_mean512_s14002_three_hosts",
+    "anchor_n080_projected128_s13001_mac_only",
+    "systems_n080_projected128_s14003_mac_only",
+    "systems_n003_projected128_s14003_three_hosts",
+    "systems_n080_projected128_s14002_mac_only",
+    "systems_n080_projected128_s14001_mac_only",
+    "systems_n024_mean512_s14001_three_hosts",
+    "systems_n003_projected128_s14003_mac_only",
+    "systems_n080_mean512_s14003_three_hosts",
+    "systems_n024_projected128_s14003_mac_only",
+    "systems_n006_mean512_s14003_three_hosts",
+    "systems_n080_projected128_s14002_three_hosts",
+    "systems_n003_mean512_s14003_mac_only"
+  ],
+  "fit_concurrency_per_host": 2,
+  "input_commitments": {
+    "anchor_n080_mean512_s13001_mac_only": {
+      "hosts": {
+        "mac": "629304535a4c74cc4b7a101a0d31435d6d71e3afaff28bceac9d58086fe28b54"
+      },
+      "server_plan_sha256": "0b6c1b28d70f0639f891e8648ba2998e53e80a247419529a22d8eb647ecb1af4"
+    },
+    "anchor_n080_mean512_s13001_three_hosts": {
+      "hosts": {
+        "g14": "241aa248779cdf1baa3ae6c66877cce1abd1c34b165797c2168f1de386af1ff0",
+        "mac": "28586a9f654bd8b59a8e1307c33fce3bbe537b89ba8282de32807db3e8be8337",
+        "orin": "afd22512daafed691cf5fe83e9e7f321c3720f847873a7aa27d22995dccbeac8"
+      },
+      "server_plan_sha256": "70710c50d7231f06f052c69545d7f3c45c1933f4c9d75936634a996524fffb93"
+    },
+    "anchor_n080_projected128_s13001_mac_only": {
+      "hosts": {
+        "mac": "6586ce884be43b5d369f745aa7ff7707558fa61b510947cb0ff87784ea409386"
+      },
+      "server_plan_sha256": "4cd3bac22ec6dcc1d6f8763b102bce07b97db9f32f1823c44a86762a63a9bf30"
+    },
+    "anchor_n080_projected128_s13001_three_hosts": {
+      "hosts": {
+        "g14": "ac6fda4701927bcfd8d9f8bce9c865dc4786c3c5007191273c6032371b406637",
+        "mac": "3b9270e44f36ba457347e999ffb9740152d1de58101c7c103d885a095fbab6fc",
+        "orin": "64eff212c60b6ad5f385de067b0257076886d8348c8cbf2f4160f3f9bca7b2fa"
+      },
+      "server_plan_sha256": "48baeaff439ef24191aae7d8803225a63c7317004b5cf6543feba042aec06810"
+    },
+    "systems_n003_mean512_s14001_mac_only": {
+      "hosts": {
+        "mac": "0e0faf8775b5b003d70dacb1c95b3c3dce650d980aa1d46b2406c19b71c16c4d"
+      },
+      "server_plan_sha256": "ad8cb831154c1c7f460819eb1b3b707140a3c22daa0d396a29d623fbc48cd71b"
+    },
+    "systems_n003_mean512_s14001_three_hosts": {
+      "hosts": {
+        "g14": "3f4a16f6a16a15ca5410415d20c31f6736240cc43e478359abcac9bf91b1914b",
+        "mac": "81c791f7d181aaac0e103464da80b5454d43e0c341c2f059a7c6990b5f290ed5",
+        "orin": "a99748e0c5b61315a45fcc931230ee01c11033b34c5c2f5a9207645b021524d7"
+      },
+      "server_plan_sha256": "149b68eac5de7c06171055dade23f224c83994e51a6acb9ad21d37c085683aab"
+    },
+    "systems_n003_mean512_s14002_mac_only": {
+      "hosts": {
+        "mac": "71276a87cbc7987285e786fbef8c25419294a9832a0453dc411965d96bf98918"
+      },
+      "server_plan_sha256": "5d42d20b966ae05db29136f7bb49b13fa65de78bb3023f18f53b4e65ce360f49"
+    },
+    "systems_n003_mean512_s14002_three_hosts": {
+      "hosts": {
+        "g14": "a9e1caeb4a563a082240cff299c7a55dea92eb3ec17bd55fcd47e33da4ed5ce1",
+        "mac": "71363af5057d3bf551278c1bc705b506c55575a3c8a775cc8c02338e2d480c17",
+        "orin": "e0ede63f706785ffe323b4d29e8e4e4c707bf46f237c64fada080aba5a9bfda0"
+      },
+      "server_plan_sha256": "e45ce5567f7b96e0823b0527b786a07492b7891de15cbafdfda8b4dafad6c1b5"
+    },
+    "systems_n003_mean512_s14003_mac_only": {
+      "hosts": {
+        "mac": "365508b70ec24d1fd536244ee5ec7777361776095557aed56ede2f9ea537e860"
+      },
+      "server_plan_sha256": "ed00f342655b288f99147dcbce8f1445d34177d7abbdfc421765318b84339c6c"
+    },
+    "systems_n003_mean512_s14003_three_hosts": {
+      "hosts": {
+        "g14": "b3632f7062a8d80c033c30a577a7b55cde519ed2451985ddcd493c9cf9c104f1",
+        "mac": "5aa00fc3c9e2fe3a2c6f79f1d0a735b878e8233343647f6aba279c67fab10164",
+        "orin": "aed8f20338fcf0b8d45d92f025335dd50e7373d3bf74c5dc1e2933ca3b565964"
+      },
+      "server_plan_sha256": "cc17070d69d0111ed855601c1e6b77a3a0ec167a4ee79ea241475cfe38859775"
+    },
+    "systems_n003_projected128_s14001_mac_only": {
+      "hosts": {
+        "mac": "8e2177bef1e65f0766613fb8dedf27eb70cba9be1890de10d9ac386aa307f32e"
+      },
+      "server_plan_sha256": "3c0cc9255994b49cc0cddda83bd9c28f77cf96e48cfe2d9ad714541596e9e2a2"
+    },
+    "systems_n003_projected128_s14001_three_hosts": {
+      "hosts": {
+        "g14": "3ac004a892e082e557fdf98385bf63106366cd2ec6a5df7a05805661ce6a94d2",
+        "mac": "c05997a0498ab87a2507a019de68d8671c1b4f94af2757b7ee602a07ad32d1d0",
+        "orin": "9a8ad054d0d260a5cd012eb67310b3eb3e0e1cd5bdffa2087272d4624914d61c"
+      },
+      "server_plan_sha256": "8db25339cc1c07fc70b21f70408bf8a8a864a2a01cf775892b15eca42991aba2"
+    },
+    "systems_n003_projected128_s14002_mac_only": {
+      "hosts": {
+        "mac": "cfab57508711ecd31e09e7340f78dd2febf2bbb94061a2b51a6fec869664b53b"
+      },
+      "server_plan_sha256": "15b835b46557368fc05a5bf9325707e7cf0ef0a48b12af47a559566ed932cd47"
+    },
+    "systems_n003_projected128_s14002_three_hosts": {
+      "hosts": {
+        "g14": "672c1badfe8e9e8569b8c0f086389e9ec8fbba4ebdb4595ae85dacbf446ff117",
+        "mac": "2d5c909819ee229aadf0c716e19b6613b02f84570617352e00eb9163fe9e3ae3",
+        "orin": "74caa9a72259c9a0379fa19713912243ccdc822e4234b3a0de7244a4c1e45d29"
+      },
+      "server_plan_sha256": "3db0067f378e349dbdfe9f063d63b36872449e46ceb0351a2445fcebc88e4b76"
+    },
+    "systems_n003_projected128_s14003_mac_only": {
+      "hosts": {
+        "mac": "98cc0d902bb87564d8cc22ea931cdac7e5caabc518ffbb0c152230b5a4dc323e"
+      },
+      "server_plan_sha256": "48d6db42bcbcf34d19f420b979f827fa9e46fe953c9980e18ee699c7cb114e4b"
+    },
+    "systems_n003_projected128_s14003_three_hosts": {
+      "hosts": {
+        "g14": "854995abad6e8e008da1dfd9e1605fc94f9a6fe7f211f910f5ed7967324cb4cc",
+        "mac": "703464a38c55049a8b3dd19b59a7e15c78315baca6f42f80b3cf9547912aa582",
+        "orin": "831d17f7867e5e77e75304cd8ea2a6c3ea18aada385c0ad6437fd812c42c7950"
+      },
+      "server_plan_sha256": "844c2f10111af7b550987243cad4653854ee2aaf6879816363744b9b9fe9ad4c"
+    },
+    "systems_n006_mean512_s14001_mac_only": {
+      "hosts": {
+        "mac": "15d3a8a50dfcde30d740b3f90ed86e0de5f5c65c09960879c3422787fffeacf5"
+      },
+      "server_plan_sha256": "6300d0743c8dcabdf0d62084a0c2b8131999b44348bb0826e6023321137b4a46"
+    },
+    "systems_n006_mean512_s14001_three_hosts": {
+      "hosts": {
+        "g14": "746873e39f7bf9d3c2de8120b6f83f1ba6b8d97ed416fdf53a9ce5997fde2668",
+        "mac": "e8832c9c11834abd24cd4e02b9c38eacc32e5295b244f6acd9d1cd8f04759eb1",
+        "orin": "56847b59650fa200fcf0899a1f8c30fd515d80d214082bfc0ba21a795ce8cffb"
+      },
+      "server_plan_sha256": "6cae0630d9c56ff6a2ef91303b211c422c8c444f81256db0867939fc2b6753c4"
+    },
+    "systems_n006_mean512_s14002_mac_only": {
+      "hosts": {
+        "mac": "9ded971291b54fa08a86a669efbcdb2aa059e320246fa9d9d5414e71d7d0048c"
+      },
+      "server_plan_sha256": "608f16d41108d64f167598cf087d4ef8101ea73747c6191d3d0f71a5e6bc469a"
+    },
+    "systems_n006_mean512_s14002_three_hosts": {
+      "hosts": {
+        "g14": "b0f3a1ccc102893cca62207e1a5168b13bc602aa56fbb6013a198cdb5f710856",
+        "mac": "9ba8c50e86fe9d301a3506b10eb7a31c299418194b51c8d6c18e53512b77cc39",
+        "orin": "98f8db129ff67516d9bacab339d90ef7103f87af1fc38958d84cfda9afae3fa7"
+      },
+      "server_plan_sha256": "fd5f6897bc85cd01d62c0002996a10aa1ad02216833fd44d1887de99a7b16d53"
+    },
+    "systems_n006_mean512_s14003_mac_only": {
+      "hosts": {
+        "mac": "38690806c5fe9aae68efa1d538dd18d26aa8d1c39cc51896f5be825e20ba39f6"
+      },
+      "server_plan_sha256": "a2ea4255d56c08b827c953ed89af094fcaf25b9f6da9672bd8f33cfe5ec6080a"
+    },
+    "systems_n006_mean512_s14003_three_hosts": {
+      "hosts": {
+        "g14": "7ba12c050bad4c6582dcaa549faf651fc2dd546c87e3e0ff1ae9c53e643ebb9b",
+        "mac": "650a4422c996ff2bdc0949693181a5d0b8c7070cd58fda43b46922e4a3fcc243",
+        "orin": "e027743d00e3751df9983695cf3a7d2dffe241efa32d36bef17660081c242791"
+      },
+      "server_plan_sha256": "8455c923e0ccfa8be4079dca1a015a2dbf4caedf95411e12fa3cbd0af8e42467"
+    },
+    "systems_n006_projected128_s14001_mac_only": {
+      "hosts": {
+        "mac": "47a9d4e5d485f920a50c5165d5308c1069e7b60af9e31faa7506506aa4a4fbe5"
+      },
+      "server_plan_sha256": "4993c36ed811fbeaad3a067fea32a747cf6e1285650816f31f92db1cebb4f1c8"
+    },
+    "systems_n006_projected128_s14001_three_hosts": {
+      "hosts": {
+        "g14": "1b85429ec2338bac8de8097f599ea152080bf8bb661d3949c62d0ca509dbcdd0",
+        "mac": "4a900acabe52c13bbefe863c071e25c01cad2011d29a79a3af9858cbbbfc17de",
+        "orin": "b4aa80ab7e59bcc477dc31a178269f5bd7f9705ea71029bc5b9eb8ca3efe2a42"
+      },
+      "server_plan_sha256": "88512f10af1be5bac8a02a4893cc966a5e2d1309672628f826c9582db6484d34"
+    },
+    "systems_n006_projected128_s14002_mac_only": {
+      "hosts": {
+        "mac": "2c19044ec752fc7dbcc0423bf05e25ca612deabc90fed0d7876b96b30afee4b1"
+      },
+      "server_plan_sha256": "3933369e26f7e4880cb691072f2d2d0fdb700c4720f8421add52a3541053241e"
+    },
+    "systems_n006_projected128_s14002_three_hosts": {
+      "hosts": {
+        "g14": "749ad8308e821d4897b47b432dbe29fb5f188554ed070fe5f5cd14493e1a3cb5",
+        "mac": "0e3544c341b179a414094566ebdfaf81491aa10201dcdf05e7cd806975a76b38",
+        "orin": "cf65a96d6f49e3d31be938a97914056d232507f19bbf065833728eba3124f375"
+      },
+      "server_plan_sha256": "5e5932a92e60a696e61bad0f32b3f9a00721b6b6ee8f39a03f7d7b693cd6133a"
+    },
+    "systems_n006_projected128_s14003_mac_only": {
+      "hosts": {
+        "mac": "4689d872f671a241a9302f40e0fb298d9e48abb7045408e00f2705e59cbc5996"
+      },
+      "server_plan_sha256": "b352997ff27eda96460b7c86dc372dbaa35d933bd5ee3a9af9f62b92f13bd974"
+    },
+    "systems_n006_projected128_s14003_three_hosts": {
+      "hosts": {
+        "g14": "0f60a1f57ce176f64e99040dd8ce7a3fce622a43c06c24bc73c92d6213c15b4e",
+        "mac": "d1f1ea30fe34a0c086bd556d0d0c43b8d809f4da15dc567aa659cb60eae35c55",
+        "orin": "1b3ee217592a17f9fe427a0422304c79bc2b5048850d558a0d3539b06a2016d7"
+      },
+      "server_plan_sha256": "291efc45c38441f1dd4ea3564e3a2473a9b2d6f5d9ae7a32caacc5a1399d5378"
+    },
+    "systems_n024_mean512_s14001_mac_only": {
+      "hosts": {
+        "mac": "68df970ec7d999c4c209cdb95e6e23d10f8b38b6dc578ea09e6ef778b84303d0"
+      },
+      "server_plan_sha256": "175d3b97bca672488964b90cc1388323e67605d0ea602091ddd10c272adb7cd4"
+    },
+    "systems_n024_mean512_s14001_three_hosts": {
+      "hosts": {
+        "g14": "4b65334ef7802eaa9e19a6a498776713ac5ce99a30e25f38d80bdc709fa95fbf",
+        "mac": "c925a2a572a0fc336c78661e2087fa259e9f7f6c1dc00ac86bde748cd57dffb3",
+        "orin": "c3481e972ad8a9da60d0811cd37e4b19ccab1d37ff863c3c003a577e4707f551"
+      },
+      "server_plan_sha256": "b37fdd79821a46d9fe9b837c13a56b06ffd33447222deb03951ee4c0c69a603a"
+    },
+    "systems_n024_mean512_s14002_mac_only": {
+      "hosts": {
+        "mac": "fd13b7ab402ce440483e3cef9217463a8ea6b30bd3634bf74f3af4ede191fe57"
+      },
+      "server_plan_sha256": "2927f115094cfcf557aee93fca9b1d7eeb08f5736df5e8ae1b24b912524de20c"
+    },
+    "systems_n024_mean512_s14002_three_hosts": {
+      "hosts": {
+        "g14": "cfbe9d3343be5896f66df76cde7970b39afbae045fc5a3428104b37034f33552",
+        "mac": "5ddaea3f50668e750ef5e25d99618a74a95e746a9adb670ad18e902a0b6245d3",
+        "orin": "5835e1aff55401b6f35d304b8dc4e77512a0b09b0c3ba5e6592e04d5cc48ef56"
+      },
+      "server_plan_sha256": "ab893f64d60c8fcc88dd59270b9b2be19d6433cb264870105b934209b5833eee"
+    },
+    "systems_n024_mean512_s14003_mac_only": {
+      "hosts": {
+        "mac": "026830317c2d60c8434af74467181e82a6086c25077cefc9af32ac5be8a9b3b6"
+      },
+      "server_plan_sha256": "f9afe3c8ddbaaefd55495402ef144de75bc157c103cbefe9517185a1a432c1d0"
+    },
+    "systems_n024_mean512_s14003_three_hosts": {
+      "hosts": {
+        "g14": "de54689e2c3c82d6290d29ec1bb1368a4db535d7a32a8c3e4984949fe59ad66b",
+        "mac": "2683b0711292541125bed33bebdc53cdf935eeed517ad5e05257fe6dca425a14",
+        "orin": "c327fbd03d6e92e912597b409e9a8070a52d1c68459c5a52ff2ec5b9c4889c88"
+      },
+      "server_plan_sha256": "8d818c11be615e77e08c01c697dad9978674fc74aebefbc75e82d5c9bd94c675"
+    },
+    "systems_n024_projected128_s14001_mac_only": {
+      "hosts": {
+        "mac": "a54464f65524615493247baf195af6d3206e277169059d009c7c5628f221e89f"
+      },
+      "server_plan_sha256": "df239bc509f97029745d1ed2244869aa63f03489bf27ee32e69ec876deb69825"
+    },
+    "systems_n024_projected128_s14001_three_hosts": {
+      "hosts": {
+        "g14": "f86ea7e747d5a40b876fe807d1b7aa5baf56732a094eb1ddd9f64811314f4e7f",
+        "mac": "30f0800c859dd5bcf32144fb7c415073b44e5d24c8d05b3795b10008bb383dce",
+        "orin": "cfc15b91e65f7eeeb53bcb844a9c5d6ef766b9b7625980493c954b6d619fdaa4"
+      },
+      "server_plan_sha256": "14bfaa86f492596c02cbe4b55287a5dd7d7686e500320e202a3ccce93b0e5379"
+    },
+    "systems_n024_projected128_s14002_mac_only": {
+      "hosts": {
+        "mac": "48b084e1c58ffa84a5c1619089bd236cd2fd8ccd85c86f5e543d371d6c7e68dd"
+      },
+      "server_plan_sha256": "f163a4f604c675be33048c0831601986f6fde12a065cf8b5f8a83f36953d7bf8"
+    },
+    "systems_n024_projected128_s14002_three_hosts": {
+      "hosts": {
+        "g14": "0c6a487c0b439618455101942a420d3e83515689f2bc56bd00fb20297559662f",
+        "mac": "459c48d13c85896fa697eb8e90d27b80ffabea972fbe6d7fb124934932a5daae",
+        "orin": "951f8a6dd687b56b3a1fce09bfe8db40e781d7f70f6a1dea80e990d0c86d5128"
+      },
+      "server_plan_sha256": "a73d3bdf5b2ea30595a8fd4110ab09d3c7e6f84bbfe9f83fba09eab824544bcd"
+    },
+    "systems_n024_projected128_s14003_mac_only": {
+      "hosts": {
+        "mac": "3e43aabedbbf7f71eaff86ed643b9b364eb8412f1c8f90c0310d4f3074e25590"
+      },
+      "server_plan_sha256": "8e5e98a6f784919e9a03e353c9b0f38e60ff805be44a652c4a37a55de758089e"
+    },
+    "systems_n024_projected128_s14003_three_hosts": {
+      "hosts": {
+        "g14": "cd28aec38920a98a40cc0234088778436433041603ade90773e587ad4a8dc847",
+        "mac": "ffad2f6d5d0b52a086b745fadb3141d3b30c375151f477073efa9f6107b62538",
+        "orin": "7aaa8a891cdb8c4e61cedce007f5a926f837767022e3657c0dbe46d75ae3cc75"
+      },
+      "server_plan_sha256": "4613e608ec4bafc14bee4d0e8be96c6d8493a1fe1ec4867554d6f4b16a1e84f1"
+    },
+    "systems_n080_mean512_s14001_mac_only": {
+      "hosts": {
+        "mac": "f63fb7730ba6a9cc51bd13a703ff18a0303b5df8e22afa69e5af42e0a054855f"
+      },
+      "server_plan_sha256": "6cb89dab45243a72700ce8da7f6a7b16cf6e8bbeecc122fabb544ab8d8eab529"
+    },
+    "systems_n080_mean512_s14001_three_hosts": {
+      "hosts": {
+        "g14": "91f053985f352ac42e640ca5d47f924dbd4c2b3df5600247fd5425b379b6d92c",
+        "mac": "84d24950baaecb357bbbb8459682f41768e4a7862fe86d2cda0d38cdae2b04e7",
+        "orin": "6c2f90c5d949964152e180e5448d8cbd6f4574994f57e53436e6c0290a45296b"
+      },
+      "server_plan_sha256": "ec6fbabfd3cac9d026bfe88dc4dd2bb7e4b49eafac90d347ad685f8644359824"
+    },
+    "systems_n080_mean512_s14002_mac_only": {
+      "hosts": {
+        "mac": "2e6e26420ddec2b5e1446f9fb8f55213e154b38fcf104a670c680705cf2ab170"
+      },
+      "server_plan_sha256": "d8e5a7efe5985b9b8f57347ee7e50cd30ff5f0f4c818a6b801af5c773192b0a0"
+    },
+    "systems_n080_mean512_s14002_three_hosts": {
+      "hosts": {
+        "g14": "ed3ade9958ca79faf10fe4083c688c419466047d1784121e5417d54a9a64d31e",
+        "mac": "a5fd43d29a089c834bdaaa8b6c0128c7e7524ed8e702fd4f90be43600d44e351",
+        "orin": "ed5999da0880648d813d30cc0275636628d6a893f885655f5df4196cf43de783"
+      },
+      "server_plan_sha256": "695a0789fc1e35c91517641cd188165203e07d72d07b3f5b2650538fe48113b2"
+    },
+    "systems_n080_mean512_s14003_mac_only": {
+      "hosts": {
+        "mac": "65b5ac9a8d619e198f1d01f8d156a81ce922064e9e2e8590409fab369ad91f1e"
+      },
+      "server_plan_sha256": "2df370f291b2b58d949022916d0730d6fbcc018e2453f6062b3e40d4d84835c2"
+    },
+    "systems_n080_mean512_s14003_three_hosts": {
+      "hosts": {
+        "g14": "015ec679aa9cc9e7c5ef409fce0ea375db4ab008b59cb101820c5b29bb98abf0",
+        "mac": "013d991db261a2f641c1a8ef43b69fcb48e8364c159255e26f8e8ad9598abd62",
+        "orin": "255fddd5216bceda120d282becbfb57ff9126dcc1318ccd0ceedcf37983aff19"
+      },
+      "server_plan_sha256": "56b6dffb643e909e806f94af1bd34a647402a483b48831fb2aca51a4b3e18d63"
+    },
+    "systems_n080_projected128_s14001_mac_only": {
+      "hosts": {
+        "mac": "99bf7a5bd8eba7d817166895a0ba3f52f8586d26dd4ab65e6e0ff1fe46706eed"
+      },
+      "server_plan_sha256": "7057baa6ea1b364c712d3296e2523c7f80f6186b21820ff790e3625a6b179d5c"
+    },
+    "systems_n080_projected128_s14001_three_hosts": {
+      "hosts": {
+        "g14": "23723f580b41bbd761c7b6fe1bfae60736b770ec871a59bb3882579a366d16fb",
+        "mac": "ed870613dc707dc038d3b8dae654988af56c99a5c6512b73e78501c79931e0ed",
+        "orin": "9db6d44badc639db23bc9630d894ee3df5e60edc2fd667a2e6e10d9885be8b04"
+      },
+      "server_plan_sha256": "0edfd0bc99b53d8ea30e4f1997434fb79e155f1ae043b583a0cf222b4d8972c9"
+    },
+    "systems_n080_projected128_s14002_mac_only": {
+      "hosts": {
+        "mac": "080b4e5b4d0e9458e66f3cdb516b08c56838ab53c7cf28bd398bf2b9ffd89345"
+      },
+      "server_plan_sha256": "9e0315cd466810902e7b71e0d38d363d90240e01c85e2f6c42c585b08be0d51d"
+    },
+    "systems_n080_projected128_s14002_three_hosts": {
+      "hosts": {
+        "g14": "e9dbc8aa011b6c8e9ab020836090b4a0b87156d3ba4d11b3d800ef6d36d5a931",
+        "mac": "7a899f62996ad1c980d2ef1b1c1d8a7aa613b6017f970faa76ae76e1806d6629",
+        "orin": "46ea5eacaece17d51ab6599525cdb857bf4bb6f44201d013218dfd423dbf86b9"
+      },
+      "server_plan_sha256": "5345c6d087ea77333c9898d601dcc3f1e4d75271505952c8043ce3f5cd22a2a7"
+    },
+    "systems_n080_projected128_s14003_mac_only": {
+      "hosts": {
+        "mac": "3eb3ab117cc9f5f79d1582d7cb3a272cbe796834bc1e08eab62fb35866e40146"
+      },
+      "server_plan_sha256": "d149a08c10c0f1fa1e8b1d694a420a6126e2c651c8f53b4af6f219b9cc46d756"
+    },
+    "systems_n080_projected128_s14003_three_hosts": {
+      "hosts": {
+        "g14": "7a2a854b49621e08db0941c3f266706e3d6050847133fd3f0ea2527f9623f28e",
+        "mac": "e4933f7a736fe77d57a497b905452748366a6eb50ed4d92cfb7200fce4048082",
+        "orin": "22de643ca60a777d87feac452b4f0df74292b5b2d6f9ca36b4e0b561e5dd9095"
+      },
+      "server_plan_sha256": "daef019a046c9fb39e5ac685d38d570cd6b54561058e36a166bc72d89d1a7916"
+    }
+  },
+  "launch_runtimes": {
+    "g14": {
+      "architecture": "x86_64",
+      "grpc": "1.83.0",
+      "numpy": "2.1.2",
+      "python": "3.12.13",
+      "safetensors": "0.6.2",
+      "system": "Linux",
+      "torch": "2.12.0+cpu",
+      "torch_threads": 1
+    },
+    "mac": {
+      "architecture": "arm64",
+      "grpc": "1.83.0",
+      "numpy": "2.1.2",
+      "python": "3.12.7",
+      "safetensors": "0.6.2",
+      "system": "Darwin",
+      "torch": "2.12.0",
+      "torch_threads": 1
+    },
+    "orin": {
+      "architecture": "aarch64",
+      "grpc": "1.83.0",
+      "numpy": "2.1.2",
+      "python": "3.12.13",
+      "safetensors": "0.6.2",
+      "system": "Linux",
+      "torch": "2.12.0+cpu",
+      "torch_threads": 1
+    }
+  },
+  "projection_seed": 20261025,
+  "projection_sha256": {
+    "128": "ae26ae522d213c607e9afb44958e969b15c68838408026919f3bc294de2c3f15",
+    "512": "b5d34767c093e04fb85c60610e7c2344d8ddb7608af5378fc300542cb4bb170c"
+  },
+  "round_timeout_s": 600,
+  "runtime": {
+    "cpu_count": 14,
+    "device": "cpu",
+    "machine": "arm64",
+    "numpy": "2.1.2",
+    "python": "3.12.7",
+    "system": "Darwin",
+    "torch": "2.12.0",
+    "torch_num_interop_threads": 14,
+    "torch_num_threads": 1
+  },
+  "schema": "fedlearn.multihost_public.v1",
+  "scope": {
+    "anchors": "historical-seed replay; not fresh confirmation",
+    "logical_clients": "multiplexed on three physical failure domains",
+    "systems": "five-round execution diagnostics; three fresh paired training seeds",
+    "training": "fixed whole-patient train cohort; selection-only evaluation"
+  },
+  "settings_templates": {
+    "anchor": {
+      "batch_size": 256,
+      "clip_norm": 0.05,
+      "device": "cpu",
+      "local_epochs": 7,
+      "lr": 0.03,
+      "optimizer": "sgd",
+      "rounds": 20
+    },
+    "systems": {
+      "batch_size": 256,
+      "clip_norm": 0.05,
+      "device": "cpu",
+      "local_epochs": 7,
+      "lr": 0.03,
+      "optimizer": "sgd",
+      "rounds": 5
+    }
+  },
+  "source_sha256": {
+    "docs/artifacts/capstone/multihost-protocol-2026-10-26.md": "1484bbba021ce2879fdb1c768126a96eecb8b96c2dc55694da18f4977f57b59d",
+    "docs/artifacts/capstone/repro/capstone_pilot_mechanisms.py": "68d9ee65d2828bdaa114003b492c1dc6c0c82710b40187c6146338240d46888f",
+    "docs/artifacts/capstone/repro/multihost_manifest.py": "3ba209333e6fd26e329ee178d1766139dbb50dcf3526d77a5d25698738da1fe2",
+    "docs/artifacts/capstone/repro/run_effusion_byzfl_qualification.py": "f539ea548d40e196f6be75b3b889abc073ec20335f7a4eec48af76a2861c854e",
+    "docs/artifacts/capstone/repro/run_multihost_benchmark.py": "342665bb7935b32973c1058bdddbc33841c99b569df8ee1537cd49153310c41a",
+    "docs/artifacts/capstone/repro/test_multihost_manifest.py": "aba438ca7944d2ca1b24e13e9d509350bbdc013de3b192bfe5c0e3c0abad7f1f",
+    "docs/artifacts/capstone/repro/test_run_multihost_benchmark.py": "420be91ec1fee56a2a7b8f3319baafb996e9709f19d74f77613f991b8017d7ce",
+    "docs/superpowers/specs/2026-10-25-capstone-multihost-training-design.md": "43e6bbe97104345ce5415f97c3b9dbb18c0818fb9e7219b7c7414451a6692a26",
+    "fl-runtime/benchmarks.py": "7aff17b1595cd6e78104d9b0c82238b575113497bd644a371f30b655c77f1e30",
+    "fl-runtime/client.py": "72b1436002b912cd71a2e5887e9a753692201ac102c8a56dbc03423b417adaec",
+    "fl-runtime/config.py": "65bb99b43ebd9ad7ad41f619f37307d829abd3956a062418eae3046a66adb802",
+    "fl-runtime/contracted_dropout.py": "c7cccdf2d3e6957047d9cb79b51fac2de829a52f0bc406f3d85d42a320d0e0a6",
+    "fl-runtime/data.py": "73db89edf8b629bcc427fe0eac6891eddaa83ec1719ec9357c6f1be70dd213ca",
+    "fl-runtime/device.py": "518bda9ff83692d9d7a140b822524772b4f2d46fface3c530a12d0e9c5854130",
+    "fl-runtime/effusion_host.py": "7b1bff239d6a1e5bd5b53f15846630859250da5759b2902d206d9924781e7d0f",
+    "fl-runtime/effusion_runtime.py": "55b57f432ab953635667679097ffc04e41c7e0368b05f3b13f59998c060b4f13",
+    "fl-runtime/effusion_server.py": "359fe3eee792b68f52cedc645d8f603fed674b530ed0a8836e1ba816934041fc",
+    "fl-runtime/execution_plan.py": "8659e5d80b3fa5f2969443e33663fbba564718e5b27e9d9b956390fb311b2b53",
+    "fl-runtime/fl_fot_server.py": "90a6df2ac0df5cc73b44e93c4b998118689d2d75bee6078693ab77fbe016ebd6",
+    "fl-runtime/fl_server.py": "abde90c535966811605421f176782a3acbca051b49a5e453086e49c5c442ad38",
+    "fl-runtime/infer.py": "29c49aee1b050bd66d90f31a393a8ba53f79bb297dfb0607ad5fa11409a8b19c",
+    "fl-runtime/init_model.py": "4a68f058fbd6ef0963fccecdb7980cc094b967623fe98de5b828902b736d0e21",
+    "fl-runtime/local_images.py": "00f86a4ec0314265f9da4cf34571b5df4fd59eb35197db34821d273bc20ec5aa",
+    "fl-runtime/local_snapshot.py": "cf89e756f48c107a12da4f2963ecd7c2b390f3eafc08fefb5a72ea1a20ddbc90",
+    "fl-runtime/models.py": "1bdc54a88d98c0db4168e8bc4e300b6362ab8f483677933452e9c2e8434c4e67",
+    "fl-runtime/nih_dataset.py": "9d14bb7ff3a7f5b20c37aba5e22ea60a47e7b731478d46a22ba468445e578cee",
+    "fl-runtime/nih_runtime.py": "5067cd6459afc2741ceabb5b31aeade106ca518315b94d0fda9cd595e812ad6a",
+    "fl-runtime/recipes.py": "01c69fb6feb58229adb22f3e9baf60a40010c7b232c0e9dafd03e50541495e2f",
+    "fl-runtime/strategy_client_settings.py": "a0f47fb12e82c217c7501e25715e10645668284551a18b30cc335a5d3eb1403b",
+    "fl-runtime/tests/test_effusion_host.py": "30530f518e563d41ac9cebf564cd03099c09cefc40acd7e88fbe528aeeb0f985",
+    "fl-runtime/tests/test_effusion_runtime.py": "97d87df3ec589d306adcc5437aac3a7e6d2526ae68ca33610b6837ca5265b2d1",
+    "fl-runtime/tests/test_effusion_server.py": "39aca7bdd7295761f379322acbdddd6ab4c223f33f4ead90f76b570e47f5297f",
+    "fl-runtime/tests/test_effusion_transport.py": "394d456297ba6409ddef786fd5a93318ba1cae5e1c925a1817e26e66975dae26",
+    "fl-runtime/tree_runtime.py": "06fa75c8330a6c2c30fe83ebb418c1afa3c57d63bb59621b26e51a6e267239cb",
+    "fl-runtime/workload_dispatch.py": "f651e3da55c5e02c2f21077f782866c6b8fdbfab5f20f7aa2db94a70ceef088b",
+    "framework/src/fedlearn/__init__.py": "e1937f66792082ee6610e9ed018a82fdeb1ea0263c4e4fc61981791b3e75efb0",
+    "framework/src/fedlearn/backbone/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "framework/src/fedlearn/backbone/distribution.py": "0b13cac2bf965e7a1bbd1067d4ccc7f86fa41aaa527d048880c4200703a6236a",
+    "framework/src/fedlearn/bundle/__init__.py": "79ffceb21e361ccc8235e3617ae568e8de1f10a61925abe0c046c1813739980c",
+    "framework/src/fedlearn/bundle/manifest.py": "5063c71fe33408b274b7c9f720c96aea10c80be9d28d0ef90b9bb51fac4653ad",
+    "framework/src/fedlearn/client/__init__.py": "a8629b3fa48bedfc4625a46b4e28fdd32c37888647533c6affae908926b29238",
+    "framework/src/fedlearn/client/client.py": "59f9054b6bcbf8638bd444787bfdcc1eea510611afaf66d4ee450f755f4f97c2",
+    "framework/src/fedlearn/client/decomfl_client.py": "0fe40ca00225163d7c16ebabd3fddf867403615005534f5b7e0f4bfcc6a3daaf",
+    "framework/src/fedlearn/client/decomfl_start.py": "5caa74537ca17878042ddface747a86646a90773130d9643a0f22138efde41e9",
+    "framework/src/fedlearn/client/grpc_client.py": "b6fd5329ed1d8b32bdabb63ee80a1e1460c0d3dc404b84b1a5cb5395d1dd06ab",
+    "framework/src/fedlearn/client/local_trainer.py": "fb3dba4f551a4762821529093866dacf623d8b919fc21c099cc5ee54a735d970",
+    "framework/src/fedlearn/client/secure_agg_client.py": "2035aa4d3db4a28899189884b5fb16bedbd9e0e5b6fda9b7d63875030becdb4a",
+    "framework/src/fedlearn/communication/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "framework/src/fedlearn/communication/generated/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "framework/src/fedlearn/communication/generated/execution_contract_pb2.py": "3c3c3d54ba915801f1c615ab52c361d0176eaaedd37d09ad4b3b06233997c6c3",
+    "framework/src/fedlearn/communication/generated/fedlearn_pb2.py": "e2a4f15bd378ce06de98fea0bd0f91651df286ae5f6da96ff83bd52f46cbd997",
+    "framework/src/fedlearn/communication/generated/fedlearn_pb2_grpc.py": "2bc7c1afd9fc4539b249306b0f2f183c706b1a23fbee9c6336d1ae2746998cb9",
+    "framework/src/fedlearn/communication/generated/fot_pb2.py": "2b85781a290f42ed576befdd82e321a46fc65278fdcf12beca8f31bee7e3ee30",
+    "framework/src/fedlearn/communication/generated/fot_pb2_grpc.py": "4a96d66a82f71bdf87b61017d1f5a5dd65ef3d085a7d59c97eac97c1006065e6",
+    "framework/src/fedlearn/communication/generated/tree_pb2.py": "1c656c032198805bb4c7e344e97d2f1a769074db6e22302f31f9fca986e8625e",
+    "framework/src/fedlearn/communication/generated/tree_pb2_grpc.py": "262daf7b9b21cb13703d8c451e438a642004a67d261ff158ffef77129371e972",
+    "framework/src/fedlearn/communication/safetensors_codec.py": "a3d6438412de0b9753ef1ca81422cb24b2088e45fe06eb0cb04aedf8a1ca1c48",
+    "framework/src/fedlearn/communication/serializer.py": "e55e99c81554994f1bd9a34515baa113fdc043788dd1ec950befb81d042b9d8c",
+    "framework/src/fedlearn/contract/__init__.py": "0e8bf3b6b058326def097b53de369ed9bd1fb1af4c28c9c0d4591052801054ce",
+    "framework/src/fedlearn/contract/batch_norm.py": "4d292357a19db27df23f56d9a9b3c66a562a4b0eba6337a126b9581985a1b238",
+    "framework/src/fedlearn/contract/batch_order.py": "b52b5afd1e2dd71e78b7be3ccf1176a377d29f1ebdf606fb44a2d0d783aaf98f",
+    "framework/src/fedlearn/contract/dropout_masks.py": "a577507ad54bd8d927b6c3e4f6e822c6c4fa32fe1a53d6decc0acc1ea724f16f",
+    "framework/src/fedlearn/contract/image_package.py": "268d2e86e3aaaccb9226fcd3f44415f1562f3b7fd99b4003658072c043d08cb9",
+    "framework/src/fedlearn/contract/image_transforms.py": "2aa79ba771e97a305d42e07461fbc9f564a7d45f7d420248e05d51c351617e84",
+    "framework/src/fedlearn/contract/validation.py": "21ac717d0af55bb03e5036b6992da8c41d4edaa9ff653e66644618fa7a3e1248",
+    "framework/src/fedlearn/estimators/__init__.py": "9e352599629fe1a60ee04b283c167484f97edf7ba80feb39d7dfddd7ab84cf74",
+    "framework/src/fedlearn/estimators/params.py": "810b2720c6a6d71450023cecf559389f200cc52d9d1382d485b71384a90f36d3",
+    "framework/src/fedlearn/estimators/perturbation.py": "ffc7e4284b71aa692b0862e97ff2ff05fd37179c1938a59b93e845943a919b72",
+    "framework/src/fedlearn/estimators/zeroth_order.py": "17d78a5976d85c53b935d448c8a5a715b82bf2b39dbc57217ba628547e2bf8a5",
+    "framework/src/fedlearn/fot/__init__.py": "5465e535920f7639ffb34274f5f9ced7ccf4f6f2f9d141266aae34191ea990c6",
+    "framework/src/fedlearn/fot/agent.py": "82e5414e2b3b3eac8eacb598f786ca69e37c6da0b4d2f6377579b33ba48f090b",
+    "framework/src/fedlearn/fot/backend.py": "949639c80b8644c11cc8f8123173f7dbfc759e7da3ea241566e561b8eabd8063",
+    "framework/src/fedlearn/fot/distiller.py": "e712071c347f90c6aa80a0c5ac465cc8c4887a12a0f0822e065d609905c12593",
+    "framework/src/fedlearn/fot/fot_server.py": "436c22473f0f9874115a7775c1cf2037fadb9259475b1f9cb3ce046e5d00e050",
+    "framework/src/fedlearn/fot/fot_servicer.py": "03811fed00ab5e4159c3d58803c6711e5ce676cb723f9703fb00a1d99f308507",
+    "framework/src/fedlearn/fot/model.py": "456e6f1adec957b164c966f5d27f38639c850fc57f907ca829b9891f6ae796fa",
+    "framework/src/fedlearn/fot/provenance.py": "2c9bb4e25c4f9b62e5a34d4f2ce000e309a67533973a3bc62e65b9a62736b424",
+    "framework/src/fedlearn/fot/redaction.py": "b9eb3908408df96892527779c9846b40fe7989c12de2ce752ffdbf97f7166714",
+    "framework/src/fedlearn/fot/round.py": "5db3ad6c254650d1fc672e59446b9a6a397cb3b698ea441c5f4c73a1991ea5df",
+    "framework/src/fedlearn/fot/trace_guard.py": "551ec5aed87d5749a9fce7889418a5b0841f55b7310e65b2fc8ee986d66ad40d",
+    "framework/src/fedlearn/lab_worker.py": "1c6e24baa83ab5238f2963b4d4ca2e5ce396d0cd75be519f3aaa20c7b6a94618",
+    "framework/src/fedlearn/privacy/__init__.py": "173a4ffc24d072df79b82baaa08967cf3a945412b98867bd5bd82b1f0dc5f1a4",
+    "framework/src/fedlearn/privacy/audit.py": "7497836aef1d317fa8333354c4ddc19ba0d47c826738c8b2bf9e2c19168bdfb5",
+    "framework/src/fedlearn/privacy/distributed_skellam.py": "fc7d2818edca4e8aca35f2ab3916bba0ababac63506087ef773aecd613edcc0f",
+    "framework/src/fedlearn/privacy/dp_accountant.py": "e6fb553457cae01010b5a0025edfa166393b0266221a7f48de4efb11e77f9ca3",
+    "framework/src/fedlearn/privacy/dp_mechanism.py": "fb269b21facbc5296c6c6860fa8025a9ca94009fb09ddda75c817b6fd429d79c",
+    "framework/src/fedlearn/privacy/gdp_accountant.py": "4455fdc3f44977237886c441082be51ddfb3e5988c4f08009952c6bd8fa86af8",
+    "framework/src/fedlearn/privacy/local_dp.py": "3406c480a580981b4ee32b40f8ce9103ec7fa3eb0333f852381cd2fe3c48fc8b",
+    "framework/src/fedlearn/privacy/planner.py": "3146ebbf273657ff5059939e516984e36634ef9ae94a26ce5d2c4dffb9166f7f",
+    "framework/src/fedlearn/security/__init__.py": "dcbbbce013ac53a850c9131f9e7f876e55c3d2cfb7e931848e9f35947d517c80",
+    "framework/src/fedlearn/security/client_interceptor.py": "fe54504a0a6bff9f9c1609328f1569c24449a677845b57067604d606de248015",
+    "framework/src/fedlearn/security/identity.py": "729d4a670e3d662474b1435342e52729c7c460e535871cff1d7d00e194d0b09c",
+    "framework/src/fedlearn/security/interceptor.py": "191b211e02fd05f1fc5ac75fb72b9ad75d6e341dc56a70467c788760cf7aa893",
+    "framework/src/fedlearn/security/key_agreement.py": "f70963f94eed6ce9769bcca2d983fb76fd4b34b3a19a3f4a364af244b562daf3",
+    "framework/src/fedlearn/security/lightsecagg.py": "451928188b55e697fac6d9955bde122508a25e7fca35a07b487deecccd7a40f7",
+    "framework/src/fedlearn/security/lightsecagg_coded.py": "fc91ebac9b57219b8c20a80c6d80d9cb0089f82c092baaaff47be4cf7595b5e4",
+    "framework/src/fedlearn/security/public_key_registry.py": "c72f9d44b6e6e4d0a1880399d0045f4eff93588a0ce462563497babf595f0666",
+    "framework/src/fedlearn/security/secure_aggregation.py": "4bf7b3c3c1dd810de392d2e477108359b700b3a645a9096e3b9ff009d3be9d19",
+    "framework/src/fedlearn/security/tls.py": "42c4b86e08a39e2a4677648dd19030de07b069ab964111fb6d65a778b9bc45d3",
+    "framework/src/fedlearn/security/token_verify.py": "96f716145842b51ac5ac764806f939aad8beb471abaa6a35b5fc42d24daa51b9",
+    "framework/src/fedlearn/server/__init__.py": "64953ebbb6bcd2e8c4344dc153921c8ce36625c0f87684c9469bc165a4e09b4e",
+    "framework/src/fedlearn/server/_update_normalize.py": "7345914a8e5ad2badb8565c2b4f9ab2217fd5d802a1aef47465b5274ff749b50",
+    "framework/src/fedlearn/server/composed_strategy.py": "cbbfdccb3ecafce3a4c4e8b815fddf79a1b1ed26afe5bffc1ccbe74175fa724b",
+    "framework/src/fedlearn/server/coordinator.py": "57ee4b804317dab41f6dbaf8879bb8c50ab529a6140ba3782382d05cb455ec7f",
+    "framework/src/fedlearn/server/decomfl_strategy.py": "bb01ecfa832e6c7a452d973bb7bec9ed0b735feb6dd53d3bcfc5228973db28ed",
+    "framework/src/fedlearn/server/grpc_servicer.py": "4ae9de60a0c3662feadbc5382821ed903c1da1cf86262f827f3c3cb03b433e66",
+    "framework/src/fedlearn/server/robust_aggregation.py": "ac57bde9f464759bd368da5dbe7e026f617546196a2a2da54cfac7550bc67ee4",
+    "framework/src/fedlearn/server/secure_agg_session.py": "11d77c38a9705f729d6a1c8e0d5b641269f777aaf36ff6387882c20fe263c684",
+    "framework/src/fedlearn/server/server.py": "2bd81fd113f7ec72dfe6b617f8bb1a7f2df7bbe5155bc5171209e7a829b05088",
+    "framework/src/fedlearn/server/strategy.py": "82c591d4812d7e83bdcb0d8dd14249e3b7e5b7eafd8a4b71d2646424193aea57",
+    "framework/src/fedlearn/server/strategy_factory.py": "5287d929f579fe258507f68bb7905de8cebfb15d0f198c472d98814e8cb8c756",
+    "framework/src/fedlearn/server/subset_federation.py": "a80cd7dad07083f8ab9a95489befbc772d0f138b2e991fb3989f898cb4758a1a",
+    "framework/src/fedlearn/server/update_recorder.py": "187a64ecd35388a0bebe80a8875cbc312677350d4d33d344ea3e1d36b8a014bf",
+    "framework/src/fedlearn/simulation/__init__.py": "6c5eacc49038174f815163edcdec7e3fdd12a4238dd3ff6f4176a0e3fe810096",
+    "framework/src/fedlearn/simulation/behaviors.py": "0da8db46bd55c218f074bc2d934f34b6c757e57633e36d2edc9a7f94e2d0fd4b",
+    "framework/src/fedlearn/simulation/byzfl_strategy.py": "7018b59a3eb062bd1777dff98d247ca9294e514ae9826f56d166c02381849e09",
+    "framework/src/fedlearn/simulation/config.py": "43f3d9bf6e678a2556ff3f61a0ea28d5f7f51abc51ab924b606fec97d1dd7123",
+    "framework/src/fedlearn/simulation/core_qualification.py": "1ca836c67b5f07c89e214f67bdbcda29f2e64c9998c254f39666a08f87937382",
+    "framework/src/fedlearn/simulation/costs.py": "e13a960b70edb73aecf9497ca8b2d943b2ebb0056cfc52174258a77c366309e9",
+    "framework/src/fedlearn/simulation/effusion_bundle.py": "a6e83e6726dae0e00a062113b23cb5de4d86aa0c25dcea27f2b5eed106f473ef",
+    "framework/src/fedlearn/simulation/engine.py": "ae7aaad041034cfb56ec89820decdc79df0454e1af14e01d8f159be03aa749e9",
+    "framework/src/fedlearn/simulation/federation.py": "558c541612e4a88d8949242e8ba9349831ebfdcffed35b0862e8e5ee5135acef",
+    "framework/src/fedlearn/simulation/image_identity.py": "fba29437f0a916adec38d8cd6f5eb839b6dd35fde5f40e2e6f4c5a1c21f1ae1f",
+    "framework/src/fedlearn/simulation/lab_contract.py": "d4c535d3979fb143df2a0f3dd91f3b41cd154deca7dafda6b89024b2398ad238",
+    "framework/src/fedlearn/simulation/metrics.py": "d6f697cf2538cfa6d585df8edbaea369e09d94e7ea3848a14f4e71461dc0fdab",
+    "framework/src/fedlearn/simulation/nih_cache.py": "809c0f13f0885780fd6292c50bc614abff730fd2b08f25e1b63072bccda5f7a5",
+    "framework/src/fedlearn/simulation/owned_data_attack.py": "9a3fe18eb64049208939e42be15f5ec530a0d1ce31fa5588b447e0a407959c50",
+    "framework/src/fedlearn/simulation/partition.py": "e566ca90655f66e9f55718c75ee87f44a1f69156a5509087e5ab6f6637ec5146",
+    "framework/src/fedlearn/simulation/rng.py": "22e96c053352372f0ce22ded21e0eb1865c98c3ac8e460e291624993b8389c59",
+    "framework/src/fedlearn/simulation/workloads.py": "4221728f93a2dd676f2660893e1993f83ace5cedb95cd8879899dd4635e5eeed",
+    "framework/src/fedlearn/tree/__init__.py": "c22041385481ad55ca2368a9be92a7cc36ab85dc8fb2816ccaaa014103a5c18a",
+    "framework/src/fedlearn/tree/client.py": "a309ba5a463031d7c3cd82585a01bc9e1ad063afd62d2cc56e0d79e881dbdee4",
+    "framework/src/fedlearn/tree/contract.py": "3e49b331df9a5d9b9075dfd43604180844d81ea39608686c6214009fd2ecaa86",
+    "framework/src/fedlearn/tree/coordinator.py": "44662b95f91628619160c01cfa8541d427a051c0cda8d9c3a2d735849d4a9d31",
+    "framework/src/fedlearn/tree/data.py": "c2a8f59b3d9559de33aa68f5433ad92fef5592e536a799b925ec16fb7e69902f",
+    "framework/src/fedlearn/tree/model.py": "381a70f6dbe42ea40dea99a107aae4ff9c76740c18e4bf0e4b149aa1533590e5",
+    "framework/src/fedlearn/tree/schema.py": "48577b85039008417b7fc76f83b71a2d82784ddfa136396e42594bfb0822c880",
+    "framework/src/fedlearn/tree/transport.py": "0c3144bd3863634d1cf3aa8a9e4ec7f8943d506756cafd3dc3c2e78f86fecb6c",
+    "framework/tests/test_multihost_cohort_contract.py": "268c9e38ad0d04d3d67428f6b79bd68bd93c9b61a0f42ab0447a759796288f7a",
+    "proto/fedlearn/contract/v1/execution_contract.proto": "87c37643db2193d2d9f05d5cb6f2c75a59b9cd3426ae1086fee87782fe639f0b",
+    "proto/fedlearn/fot/v1/fot.proto": "40a2eec3c6e8ebdde7f7037319ff19e9cfcaf597b29e1657f4a38cf66ef149be",
+    "proto/fedlearn/tree/v1/tree.proto": "845ed1dd04f3cf0121e74e3b6c203573bf16fc83745440b91471b0a57f208ac2",
+    "proto/fedlearn/v2/fedlearn.proto": "47a0161d50c817e83f146c66c377a0bb1f606f507103b2e926a29b62133121b3"
+  },
+  "synthetic": false
+}
