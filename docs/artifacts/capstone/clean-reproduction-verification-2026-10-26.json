@@ -1,0 +1,71 @@
+{
+  "artifact_sha256": {
+    "capstone-todo.md": "45eb3ca4cb980bef54085d0d3bf6317113cb2e447e5c04a3a2c5eab755abdd38",
+    "clean-reproduction-qualification-2026-10-26.json": "38204c552bd2caf28ab0000408de6f0488841b0c7ffe39bffdc0dc04d13e1c77",
+    "clean-reproduction.md": "7c9a50e7d2247f3cc3076c82414d5d57250abc25a125d5653922857136acb475",
+    "repro/capstone-launch.example.json": "cc6741d11ddbaa162c6de20178642805f40beaf8d0338a6c12764fbebf88fe4c",
+    "repro/reproduce_capstone.py": "1e49cb2bebca4d9094161235f24d96b5f48ac365c2db91c0cd618703d08c5ce3",
+    "repro/requirements-capstone-cpu.in": "11395c2a48b5fd2139db5dee1d1bbc2d6b74621b729e535d979c229be99780be",
+    "repro/requirements-capstone-linux-aarch64.lock": "2cc1a5119dfe68a5cfe42663871e265dd3972695685860afbb004d9d0f61b413",
+    "repro/requirements-capstone-linux-x86_64.lock": "2cc1a5119dfe68a5cfe42663871e265dd3972695685860afbb004d9d0f61b413",
+    "repro/requirements-capstone-macos-arm64.lock": "50a61a4c5a3139b9ffc57acca2b8785206ef7edf666d0d1fedc7bce77b1486c8",
+    "repro/test_reproduce_capstone.py": "7da1a0b5c10021309e639b988343fdc6f6d741a0655a266cee56fce7f6c50301"
+  },
+  "date": "2026-10-26",
+  "fresh_environment_count": 3,
+  "holdout_or_test_access": false,
+  "limitations": [
+    "Trusted-host reproducibility checks, not a malicious-code sandbox",
+    "Minimal CPU profile, not all platform dependencies",
+    "No new medical cohort, privacy release or accelerator validation",
+    "Fresh environment/source isolation tested by the same operator; no external-party reproduction claimed"
+  ],
+  "new_medical_fits": 0,
+  "original_medical_fitting_source_unchanged": true,
+  "previous_report_and_benchmark_artifact_bindings_preserved": true,
+  "remote_end_state": {
+    "g14": {
+      "task_training_processes": 0
+    },
+    "orin": {
+      "existing_inference_health_status": 200,
+      "task_training_processes": 0
+    }
+  },
+  "review": {
+    "corrected": [
+      "inherited locked transitive module",
+      "remote stdin working directory mistaken for checkout source",
+      "external search root supplying a lazy optimizer dependency"
+    ],
+    "status": "no remaining material findings"
+  },
+  "schema": "capstone.clean_reproduction_verification.v1",
+  "scope": "Fresh CPU profile and generated-only qualification; not full platform or new clinical validation",
+  "source_checkpoint": "404ecf2",
+  "status": "passed",
+  "tests": {
+    "bounded_profile": "164 passed; 101 existing datetime deprecation warnings; 26.18 seconds",
+    "failure_scope": "Real generated gRPC unknown/stale/ahead/duplicate/missing-client checks included",
+    "new_reproduction_tests": 11,
+    "test_log_sha256": "713d3a0d5c1153af6e877e23fb35b5f3dbe1ef0b3e8cfd86573a3cb3033757ed"
+  },
+  "three_host": {
+    "cells": 4,
+    "client_rounds": 60,
+    "max_abs_simulator_difference": 7.450580596923828e-09,
+    "raw_audit_sha256": "75d67432b99419bad336725b444bb72106e979a7ffcf3a151db36797e7b789f9",
+    "receipt_sha256": "ce78da36dc4bfcc276b5b367484ac81751b048fc0714b7de5c5169f9935655c0",
+    "rounds": 20
+  },
+  "tracked_files_only_source_export": {
+    "archive_sha256": "b2ee45a5f71669ad84341f26b5837af16138f31cad5e95f596e096841134163f",
+    "cells": 2,
+    "checkpoint": "404ecf2",
+    "client_rounds": 30,
+    "ignored_workspace_files_present": false,
+    "max_abs_simulator_difference": 0.0,
+    "receipt_sha256": "4741fa6a5f158df4670249d4a227928c543e2f748570b4bd951ec98405ff337b",
+    "rounds": 10
+  }
+}

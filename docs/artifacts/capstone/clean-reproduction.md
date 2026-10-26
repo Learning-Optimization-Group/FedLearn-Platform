@@ -4,7 +4,7 @@ This profile verifies the capstone's canonical CPU training path using generated
 
 ## Prerequisites and fresh installation
 
-Use Python3.12, Git and uv0.11.9. Supported targets are macOS arm64, Linux x86_64 and Linux aarch64. The Linux locks select CPU-only Torch wheels. Run from this capstone worktree. These are minimal qualification dependencies, not the full platform/NLP/image-training environment.
+Use Python 3.12, Git and uv 0.11.9. Supported targets are macOS arm64, Linux x86_64 and Linux aarch64. The Linux locks select CPU-only Torch wheels. Run from this capstone worktree. These are minimal qualification dependencies, not the full platform/NLP/image-training environment.
 
 ```sh
 python3.12 docs/artifacts/capstone/repro/reproduce_capstone.py environment \
@@ -18,7 +18,7 @@ python3.12 docs/artifacts/capstone/repro/reproduce_capstone.py environment \
 
 `doctor` requires the exact complete platform lock and checks direct and loaded transitive dependency origins, user-site isolation, Python version and CPU wheel selection. It rejects inherited site packages, symlink escapes and an externally supplied locked transitive module. It allows the base interpreter's standard library and the checkout's source files. This is a reproducibility check on trusted machines, not a sandbox or supply-chain security certification.
 
-The locks retain Torch2.12.0, NumPy2.1.2 and SciPy1.17.1. The profile uses cryptography50.0.1 to meet the repository's current floor. It does not rewrite earlier studies' recorded environments. Do not add plotting or unrelated packages to the qualification venv; use a separate environment for them.
+The locks retain Torch 2.12.0, NumPy 2.1.2 and SciPy 1.17.1. The profile uses cryptography 50.0.1 to meet the repository's current floor. It does not rewrite earlier studies' recorded environments. Do not add plotting or unrelated packages to the qualification venv; use a separate environment for them.
 
 ## One-command local qualification
 
@@ -33,7 +33,7 @@ This builds deterministic generated training/selection inputs, freezes preparati
 
 ## Three-host qualification
 
-On each remote host, copy `reproduce_capstone.py`, `requirements-capstone-cpu.in` and all three `requirements-capstone-*.lock` files together into a task-owned directory. Run its `environment` command with Python3.12 and a fresh remote output. Use `--uv` if the pinned uv executable is not on PATH. Do not install into an inference or shared system environment.
+On each remote host, copy `reproduce_capstone.py`, `requirements-capstone-cpu.in` and all three `requirements-capstone-*.lock` files together into a task-owned directory. Run its `environment` command with Python 3.12 and a fresh remote output. Use `--uv` if the pinned uv executable is not on PATH. Do not install into an inference or shared system environment.
 
 Copy [the launch template](repro/capstone-launch.example.json) into an ignored private location. Supply the actual clean interpreter paths, existing noninteractive SSH routes and task-owned storage roots. Keep the routes and machine paths private.
 
@@ -67,6 +67,6 @@ PYTHONPATH=framework/src:fl-runtime:docs/artifacts/capstone/repro \
   docs/artifacts/capstone/repro/test_reproduce_capstone.py
 ```
 
-The real gRPC tests require local socket permission. Failure exercises use generated data and a bounded deadline; they do not modify the medical benchmark's600-second deadline. These checks do not represent the unrelated full platform dependency suite.
+The real gRPC tests require local socket permission. Failure exercises use generated data and a bounded deadline; they do not modify the medical benchmark's 600-second deadline. These checks do not represent the unrelated full platform dependency suite.
 
-The completed52-cell medical benchmark and reportv5 remain pinned historical evidence. This procedure performs no new medical fitting or holdout/test evaluation. A fresh clinical cohort, privacy extension, accelerator study, advisor communication or submission remains a separate task.
+The completed 52-cell medical benchmark and report v5 remain pinned historical evidence. This procedure performs no new medical fitting or holdout/test evaluation. A fresh clinical cohort, privacy extension, accelerator study, advisor communication or submission remains a separate task.
