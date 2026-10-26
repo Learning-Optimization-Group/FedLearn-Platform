@@ -1,0 +1,15 @@
+{
+  "local_python": "/ABSOLUTE/PATH/TO/CLEAN/ENV/bin/python",
+  "hosts": {
+    "g14": {
+      "ssh": ["ssh", "g14"],
+      "python": "/ABSOLUTE/PATH/TO/CLEAN/ENV/bin/python",
+      "root": "/ABSOLUTE/PATH/TO/PRIVATE/TASK/STORAGE"
+    },
+    "orin": {
+      "ssh": ["ssh", "orin"],
+      "python": "/ABSOLUTE/PATH/TO/CLEAN/ENV/bin/python",
+      "root": "/ABSOLUTE/PATH/TO/PRIVATE/TASK/STORAGE"
+    }
+  }
+}

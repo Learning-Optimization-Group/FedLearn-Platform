@@ -1,6 +1,6 @@
 # Capstone work checklist
 
-Updated 25 October 2026. Scope: the capstone and the FedLearn foundations it uses.
+Updated 26 October 2026. Scope: the capstone and the FedLearn foundations it uses.
 This is the current completion checklist; older reports/decks remain historical
 records. Checked items have completed evidence; an unchecked item may be underway.
 The final capstone is **not complete**. The fixed 360-cell study has finished and
@@ -10,6 +10,12 @@ historical work; the fresh-seed ByzFL comparison and integrated research report 
 deliverables remain open. The full integrated dashboard checklist is separate.
 
 ## Live checkpoint
+
+**26 October status:** [report v5](capstone-final-report-v5-working.md), [PDF](capstone-final-report-v5-working.pdf) and HTML are complete at 14 pages with five figures. All 52 nonprivate CPU cells completed across Mac-only and Mac/G14/Orin placements, using 3/6/24/80 logical clients: 320 rounds and 13,180 acknowledged fits. Numerical comparisons passed; all five-round three-host jobs were slower end to end. The [results](multihost-results-2026-10-26.md) and [verification](multihost-verification-2026-10-26.json) define the scope. Do not rerun this matrix to seek a favorable result.
+
+Clean CPU reproduction now has [hash-locked setup and generated qualification commands](clean-reproduction.md). The [clean reproduction receipt](clean-reproduction-verification-2026-10-26.json) is the authority for its final verified outcome; it is separate from the frozen medical studies. No new medical fits, holdout/test evaluation or external messages are part of that work.
+
+The current remaining deliverables are the advisor/rubric decisions, presentation, final consistency checks and submission/rehearsal below. Earlier unchecked research entries are historical proposals, not instructions to launch new experiments.
 
 **25 October status:** all five accepted [research-remediation phases](../../superpowers/plans/2026-10-24-capstone-evidence-remediation.md)
 are complete: claim/seed corrections, exact native/ByzFL qualification,126 audited pilot cells,
@@ -24,7 +30,7 @@ remain separate. Older preparation statuses below are historical and superseded 
 any-finding labels or the mobile pneumonia task. A10 opened the internal holdout once;
 new studies use permitted training/selection data only.
 
-### Next-phase work, in priority order
+### Historical research and implementation ledger
 
 - [x] Audit all fourteen candidate conditions in the existing development cohort
   without fitting or test scoring. [Feasibility audit](condition-feasibility-audit-2026-10-20.md):
@@ -333,40 +339,32 @@ see the verification receipt and demonstration guide below.
 - [x] Update the current plan/evidence map and this checklist from actual outcomes;
   back up the new raw study, audit, figures and source checkpoint.
 
-## Planned — complete the capstone deliverables
+## Current delivery checklist
 
-- [ ] Obtain advisor confirmation of the exact working title/scope. Message draft
-  exists; no approval or message delivery is assumed.
-- [ ] Finish the [v2 working report](capstone-final-report-v2-working.md), using the
-  evidence map and current eight-page structure. Methods, abstract, audited results
-  and conclusions are drafted and scientifically reviewed. The [working PDF](capstone-final-report-v2-working.pdf)
-  now includes the 21 October dashboard checkpoint in eight visually checked pages.
-  The [rendering instructions](repro/RENDERING.md) and source-bound layout receipt
-  record fonts/dependencies and two byte-identical fresh renders. Methods/results
-  text and historical study identities are unchanged. Advisor-approved final
-  layout/submission and delivery checks remain open.
-  Verify actual advisor formatting/submission requirements.
-- [ ] Integrate methods, tuning history, primary/secondary results, practical
-  conclusions and limitations into one coherent argument.
-- [ ] Verify primary literature/theorem citations used in final privacy/robustness claims.
-- [ ] Create the final presentation from verified results; preserve the presented
-  Milestone 2 deck and label older exploratory material accurately.
-- [x] Implement the designed Simulation Lab workflow: configuration,
-  start/stop, progress/results and record export for the cached-feature simulator.
-- [x] Verify the demonstration through the actual UI and real execution; clearly
-  label a replay fallback as a replay.
-- [ ] Prepare reproducibility instructions and a curated shareable evidence package;
-  keep private models/identities/research diagnostics out of public artifacts.
-- [ ] Perform final report/figures/deck/demo consistency and reproduction checks.
-- [ ] Prepare the final submission and delivery rehearsal; obtain separate approval
-  for any publication, push, merge or advisor message when required.
+- [ ] Record advisor confirmation of exact title, contribution/scope, required format and presentation duration. The existing message draft has not been sent; do not assume approval.
+- [x] Integrate the research narrative, uncertainty and limitations into report v5, 14 pages/five figures, with all numeric tables and reading copies verified. Earlier report versions remain preserved.
+- [x] Complete and audit the bounded physical-host CPU extension; preserve its negative timing result and logical-versus-physical distinction.
+- [x] Document fresh CPU environment setup, generated qualification, private launch schema and meaningful failure checks. Final verified outcomes are in the clean reproduction receipt, not inferred from documentation.
+- [x] Retain primary-source literature review and scoped privacy/robustness comparisons. No matched NVIDIA FLARE or state-of-the-art superiority claim is established.
+- [x] Implement and browser-verify the bounded Simulation Lab configuration, start/stop, progress/history and research export workflow. The physical-host qualification is a separate CLI path; do not present it as integrated dashboard orchestration.
+- [ ] Create the final presentation from verified results, including the projection utility trade-off, failed private-centered default and the actual CPU timing penalty. Preserve older exploratory decks as historical.
+- [ ] Prepare and rehearse the live demonstration with a clearly labelled replay fallback; verify network/runtime readiness immediately before delivery.
+- [ ] Apply advisor-required report/citation formatting and perform report/figures/deck/demo consistency checks.
+- [ ] Finalize the shareable evidence package with data-access requirements; exclude raw models, patient identities, private endpoints and research diagnostics.
+- [ ] Prepare final submission and delivery rehearsal. Advisor messaging, publication, push or merge requires separate explicit authorization.
+
+## Optional research decisions — require a bounded protocol
+
+- [ ] Decide whether a genuinely unused cohort is feasible and necessary. Freeze policies/settings/primary outcome before evaluation; do not re-split already examined patients and call them fresh. Keep the existing holdout closed.
+- [ ] If systems performance matters to the accepted contribution, run a small profiling study that separates polling, staging, startup and steady-round work. Do not alter the completed benchmark.
+- [ ] Accelerator, private distributed training, secure-aggregation hardening and additional protocol baselines are extensions, not prerequisites silently added to this delivery checklist.
 
 ## Schedule and scope decisions
 
 | Window | Focus |
 | --- | --- |
-| Now–2 November | Complete/audit/report the frozen experiment matrix; write alongside it |
-| 3–16 November | Minimum Simulation Lab and usable demonstration |
+| Now–2 November | Finish clean reproduction, record advisor scope/format and prepare the final presentation |
+| 3–16 November | Rehearse the verified demonstration; optional bounded research only if scope requires it |
 | 17–30 November | Final report, presentation and rehearsal |
 | 1–5 December | Correction/reproduction buffer; stated deadline 5 December |
 
@@ -376,5 +374,4 @@ investigated it with recipe-specific limits. New candidate scope follows the pha
 physical thousand-device deployment remains outside scope.
 Mobile release/signing/production TLS remains parked while capstone work has priority.
 There is no defensible single completion percentage: experiment preparation is
-complete and the scientific result is measured and reconciled. The working
-dashboard, final assessed report, presentation and rehearsal remain open.
+complete and the scientific result is measured and reconciled. The bounded dashboard and working report are verified; advisor-specific formatting, final presentation, submission and rehearsal remain open.
