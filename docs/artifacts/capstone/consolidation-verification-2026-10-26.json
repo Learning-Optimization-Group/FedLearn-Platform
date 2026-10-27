@@ -1,0 +1,599 @@
+{
+  "advisor_message_sent": false,
+  "alternative_research_started": false,
+  "artifact_sha256": {
+    "CONSOLIDATION.md": "fb7e59ea13ca25a7057af394f43e5fae893130ca53115b157366c56df45f4b3d",
+    "advisor-review-packet-2026-10-26.md": "f2ade110dcafb0c694d52750566da9e00245994a2b91c590efaf8b90de6d20cf",
+    "capstone-todo.md": "81209ce94089323c5aeec5401543112ad6548652ffc9e8c5c6d922b78307c5ff",
+    "cohort-feasibility-decision-2026-10-26.json": "8a75149bc83058fe236bc474a4e2351d25e022f62c0e669cdc0ad13ecb2a83ef",
+    "consolidation-evidence-map-2026-10-26.md": "b9c6000f46eb7b901478e9c23c4a4597505e6f389e2f9cdb4ceaf9b9729b162f",
+    "defense-outline-2026-10-26.md": "c2c3244d1bac36e7bc41c0aaa2cb568be1c3633547763461ea144cc19b258b72",
+    "defense-rehearsal-2026-10-26.md": "e5888381399bee236071a26824193179c2dd748d3f4634ffb34e7588476bc148",
+    "research-freeze-2026-10-26.md": "63c97c7019efaee313fb47b59aec74b1adff9e8e5e9ff850c7f9c1fa4034a62d"
+  },
+  "checked_relative_links": [
+    {
+      "source": "research-freeze-2026-10-26.md",
+      "target": "condition-feasibility-audit-2026-10-20.md"
+    },
+    {
+      "source": "research-freeze-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "consolidation-evidence-map-2026-10-26.md",
+      "target": "effusion-finalists-2026-10-25.json"
+    },
+    {
+      "source": "consolidation-evidence-map-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "consolidation-evidence-map-2026-10-26.md",
+      "target": "simulation-lab-worker-contract.md"
+    },
+    {
+      "source": "consolidation-evidence-map-2026-10-26.md",
+      "target": "simulation-lab-api-contract.md"
+    },
+    {
+      "source": "consolidation-evidence-map-2026-10-26.md",
+      "target": "simulation-lab-effusion-browser-verification-2026-10-22.json"
+    },
+    {
+      "source": "consolidation-evidence-map-2026-10-26.md",
+      "target": "multihost-verification-2026-10-26.json"
+    },
+    {
+      "source": "consolidation-evidence-map-2026-10-26.md",
+      "target": "multihost-results-2026-10-26.json"
+    },
+    {
+      "source": "consolidation-evidence-map-2026-10-26.md",
+      "target": "clean-reproduction-verification-2026-10-26.json"
+    },
+    {
+      "source": "consolidation-evidence-map-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "consolidation-evidence-map-2026-10-26.md",
+      "target": "phase-4-verification-2026-10-25.json"
+    },
+    {
+      "source": "consolidation-evidence-map-2026-10-26.md",
+      "target": "research-freeze-2026-10-26.md"
+    },
+    {
+      "source": "advisor-review-packet-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.pdf"
+    },
+    {
+      "source": "advisor-review-packet-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "advisor-review-packet-2026-10-26.md",
+      "target": "consolidation-evidence-map-2026-10-26.md"
+    },
+    {
+      "source": "advisor-review-packet-2026-10-26.md",
+      "target": "research-freeze-2026-10-26.md"
+    },
+    {
+      "source": "advisor-review-packet-2026-10-26.md",
+      "target": "clean-reproduction.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "consolidation-evidence-map-2026-10-26.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "simulation-lab-effusion-browser-verification-2026-10-22.json"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "research-freeze-2026-10-26.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "effusion-finalists-2026-10-25.json"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "consolidation-evidence-map-2026-10-26.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "figures/remediation-2026-10-25/primary-paired-gain.png"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "effusion-finalists-2026-10-25.json"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "effusion-finalists-2026-10-25.json"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "multihost-verification-2026-10-26.json"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "multihost-protocol-2026-10-26.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "figures/multihost-2026-10-26/cpu-placement-speedup.png"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "multihost-results-2026-10-26.json"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "multihost-results-2026-10-26.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "clean-reproduction-verification-2026-10-26.json"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "clean-reproduction.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "consolidation-evidence-map-2026-10-26.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "research-freeze-2026-10-26.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "defense-outline-2026-10-26.md",
+      "target": "consolidation-evidence-map-2026-10-26.md"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "capstone-final-report-v5-working.pdf"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "capstone-final-report-v5-working.html"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "consolidation-evidence-map-2026-10-26.md"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "defense-outline-2026-10-26.md"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "advisor-review-packet-2026-10-26.md"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "defense-rehearsal-2026-10-26.md"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "research-freeze-2026-10-26.md"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "effusion-finalists-2026-10-25.json"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "phase-4-verification-2026-10-25.json"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "integrated-report-v5-verification-2026-10-26.json"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "multihost-results-2026-10-26.json"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "multihost-verification-2026-10-26.json"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "multihost-results-2026-10-26.md"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "clean-reproduction.md"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "clean-reproduction-verification-2026-10-26.json"
+    },
+    {
+      "source": "CONSOLIDATION.md",
+      "target": "capstone-todo.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "CONSOLIDATION.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "consolidation-evidence-map-2026-10-26.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "defense-outline-2026-10-26.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "advisor-review-packet-2026-10-26.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "capstone-final-report-v5-working.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "capstone-final-report-v5-working.pdf"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "multihost-results-2026-10-26.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "multihost-verification-2026-10-26.json"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "clean-reproduction.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "clean-reproduction-verification-2026-10-26.json"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "../../superpowers/plans/2026-10-24-capstone-evidence-remediation.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "remediation-completion-audit-2026-10-25.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "capstone-final-report-v3-working.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "condition-feasibility-audit-2026-10-20.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "medical-backbone-candidate-2026-10-21.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "medical-input-probe-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-baseline-protocol-v1.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-gate-v1-result-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "learning-baseline-audit-2026-10-20.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-federated-v1-result-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-privacy-secure-v1-result-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "privacy-security-readiness-2026-10-20.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-local-dp-r0-v1-result-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-attacks-r0-v1-result-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-holdout-v1-result-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "fedlearn-practical-guidance.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "simulation-lab-effusion-browser-verification-2026-10-22.json"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "literature-review-robust-private-fl-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "production-dp-adjacency-analysis-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-gdp-calibration-r0-v1-result-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-dp-rounds-r0-v1-result-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-zero-head-r0-v1-result-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-strong-attacks-r0-v1-result-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-canary-audit-r0-v1-result-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-noniid-r0-v1-result-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-local-filter-r0-v1-result-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-local-ks-r0-v1-result-2026-10-22.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-encoder-gate-v1-result-2026-10-23.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "effusion-distributed-dp-r0-v1-result-2026-10-23.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "nih-phase2-study-v1-report.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "capstone-milestone-2-report.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "../../../wikis/capstone/README.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "final-report-evidence-map.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "advisor-title-confirmation-draft.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "nih-data-audit-2026-10-19.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "nih-frozen-features-2026-10-19.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "nih-validation-pilot-v1-report.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "nih-optimization-pilot-v2-report.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "nih-schedule-pilot-v3-report.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "nih-head-cost-probe-v1-report.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "nih-mechanism-qualification-v1-report.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "core-execution-qualification.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "privacy-output-boundary-audit.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "nih-phase2-study-v1-protocol.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "final-state-score-artifact-contract.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "nih-phase2-runner-contract.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "../../superpowers/plans/2026-10-20-capstone-confirmatory-study.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "../../superpowers/specs/2026-10-20-simulation-lab-design.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "../../superpowers/plans/2026-10-20-simulation-lab.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "simulation-lab-worker-contract.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "simulation-lab-api-contract.md"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "simulation-lab-browser-verification-2026-10-21.json"
+    },
+    {
+      "source": "capstone-todo.md",
+      "target": "simulation-lab-demo-guide.md"
+    }
+  ],
+  "current_report": "capstone-final-report-v5-working.pdf",
+  "defense_content": {
+    "backup_sections": 3,
+    "main_sections": 12,
+    "proposed_speaking_seconds": 860,
+    "slide_file_export": "not_performed_runtime_unavailable",
+    "timing_status": "proposed_not_rehearsed"
+  },
+  "external_evaluation_performed": false,
+  "frozen_evidence_sha256": {
+    "capstone-final-report-v5-working.html": "c323c664f814ba007258b6902ffb0ffd427629170f300c9b0411bfc4453e1313",
+    "capstone-final-report-v5-working.md": "a2aceebe15cb9653f73be35cdacb96066103c17ee42f808c47e964a3dcfcde81",
+    "capstone-final-report-v5-working.pdf": "e003d2c4015ad9294114d2867aaea89d756c1fd143fadb6f16fa841381f510de",
+    "clean-reproduction-verification-2026-10-26.json": "2c9d6311f31fe8714e3c5cd27bde78664b6e63b757e8bda328abb75fccc23e7a",
+    "effusion-finalists-2026-10-25.json": "582a4a04ef7f37abf27ff9cefed6bd1096a9de934e0c32f3e476ed246cb5e71f",
+    "multihost-results-2026-10-26.json": "d6d1af7a0c5e5e45e7a3be1a01e878f71e363ca7c0c5ced21974a5f89a3ac8fd",
+    "multihost-verification-2026-10-26.json": "e7039f70f2d55d4a5abd10ede1e42660a9bf44526170ec4923513ff991dd3050"
+  },
+  "local_date": "2026-10-26",
+  "new_medical_fits": 0,
+  "numeric_bindings": {
+    "conditional_intervals": {
+      "patient_interval": [
+        0.013135936475838864,
+        0.02589348963959565
+      ],
+      "seed_interval": [
+        0.011011253706071684,
+        0.02734003264561017
+      ]
+    },
+    "cpu_cells": 52,
+    "cpu_client_rounds": 13180,
+    "cpu_rounds": 320,
+    "finalist_cells": 196,
+    "fresh_cpu_profile_checks": 164,
+    "primary_point": "0.019176",
+    "private_arm_table": {
+      "center_quarter": [
+        "0.666497",
+        "0.508300"
+      ],
+      "mean512": [
+        "0.740361",
+        "0.551304"
+      ],
+      "projected128": [
+        "0.759536",
+        "0.683331"
+      ],
+      "trim16": [
+        "0.678365",
+        "0.605114"
+      ]
+    }
+  },
+  "original_fitting_source_preserved": true,
+  "original_scientific_artifacts_preserved": true,
+  "previous_status_snapshot": {
+    "checkpoint": "040a36b",
+    "path": "capstone-todo.md",
+    "sha256": "45eb3ca4cb980bef54085d0d3bf6317113cb2e447e5c04a3a2c5eab755abdd38"
+  },
+  "publication_push_merge_or_submission": false,
+  "remaining_gates": [
+    "advisor title/scope/format/duration approval",
+    "slide-file export and visual inspection",
+    "actual timed rehearsal",
+    "final submission and authorization"
+  ],
+  "report_pages": 14,
+  "research_status": "frozen_after_access_gate_failure",
+  "review": "No material numeric, claim or scope inconsistency in public-evidence review",
+  "schema": "capstone.consolidation_verification.v1",
+  "status": "passed"
+}

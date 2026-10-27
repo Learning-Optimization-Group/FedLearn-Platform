@@ -11,6 +11,8 @@ deliverables remain open. The full integrated dashboard checklist is separate.
 
 ## Live checkpoint
 
+**Research frozen:** the user confirmed no approved access or unused cohort. The maximum 48-hour feasibility check stopped at the access gate, with no external evaluation or replacement study. Use the [consolidation index](CONSOLIDATION.md), [claim/evidence map](consolidation-evidence-map-2026-10-26.md), [defense outline](defense-outline-2026-10-26.md) and [advisor review packet](advisor-review-packet-2026-10-26.md). The outline is content-only; exported slides, actual rehearsal, advisor approval and submission remain open.
+
 **26 October status:** [report v5](capstone-final-report-v5-working.md), [PDF](capstone-final-report-v5-working.pdf) and HTML are complete at 14 pages with five figures. All 52 nonprivate CPU cells completed across Mac-only and Mac/G14/Orin placements, using 3/6/24/80 logical clients: 320 rounds and 13,180 acknowledged fits. Numerical comparisons passed; all five-round three-host jobs were slower end to end. The [results](multihost-results-2026-10-26.md) and [verification](multihost-verification-2026-10-26.json) define the scope. Do not rerun this matrix to seek a favorable result.
 
 Clean CPU reproduction passed in three fresh environments, with 164 bounded profile checks and a tracked-files-only source-export qualification. It has [hash-locked setup and generated qualification commands](clean-reproduction.md). The [clean reproduction receipt](clean-reproduction-verification-2026-10-26.json) is the authority for its final verified outcome; it is separate from the frozen medical studies. No new medical fits, holdout/test evaluation or external messages are part of that work.
@@ -347,24 +349,24 @@ see the verification receipt and demonstration guide below.
 - [x] Document fresh CPU environment setup, generated qualification, private launch schema and meaningful failure checks. Final verified outcomes are in the clean reproduction receipt, not inferred from documentation.
 - [x] Retain primary-source literature review and scoped privacy/robustness comparisons. No matched NVIDIA FLARE or state-of-the-art superiority claim is established.
 - [x] Implement and browser-verify the bounded Simulation Lab configuration, start/stop, progress/history and research export workflow. The physical-host qualification is a separate CLI path; do not present it as integrated dashboard orchestration.
-- [ ] Create the final presentation from verified results, including the projection utility trade-off, failed private-centered default and the actual CPU timing penalty. Preserve older exploratory decks as historical.
+- [ ] Export and render the final slide file from the completed editable defense outline/speaker notes. The outline includes the projection utility trade-off, failed private-centered default and actual CPU timing penalty; older decks remain historical. Presentation export is unavailable in the current session and is not claimed complete.
 - [ ] Prepare and rehearse the live demonstration with a clearly labelled replay fallback; verify network/runtime readiness immediately before delivery.
 - [ ] Apply advisor-required report/citation formatting and perform report/figures/deck/demo consistency checks.
 - [ ] Finalize the shareable evidence package with data-access requirements; exclude raw models, patient identities, private endpoints and research diagnostics.
 - [ ] Prepare final submission and delivery rehearsal. Advisor messaging, publication, push or merge requires separate explicit authorization.
 
-## Optional research decisions — require a bounded protocol
+## Research closure and deferred work
 
-- [ ] Decide whether a genuinely unused cohort is feasible and necessary. Freeze policies/settings/primary outcome before evaluation; do not re-split already examined patients and call them fresh. Keep the existing holdout closed.
-- [ ] If systems performance matters to the accepted contribution, run a small profiling study that separates polling, staging, startup and steady-round work. Do not alter the completed benchmark.
-- [ ] Accelerator, private distributed training, secure-aggregation hardening and additional protocol baselines are extensions, not prerequisites silently added to this delivery checklist.
+- [x] Apply the approved cohort feasibility gate. User-confirmed access failure ended the extension; no external evaluation was performed. Keep the existing holdout closed and retain the limitation in the defense.
+- Deferred: further performance profiling. The negative CPU result is retained; a blocked cohort is not replaced with another experiment.
+- Deferred: accelerator/deep-model studies, private distributed training, secure-aggregation hardening and additional framework/protocol baselines. None is an active consolidation task.
 
 ## Schedule and scope decisions
 
 | Window | Focus |
 | --- | --- |
-| Now–2 November | Finish clean reproduction, record advisor scope/format and prepare the final presentation |
-| 3–16 November | Rehearse the verified demonstration; optional bounded research only if scope requires it |
+| Now–2 November | Consolidate the frozen evidence, record advisor scope/format and export the defense presentation |
+| 3–16 November | Rehearse the demonstration and talk; resolve advisor-required delivery corrections |
 | 17–30 November | Final report, presentation and rehearsal |
 | 1–5 December | Correction/reproduction buffer; stated deadline 5 December |
 

@@ -1,0 +1,22 @@
+{
+  "approved_unused_cohort_available": false,
+  "decided_at_utc": "2026-10-27T00:07:47Z",
+  "external_evaluation_performed": false,
+  "holdout_or_test_access": false,
+  "local_date": "2026-10-26",
+  "maximum_deadline_utc": "2026-10-29T00:03:45Z",
+  "new_medical_fits": 0,
+  "next_action": "consolidate_existing_evidence",
+  "replacement_research_projects": false,
+  "schema": "capstone.cohort_feasibility_decision.v1",
+  "scope": "Access failed before dataset-level qualification. Public documentation and existing source were inspected; no predictive scores were computed.",
+  "started_at_utc": "2026-10-27T00:03:45Z",
+  "status": "stopped_access_gate",
+  "unassessed": [
+    "actual cohort labels and reader aggregation",
+    "patient grouping",
+    "content overlap",
+    "external feature replay"
+  ],
+  "user_access_reply": "No approved access or unused cohort yet"
+}
