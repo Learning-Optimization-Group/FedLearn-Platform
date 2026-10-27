@@ -1,0 +1,33 @@
+{
+  "schema": "capstone.projection-gate-analytical.v1",
+  "date": "2026-10-27",
+  "seed": 20261027,
+  "generated_only": true,
+  "model_fits": 0,
+  "medical_inputs_opened": false,
+  "draws": 10000,
+  "widths": [
+    128,
+    512
+  ],
+  "sigma": 0.01,
+  "numpy_version": "2.1.2",
+  "method": "default_rng: draw normal x[k], then normal wide[10000,1026]; couple small rows to wide first k coordinates of each class and both biases; float64 elementwise sums; numpy.errstate(all=raise).",
+  "expected_noise_energy_ratio": 3.9767441860465116,
+  "observed_noise_energy_ratio": 3.9755971679240347,
+  "expected_score_variance": 0.027784220928826153,
+  "checks": {
+    "exact_padded_score_agreement": true,
+    "all_scores_finite": true,
+    "small_energy_relative_error": 0.0010058425357293288,
+    "wide_energy_relative_error": 0.0007171209614016405,
+    "score_variance_relative_error": 0.007461195864277181
+  },
+  "scope": "Standalone one-release Gaussian and fixed-feature forward calculation. No training, attack qualification, privacy implementation validation, or clinical utility evidence.",
+  "diagnostic_note": "Initial NumPy matmul emitted floating-point warnings despite finite inputs/outputs. Independent elementwise sums agreed within 1.67e-16; final qualification uses only elementwise sums with floating-point exceptions enabled. Backend warning cause remains unresolved.",
+  "source_bindings": {
+    "docs/artifacts/capstone/repro/capstone_pilot_mechanisms.py": "68d9ee65d2828bdaa114003b492c1dc6c0c82710b40187c6146338240d46888f",
+    "framework/src/fedlearn/simulation/owned_data_attack.py": "9a3fe18eb64049208939e42be15f5ec530a0d1ce31fa5588b447e0a407959c50",
+    "framework/src/fedlearn/simulation/byzfl_strategy.py": "7018b59a3eb062bd1777dff98d247ca9294e514ae9826f56d166c02381849e09"
+  }
+}
