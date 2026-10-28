@@ -67,4 +67,5 @@ def local_fit(parameters,x,y,seed,round,client):
 
 def score(parameters,x):
     w=parameters['head.weight'].double();b=parameters['head.bias'].double()
-    return torch.nn.functional.linear(x.double(),w[1]-w[0],b[1]-b[0])
+    return torch.nn.functional.linear(x.double(),(w[1]-w[0]).unsqueeze(0),
+                                      (b[1]-b[0]).reshape(1)).squeeze(1)
