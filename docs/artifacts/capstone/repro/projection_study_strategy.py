@@ -43,7 +43,8 @@ class StudyStrategy(ComposedStrategy):
         self.last_pre_noise=None
 
     def _pipeline(self,server_round,results,*,apply_noise):
-        if len(results)!=20 or {str(c) for c,_,_ in results}!={str(i) for i in range(20)}:
+        if len(results)!=20 or {str(c) for c,_,_ in results}!={str(i) for i in range(20)} \
+                or any(n<=0 or not self._valid(p) for _,p,n in results):
             return None,dict(failed=True,aggregated=len(results),message='complete fixed study cohort required')
         out,stats=super()._pipeline(server_round,results,apply_noise=False)
         if out is None:

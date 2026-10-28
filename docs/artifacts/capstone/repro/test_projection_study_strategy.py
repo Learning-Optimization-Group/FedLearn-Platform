@@ -25,6 +25,9 @@ def test_native_no_noise_parity_and_exact_cohort_admission():
     assert all(torch.equal(expected[k],actual[k]) for k in p)
     for bad in (updates[:-1],updates[:-1]+[updates[0]],updates[:-1]+[('bad',p,205)]):
         assert StudyStrategy(p,seed=11,private=True).aggregate_fit(1,bad) is None
+    for private in (False,True):
+        invalid=updates[:-1]+[('19',p,0)]
+        assert StudyStrategy(p,seed=11,private=private).aggregate_fit(1,invalid) is None
 
 
 def test_gaussian_marginals_covariance_and_score_variance():
