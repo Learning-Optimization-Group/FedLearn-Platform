@@ -1,0 +1,356 @@
+{
+  "date": "2026-10-28",
+  "independent_audit": {
+    "cells": 12,
+    "client_fits": 4800,
+    "maximum_errors": {
+      "clipping_error": 1.4952751870023206e-08,
+      "geometry_error": 1.1208943218043999e-08,
+      "metric_error": 1.1102230246251565e-16,
+      "release_error": 1.4901161193847656e-08,
+      "score_error": 9.769962616701378e-15
+    },
+    "padding_max_error": 3.8416559700049646e-07,
+    "rounds": 240,
+    "status": "verified"
+  },
+  "main_manifest_sha256": "e11e33221d4909c820eaec529db1ee261904627851f35a25c7d23269e544e23e",
+  "profile_tests": {
+    "complete_reproduction_directory": "Six legacy collection errors: scikit-learn absent from minimal profile; no dependencies changed.",
+    "passed": 352,
+    "scope": "Bounded generated CPU/transport and canonical strategy/GDP/RNG/owned-attack suites",
+    "warnings": 151
+  },
+  "qualification": {
+    "attack_check_sha256": "ac4fe6dcab575fc481bea441087535573b5ce86012f495ab3b6b13012f3dfd4b",
+    "cells": 12,
+    "elapsed_s": 9.117125958000543,
+    "independent_audit_sha256": "69b19d7cf395aa1164b319fa924c7b2ede8c27401b8f5905eb1c65a0a024ea76",
+    "padding_replay_max_score_discrepancies": {
+      "1-2": 0.0,
+      "4-5": 5.4473062394144733e-08,
+      "6-7": 3.8416559700049646e-07
+    },
+    "projected_main_s": 262.3710355735384,
+    "status": "qualified",
+    "summary_sha256": "19818006b716dc40dadc7012425b1925f938f41dfee729a76907c1a108c59ba1"
+  },
+  "qualification_cells": [
+    {
+      "artifacts": {
+        "head.npz": "3da521e70ee427abdadcb11400214b93e6dbabde96d769b9543a4096ee522d4a",
+        "predictions.npz": "702630d78c0355476a5ef538f34ec37be6f4780dfd2b503bfeb836f6a7ad6db0",
+        "rounds.json": "12d5884443b46fc7aae3af0192e9ba75588b2e0b3bb0dcd9d5e2c00d9d9e4ffa"
+      },
+      "block": "full",
+      "client_fits": 400,
+      "elapsed_s": 0.9018842090154067,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.8173826693485136,
+        "brier": 0.20144439639748352,
+        "log_loss": 0.592513224406922
+      },
+      "name": "full_full_None_None_25001_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 25001,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "3da521e70ee427abdadcb11400214b93e6dbabde96d769b9543a4096ee522d4a",
+        "predictions.npz": "702630d78c0355476a5ef538f34ec37be6f4780dfd2b503bfeb836f6a7ad6db0",
+        "rounds.json": "a28cb32625756ee3ac78d61fb3440af36b4d1b04ace1ff298358c5803451c1ae"
+      },
+      "block": "full",
+      "client_fits": 400,
+      "elapsed_s": 0.3909054169780575,
+      "eta": null,
+      "kind": "",
+      "label": "replay",
+      "metrics": {
+        "auroc": 0.8173826693485136,
+        "brier": 0.20144439639748352,
+        "log_loss": 0.592513224406922
+      },
+      "name": "full_full_None_None_25001_none_0_replay",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 25001,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "cfbf773dc6f5f56d42d85b485cf6495d257efbb1f1e26aef82b6137afe132a21",
+        "predictions.npz": "54f4bf34ec489ae5c83ede9751bfc2e20dd22ee88c687fa07666cf743e1e706f",
+        "rounds.json": "1e0ab5c21e0276f91e11c51b6b4227d14d3b9c60f8d142db5d4d47a853bf8bc4"
+      },
+      "block": "full",
+      "client_fits": 400,
+      "elapsed_s": 0.42491500001051463,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5448409648949774,
+        "brier": 0.3623866208705705,
+        "log_loss": 1.3337118832164951
+      },
+      "name": "full_full_None_None_25001_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 25001,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "a028f88c57e9a1526b593f3231810da3a0818d851646cbf90659b9361bad0453",
+        "predictions.npz": "349e744a4017d944d65780f9d5e3b7d483aa33ef10e1b4e73c05b09e3ce71d61",
+        "rounds.json": "8bb9473e91ba8b63783ce365551d8586bfed5061d6d110472ae228822f52bb9f"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.42577858301228844,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6618704838692466,
+        "brier": 0.23435041506255802,
+        "log_loss": 0.6612893418849167
+      },
+      "name": "random_random_None_20261111_25001_none_0_",
+      "private": false,
+      "projection_seed": 20261111,
+      "rounds": 20,
+      "seed": 25001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "cbaeb956aabab16fa4e2fcd30f23920a390104fa27babde2fc8021e341897dfe",
+        "predictions.npz": "4d0ab2fdc54b80fbfc120d10dbf98cf77b4844f3457b7cba914c83db4efa2353",
+        "rounds.json": "9b456357977c8be8a2b303df682f28e3c9729d5a2a41c16ee6b694721a546998"
+      },
+      "block": "padded",
+      "client_fits": 400,
+      "elapsed_s": 0.48113770797499456,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6618704838692466,
+        "brier": 0.2343504150356093,
+        "log_loss": 0.6612893418288303
+      },
+      "name": "padded_padded_None_20261111_25001_none_0_",
+      "private": false,
+      "projection_seed": 20261111,
+      "rounds": 20,
+      "seed": 25001,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "69368461a879f2df31ead1f5e1cc138e5ca30b8b7d21860097c76a2c5d79f22c",
+        "predictions.npz": "70668921db5cee8e737a86fa8c62f1002a6f90ec76b96563f7665ac286c73aa9",
+        "rounds.json": "c7571e858ec7affb06e856a1512a7ad40089589f1b90a5cfa997653efcf336e1"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.42567029100609943,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5317123265581946,
+        "brier": 0.3088062371020044,
+        "log_loss": 0.8844005620335239
+      },
+      "name": "random_random_None_20261111_25001_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261111,
+      "rounds": 20,
+      "seed": 25001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "ea943b18fdaf9b668f74c958aa0dd25348d84828442db8bf019c137aeca6466c",
+        "predictions.npz": "056763d88320a9dcd3302d021aeec6387403d891bd96eeb74cb2b890f1d13a04",
+        "rounds.json": "881ac61663c2899b792be2379c77864fd189bbd7be3bb2a014b41f02acb144d4"
+      },
+      "block": "padded",
+      "client_fits": 400,
+      "elapsed_s": 0.4842644169984851,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.531712207333207,
+        "brier": 0.3088062370335004,
+        "log_loss": 0.8844005620645115
+      },
+      "name": "padded_padded_None_20261111_25001_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261111,
+      "rounds": 20,
+      "seed": 25001,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "f359c31138a5f52dabaf9272d985a259edef1b2a85168191cc643dfa8eaba13d",
+        "predictions.npz": "6bc0168d412911871ac7f2f1839f32bcccd9ae4cfe8fce29955d96d97821ee72",
+        "rounds.json": "724622e12fd2e62ab3a307c2a3125da04ec2fa46d07cfe1054fb08c9fb7bf469"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.619622583995806,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6851953027500972,
+        "brier": 0.22907525183417415,
+        "log_loss": 0.6502920740622173
+      },
+      "name": "attack_full_None_None_25001_none_20_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 25001,
+      "status": "completed",
+      "steps": 20,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "5c39359dcaf20c43e5352beab533ce465124ae20fe76d9cb1bc8d26315cda4cd",
+        "predictions.npz": "b52e8cec3818f805a1b1e6367bce106424adb1363f46a32adbf15097cea97542",
+        "rounds.json": "aa7243b7ffbfdceec29d31a7a8f77d77fa7da66c1324e9d8f530ecbcba2dd804"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.1881903749890625,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6851983429872786,
+        "brier": 0.22907369191052668,
+        "log_loss": 0.6502887975985739
+      },
+      "name": "attack_full_None_None_25001_none_80_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 25001,
+      "status": "completed",
+      "steps": 80,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "0ceee8c1edb33eaed3df99161a4a67197fe7219d856d307b78ce8b91c2a3bf43",
+        "predictions.npz": "ea78d7042c494e8f6154bba00e84ceb25ad6770365b309d48b9e0cf0501bb811",
+        "rounds.json": "0e47a88d0a7ce15b1c29e72b2464259d8fa9ff92c6df6d05ba69ddd1a39fe288"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.9291987909819,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6851983429872786,
+        "brier": 0.2290736919744406,
+        "log_loss": 0.6502887977279588
+      },
+      "name": "attack_full_None_None_25001_none_160_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 25001,
+      "status": "completed",
+      "steps": 160,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "14865ba6d230ef48e7f47903b63918dd30905d2711d155293c935469726cebbd",
+        "predictions.npz": "7cfaf5026d5ab93156b104c37b04e1d926c1602099acfd2cebf680eee4800c08",
+        "rounds.json": "ffc9832576752587ea57934695e4dba79439b3dd73dde7ca10a8155fec610ab3"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.4151947920036037,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5090607711817945,
+        "brier": 0.3260787994766758,
+        "log_loss": 0.9478702216934871
+      },
+      "name": "attack_random_None_20261111_25001_gdp4_160_",
+      "private": true,
+      "projection_seed": 20261111,
+      "rounds": 20,
+      "seed": 25001,
+      "status": "completed",
+      "steps": 160,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "54b5b6a27274a542e4f894776f9267318ae9861db17f03d50e7eae1f71d1b28b",
+        "predictions.npz": "03b9cc9a27595772e9b25c815758c95cfd67a07f73bcaa80b1b28e28b55687ef",
+        "rounds.json": "c32b9eef4bc1ed4d64e68bbb2735d059270b8796de80ac1625f68517954e7305"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.29470616701291874,
+      "eta": 0.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5008810428514278,
+        "brier": 0.3189143091817323,
+        "log_loss": 0.9060177067002204
+      },
+      "name": "controlled_controlled_0.0_None_25001_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 25001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    }
+  ],
+  "schema": "capstone.projection.qualification.v1",
+  "scope": "Generated data only. Qualification completed once; no medical inputs opened. Main136 cells not yet executed at this checkpoint.",
+  "source_checkpoint": "1e44031debffd9aa75b30fe63dfd7201d6bae24c",
+  "status": "qualified"
+}
