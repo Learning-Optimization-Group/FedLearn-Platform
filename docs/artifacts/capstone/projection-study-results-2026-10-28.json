@@ -1,0 +1,4442 @@
+{
+  "cells": 136,
+  "client_fits": 54400,
+  "comparisons": {
+    "attack_budgets": [
+      {
+        "gate": {
+          "mean_auroc_damage": 0.11898947344701555,
+          "qualified": true
+        },
+        "kind": "full",
+        "mean_auroc": 0.6982679351489988,
+        "points": [
+          {
+            "auroc": 0.6938211113712203,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.6954837038220014,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.7022894833963407,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.7014774420064326,
+            "seed": 24004
+          }
+        ],
+        "private": false,
+        "steps": 20
+      },
+      {
+        "gate": {
+          "mean_auroc_damage": 0.11898947344701555,
+          "qualified": true
+        },
+        "kind": "random",
+        "mean_auroc": 0.5708638154368579,
+        "points": [
+          {
+            "auroc": 0.5719133828081264,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.5727843213418629,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.5761043199564686,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.5626532376409739,
+            "seed": 24004
+          }
+        ],
+        "private": false,
+        "steps": 20
+      },
+      {
+        "gate": {
+          "mean_auroc_damage": 0.11898947344701555,
+          "qualified": true
+        },
+        "kind": "full",
+        "mean_auroc": 0.5114326479863764,
+        "points": [
+          {
+            "auroc": 0.49686798938444554,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.5390509822141952,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.5318987348261613,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.47791288552070355,
+            "seed": 24004
+          }
+        ],
+        "private": true,
+        "steps": 20
+      },
+      {
+        "gate": {
+          "mean_auroc_damage": 0.11898947344701555,
+          "qualified": true
+        },
+        "kind": "random",
+        "mean_auroc": 0.5241997812579154,
+        "points": [
+          {
+            "auroc": 0.5242432387658617,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.512557461227885,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.5373700887278319,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.5226283363100832,
+            "seed": 24004
+          }
+        ],
+        "private": true,
+        "steps": 20
+      },
+      {
+        "gate": {
+          "mean_auroc_damage": 0.11898164930721042,
+          "qualified": true
+        },
+        "kind": "full",
+        "mean_auroc": 0.6982757592888038,
+        "points": [
+          {
+            "auroc": 0.6938295763453333,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.695495387870777,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.7022901987462657,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.7014878741928394,
+            "seed": 24004
+          }
+        ],
+        "private": false,
+        "steps": 80
+      },
+      {
+        "gate": {
+          "mean_auroc_damage": 0.11898164930721042,
+          "qualified": true
+        },
+        "kind": "random",
+        "mean_auroc": 0.5708804324194916,
+        "points": [
+          {
+            "auroc": 0.5719263187192708,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.5728165717009834,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.5761090889559688,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.5626697503017435,
+            "seed": 24004
+          }
+        ],
+        "private": false,
+        "steps": 80
+      },
+      {
+        "gate": {
+          "mean_auroc_damage": 0.11898164930721042,
+          "qualified": true
+        },
+        "kind": "full",
+        "mean_auroc": 0.511437938595197,
+        "points": [
+          {
+            "auroc": 0.4968746063712522,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.5390575992010018,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.5319028480882303,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.4779167007203038,
+            "seed": 24004
+          }
+        ],
+        "private": true,
+        "steps": 80
+      },
+      {
+        "gate": {
+          "mean_auroc_damage": 0.11898164930721042,
+          "qualified": true
+        },
+        "kind": "random",
+        "mean_auroc": 0.5242092745475457,
+        "points": [
+          {
+            "auroc": 0.5242497365276808,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.5125679530267856,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.537378494089451,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.5226409145462652,
+            "seed": 24004
+          }
+        ],
+        "private": true,
+        "steps": 80
+      },
+      {
+        "gate": {
+          "mean_auroc_damage": 0.11898164930721042,
+          "qualified": true
+        },
+        "kind": "full",
+        "mean_auroc": 0.6982757592888038,
+        "points": [
+          {
+            "auroc": 0.6938295763453333,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.695495387870777,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.7022901987462657,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.7014878741928394,
+            "seed": 24004
+          }
+        ],
+        "private": false,
+        "steps": 160
+      },
+      {
+        "gate": {
+          "mean_auroc_damage": 0.11898164930721042,
+          "qualified": true
+        },
+        "kind": "random",
+        "mean_auroc": 0.5708804026132448,
+        "points": [
+          {
+            "auroc": 0.5719263187192708,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.5728165717009834,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.5761090293434751,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.5626696906892498,
+            "seed": 24004
+          }
+        ],
+        "private": false,
+        "steps": 160
+      },
+      {
+        "gate": {
+          "mean_auroc_damage": 0.11898164930721042,
+          "qualified": true
+        },
+        "kind": "full",
+        "mean_auroc": 0.5114379534983204,
+        "points": [
+          {
+            "auroc": 0.49687466598374597,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.5390575992010018,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.5319028480882303,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.4779167007203038,
+            "seed": 24004
+          }
+        ],
+        "private": true,
+        "steps": 160
+      },
+      {
+        "gate": {
+          "mean_auroc_damage": 0.11898164930721042,
+          "qualified": true
+        },
+        "kind": "random",
+        "mean_auroc": 0.5242092745475457,
+        "points": [
+          {
+            "auroc": 0.5242497365276808,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.5125679530267856,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.5373785537019449,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.5226408549337714,
+            "seed": 24004
+          }
+        ],
+        "private": true,
+        "steps": 160
+      }
+    ],
+    "attack_damage_gates": {
+      "20": {
+        "mean_auroc_damage": 0.11898947344701555,
+        "qualified": true
+      },
+      "80": {
+        "mean_auroc_damage": 0.11898164930721042,
+        "qualified": true
+      },
+      "160": {
+        "mean_auroc_damage": 0.11898164930721042,
+        "qualified": true
+      }
+    },
+    "padding": [
+      {
+        "auroc_difference": 0.0,
+        "private": false,
+        "seed": 24001
+      },
+      {
+        "auroc_difference": 0.0,
+        "private": false,
+        "seed": 24002
+      },
+      {
+        "auroc_difference": 0.0,
+        "private": false,
+        "seed": 24003
+      },
+      {
+        "auroc_difference": 0.0,
+        "private": false,
+        "seed": 24004
+      },
+      {
+        "auroc_difference": 5.961249371910782e-08,
+        "private": true,
+        "seed": 24001
+      },
+      {
+        "auroc_difference": -5.961249383013012e-08,
+        "private": true,
+        "seed": 24002
+      },
+      {
+        "auroc_difference": 0.0,
+        "private": true,
+        "seed": 24003
+      },
+      {
+        "auroc_difference": 0.0,
+        "private": true,
+        "seed": 24004
+      }
+    ],
+    "random_bases": [
+      {
+        "mean_gain": -0.15549997982117084,
+        "points": [
+          {
+            "auroc": 0.6613276525011286,
+            "gain": -0.1559075355378391,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.6620540307375133,
+            "gain": -0.15572839999411014,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.6618680993694966,
+            "gain": -0.1550941826730683,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.6617799324912352,
+            "gain": -0.15526980107966581,
+            "seed": 24004
+          }
+        ],
+        "private": false,
+        "projection_seed": 20261101
+      },
+      {
+        "mean_gain": -0.15388054681586724,
+        "points": [
+          {
+            "auroc": 0.6633872045478133,
+            "gain": -0.15384798349115436,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.6638065188288743,
+            "gain": -0.15397591190274917,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.6631812433818954,
+            "gain": -0.1537810386606695,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.6631324803620051,
+            "gain": -0.15391725320889593,
+            "seed": 24004
+          }
+        ],
+        "private": false,
+        "projection_seed": 20261102
+      },
+      {
+        "mean_gain": -0.18008673558228616,
+        "points": [
+          {
+            "auroc": 0.6373011945688011,
+            "gain": -0.1799339934701666,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.6373860827599059,
+            "gain": -0.18039634797171755,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.6371713585574063,
+            "gain": -0.17979092348515868,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.6368240561687992,
+            "gain": -0.18022567740210182,
+            "seed": 24004
+          }
+        ],
+        "private": false,
+        "projection_seed": 20261103
+      },
+      {
+        "mean_gain": -0.1681965468032294,
+        "points": [
+          {
+            "auroc": 0.6491847663610513,
+            "gain": -0.1680504216779164,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.6494567781700478,
+            "gain": -0.16832565256157572,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.6488268529485561,
+            "gain": -0.1681354290940088,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.6487750496914844,
+            "gain": -0.1682746838794167,
+            "seed": 24004
+          }
+        ],
+        "private": false,
+        "projection_seed": 20261104
+      },
+      {
+        "mean_gain": -0.1719149655198355,
+        "points": [
+          {
+            "auroc": 0.6452560645727301,
+            "gain": -0.17197912346623756,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.6453644400863738,
+            "gain": -0.17241799064524965,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.6453912657085628,
+            "gain": -0.17157101633400218,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.6453580019370484,
+            "gain": -0.17169173163385265,
+            "seed": 24004
+          }
+        ],
+        "private": false,
+        "projection_seed": 20261105
+      },
+      {
+        "mean_gain": 0.013535091222316623,
+        "points": [
+          {
+            "auroc": 0.5449585803451528,
+            "gain": 0.025672597334832736,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.5335467222159729,
+            "gain": -0.026070868405598913,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.557086980649248,
+            "gain": 0.0039970177061625645,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.5480411423971387,
+            "gain": 0.0505416182538701,
+            "seed": 24004
+          }
+        ],
+        "private": true,
+        "projection_seed": 20261101
+      },
+      {
+        "mean_gain": 0.007194095358648719,
+        "points": [
+          {
+            "auroc": 0.5679570804351974,
+            "gain": 0.04867109742487741,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.5011236657010039,
+            "gain": -0.05849392492056793,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.5417909512645807,
+            "gain": -0.011299011678504778,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.5473977447520588,
+            "gain": 0.04989822060879018,
+            "seed": 24004
+          }
+        ],
+        "private": true,
+        "projection_seed": 20261102
+      },
+      {
+        "mean_gain": -0.010103602341268766,
+        "points": [
+          {
+            "auroc": 0.5109642577198329,
+            "gain": -0.008321725290487136,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.5418377470721771,
+            "gain": -0.01777984354939466,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.5217764141618539,
+            "gain": -0.03131354878123149,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.5145002323993069,
+            "gain": 0.01700070825603822,
+            "seed": 24004
+          }
+        ],
+        "private": true,
+        "projection_seed": 20261103
+      },
+      {
+        "mean_gain": 0.008660234836265643,
+        "points": [
+          {
+            "auroc": 0.528485621496313,
+            "gain": 0.009199638485992923,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.5478124688711009,
+            "gain": -0.011805121750470882,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.5266006148313381,
+            "gain": -0.026489348111747302,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.5612352948645565,
+            "gain": 0.06373577072128783,
+            "seed": 24004
+          }
+        ],
+        "private": true,
+        "projection_seed": 20261104
+      },
+      {
+        "mean_gain": 0.0002952308753134819,
+        "points": [
+          {
+            "auroc": 0.5188403796195138,
+            "gain": -0.00044560339080623734,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.5389806394715662,
+            "gain": -0.020636951150005634,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.5371475552886504,
+            "gain": -0.015942407654434998,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.5357054098397694,
+            "gain": 0.038205885696500796,
+            "seed": 24004
+          }
+        ],
+        "private": true,
+        "projection_seed": 20261105
+      }
+    ],
+    "retention": [
+      {
+        "eta": 0.0,
+        "mean_gain": -0.3272431123277624,
+        "points": [
+          {
+            "auroc": 0.49017952719781277,
+            "gain": -0.3270556608411549,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.4900796166582821,
+            "gain": -0.3277028140733414,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.48974763468056975,
+            "gain": -0.3272146473619952,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.490050406536343,
+            "gain": -0.32699932703455803,
+            "seed": 24004
+          }
+        ],
+        "private": false
+      },
+      {
+        "eta": 0.25,
+        "mean_gain": -0.17442903302514268,
+        "points": [
+          {
+            "auroc": 0.6426904620665732,
+            "gain": -0.17454472597239445,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.6428599999988077,
+            "gain": -0.17492243073281577,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.6426541580578774,
+            "gain": -0.17430812398468754,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.6431088821602281,
+            "gain": -0.17394085141067295,
+            "seed": 24004
+          }
+        ],
+        "private": false
+      },
+      {
+        "eta": 0.75,
+        "mean_gain": -0.02650586077251707,
+        "points": [
+          {
+            "auroc": 0.7905234257130266,
+            "gain": -0.02671176232594108,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.7908625611899894,
+            "gain": -0.026919869541634056,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.7906657803481095,
+            "gain": -0.02629650169445541,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.7909544240428633,
+            "gain": -0.026095309528037736,
+            "seed": 24004
+          }
+        ],
+        "private": false
+      },
+      {
+        "eta": 1.0,
+        "mean_gain": 0.028800092303985364,
+        "points": [
+          {
+            "auroc": 0.8458723146881548,
+            "gain": 0.02863712664918716,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.8461361595855071,
+            "gain": 0.028353728853883653,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.8459792595019484,
+            "gain": 0.029016977459383475,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.8462422698243882,
+            "gain": 0.029192536253487167,
+            "seed": 24004
+          }
+        ],
+        "private": false
+      },
+      {
+        "eta": 0.0,
+        "mean_gain": -0.029170285890193673,
+        "points": [
+          {
+            "auroc": 0.507911621139711,
+            "gain": -0.011374361870609029,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.5018959455575787,
+            "gain": -0.05772164506399313,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.5030979122691275,
+            "gain": -0.049992050673957955,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.49990643819105407,
+            "gain": 0.0024069140477854245,
+            "seed": 24004
+          }
+        ],
+        "private": true
+      },
+      {
+        "eta": 0.25,
+        "mean_gain": -0.004998209538750145,
+        "points": [
+          {
+            "auroc": 0.5224682767643554,
+            "gain": 0.003182293754035337,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.5503867748013458,
+            "gain": -0.009230815820226002,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.5428707123639352,
+            "gain": -0.010219250579150185,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.4937744586336089,
+            "gain": -0.0037250655096597307,
+            "seed": 24004
+          }
+        ],
+        "private": true
+      },
+      {
+        "eta": 0.75,
+        "mean_gain": 0.05467102040553547,
+        "points": [
+          {
+            "auroc": 0.5815251224634364,
+            "gain": 0.06223913945311632,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.6209667751554441,
+            "gain": 0.06134918453387228,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.6103494919555026,
+            "gain": 0.057259529012417154,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.5353357527660048,
+            "gain": 0.03783622862273611,
+            "seed": 24004
+          }
+        ],
+        "private": true
+      },
+      {
+        "eta": 1.0,
+        "mean_gain": 0.08447340737324281,
+        "points": [
+          {
+            "auroc": 0.6123172407618073,
+            "gain": 0.09303125775148724,
+            "seed": 24001
+          },
+          {
+            "auroc": 0.6527398170385263,
+            "gain": 0.09312222641695456,
+            "seed": 24002
+          },
+          {
+            "auroc": 0.6419167515101484,
+            "gain": 0.08882678856706294,
+            "seed": 24003
+          },
+          {
+            "auroc": 0.5604128809007352,
+            "gain": 0.06291335675746651,
+            "seed": 24004
+          }
+        ],
+        "private": true
+      }
+    ]
+  },
+  "maximum_errors": {
+    "clipping_error": 1.506204688750401e-08,
+    "geometry_error": 1.401283986762758e-08,
+    "metric_error": 1.1102230246251565e-16,
+    "release_error": 1.4901161193847656e-08,
+    "score_error": 1.0658141036401503e-14
+  },
+  "padding_max_error": 4.3612271161119764e-07,
+  "rounds": 2720,
+  "rows": [
+    {
+      "artifacts": {
+        "head.npz": "ec6ca04fbcd0e5e2214b2ce567df7ce2ecdbd758672efd5bd0ce2199bb204521",
+        "predictions.npz": "274a1b2efe0cdb48902d92c9e5bb6bec661700dd6371c01601c135139b2fe6f0",
+        "rounds.json": "d6162f5cf67ad41fb2a5a792f07af3d572d79e8514d5ebc17ca685b0447b83ac"
+      },
+      "block": "full",
+      "client_fits": 400,
+      "elapsed_s": 0.8460100420052186,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.8172351880389677,
+        "brier": 0.2008224738701767,
+        "log_loss": 0.5910990199057218
+      },
+      "name": "full_full_None_None_24001_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "7fa7dca342f342d96fcf7c7e8651218c3a39d489f0aae6466a35e1b69a44a28b",
+        "predictions.npz": "64e323b86e02378d59e67c9931d3beb6a414d01c9e18a8764610d87cc5a9c1bd",
+        "rounds.json": "c7d78e7bfbaa9292ced17e02c6fd18e13f46ea85e47fbf6e7a7d9e630f89e0c7"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2835455830208957,
+      "eta": 0.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.49017952719781277,
+        "brier": 0.25207524251967517,
+        "log_loss": 0.6973236643864518
+      },
+      "name": "controlled_controlled_0.0_None_24001_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "8e92390de34c9af76db0039bb75f986d1ba1cec6f26cfb28abc36c960174265b",
+        "predictions.npz": "4d709f8cd095b7bd9ef4e1f241941caaa42c2972278df9cb653a78dc271532e7",
+        "rounds.json": "7b578ab5aea36e28d3ff149c393e3ad315b09cd1c87c1ed185834a1d154e1c9c"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2901871670037508,
+      "eta": 0.25,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6426904620665732,
+        "brier": 0.23679027726605492,
+        "log_loss": 0.6662634351974428
+      },
+      "name": "controlled_controlled_0.25_None_24001_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "701d6818490c038d3f19d9e40b04f9da6eaa70330d0d23eb4b61168eec83ced0",
+        "predictions.npz": "e01df388933523db465c1112ff7cfa8ca5bedc668b60855e42041e42c445fc33",
+        "rounds.json": "80a15753d0147a21f0131cc33eff4373db7a3c82c0725060b7ad7cf0a7bda786"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.282299124985002,
+      "eta": 0.75,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.7905234257130266,
+        "brier": 0.2057483893625769,
+        "log_loss": 0.6012510391638757
+      },
+      "name": "controlled_controlled_0.75_None_24001_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "f9aebda301433ff54101db8b32d0b45d4bd1d62370e52c3b99ab7b4ab1c59c9e",
+        "predictions.npz": "755819490ad78bb32c99f362a36a0caead3e38c7bcff846762019d0c77caeda5",
+        "rounds.json": "75ece6e729b55bb3f4b77375e903dce6a1d980a15a28a3c61a57a474a4ddf8b1"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.28285166699788533,
+      "eta": 1.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.8458723146881548,
+        "brier": 0.1903673428909216,
+        "log_loss": 0.5684004728556364
+      },
+      "name": "controlled_controlled_1.0_None_24001_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "8c5060a154d999b0a4bff73a4d4d957d9ec6408bb9093d3e8207fe4967d84330",
+        "predictions.npz": "8e60849d144572b7266f36bf45228cb4f47d931246242fbb72343691c30b3501",
+        "rounds.json": "31a14207feb042627434befdc79e8eda38e6b8a81fe6b249307d02efca3227f6"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4276676249864977,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6613276525011286,
+        "brier": 0.2342461648149024,
+        "log_loss": 0.6610654602283055
+      },
+      "name": "random_random_None_20261101_24001_none_0_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "d70e970181b5cafc9aaa8fd0c69dca5ee21218be4f409cfbf09cc20ea14e3624",
+        "predictions.npz": "acec642f20fbcf1deb6f12ac76bea6f3eb79164337e0a966de0e5f5503c2b37a",
+        "rounds.json": "023feb46fff4c8ad2b84307379dae9fffd46a42fe1a7fdad98f42ad363c35920"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4229552500182763,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6633872045478133,
+        "brier": 0.2338245256323736,
+        "log_loss": 0.6602019128003573
+      },
+      "name": "random_random_None_20261102_24001_none_0_",
+      "private": false,
+      "projection_seed": 20261102,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "37ad47fa75324a8dfeaa341369bfb7867f136f60bae1fa3200501662f96de135",
+        "predictions.npz": "640c90b45ed94df1403f8a93b97423655fcd7b9532296d802e1746a624ab50eb",
+        "rounds.json": "a5942f1a7764e1e2abf71a6d522c6b100630782db5e55bde3bb2ce3bb61d7e74"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4284041249775328,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6373011945688011,
+        "brier": 0.23802964083962802,
+        "log_loss": 0.6688408166287746
+      },
+      "name": "random_random_None_20261103_24001_none_0_",
+      "private": false,
+      "projection_seed": 20261103,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "477a6206b980df0c4c87c665305028917d88486d04aa3f1c20798d4eccbfc987",
+        "predictions.npz": "9f100a3f00f7781ecd1e446cea73f9dddd7ad47faad6ab44f2c20c85d8207bfa",
+        "rounds.json": "a9ac4f2e94a61ead1707cf75f3b44272ee7af01c525ca3e4935bbb4af46b4f0a"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.43121395900379866,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6491847663610513,
+        "brier": 0.23621942071654686,
+        "log_loss": 0.6651262729926302
+      },
+      "name": "random_random_None_20261104_24001_none_0_",
+      "private": false,
+      "projection_seed": 20261104,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "397508e1353c376c98b7d562d843a1c331d27326b30c202012fb4103eec71093",
+        "predictions.npz": "f4275a856fb994bc90d19e46efb9d1bc43eca1aae51ae9678f4cc36aad876eb6",
+        "rounds.json": "055a6c05dee62c0513ec370a5ce1401eeea7c15d99691c73fd571ee8bff749df"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.42456583300372586,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6452560645727301,
+        "brier": 0.2362333912199775,
+        "log_loss": 0.6651225813506472
+      },
+      "name": "random_random_None_20261105_24001_none_0_",
+      "private": false,
+      "projection_seed": 20261105,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "8f16b5c97d0a325b7088ded2849919ffc37800d693f1fd3479a08aba64acf9ef",
+        "predictions.npz": "5c5d26c76028b8bc24b05c506c6cd23dcfe0a592134fc8dfea446c97f3372d47",
+        "rounds.json": "595947f1ff42f8fa645e725dc365cb4d9eca3c5eca7dd33e27d4ede27d30e1e9"
+      },
+      "block": "padded",
+      "client_fits": 400,
+      "elapsed_s": 0.4851972500036936,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6613276525011286,
+        "brier": 0.23424616487665922,
+        "log_loss": 0.6610654603464463
+      },
+      "name": "padded_padded_None_20261101_24001_none_0_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "76b87cf9edf279aed82984a528d84bd02fc1f3b9695825ca309cab1e41c70b78",
+        "predictions.npz": "b881f6eb0d316aadd7c15fc98f447100364aab5e85e2b1ff94ca33056c7d6eac",
+        "rounds.json": "99044aa9dc0ed7a7e33622092f53347195341a151cd02e3008e400baabfbf85a"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.6198060839960817,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6938211113712203,
+        "brier": 0.22744576259609758,
+        "log_loss": 0.6468556697270529
+      },
+      "name": "attack_full_None_None_24001_none_20_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 20,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "815c22a8459cc1a594c483155851a24ccd0ba6bb3811054b03013ad98d3599db",
+        "predictions.npz": "adb861da7a39f7280aebf9f752e9369544faa05002c6a5a9cad3e87c1d34508a",
+        "rounds.json": "23bb880059d29415799fed95a61f75d693a8ed8b8d99fc5571198351e5440cfd"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.1788869169831742,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6938295763453333,
+        "brier": 0.22744347547362526,
+        "log_loss": 0.6468507846896276
+      },
+      "name": "attack_full_None_None_24001_none_80_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 80,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "958447f016262a69fa27855bbef9e5c4a3ecbd12624eb883e5720a49d36ef112",
+        "predictions.npz": "cfcba0ced5cce845bc781ab455e2de4fb8b02e5a2fa7d292915092098cc0ec05",
+        "rounds.json": "c53db3995d64f1f43755cfb8c0d7d65cc32328dab3f5af0559fe743f31796e89"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.9318026249820832,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6938295763453333,
+        "brier": 0.22744347573796667,
+        "log_loss": 0.6468507852075804
+      },
+      "name": "attack_full_None_None_24001_none_160_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 160,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "5bd58c004f9f889a0a7ab6cbb9c3d831083d78df8193bc0161d0c161d9aba74b",
+        "predictions.npz": "f1d6a8f18cad4b7d2c39e6e10e14baa3b35f92f3b4390a565bd1a8c7466da934",
+        "rounds.json": "032b53af4fc8bed3154a0d32b26a11b37eaa3aef160a03fc7bf1d66159ba3239"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.5511445000011008,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5719133828081264,
+        "brier": 0.24602044403576423,
+        "log_loss": 0.6851413214814059
+      },
+      "name": "attack_random_None_20261101_24001_none_20_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 20,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "0021a9208eadd90a27465c2fc3a6cb930899df9ddc49eb2c706ff331022b7b46",
+        "predictions.npz": "ce45bbdbabfdb52faf4387b97c9d44233ae20f463f2d1f8fd3b1c04e6b75ad59",
+        "rounds.json": "c679edd817e78526a549387c79e4eaa5c0a46008dc9d420b3cad52f969a19c91"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.9319149999937508,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5719263187192708,
+        "brier": 0.24601890632770398,
+        "log_loss": 0.6851381884026972
+      },
+      "name": "attack_random_None_20261101_24001_none_80_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 80,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "3b4f65f137e57b74e63f269d4c69bb7904457da231e558f587949a4f459ae8ac",
+        "predictions.npz": "40860947ae2d076b3ebd5ec009f1999346ca6e1649030a7e7d4b64a0448f3a99",
+        "rounds.json": "2db2bfe70c8e2e1cfabec9ade3ebe954d87fff34dbb6b466b25765c17556e796"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.4173258329974487,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5719263187192708,
+        "brier": 0.24601890649226835,
+        "log_loss": 0.6851381887369694
+      },
+      "name": "attack_random_None_20261101_24001_none_160_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 160,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "a50eca8695cb0784e84cf38bd9a63f75fbfc40d3f3da45aad5a03c0c1022a5df",
+        "predictions.npz": "a2b355ddfe614653f7a3e70391ad8d31c1f044db7963ec621a368c70ee35eb70",
+        "rounds.json": "16fbdc8e3e8334d337235f3c44aa19ec4e6f8734b513c0fddac73bb6cc25f372"
+      },
+      "block": "full",
+      "client_fits": 400,
+      "elapsed_s": 0.4449847499781754,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.51928598301032,
+        "brier": 0.3767248967868694,
+        "log_loss": 1.406614546886255
+      },
+      "name": "full_full_None_None_24001_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "803f8d0ede90b4d05020cebc7659eac071691be8ca4a3b0e19c6acd8889c970b",
+        "predictions.npz": "5a71e4cdc861259f298f597c34bc95a2de6d173f93a3e4b8d9435c1d4268f474",
+        "rounds.json": "fb9682ca796177b1c2ba2911ce9724da5c492a58bb8103749f9c6c9ad891820d"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.28914862498641014,
+      "eta": 0.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.507911621139711,
+        "brier": 0.30549466231503664,
+        "log_loss": 0.853597902669614
+      },
+      "name": "controlled_controlled_0.0_None_24001_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "5b598631c2338351e0478202f91e7a43ba567b629535651a9506aa5eaccfd3f9",
+        "predictions.npz": "0c6245f43f5794f72958aa55b2b875fabb7fc864db656433a7a1d02ee6317e4c",
+        "rounds.json": "89f661efe14bc079203faee2e9bf82668c5313750088772f42d65b64526ea4f4"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2897531659982633,
+      "eta": 0.25,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5224682767643554,
+        "brier": 0.29906220441238107,
+        "log_loss": 0.8367150755273075
+      },
+      "name": "controlled_controlled_0.25_None_24001_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "c7ed8d9e0d6d3a2aa0c9f64b1d3a2e098067e0afe6bc6d19ba6aaa1de9fa24d6",
+        "predictions.npz": "cd6845aa1be18cca4e4d492c759dd13ac49d8d100ce29b4f816c43ff2938475c",
+        "rounds.json": "477abf17578e8e6953081575fe72fdaac067b963b7a8f50d5628de6894b945f5"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2903517500089947,
+      "eta": 0.75,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5815251224634364,
+        "brier": 0.27618858787999,
+        "log_loss": 0.7797121761990737
+      },
+      "name": "controlled_controlled_0.75_None_24001_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "8c7289394168fee6b5a338c8f5809974e651867be578dce93720173294596a6b",
+        "predictions.npz": "cbf9665820a34c7c8a52a18e07641b505eb60cbf0332ec55b3f2aef924f0a0e1",
+        "rounds.json": "34e6a449c8d83c538b15766d4c4352a7be8e1f11ac427d1166db6fc70e56e90c"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.28822091699112207,
+      "eta": 1.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6123172407618073,
+        "brier": 0.2639373118584589,
+        "log_loss": 0.7487574866326501
+      },
+      "name": "controlled_controlled_1.0_None_24001_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "e3ffb9a2d958e9a7e3c0d24e5192b4e9d457abba322c9f03dcdbfe7facd1b615",
+        "predictions.npz": "2108e7d25d251b2c10dbcc0731ca9170baad91798a903e088307c05b5b19f05f",
+        "rounds.json": "35621d537f596e8eef993cb9d45aec85d409bbe4669edf30b7200ddbd57d51a0"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.44241466699168086,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5449585803451528,
+        "brier": 0.2933517599580708,
+        "log_loss": 0.8279586122770902
+      },
+      "name": "random_random_None_20261101_24001_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "776c11a45f50c03eafcf89356af3b5aa42f8d37310d7e155f992547ca2dabf89",
+        "predictions.npz": "cd3f0fa153d5a5ebd0cbdaa9083f2e0b39b710d9019de0531be6fd94d349a81c",
+        "rounds.json": "9e8439bb542c2f4d561ae7c56dddcdac5763af767a408a98d2fdb716430034a3"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.435210834024474,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5679570804351974,
+        "brier": 0.2838616050747675,
+        "log_loss": 0.800363726241205
+      },
+      "name": "random_random_None_20261102_24001_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261102,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "dafdccda84efd114fcd23137feddf64c7c47dc516c5b2ca24423d2a52238c45c",
+        "predictions.npz": "bd7bf71af6fd25c5cf24744f30a17142c5c01ecce514900900f9320702898abf",
+        "rounds.json": "ac353b0feecf42b4713ed273bdd3430d98770f5bc5bf3d86933836c2669b0c4a"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4347632499993779,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5109642577198329,
+        "brier": 0.30368984634400376,
+        "log_loss": 0.8455621934512013
+      },
+      "name": "random_random_None_20261103_24001_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261103,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "c919dacb1fec872f21526bbf9eb5bcf391256cc989c3d26d14624850f24aed56",
+        "predictions.npz": "f325a2aa7305c25a1e24b8f78b62ef43aa0cd07dc1376923103acd7030109a8d",
+        "rounds.json": "d2187515023d4ce0068216836c9e57de4c079253b4cd25de854c28595a74e954"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4327796249999665,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.528485621496313,
+        "brier": 0.29922697471696835,
+        "log_loss": 0.839013201137777
+      },
+      "name": "random_random_None_20261104_24001_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261104,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "f23618f9de8bb0693e33b8e9a617ce0648d7719b088a6ea449b1d742f3af40f8",
+        "predictions.npz": "b67d1ec7f9fb52cd0c6ae5f2e25874c9e83e39bdcedc531b6e723319317e24af",
+        "rounds.json": "7af201309bba7cd6f082e410836b622a2398a82586ebdf538361453d7f6bd3ad"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.43134558299789205,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5188403796195138,
+        "brier": 0.3029297731324876,
+        "log_loss": 0.8497346960340897
+      },
+      "name": "random_random_None_20261105_24001_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261105,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "8e84a4a448d48a0bc6172dc2e3901b36c3da87cabe44623c9d2a29422d509934",
+        "predictions.npz": "ce2d038f6cf9a896a7fca8b815cbb38a8c7ea4f2b9a961f288723eb0b5220890",
+        "rounds.json": "a828c5dc19b0a7c1f093e53f0415345d32620f30d048d2a5cb8b79b07847e16a"
+      },
+      "block": "padded",
+      "client_fits": 400,
+      "elapsed_s": 0.4930083749932237,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5449586399576465,
+        "brier": 0.2933517599927503,
+        "log_loss": 0.8279586118792698
+      },
+      "name": "padded_padded_None_20261101_24001_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "e71efe4f0047a0a3e8762ac9fcdcfb21d49cb5f22040ab3709a28e89c6cfb1c2",
+        "predictions.npz": "f9dcb22fdef63a9a581ad64d77d3a49b9b61db984a7e07396cfc95e3f93677f9",
+        "rounds.json": "e85306e0e51cfdf508db60e26da831589da376d5413d998a069d0945a19077b1"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.6563567499979399,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.49686798938444554,
+        "brier": 0.39415134673617364,
+        "log_loss": 1.5152301395135321
+      },
+      "name": "attack_full_None_None_24001_gdp4_20_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 20,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "14a47a7c909b064da4eec95d259e4c603147b98ac0fd86d97396c7585dac286a",
+        "predictions.npz": "2768c11a471f545296c3f2132ba78c00b726af9ed9c283388d8dd2034c16530c",
+        "rounds.json": "6215f6da3a5fa35588bf8b2d1d3565d755f4a90388d925578cbb78ac154d31bf"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.2081520409847144,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.4968746063712522,
+        "brier": 0.3941464790829209,
+        "log_loss": 1.5152017823939787
+      },
+      "name": "attack_full_None_None_24001_gdp4_80_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 80,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "feaefc817e494c521e6a07e77ac2db18d103cdf7e42a05a252f4ecd1aaa5bd7b",
+        "predictions.npz": "d2679b7101fb07e8768a2b990eb7878dabce064c4ec9f7dba9cf7cdab0e7d884",
+        "rounds.json": "aab4bff0c7f4cc117daf7eba347c423948e2cda63da1cda387fab73bcd6976e0"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.9165676250122488,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.49687466598374597,
+        "brier": 0.3941464794548927,
+        "log_loss": 1.5152017835961236
+      },
+      "name": "attack_full_None_None_24001_gdp4_160_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 160,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "22317fb754769b3d3323e824918c2ad685c1d23f2afac23a2ad324756a9511dd",
+        "predictions.npz": "ed296e7fd6c24f3e16d63458c093b400a563ca5266f92c6dcd64cb21c0c22ac7",
+        "rounds.json": "6f5c37985b88b8b07b7ea34c8efd5da8d9306722efe68d661b636aa8d7aa0d72"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.5601321659923997,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5242432387658617,
+        "brier": 0.30950476415902073,
+        "log_loss": 0.8829622223604344
+      },
+      "name": "attack_random_None_20261101_24001_gdp4_20_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 20,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "417525bb8f4806c437694dceeba12c2b34af3ff54a76e33f79394f28285b8762",
+        "predictions.npz": "10fa4ecf3b7bef9b27d8c38c0bf0b00e1b77a6341641a127019fda364e8d9687",
+        "rounds.json": "70989f5352e0fbbefc6c79accddb51c9467254a4a892f936395477de5ef829fc"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.9465637499815784,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5242497365276808,
+        "brier": 0.3095003315929452,
+        "log_loss": 0.8829500893025135
+      },
+      "name": "attack_random_None_20261101_24001_gdp4_80_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 80,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "00b0b941cab5487ce1d3f3a70e5fc0171165c1f69ed9e40b5f9fb69a2675e7a7",
+        "predictions.npz": "6a3dfa9eacf9bbd84ec5c4950fd71ac701a671e57814e843b1c28d08909aa127",
+        "rounds.json": "9602ef973ecfb60386f68536fb4a9dc1bc5941d68459a7142f030109edd1f48a"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.4406673340126872,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5242497365276808,
+        "brier": 0.30950033235340346,
+        "log_loss": 0.8829500918319158
+      },
+      "name": "attack_random_None_20261101_24001_gdp4_160_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24001,
+      "status": "completed",
+      "steps": 160,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "9888becf6b0f19a34ef828876a834a259f30f95a654b4414c2dd864217d1708f",
+        "predictions.npz": "f5583cd288920ab8ad0670902cfa75b8e76ad205939a6723f263d79053f4eb45",
+        "rounds.json": "3790c4a0cd38a930ddf47e51dc746a161c17fd66be75a44386872a3e1c149a02"
+      },
+      "block": "full",
+      "client_fits": 400,
+      "elapsed_s": 0.39840941701550037,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.8177824307316235,
+        "brier": 0.201092850315686,
+        "log_loss": 0.5917361342912977
+      },
+      "name": "full_full_None_None_24002_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "f6fe9b11d76540e40de49cb9ea691744cb8c047066cb19f2372a68da3fa36479",
+        "predictions.npz": "7178148a7ed749258bce448459d5eb6c329379aa6a1f7473b3fb1151def6effa",
+        "rounds.json": "19042612a06a05e4d5630efc018a7ea3514439eb8461390d48f15965c74a0314"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.28307037500781007,
+      "eta": 0.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.4900796166582821,
+        "brier": 0.2520522417778376,
+        "log_loss": 0.6972779548790276
+      },
+      "name": "controlled_controlled_0.0_None_24002_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "046c5864ba63de6a32cb8264c50c2bc751685ef1ce7a2fbfdcd38db7cb8ba0c7",
+        "predictions.npz": "e2b83c0f4b81e82e726d9292a8ff8f9e45c68fd98c62c02a056846397677fcd9",
+        "rounds.json": "61ada94df81d77d9b21ac0edb9d63b4ab02560a806d8e256245d5c391c44fea3"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.29135812501772307,
+      "eta": 0.25,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6428599999988077,
+        "brier": 0.23681828479825498,
+        "log_loss": 0.6663259467567317
+      },
+      "name": "controlled_controlled_0.25_None_24002_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "f0131b8b63863e43b929703f89ffdf46b883129a836206eb02c4d2de2c5036c9",
+        "predictions.npz": "b30702662444fecb1f062eef052dc38d6719686c26b7050368163c8d744502c9",
+        "rounds.json": "0449b94ac95aa2bad2cf9dc99d9b278c4e23d3e05b07bb87f4d92661e5511a93"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.29046508300234564,
+      "eta": 0.75,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.7908625611899894,
+        "brier": 0.20583215518149317,
+        "log_loss": 0.6014553374391467
+      },
+      "name": "controlled_controlled_0.75_None_24002_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "8dc0fedbb5a5d5b824f1aee27f9f113921db181b9633d51cc05c4053a2658028",
+        "predictions.npz": "9ddefd31dad198f0c4c8d6f3e6c3e63e62c75443268ec2b585bf8d4dc2d027b2",
+        "rounds.json": "ddb38b20dc424c71b160d5191c6f40ca4eef7c0b695832038b08f2dc2af57701"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.28127295899321325,
+      "eta": 1.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.8461361595855071,
+        "brier": 0.19045856128592958,
+        "log_loss": 0.568627573877754
+      },
+      "name": "controlled_controlled_1.0_None_24002_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "7d6c33defec846728dc5c22891bfc47a416310ff022689e94cf01db5f2fad5ce",
+        "predictions.npz": "be40f108f50a3bdbd3a7e2a74654ce0afb9cf48aa903b33de525baa387f15240",
+        "rounds.json": "c0b74b951cd78c7cb64e61bfc0342833b3d1a91c132ccc899a4357b7d7af0015"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4314770830096677,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6620540307375133,
+        "brier": 0.23416919433753147,
+        "log_loss": 0.660911208580869
+      },
+      "name": "random_random_None_20261101_24002_none_0_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "ad941447b0c6325f332ab188ce3bd130ccf7e38565bb97bfe1480ed1a5949143",
+        "predictions.npz": "c74995b670c343f7dc728eba6fc42b0d32d8915e76cf5c7e23f84c63d3c1ef04",
+        "rounds.json": "e704af0bcff35d8b4ab248de308f2d3a2d4738c845400f1051644b34d6e562fc"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4305010000243783,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6638065188288743,
+        "brier": 0.23386728691141634,
+        "log_loss": 0.6602980612406828
+      },
+      "name": "random_random_None_20261102_24002_none_0_",
+      "private": false,
+      "projection_seed": 20261102,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "47fd2dea71ff1ebbcf7fc729988de8795b0ac2091369b920c598827c9ff5b6f9",
+        "predictions.npz": "71a9a10e8db8405eddcb6e26dc002bb4ccd12e27092ed763f7de963478dbd2a1",
+        "rounds.json": "6f6155386c4b5e2eeecf7672e4b43844bf3a2f45cff37851a6454049c4dc2e48"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4271956250013318,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6373860827599059,
+        "brier": 0.2380312312562609,
+        "log_loss": 0.6688456836320308
+      },
+      "name": "random_random_None_20261103_24002_none_0_",
+      "private": false,
+      "projection_seed": 20261103,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "72a8f582311b8d7f5856a9de6554c7355f23c2a58619cce3c24c5ec8dac43231",
+        "predictions.npz": "bf1c44d5352257a0d5db9b6908046d63cea7ac0e85b392c5c7d1b869c0bd8647",
+        "rounds.json": "869d79e0a66816c51cdcac7a56d70c4042a66f367ce89f4457b7d5d9d7ba4aa2"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.42750320897903293,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6494567781700478,
+        "brier": 0.23623640741411192,
+        "log_loss": 0.6651660881626016
+      },
+      "name": "random_random_None_20261104_24002_none_0_",
+      "private": false,
+      "projection_seed": 20261104,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "e98d6bb3cede71ab9933f0b80ab9ebb321d5787eabc7f4ce9025ae4b8211e898",
+        "predictions.npz": "2c00a270dddad230e76da59bbe563780b0c2db7c73d08dc03e8fd79d03070c0d",
+        "rounds.json": "a31ed6424b6d29d684050cd38a05e2f7aec14d9e62b82cadc72d590e461f0eb6"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4209594590065535,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6453644400863738,
+        "brier": 0.23625106879773056,
+        "log_loss": 0.665162550057749
+      },
+      "name": "random_random_None_20261105_24002_none_0_",
+      "private": false,
+      "projection_seed": 20261105,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "650f9f106aea916cc2e4c65ba64c9441da3c5e3ee643f77e62e2f38b22bbcf7e",
+        "predictions.npz": "7d91f5e0144a5caa883dd62c6e11a1acf0df1b4a1221c8ad8dc3a747d633a480",
+        "rounds.json": "17f3817d6cfa988b16921486bcea0e2e60202598ab74ad852615521098ff4b0c"
+      },
+      "block": "padded",
+      "client_fits": 400,
+      "elapsed_s": 0.49464516702573746,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6620540307375133,
+        "brier": 0.23416919432055508,
+        "log_loss": 0.6609112085456257
+      },
+      "name": "padded_padded_None_20261101_24002_none_0_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "d5b3ffe15d27060b60f5db910b4ffa9ff105f302958d02ea0c56c8d183ab7917",
+        "predictions.npz": "aada321ea8ad5d36ce8e38644c1085ddcc28f6116d6db5daac6140f7dc0ecfce",
+        "rounds.json": "8c0db09141e715b36ef538e31fddef3b06060bc4510ca6771cccee6242cba18f"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.6111830830050167,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6954837038220014,
+        "brier": 0.2274238651603118,
+        "log_loss": 0.6468821280133488
+      },
+      "name": "attack_full_None_None_24002_none_20_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 20,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "72e7e0c9cafb930605d0bd1aa4e83e0785a9160b33a57f8c76a1ac7799d5011b",
+        "predictions.npz": "297ab9f2e258938f48e953d6f023b5839a8528c59d41cf4d3d451406d3869ff4",
+        "rounds.json": "da3ea658947f50f460f38ec444735097287a019e02671929d58e096f6fae51b2"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.1935305829974823,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.695495387870777,
+        "brier": 0.22742131616018058,
+        "log_loss": 0.6468767856325944
+      },
+      "name": "attack_full_None_None_24002_none_80_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 80,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "7a3175488016132f49cd590c0e4ed2613d394b7be14ee38ba36ce67873b24024",
+        "predictions.npz": "0a1229f88d02fe8e1902734f81bf70c185eb16fad7ed1c854c026dad5ad58137",
+        "rounds.json": "c307046547edffc276689ece545e687b8a1b5e164f43a293c5e4df095a659b0a"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.89105712500168,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.695495387870777,
+        "brier": 0.22742131606673935,
+        "log_loss": 0.6468767854426891
+      },
+      "name": "attack_full_None_None_24002_none_160_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 160,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "0e999e8171d2ad7ee86bde77e1dbb82db1dc0f35701fc04768e974ec43883a1c",
+        "predictions.npz": "7db3b2600d2964018f492329c5728cf075fe8706a996cc8f9bda7ad1af8b0a46",
+        "rounds.json": "f9c311d6f3fda693aea9f696eee818d46f915262d79d35505dc042e9be0c0d9a"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.5609793750045355,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5727843213418629,
+        "brier": 0.24616437802226426,
+        "log_loss": 0.6854419891247907
+      },
+      "name": "attack_random_None_20261101_24002_none_20_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 20,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "39915c55a1c01c01b35304951a668fddf34808bdc1ab8b1f811709098ec83990",
+        "predictions.npz": "5c25cd30ad8d8b7aee5d17a97461443a13ec4b44c5319f50788cf7c24ae07c20",
+        "rounds.json": "aadc069cdcca1f62d110da14be87b3e57199cbddb4842233978ef5c7f744f187"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.940108208975289,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5728165717009834,
+        "brier": 0.24616147392545218,
+        "log_loss": 0.6854361237258311
+      },
+      "name": "attack_random_None_20261101_24002_none_80_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 80,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "6641ac96b78bbc39aec568f5e81c4c2ca5ffe8fa9413b540e415c42d7b6f692f",
+        "predictions.npz": "f241a6f008d7ed5a94a08eee8169e2371f5be2dbf291fa236e0efbafef7e1dab",
+        "rounds.json": "a8adf749734e122bc0782cb4d96510bca52c93197a64689e59f40135d05f6c41"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.4162252920214087,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5728165717009834,
+        "brier": 0.24616147379787381,
+        "log_loss": 0.6854361234671618
+      },
+      "name": "attack_random_None_20261101_24002_none_160_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 160,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "bcb615bb403cc4c7d4064f8fd11c808209ad86a0eafe83273362b6dd332d3a66",
+        "predictions.npz": "3652b700be35294f6dd3d298cc308c06b74a76f081869b3ff0269ac10c50f11a",
+        "rounds.json": "887a4cb0fd2089312ccf1e2494245af6a7b38e349008156bfad5bce84f54b76c"
+      },
+      "block": "full",
+      "client_fits": 400,
+      "elapsed_s": 0.4444700829917565,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5596175906215718,
+        "brier": 0.3537256422967956,
+        "log_loss": 1.3039774426440045
+      },
+      "name": "full_full_None_None_24002_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "77a1e97547940f6788a67acdfe8801af356946c9edeb9b0bf98475ed8c6803a4",
+        "predictions.npz": "196674b0615d5e01c63fd63d91f10be6e51cca7b6f63d8546b9b0b0e8d535fd1",
+        "rounds.json": "f5b065771e251f6c95557563383c7d1341b13a01d8ed97255d43f69a84f013b0"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2960242499830201,
+      "eta": 0.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5018959455575787,
+        "brier": 0.3211097245444077,
+        "log_loss": 0.918551361381031
+      },
+      "name": "controlled_controlled_0.0_None_24002_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "6bf67380ab622c5085279393812c4d952c923d986fe201e3b3a6686f7dbfdd1d",
+        "predictions.npz": "3e6180d9399bd62f2ec2d6686bf21fd717f67b5b7fce2f111b6e29418aa59bd9",
+        "rounds.json": "03a39cc7be1145ba96bfee8437cfcc219cb6cbd6c672e71ca2a0ca18c39ffa51"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.28675070899771526,
+      "eta": 0.25,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5503867748013458,
+        "brier": 0.30119005757807427,
+        "log_loss": 0.8681394659580877
+      },
+      "name": "controlled_controlled_0.25_None_24002_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "18971b57401754878614b8f1c011d5db9f5d0f9db7f3a3910a3ff1b7a68dd107",
+        "predictions.npz": "e01578bdf6461456de9efa307ba7c587158b797a23cbd0cc6d84ea40b08cf42d",
+        "rounds.json": "21d1592adf6b6160f2ae8c3e6de8be9eb40ba9fefcf4ecc7b04af814429704ea"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2897329579864163,
+      "eta": 0.75,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6209667751554441,
+        "brier": 0.2703711232015187,
+        "log_loss": 0.7853240517410295
+      },
+      "name": "controlled_controlled_0.75_None_24002_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "fcdbc0fd9ef3fa3477dd5dfd18c9e87f9f3708762a03b8925a14e08de4072af1",
+        "predictions.npz": "853b9f806461e7a5110e1ce04a98fb2f2a8740543e6baa45ae3a91fdb76716ff",
+        "rounds.json": "be48b92bbc771b967dfe7e86dab668204c9e236be48853a7635680e206682037"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.29137558399816044,
+      "eta": 1.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6527398170385263,
+        "brier": 0.25611335963752935,
+        "log_loss": 0.7458875821010482
+      },
+      "name": "controlled_controlled_1.0_None_24002_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "5f537a110601dc48446d39504196ace02392573661261c82151964ca6b6f19f5",
+        "predictions.npz": "22a1f8fe56133a98ca7841d35ece38eebae16a4cfc621354de4577a3f49ae6a9",
+        "rounds.json": "414b19d8f8d6cae9c64cd490544f5d043fbcdd6974b6a0112f72a7af77a54ec2"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4335246660048142,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5335467222159729,
+        "brier": 0.3056086660119692,
+        "log_loss": 0.8719878101491388
+      },
+      "name": "random_random_None_20261101_24002_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "be5eafdf609a52bf6e86145f4e389cf9e7de58ce51eac5c2084139a9a59bea71",
+        "predictions.npz": "e12985178f36ee37cc11cf1ac98b74602d67d1ae46a6f8c3e824390628946e2d",
+        "rounds.json": "aec319b0e511025e063de9a093b297a9d30de51c6a0d463dc5aa22b4c26dfdb3"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4338089590019081,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5011236657010039,
+        "brier": 0.3165861645142933,
+        "log_loss": 0.8951767880813875
+      },
+      "name": "random_random_None_20261102_24002_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261102,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "dc33fd9bd052c7c90018fd986b2796f4df58c525b1561ec414579c190beba584",
+        "predictions.npz": "bde5ad7e74128b0fc67df565a516aa535e8608c01c21f066022f98e165b29b0e",
+        "rounds.json": "75325a7d5165e0838a6aa0460e7c1937781890dc3d76620401901bad59cb7f5b"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4364181659766473,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5418377470721771,
+        "brier": 0.3036455453029963,
+        "log_loss": 0.8706878655169545
+      },
+      "name": "random_random_None_20261103_24002_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261103,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "cdda98924bae05ff8cfa28eaa852476401e0de3c6dfcd5a22efad8e7aa483e33",
+        "predictions.npz": "7700d0fba77c2e40d0209e8fb26503cca7e0d8ea7a21e94852f846529f99565b",
+        "rounds.json": "7de6df69bfee2f18783750d21b778666161dedc92fb0cf1e813f76ffc6f12446"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.45133275000262074,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5478124688711009,
+        "brier": 0.3003049028810537,
+        "log_loss": 0.8585380223538983
+      },
+      "name": "random_random_None_20261104_24002_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261104,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "20501580935887baa0c00ab0b517e823e0735b2335e3dbfa0849425684bfffe5",
+        "predictions.npz": "49e214ea6715e4e0cee08bb5be381eed2621200c1cb011192f7b383acc19371e",
+        "rounds.json": "6be13efdd52b5cc948e0c7cc95f9b471555b58d045c7857fd621d4f98d8917d7"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.44238816600409336,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5389806394715662,
+        "brier": 0.3034282926243994,
+        "log_loss": 0.8657553112586088
+      },
+      "name": "random_random_None_20261105_24002_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261105,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "028b79653e187a5a9798a5c5c8cfc7a707a34b8c880c44301de9dcc0b703bc7e",
+        "predictions.npz": "c61b0e19f9713838078cf2daf25728f212d4974b96b3eb2edf9babca9c14c2d6",
+        "rounds.json": "5d097c61957a6f40cb9e25ea5beb56b82631f5a07c7e33063916d8bdb2bb30a7"
+      },
+      "block": "padded",
+      "client_fits": 400,
+      "elapsed_s": 0.49011662500561215,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.533546662603479,
+        "brier": 0.30560866623574845,
+        "log_loss": 0.8719878103405485
+      },
+      "name": "padded_padded_None_20261101_24002_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "1a2ac216b6d0f70feba28f0d6aca10c5b445f05b145f608ebedbe91e9d2a8419",
+        "predictions.npz": "c0419a6e5439755685075cff67bcef9daec17e083d8adf0326e1ce4c60c7847c",
+        "rounds.json": "fc3a4efd149c20e00cd32fb6a4c478881b2c76c0c49e06ffa369e30735a10183"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.6519593330158386,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5390509822141952,
+        "brier": 0.3699580365731191,
+        "log_loss": 1.4032690813844098
+      },
+      "name": "attack_full_None_None_24002_gdp4_20_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 20,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "5de642142f821bf35156d2f71a04fbfb07526b2302b38cf7cd7e6697072d82d4",
+        "predictions.npz": "74ea6840b7bad450db0baac1a4fc5297c9ffe15bf2211920b0b7a6a914352cd0",
+        "rounds.json": "a58dce85d9d0d5a02c19c6250a2057d8add24d9f37dd4e331d012cca03b23f3c"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.2013534590078052,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5390575992010018,
+        "brier": 0.3699538218188274,
+        "log_loss": 1.4032471831891558
+      },
+      "name": "attack_full_None_None_24002_gdp4_80_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 80,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "f514433edb80acab714bb3fba06a47e4244c2d2e7248e5b2dae0bc8844afe6ee",
+        "predictions.npz": "1bfa821b95cf65cde0c2efb42faa6b51c62d051292365d477b13b503a7e433e7",
+        "rounds.json": "2b0e3ad1fc070fd6d1dc12782cab7966dff644efa9b8be4b0cb1663f13940c61"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.960981541982619,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5390575992010018,
+        "brier": 0.3699538214136048,
+        "log_loss": 1.4032471815630831
+      },
+      "name": "attack_full_None_None_24002_gdp4_160_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 160,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "f5882b13d4d1c2a5288090232a8a15c008e15074f56be5f7cac0d823482ce454",
+        "predictions.npz": "3c9ae952de8dd34e34314ed319067aae9c0c5a4d9bd78776420c71721df28bdd",
+        "rounds.json": "81ce491710c75ac1bd6b1c9ec413e3ddbfeb601c9ce949c61644cb660bee4877"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.5703086249995977,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.512557461227885,
+        "brier": 0.3235235977641936,
+        "log_loss": 0.9379330601021993
+      },
+      "name": "attack_random_None_20261101_24002_gdp4_20_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 20,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "7148b13737fec4686ba3280db821870db3bc0383e475e14085965d55832c86a6",
+        "predictions.npz": "189007dde63a0ae77d3fe0d522413847d184b74d01bc1c997f9d8763d9d21228",
+        "rounds.json": "151b3cdbfafbf653f9e8a10d8e3974e78086548d5a494f3e8ed536742c465f4e"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.9392822500085458,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5125679530267856,
+        "brier": 0.32351778405007897,
+        "log_loss": 0.9379140061300071
+      },
+      "name": "attack_random_None_20261101_24002_gdp4_80_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 80,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "1a59e76bacd54e36c5e59ad5283c21ddd615c804d8505c4ed8899e6c91475967",
+        "predictions.npz": "d085939000b069869826b25629c774f9d1bb5d66c907d2804bc5b33d9590bd75",
+        "rounds.json": "cf36dfe9b30d0d5e5df9aaa8a5b84d58a67903955fe3574e1c504ae476a74a67"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.446711749973474,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5125679530267856,
+        "brier": 0.32351778485066274,
+        "log_loss": 0.93791401038736
+      },
+      "name": "attack_random_None_20261101_24002_gdp4_160_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24002,
+      "status": "completed",
+      "steps": 160,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "af795930745aed69821d039074dca01dd0ac3584d342f313d1451a744ddd045a",
+        "predictions.npz": "51218d6d86d9a2159c8b07450dd5b8da3e55a8ca6f22386a8f448fd52c5ac70b",
+        "rounds.json": "c706440f01d69b0e1490ec8bb18a8deb98741e5d7f8394d41243c745605ead82"
+      },
+      "block": "full",
+      "client_fits": 400,
+      "elapsed_s": 0.4073458750208374,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.8169622820425649,
+        "brier": 0.201238655271816,
+        "log_loss": 0.5920368513282444
+      },
+      "name": "full_full_None_None_24003_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "830dc45c440ebe803ec1e6c8bc7cba8ec39ab97f7e3e25f35b304a2a48cf030d",
+        "predictions.npz": "38fc4a2c4c3ef4f360e5389be78ffb8dc2d9608b7c7b95fb3374da8541c33656",
+        "rounds.json": "b7a42251aaa40f42b5911a691b484597fd548a722a814f56eba9423723afc73d"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.29162966599687934,
+      "eta": 0.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.48974763468056975,
+        "brier": 0.25209093773624847,
+        "log_loss": 0.6973548725717955
+      },
+      "name": "controlled_controlled_0.0_None_24003_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "1ab5daee03f0ce609d74df0358d00a141242f3b8217863af806c98f2f3c687a7",
+        "predictions.npz": "7620567f2dab0d4ee62fdecfb9980ab56100569cc774c66df6742f9a77377d2b",
+        "rounds.json": "3ea8d756877758bf3617721debfacbdbade15504ca0af058e66c8832276fc330"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2844806250068359,
+      "eta": 0.25,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6426541580578774,
+        "brier": 0.23680615116333953,
+        "log_loss": 0.6662975050206978
+      },
+      "name": "controlled_controlled_0.25_None_24003_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "b18be2d43c6dc4fcbf896d0e71d864b2bae604881f8aebe22513e696089dfe55",
+        "predictions.npz": "ff5bbd80e82e226eaf6c0852a6989a06551bd3617e7286a0e8173d7106919a30",
+        "rounds.json": "1d4d04aa04ecdb1b84689548944f03709cbe9e497c16feafb73214756827b6cd"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2952112080238294,
+      "eta": 0.75,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.7906657803481095,
+        "brier": 0.2057724865610338,
+        "log_loss": 0.6013099959156687
+      },
+      "name": "controlled_controlled_0.75_None_24003_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "72cb4a6ae3717930c47e66cf794a6dc5d01ec448460e3bb81243bd1ff2f16aa5",
+        "predictions.npz": "0bfd96fe98089023d4f690247d061282d95195ec6a138130e1f45b5a44ad34a8",
+        "rounds.json": "4073fa8a212a4d4f4660119c51cce455c4756fd5aea48b1a4338dcca85306d49"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.29222566599491984,
+      "eta": 1.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.8459792595019484,
+        "brier": 0.19039948368446685,
+        "log_loss": 0.5684794402413758
+      },
+      "name": "controlled_controlled_1.0_None_24003_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "6c55d24536949302e9ba70937851407173470b0f2e26b3493319455aa1639912",
+        "predictions.npz": "49e37d0f8795c7bdabcc1bb2f8505ae7d22878bbb11a621a027992f0e8e24f85",
+        "rounds.json": "6342b81bee5fd5922ceed7dab5b7734094dba5c923242a9af5d0521fd124f537"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4397131250007078,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6618680993694966,
+        "brier": 0.2341809766308779,
+        "log_loss": 0.6609337399421426
+      },
+      "name": "random_random_None_20261101_24003_none_0_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "0da1ad9f62898f6326c5fc3388b08439cffc8d7ca722e2b7fa9bfa58130eacf8",
+        "predictions.npz": "35491a71eaafef6ba97f9a7f5af141eb63356f3a332d4a51f0530d546d3f48f8",
+        "rounds.json": "f0bab11cb41c5de8bdf83122729617def0f24a70f7f868b80a75e5b7c0d87af9"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.478116084006615,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6631812433818954,
+        "brier": 0.23386590444294394,
+        "log_loss": 0.6602869729793077
+      },
+      "name": "random_random_None_20261102_24003_none_0_",
+      "private": false,
+      "projection_seed": 20261102,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "d99594b569cd0c9ae6c6a0ce243d39eb047019b5d75537e15fbe5c2b3fe0c5f2",
+        "predictions.npz": "96d6e6fdeff69b8bd839688a3e1c7d98ceeff40a563b4aad2e431413c34f6488",
+        "rounds.json": "a2db2576bad170d3c2a3c3815c82a6ebe0ab1e08ec9731f72fad50d06bbf053f"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4316597919969354,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6371713585574063,
+        "brier": 0.23803866476736704,
+        "log_loss": 0.6688591363805105
+      },
+      "name": "random_random_None_20261103_24003_none_0_",
+      "private": false,
+      "projection_seed": 20261103,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "ee8a2fccffbfe48cf0f4a457585b201f1b4203ced58464a8634994526f915e34",
+        "predictions.npz": "3392d2dee983dea7c6ce21968b2be654368f81f96e1a3da03458817c766cc7d3",
+        "rounds.json": "52824f35cb781809d4c5d54e9e8001ee39c48ca6e2cb2c7e0afe32a4740f95cd"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.43609879101859406,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6488268529485561,
+        "brier": 0.23625831234969522,
+        "log_loss": 0.6652073615030842
+      },
+      "name": "random_random_None_20261104_24003_none_0_",
+      "private": false,
+      "projection_seed": 20261104,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "4f3a3aebf456564cbfe261809d7f5e152223e2ceeda44307504c93230fb3d8ce",
+        "predictions.npz": "ee93b4e8ee247ae02d44143e8d548c3b2805cd77f20e94faca8ddd7df5c6f579",
+        "rounds.json": "f1b5ad0fe19fd3f86c42898a3f0b242679e5a0c410901fdb9ee6d7779d7f706d"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4517072080052458,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6453912657085628,
+        "brier": 0.23623399593047956,
+        "log_loss": 0.665126014588407
+      },
+      "name": "random_random_None_20261105_24003_none_0_",
+      "private": false,
+      "projection_seed": 20261105,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "a44a7ad3a2677448f5f5dee0be2d8d956293ad4ee4b73b678d856abcec3c3c37",
+        "predictions.npz": "60d45ecf6093eb131aabf5b4b2c3364bf9aa4d37c653686d7f0b1e6a7dcddeec",
+        "rounds.json": "9525cf3259369d4d0017f8f1322e3816800a3abdb029a881c182da4f9190acad"
+      },
+      "block": "padded",
+      "client_fits": 400,
+      "elapsed_s": 0.4969508750073146,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6618680993694966,
+        "brier": 0.23418097662521728,
+        "log_loss": 0.6609337399206355
+      },
+      "name": "padded_padded_None_20261101_24003_none_0_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "dc68059e432afb0eeec99339ddaeb85dffa9239f5530e5aac8a64cd36e3a5dd0",
+        "predictions.npz": "d780679938fd5ffb5fdc8cf4b3c0b129c17d930733b7ffdf7b568662c36a3f69",
+        "rounds.json": "de9a31f26e1f8db7e597a385e6db258bf5c84d215c2f5856cf40b287f476826b"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.6125675000075717,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.7022894833963407,
+        "brier": 0.2260342030907099,
+        "log_loss": 0.6440158495192416
+      },
+      "name": "attack_full_None_None_24003_none_20_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 20,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "074299a7eed6a710db20ad238debf286b64aaabc63349bd5ec791b82c5327e0c",
+        "predictions.npz": "9eb48d8bfcb65cb7052a29f2fd222cf408b6830cd811c860eeb4ed88ac2b0d69",
+        "rounds.json": "3e332036d88b517a556a99c1a874a92bd4180c15b5a2cde974b9f6fc57bea4d2"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.1516857919923496,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.7022901987462657,
+        "brier": 0.2260329919731328,
+        "log_loss": 0.6440132588852119
+      },
+      "name": "attack_full_None_None_24003_none_80_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 80,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "c0b61117d66276edb864809439f2d0997e92e4f01a3742ce0f95e14b2c844ca5",
+        "predictions.npz": "57ebbb06cea96405047785e8361ca3c5727e506da4129887ee576b06a0365504",
+        "rounds.json": "15ee92de73edded7c7bce3e27950e989eaa20e6025731df28a961e9d2bb75804"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.868233874993166,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.7022901987462657,
+        "brier": 0.226032991858978,
+        "log_loss": 0.644013258663053
+      },
+      "name": "attack_full_None_None_24003_none_160_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 160,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "033c702eccc11b36342be6c2f43faacd4b9203e36502bc24efc78926d08a0873",
+        "predictions.npz": "8cf63844c58749746a177ec897b810b99f5b703273f59c9bbf37186fb3df32bb",
+        "rounds.json": "f0b4577953683c9dec453658c6264ef74c385d9d2cf0212ac5fef85ab19b9685"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.5640630420239177,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5761043199564686,
+        "brier": 0.2456932975913093,
+        "log_loss": 0.684488177277597
+      },
+      "name": "attack_random_None_20261101_24003_none_20_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 20,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "0f433c0838e7f1966fc9d49686ce4fff33285b7cd3f1cda8a6988447cdaae08a",
+        "predictions.npz": "9bcdef826b5f450e095b1af6d68f4a8c2fee9f0e66b1c0605989ba7cdc2366c9",
+        "rounds.json": "3b3ff2c1bf38d22e528b6e60559cd8ba2b5cd7e3a2f9167643bed009ab6da860"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.9405861249833833,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5761090889559688,
+        "brier": 0.24569340856839203,
+        "log_loss": 0.6844884372459712
+      },
+      "name": "attack_random_None_20261101_24003_none_80_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 80,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "aacfff64d9ebad8e8cb0e19dac4102bc93a11b9162e3c3e231fa21c456800940",
+        "predictions.npz": "b1d1dd0a7edf5681937b1cb19acc3009706b31e6db0331e729074e51bc2a2885",
+        "rounds.json": "ae6b627a86e642fd0f2d0e06143feccb8caff517920ea8c24f19c70b5c8c6c18"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.4247496250027325,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5761090293434751,
+        "brier": 0.24569340863151531,
+        "log_loss": 0.6844884373722329
+      },
+      "name": "attack_random_None_20261101_24003_none_160_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 160,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "121bc379cffa11f5f35a27af853d945430d7267841303fea7e0d15e8de7719b1",
+        "predictions.npz": "dfc31d619e961d9b0f11c502dfb6056447140e89fb4db3943b6deffae347f1bf",
+        "rounds.json": "5c9407f90d69d92e377ea14a2107ac89f77b1a2ee7aa3f65d06c114c5f404065"
+      },
+      "block": "full",
+      "client_fits": 400,
+      "elapsed_s": 0.4399763749970589,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5530899629430854,
+        "brier": 0.3565608393796689,
+        "log_loss": 1.2813258930668687
+      },
+      "name": "full_full_None_None_24003_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "fc9cb13dbf6d384c334bebdea276d00c7dc3517ac7dfdbec494602ebdbdd6754",
+        "predictions.npz": "4556cc372812636bb1f05fbdf60a7c5586dd9b07d3418cedcb7b25c9c41202af",
+        "rounds.json": "8dcc23a258681973015b642f3467e117ead04141cc1138c1bec387f5991e3823"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2950229999842122,
+      "eta": 0.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5030979122691275,
+        "brier": 0.3196295820252069,
+        "log_loss": 0.9093387213276127
+      },
+      "name": "controlled_controlled_0.0_None_24003_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "2dbc055c5a51654307cc5f812157ccd8e10ef5cf6a154228f56965a39139355a",
+        "predictions.npz": "3b2b5b9a12b4f518460637daadaec4f70c978d261709b0862735f9b8553979bc",
+        "rounds.json": "8c81f55eed9b3f2fe00148a9bb2097de2812a12c4b0ba4bf338b16ad762cd126"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2980662499903701,
+      "eta": 0.25,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5428707123639352,
+        "brier": 0.30366853526187776,
+        "log_loss": 0.8690749679753955
+      },
+      "name": "controlled_controlled_0.25_None_24003_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "9aa0102865a5923c9487d985f2e8176baa418094b1b27c83bcc662ad1085eff8",
+        "predictions.npz": "e249c7877c09921f2d1c2a4a49a1a8caa4b41ce755c6cef7e198f7787fc59cb9",
+        "rounds.json": "7c6ae98234416a5f9459dc609556c116741c68849a51fa6238f0492826a9357c"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.30130620798445307,
+      "eta": 0.75,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6103494919555026,
+        "brier": 0.27486140488594235,
+        "log_loss": 0.7925957283364596
+      },
+      "name": "controlled_controlled_0.75_None_24003_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "79a2c99924d40043400af1c9db44239e940e84d22039f107edc653d7dff19672",
+        "predictions.npz": "08a8c1220f9da57a392b1f2c61b72c839dd8c7382f3e1f0247106ea818a21f63",
+        "rounds.json": "998c5bbb855fad2d7af9362e32fb92114d71a38e8375dab06e1791dc9fd694bf"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.30081416602479294,
+      "eta": 1.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6419167515101484,
+        "brier": 0.2608521942447831,
+        "log_loss": 0.7543188992657788
+      },
+      "name": "controlled_controlled_1.0_None_24003_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "5dab2d5b14b0fa5b382af8f64f4d14026de23fca4f14586a6bc80d8d0eaeb778",
+        "predictions.npz": "447a39967a4ea0fa290d6256d0011bac4eaa00787828edf23a6bab901bce21cd",
+        "rounds.json": "88dd1b65328f1eca77020fefd8cdaea0c69830a9b6470959a1377461f3c4e79a"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.43924829200841486,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.557086980649248,
+        "brier": 0.2995038901527324,
+        "log_loss": 0.8632032330329731
+      },
+      "name": "random_random_None_20261101_24003_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "e5eaacdd7059b857f008cea79f50dbb927663916a6d4c3b1a83212efa6a03bdd",
+        "predictions.npz": "9f6a1c00fd9effabffb4f2b51628172b34ddec5a69cbeaa5cb665709c3e3cabf",
+        "rounds.json": "828ccf98a903aa945cd07b06cb02498a131ce07d184f2fa98d3e01ad58adf695"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.44497166699147783,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5417909512645807,
+        "brier": 0.30623429261387003,
+        "log_loss": 0.8820911073194055
+      },
+      "name": "random_random_None_20261102_24003_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261102,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "5f209f9d211d642b0b1fca6a8a014ee62e45b9f1966e7c4f08c260b9a0a90a86",
+        "predictions.npz": "208d94a40a6c85c6c751bda53b94072af80509136fb9009bc16d4c99ca7ab71c",
+        "rounds.json": "8da2703561698950e978dd2563142dc8e030174fd000bec30929fe1eea8dc322"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4439189999829978,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5217764141618539,
+        "brier": 0.3129878902347671,
+        "log_loss": 0.8961035635536455
+      },
+      "name": "random_random_None_20261103_24003_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261103,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "18a82243e8f43817ea7efbed3c4ba11b19ccbde54a15dff0f18681034adedd58",
+        "predictions.npz": "8ee7ff8412c9ab6c31dbcf2d64cea39c173dfe1359dbf676194d800d780f04d2",
+        "rounds.json": "07b37fab4b6de90641a134e5e0886369ee38b9a4bf8fc5808b84757953345bc2"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.44276054098736495,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5266006148313381,
+        "brier": 0.31140312951241694,
+        "log_loss": 0.88574515536427
+      },
+      "name": "random_random_None_20261104_24003_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261104,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "68eb05f945b57afe145f6dd182927c3f24f542e4ec7e793c7869fdee0538081c",
+        "predictions.npz": "820c7bc3a33e11fdad30d202c1d40802b8ae286fad992cad5e74b5411337480b",
+        "rounds.json": "40fb480cb0e9cef9aefdb3e124de96fc312d87ee43ee8036ec7d06dfebbc775b"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.44263141698320396,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5371475552886504,
+        "brier": 0.3089951978046384,
+        "log_loss": 0.8856684635818506
+      },
+      "name": "random_random_None_20261105_24003_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261105,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "b5ec96d19b4bff7780ef6110131f17be909ffb7024c94e361629966e67c4e78b",
+        "predictions.npz": "83ace6b71437f06e014684e73274ca03a2b60da4ead8e3edbe76afc916c6fca5",
+        "rounds.json": "86e3008f85efddff52797df038d275002f3694437bffcc7aaf3c2ad28f1fcd55"
+      },
+      "block": "padded",
+      "client_fits": 400,
+      "elapsed_s": 0.4951539169996977,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.557086980649248,
+        "brier": 0.29950388986897036,
+        "log_loss": 0.8632032314710605
+      },
+      "name": "padded_padded_None_20261101_24003_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "46eab4644244f5898b2ac1c191942fe9e5803e5a88e1e65b8e9ca78e317da748",
+        "predictions.npz": "935feba660b8d7f5d567fe18250a4e8770dddbfb8095d5a67c0187c05ea74790",
+        "rounds.json": "d7dbf77727e98ea90ce6b2e32b1c82d11270ab537d5c10b4cc411e82acaf2ac1"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.6436770830187015,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5318987348261613,
+        "brier": 0.3729401116974698,
+        "log_loss": 1.380898340014965
+      },
+      "name": "attack_full_None_None_24003_gdp4_20_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 20,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "70a9422ffe0f817e57467a886fb5dcfbb120575fdf1190604162e30d0886a90c",
+        "predictions.npz": "23ec0f4acbc02f582559f0136cdcb106afdfd4598d4ab876c5698051bf534438",
+        "rounds.json": "a6e347e26dc0f2e8baf2c68ed04b2b3f0bdb058d5453fa41999574e090d8409e"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.1949601249943953,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5319028480882303,
+        "brier": 0.37293674757640377,
+        "log_loss": 1.3808804711027556
+      },
+      "name": "attack_full_None_None_24003_gdp4_80_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 80,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "f2b0a9bdb55b1048d179c2830beb84fc2fb3d814a5cde5b46b2c0625f1924c75",
+        "predictions.npz": "c4f783b631a20eba35f6ae96347b704171057bc0d09592b416774486999426ea",
+        "rounds.json": "f0d5598ceb44f28c179b5edb7bc95c119bd0800f8a092d083d8e09a2f19021fd"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.9301300000224728,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5319028480882303,
+        "brier": 0.3729367480715034,
+        "log_loss": 1.3808804760060471
+      },
+      "name": "attack_full_None_None_24003_gdp4_160_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 160,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "c646ad9d1f23b6f327b028d71da4d474516a1456a8b58fda5698aeb943519bf4",
+        "predictions.npz": "ea32baaac28b2113a55cfdbfa997b554216896cffb39ea297d61edadc3c60374",
+        "rounds.json": "801ef4cfa0ad9e92a2c285b13309a40db5f17c19aa75c3cd27c1f0e0fe6ddf90"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.5711122500069905,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5373700887278319,
+        "brier": 0.3154712935967265,
+        "log_loss": 0.9244128938068819
+      },
+      "name": "attack_random_None_20261101_24003_gdp4_20_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 20,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "1d08741ac4ff7d5c6d05d69773bd08f4006fedc0c674cca77c5ebd4070d572f5",
+        "predictions.npz": "94a944765ba0c978727c3f45064939e85cbb219068dde2d76f04b364846a8a62",
+        "rounds.json": "c8d3794967de820ba23de86427e22fd0d127b6934d3263cceb917564d3d30239"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.9476577079913113,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.537378494089451,
+        "brier": 0.31546845951516356,
+        "log_loss": 0.924405706904329
+      },
+      "name": "attack_random_None_20261101_24003_gdp4_80_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 80,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "db447b0e1c3473df44b33c3bb2695e69d7209363941de15d9c1b445ec62ae2ac",
+        "predictions.npz": "3a0a1ba55f47a5af4e736f12b02ae6ea2de33722f620e6ec3e5f5f42fad38831",
+        "rounds.json": "fa4e35e805446a91ddaa7ca23dd14d797b6e7014796d26c36b1822d152ab74c3"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.437678791990038,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5373785537019449,
+        "brier": 0.3154684587760594,
+        "log_loss": 0.9244057040366751
+      },
+      "name": "attack_random_None_20261101_24003_gdp4_160_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24003,
+      "status": "completed",
+      "steps": 160,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "16696d7165e4943611d7518c42dd9ba3e341c17dcebd618516f6b3ede8f27648",
+        "predictions.npz": "29cb2313d8028ed8116cf4ddeeb6a1d0c53adb16e024f9aa2cebc7108a718e7c",
+        "rounds.json": "846af892beae87b3ce1d2eea18a8de0b98ecc7cd0c6a5e3c26add1e41f17b674"
+      },
+      "block": "full",
+      "client_fits": 400,
+      "elapsed_s": 0.413113208982395,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.817049733570901,
+        "brier": 0.20113818122517627,
+        "log_loss": 0.5918094730517218
+      },
+      "name": "full_full_None_None_24004_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "a60138f044d15f6899a6bf0d9c50eebf1988b98e45b9d87ca3e3a080060eeb31",
+        "predictions.npz": "d5d62184229c041fe8e88e36bc1a22b80506e31489cc88cccd1c75042719419e",
+        "rounds.json": "f0c0427b3e369d44035b1ed2beeaf94613add7c981d85b963f5f84af456ba926"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2907617499877233,
+      "eta": 0.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.490050406536343,
+        "brier": 0.25203357630130174,
+        "log_loss": 0.6972397484220603
+      },
+      "name": "controlled_controlled_0.0_None_24004_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "a2d5d40fafb57c915a38fee6f393bc10e96398466d7a545871feea149c7616ae",
+        "predictions.npz": "f505688a30671e3bc46ef286bd421351bca638c2359737ad0960a1120c673965",
+        "rounds.json": "4cff7bc25bfd8953877dc6b58888471809ac985ea45cc59ae1c237a2e25d1db2"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2957977089972701,
+      "eta": 0.25,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6431088821602281,
+        "brier": 0.2367970962482318,
+        "log_loss": 0.6662825074563375
+      },
+      "name": "controlled_controlled_0.25_None_24004_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "37e32746a3e06124351f0f09216e43e4423a5626afe2c95671cc765a3603fe21",
+        "predictions.npz": "3b75b88f64e1696ccb1a8dfc06efde569f22b767415a25f3a9e3c0cb4cde4e22",
+        "rounds.json": "31bc7c06ba5cbadf05ec6235b9b2a31f811ce7020ff33c089c4ca54f1ec58c29"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2957764590100851,
+      "eta": 0.75,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.7909544240428633,
+        "brier": 0.2058142806111669,
+        "log_loss": 0.6014142406203149
+      },
+      "name": "controlled_controlled_0.75_None_24004_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "6a55ec03d69318c37912a878da31fd89c106ab5551b0c51e5afae2ce9e6ccadc",
+        "predictions.npz": "fced4dff3b7064f8cdf02b839ca242d305756b890c3231ca58a39f184c045271",
+        "rounds.json": "a7d49e24714d77855f4af9d684cb47d010dabd06d43767e7670c6e94dd467c8a"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2933543330000248,
+      "eta": 1.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.8462422698243882,
+        "brier": 0.19045346687827935,
+        "log_loss": 0.5686200525328686
+      },
+      "name": "controlled_controlled_1.0_None_24004_none_0_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "2a6b6645575d52cd677a159c8b11c8f9a1a6592fb745d29ca7428fd03862aaa5",
+        "predictions.npz": "2ab52e2ec52ddcf127564340d6caa445ea557a8cbe1efff1dcc174fb76cd03a5",
+        "rounds.json": "8ea6574b04056b34783f94ef00e0d4fb10f9ed82a22c743594d8173aaef49083"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.43605575000401586,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6617799324912352,
+        "brier": 0.23420640488973998,
+        "log_loss": 0.6609859720423669
+      },
+      "name": "random_random_None_20261101_24004_none_0_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "c07d6ac44fa875ce5b19e964b7ee8aca0fb9ce9b189a02434613ce983055447a",
+        "predictions.npz": "0b6fbc7c91b8998996333f69eb4dce82ac9c3482cb7c044fc9a206ba1df570bc",
+        "rounds.json": "f76947af3e6246376d58bc25aefd6eb3540c05819b2cc3f4b67e75060f64cec3"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4427266250131652,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6631324803620051,
+        "brier": 0.2339195578060365,
+        "log_loss": 0.660401149770562
+      },
+      "name": "random_random_None_20261102_24004_none_0_",
+      "private": false,
+      "projection_seed": 20261102,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "029d99e63403844c59d7f4019b1f4b931127317643dd938933d3f263f60004cf",
+        "predictions.npz": "b6a2e6bb03d86f2d9fd23c0f705423c51d2c87f6f2b30d79fd072f19d7f8398a",
+        "rounds.json": "1654b29db51b64282ddaa352e5db84ebcba1f2d2b7d947d728a3ad1acf875b60"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.43673749998561107,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6368240561687992,
+        "brier": 0.23802228265547437,
+        "log_loss": 0.6688210551549783
+      },
+      "name": "random_random_None_20261103_24004_none_0_",
+      "private": false,
+      "projection_seed": 20261103,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "6372f81f3b7e776b9bf2042c352c770446c30d9c4298039da1b59234699d5d21",
+        "predictions.npz": "a515565a1aad68634efad0c3ff3f3ed1588d34c4be0827d88870bcee1284faac",
+        "rounds.json": "1f9e7d3550581c76f1d94828386df8d9e76d0531bf090774092d0a13d3d63d48"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.44571258302312344,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6487750496914844,
+        "brier": 0.23631706218087722,
+        "log_loss": 0.6653299064995242
+      },
+      "name": "random_random_None_20261104_24004_none_0_",
+      "private": false,
+      "projection_seed": 20261104,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "fca8e9cb247755f289f950707a5be1930d2852f81b546b0413948521e0f872ee",
+        "predictions.npz": "fc6b41310bbea3cdf584b07874286ab2f0dc765f86894fa098be1222ebf7fff3",
+        "rounds.json": "22e3cb06fb8000e0ae5f66ccaa9429d7c2624c426e988037ba5aa234ed298466"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.43574616700061597,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6453580019370484,
+        "brier": 0.23626771177308534,
+        "log_loss": 0.6651971255026939
+      },
+      "name": "random_random_None_20261105_24004_none_0_",
+      "private": false,
+      "projection_seed": 20261105,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "ce21b419b3c66a96f4560cf3143eca1a35ea37fe3d4801cc9031437889e9416b",
+        "predictions.npz": "f9cb1d462cb87569d45e88c4a60178e0ed7295fd85931dfb737913df186443f4",
+        "rounds.json": "05b18a17a7489ed0d23f9cf1f6ad9bca2e511df5a16b9a27183b7ab687d7d42b"
+      },
+      "block": "padded",
+      "client_fits": 400,
+      "elapsed_s": 0.4874527499778196,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.6617799324912352,
+        "brier": 0.23420640483011967,
+        "log_loss": 0.6609859719236635
+      },
+      "name": "padded_padded_None_20261101_24004_none_0_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "175583870f88b763f4fa89095564f70d4e90959f94bcbf412844c0cadebf272b",
+        "predictions.npz": "68b34789427cbe3e50951fee646c324d329b6108cf4ffee23428cb8a8e87cf95",
+        "rounds.json": "b48233f853a2a331c8c50489828a1f99892d50afcefa65ad0c2c0fb566d0b369"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.6204043749894481,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.7014774420064326,
+        "brier": 0.22615526358751398,
+        "log_loss": 0.6442362490425988
+      },
+      "name": "attack_full_None_None_24004_none_20_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 20,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "af7babbf1b36dbdc7e265e2bac040e8f4cf8c5d45d4ec5c5c143e238f182279f",
+        "predictions.npz": "810a757c95a0010cffc9c0669e9cafbb484e7f8ecb1d8416fe469a4d00302c69",
+        "rounds.json": "da547071f9601f0362e5f5ebf14bb8ae248d977e51453e63413e7c07c7f8a986"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.1694945829804055,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.7014878741928394,
+        "brier": 0.2261534081596311,
+        "log_loss": 0.6442323413628228
+      },
+      "name": "attack_full_None_None_24004_none_80_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 80,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "db778132b59c7287e92c9517c5c60ee69fdf474154922d21a4e96b55f2ccaabd",
+        "predictions.npz": "39c41b6e7478ea1dfcaa41b3ba0fc3eeca882e180d41a58101524b07e42e52e8",
+        "rounds.json": "b68b706a7db88ff83ab727a53d6d1deffa536583bcd6689bddb7c7cbeb48a8e5"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.8703429579909425,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.7014878741928394,
+        "brier": 0.22615340904978964,
+        "log_loss": 0.6442323432109007
+      },
+      "name": "attack_full_None_None_24004_none_160_",
+      "private": false,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 160,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "d76465dd02bc0492df7796413efa190775407e386131ef1d94b1f29c5dbb39a2",
+        "predictions.npz": "c3de96c40ddb4d392a21e8b4a27b07f2d457fc03eb6310efbf5dd7a8bd212ba8",
+        "rounds.json": "84b3372f243c750c94e54f9d2e7764eb36c7d0af719786897bdb24126106c6f0"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.5668201669759583,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5626532376409739,
+        "brier": 0.24743433812292623,
+        "log_loss": 0.6880568209524016
+      },
+      "name": "attack_random_None_20261101_24004_none_20_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 20,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "470f40a6a400768ebdac6e795586840552b7a9065d42629b4b3d22cae65a3160",
+        "predictions.npz": "c51920dfcfe3686266958ecc5d1de33403778c4d31cf5379e49badd4a57c3984",
+        "rounds.json": "083bc151da1c6184d76295e9eeb01ecb80423232c89d82fe2b41b376483fddee"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.9331115409731865,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5626697503017435,
+        "brier": 0.24743332675642565,
+        "log_loss": 0.6880547850695309
+      },
+      "name": "attack_random_None_20261101_24004_none_80_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 80,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "fe67c60e3ab9590e042d750d665aa289da493a8111337270623aef2e5f624e53",
+        "predictions.npz": "b18017fe7579b8871649c90853c338971756cab755fc586126050d1f9459f901",
+        "rounds.json": "e6b2a3f0e6d1009df86f868de1f6e814da53f96d46775123b116a49518caf189"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.424868250003783,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5626696906892498,
+        "brier": 0.2474333265753101,
+        "log_loss": 0.6880547847012681
+      },
+      "name": "attack_random_None_20261101_24004_none_160_",
+      "private": false,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 160,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "1815f5fd7cda2567e621660516def6770414b35bb521a2df1b6b20f8cc940c5c",
+        "predictions.npz": "f2830857f99ec907b84723a27728820247323867c968dfb4268b25d6f7dbfb42",
+        "rounds.json": "0b9949faf50793fc1318f10316e642bac5ea619b0e231bf1704fce5d0902287a"
+      },
+      "block": "full",
+      "client_fits": 400,
+      "elapsed_s": 0.4436875420215074,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.49749952414326865,
+        "brier": 0.39203455104920204,
+        "log_loss": 1.475998791938619
+      },
+      "name": "full_full_None_None_24004_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "bcfa775eba97806e265a72251907a0abbbaf42d04706e90c30fc14fab15c6bbf",
+        "predictions.npz": "511554876e16723e684025084ba0af11b0f15733bc277281bc998c5ad8cc0103",
+        "rounds.json": "1dccc886169f93c59525fe12cf8243a6ec1eac016fd44c258d48465b62a2ce3b"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.29987716700998135,
+      "eta": 0.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.49990643819105407,
+        "brier": 0.31644858965376427,
+        "log_loss": 0.8947627015211111
+      },
+      "name": "controlled_controlled_0.0_None_24004_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "16ea8abc97a09180f305c55b80c7f6b98fce2e14d4024eecd1520051669d248e",
+        "predictions.npz": "0b889d9e3fd8fae93ebfdedbd375a70849b65fd0c0bf36ff0d16c5f8c1bfae02",
+        "rounds.json": "42467e5675e2ec035188f473888dd54447579ec0108f9d17f07ae856b08dce67"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.29890166700351983,
+      "eta": 0.25,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.4937744586336089,
+        "brier": 0.316697167839513,
+        "log_loss": 0.8923473216237677
+      },
+      "name": "controlled_controlled_0.25_None_24004_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "d77225971a59c28ca8340926c12e80f2302403d3137cab077bced721c03902c8",
+        "predictions.npz": "a63f030590c75f10f89097a0fe006f71298f11ce45225d790e6e43fc0ef99389",
+        "rounds.json": "3266cc91cf74bdc42e33518d0b3bdfe2e14344070a96b84d85dd107b15a1a13f"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2969306669838261,
+      "eta": 0.75,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5353357527660048,
+        "brier": 0.29869990858471973,
+        "log_loss": 0.8446264123409758
+      },
+      "name": "controlled_controlled_0.75_None_24004_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "d028b916709f7d299bbbe621e8721f0a98a083de88e3d4a902ef601863851753",
+        "predictions.npz": "187c876c3e9c7d358dd4fc61cf61b1431513c0b5d197ac2394cb61d6c92e92bf",
+        "rounds.json": "82b6f9522cf333108b32794d2b4a1105c527c85ff2488dba352b16cd211b84c5"
+      },
+      "block": "controlled",
+      "client_fits": 400,
+      "elapsed_s": 0.2936584159906488,
+      "eta": 1.0,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5604128809007352,
+        "brier": 0.28809327978809596,
+        "log_loss": 0.8166106494844908
+      },
+      "name": "controlled_controlled_1.0_None_24004_gdp4_0_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "a4d3012d100dfc13a124c2f1f5424a0726fcfd11d1e012f231d5103256d515d6",
+        "predictions.npz": "4f607a09daf83a3207dcfa3f6147feefaaaaf0c3f3ffd19a9523900432877ce8",
+        "rounds.json": "790af203dc19eaf564f8a523fb5338c5d61c6824be357ad590db1e7604b3e3ab"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.42553470900747925,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5480411423971387,
+        "brier": 0.2967603325708129,
+        "log_loss": 0.8427676571670966
+      },
+      "name": "random_random_None_20261101_24004_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "8b854c37f3dadcdcb8cde90378bb09c1f7b6cdcfc1f0f114fe9b146cdb09001b",
+        "predictions.npz": "26f49cec562d44f6db069a239aa9c3c437ad557000bf4ae0a9e85dbd112c5360",
+        "rounds.json": "1577074621aa32fd51a3a04d09cd5a74f5d385c6af9595e9f97c5927fbfe29e9"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.43094133300473914,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5473977447520588,
+        "brier": 0.29795234594696884,
+        "log_loss": 0.8496988434543369
+      },
+      "name": "random_random_None_20261102_24004_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261102,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "e0e346d1f3e2785ddd4a5bae0747c53437c0ab3ead13907b6cf28dd4dac6a341",
+        "predictions.npz": "f6136ccf8feb220decce4716b5b83b2b40b169e0887f2789dc5710f2b46c56e8",
+        "rounds.json": "05019f3a192fb853d564c9da7f228197dfdfdc255b2f9aecd4d1603dade69280"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.42958670802181587,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5145002323993069,
+        "brier": 0.3089555064952435,
+        "log_loss": 0.8721124753077907
+      },
+      "name": "random_random_None_20261103_24004_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261103,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "ccc0c7d435fdeb284d4b8178a2516ec0e44e4da6c82007e01c30ca33a5ebcf6a",
+        "predictions.npz": "c21d9cd954bbdaa01a1788f31498444e597cb9880d0c22c593b8378692e77269",
+        "rounds.json": "add128f2c712527c4fb954981de5b9ff5568e87a7c694607ea6ba4a6b5bbf853"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.43066120898583904,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5612352948645565,
+        "brier": 0.2933448381833982,
+        "log_loss": 0.8383769944666706
+      },
+      "name": "random_random_None_20261104_24004_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261104,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "839f589df9b1de5cbe8d681239daaeff04c83f30a38af9ec7fd7bd85743d7842",
+        "predictions.npz": "f79a792cc383d077883bbf51a362220f9fb4a9778ac689cf1cf362cc10233880",
+        "rounds.json": "cf043f91c6271091ae381d6528df39ed37daa53b4691b733a67a5a536d1cc229"
+      },
+      "block": "random",
+      "client_fits": 400,
+      "elapsed_s": 0.4295893330127001,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5357054098397694,
+        "brier": 0.3012677877160215,
+        "log_loss": 0.8565441486725336
+      },
+      "name": "random_random_None_20261105_24004_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261105,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "6d68e1920cebfca1180c411ea23906a0217e40f6c98ff261b89db97d7a32d8e6",
+        "predictions.npz": "82b9802d7066d3f77699d435e9167222d5b3ebce2016d8134737c4d232d84ffa",
+        "rounds.json": "cc9da4d7bb062b0d405e077c96b7e638ce552c7e3f438a1470a1fa31756aa7ef"
+      },
+      "block": "padded",
+      "client_fits": 400,
+      "elapsed_s": 0.4878690000041388,
+      "eta": null,
+      "kind": "",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5480411423971387,
+        "brier": 0.2967603321095066,
+        "log_loss": 0.8427676551292755
+      },
+      "name": "padded_padded_None_20261101_24004_gdp4_0_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 0,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "77313af2ab764adb96ed414873b5210964b2b18d012768bdf7a1175e9e0ea66d",
+        "predictions.npz": "39bd4b4159fd6fb9e9c1af5ae429e022a97eb7923a4569c8a235cc72f8d6f4f0",
+        "rounds.json": "99f9c3fe4f8a03ef7825a466505833a94c870a3687c8ceec98aae176d63f29db"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.6357014579989482,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.47791288552070355,
+        "brier": 0.4080362600299885,
+        "log_loss": 1.5908094727243687
+      },
+      "name": "attack_full_None_None_24004_gdp4_20_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 20,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "95d8b09fe922f91ac1fa9329d4ad899308fa5f45a5f662d8c00f21b7b8d23057",
+        "predictions.npz": "70a6f796f4cf764a639da8fbffa7654e1f7a38f2e0f219a6b148b83623ebd004",
+        "rounds.json": "be446c9982c1591bc983dea88dcb68541e8b37319df1f1c5d77253a8f1b7a49b"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.1789220829959959,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.4779167007203038,
+        "brier": 0.4080334978283817,
+        "log_loss": 1.590792872758624
+      },
+      "name": "attack_full_None_None_24004_gdp4_80_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 80,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "551d2e7c120fae9354be2cf19e5258c851dbb8d0288fc99017d80f6c34f35add",
+        "predictions.npz": "44420b4ee54e29a1dba629f291c777cb2ad7206030123192dd63222b8b0e802a",
+        "rounds.json": "5eac9fc336c2b2e92c95a0dbf7bb32a94e0b89f559d89f0c07f2d3630ce4926d"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.9003363749943674,
+      "eta": null,
+      "kind": "full",
+      "label": "",
+      "metrics": {
+        "auroc": 0.4779167007203038,
+        "brier": 0.4080334973837869,
+        "log_loss": 1.5907928716722641
+      },
+      "name": "attack_full_None_None_24004_gdp4_160_",
+      "private": true,
+      "projection_seed": null,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 160,
+      "width": 512
+    },
+    {
+      "artifacts": {
+        "head.npz": "de3454a717ee7c93e502d18c8ccb5987df6118437e844791a4d541a1e4948dc5",
+        "predictions.npz": "13f73ecfb79755943e8bee7d603ca9b203b184380cd58fcced75b262f0e9dca8",
+        "rounds.json": "c01418c01c04a70b4b2de4bab8482e6efe4e1eda89aac5c822a4578119a77da2"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.5666360000032,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5226283363100832,
+        "brier": 0.31483221577915366,
+        "log_loss": 0.9041156547671195
+      },
+      "name": "attack_random_None_20261101_24004_gdp4_20_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 20,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "5c2f833343d4cb3772ecb750433cf2c2126007d8fbf62778bda615a7dad5a7d0",
+        "predictions.npz": "a24d1f47b9a63fe412214f60a0fd600a15e7728fa2a1d2ea5637bb9682db25f5",
+        "rounds.json": "5f2fb479a63f6a9b833c4ec1e222235a1a2b14d286b04dbad8edddf9cafb5e10"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 0.9230628329969477,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5226409145462652,
+        "brier": 0.31482681148552727,
+        "log_loss": 0.904100884649701
+      },
+      "name": "attack_random_None_20261101_24004_gdp4_80_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 80,
+      "width": 128
+    },
+    {
+      "artifacts": {
+        "head.npz": "331be723cb8a9d904d44c417b938ef11a84d3dd0432bc130dc0ff72575f8f610",
+        "predictions.npz": "15c05f0d39c25c99dfad7a995d29499739aef87446fe5eec33d06830cb9e12c2",
+        "rounds.json": "2d5551e581271b1f82a2f7450a6d948e21b415695b08bdafb00e62dc6a829a33"
+      },
+      "block": "attack",
+      "client_fits": 400,
+      "elapsed_s": 1.3918210830015596,
+      "eta": null,
+      "kind": "random",
+      "label": "",
+      "metrics": {
+        "auroc": 0.5226408549337714,
+        "brier": 0.3148268113550059,
+        "log_loss": 0.9041008844238048
+      },
+      "name": "attack_random_None_20261101_24004_gdp4_160_",
+      "private": true,
+      "projection_seed": 20261101,
+      "rounds": 20,
+      "seed": 24004,
+      "status": "completed",
+      "steps": 160,
+      "width": 128
+    }
+  ],
+  "schema": "capstone.projection.audit.v1",
+  "scope": "One fixed generated dataset; descriptive crossed seeds; no clinical or originality claim.",
+  "stage": "main",
+  "status": "verified",
+  "summary_sha256": "a3c9f70404f036719f4bb2172e06d2b2adbf4dd8d0903ac5757219b90193f0a3"
+}

@@ -1,0 +1,85 @@
+{
+  "all_three_figures_visually_inspected": true,
+  "artifacts": {
+    "figures/projection-2026-10-28/attack_budgets.png": "6cd5753614baf4e63f9740845de50d8b9145dcb8861b88edf47c2cc583e13782",
+    "figures/projection-2026-10-28/attack_budgets.svg": "3106b8af479172a81239503e230db70a2beb48190226c5735da1679abcd47148",
+    "figures/projection-2026-10-28/plot-runtime.json": "a25857aadfc30c8a99c5b04990139bb37acc777099d9c037f737723611fbb9a4",
+    "figures/projection-2026-10-28/random_bases.png": "03e831c872a9f2300b937f7ec7ab8aa9571f5e551be1d5731a3e7057ba621e15",
+    "figures/projection-2026-10-28/random_bases.svg": "bf20894f21105639ddbf3d1a7d24ca2bb2b4bd2cfcdb8667b57b7b5877cb5e1f",
+    "figures/projection-2026-10-28/retention.png": "2a05fe77554bd7a4ab50167071c54ac7562dd500e1936a3a515f3d10ba5e75ec",
+    "figures/projection-2026-10-28/retention.svg": "3a79d3812364fb9546e50f774212f408d164ab8d2d1208f108b7e89c861c0271",
+    "projection-implementation-review-2026-10-28.md": "8b0d1f2adfcdfb6df981bd8345ee9bd4ee8055b9fdf325d101850c1d477673c9",
+    "projection-qualification-2026-10-28.json": "8f2a5219533632538624cd45477d367e004668aed6ae7668a11b61714141fe84",
+    "projection-study-derived-2026-10-28.json": "5cbdaf90a5cd368d6747cc77cd6691d044de085f9844385a26f56ffcd400ec78",
+    "projection-study-manifest-2026-10-28.json": "e11e33221d4909c820eaec529db1ee261904627851f35a25c7d23269e544e23e",
+    "projection-study-report-2026-10-28.md": "843e2d949bcc12a4a41cbf9305c9b1106318d9d793383e5bafb8d459c47cf76e",
+    "projection-study-reproduction.md": "db00d539dfb779dd95fdecbd6cbc31a6ab96455694b27457b5b1cd05f58b08a8",
+    "projection-study-results-2026-10-28.json": "018aa0cf4d0132e8153ffc8ed1c0edfeb0f24426a84a5bf63a93cfc5917d2dba",
+    "projection-study-status-2026-10-28.md": "9ef64a47b0bf039306dd46acbc2de63ea959937481e79a90f53ac3a53af6538a"
+  },
+  "date": "2026-10-28",
+  "historical_artifacts_unchanged": {
+    "capstone-final-report-v5-working.md": "a2aceebe15cb9653f73be35cdacb96066103c17ee42f808c47e964a3dcfcde81",
+    "capstone-final-report-v5-working.pdf": "e003d2c4015ad9294114d2867aaea89d756c1fd143fadb6f16fa841381f510de",
+    "effusion-finalists-2026-10-25.json": "582a4a04ef7f37abf27ff9cefed6bd1096a9de934e0c32f3e476ed246cb5e71f"
+  },
+  "limits": [
+    "single generated dataset draw",
+    "four training seeds and five fixed public bases",
+    "oracle teacher-informed diagnostic subspaces",
+    "many private points near chance",
+    "one permitted-information surrogate attacker",
+    "no novel method or discovery-priority claim",
+    "no independent medical validation"
+  ],
+  "main": {
+    "cells": 136,
+    "checkpoint": "0ecd8aff958d138e75ad85f90b3a4de4008ffe71",
+    "client_fits": 54400,
+    "elapsed_s": 88.38826870801859,
+    "maximum_errors": {
+      "clipping_error": 1.506204688750401e-08,
+      "geometry_error": 1.401283986762758e-08,
+      "metric_error": 1.1102230246251565e-16,
+      "release_error": 1.4901161193847656e-08,
+      "score_error": 1.0658141036401503e-14
+    },
+    "padding_max_error": 4.3612271161119764e-07,
+    "rounds": 2720,
+    "summary_sha256": "a3c9f70404f036719f4bb2172e06d2b2adbf4dd8d0903ac5757219b90193f0a3"
+  },
+  "main_manifest_committed_before_fitting": "0ecd8af",
+  "medical_inputs_opened": false,
+  "new_medical_fits": 0,
+  "new_queued_projects_started": false,
+  "private_verification_log_sha256": {
+    "canonical-tests.log": "08b3ab24e4e266d395ef9466d09643f848396e85ef3117e14b02cc7bd77b2530",
+    "profile-final-tests.log": "6d52e736f38f82205f4a2cb2f0d295e1dc6344f5a8720ed0c52b5ba8cc9094bc",
+    "progress.md": "6239f34fab920324800cf02efb5f59a4f9d5484cd0da4540e7a2caabd12befe3",
+    "reproduction-suite.log": "11edf51018ae3c672bd124844cea551df6d337073c81680130acc82dee822d90",
+    "task-4-tests.log": "1f970444fe4c78aa5c5a53d69c705c19266f2f7a7e587375b8541c51d47af98d"
+  },
+  "qualification": {
+    "cells": 12,
+    "client_fits": 4800,
+    "rounds": 240,
+    "status": "qualified"
+  },
+  "report_table_values_match_public_results": true,
+  "schema": "capstone.projection.verification.v1",
+  "scientific_source_checkpoint": "1e44031",
+  "source_bindings_match": true,
+  "status": "verified",
+  "svg_postprocessing": "Trimmed trailing line whitespace; parsed XML element/attribute/text tokens unchanged. PNGs and scientific source unchanged.",
+  "tests": {
+    "bounded_profile_passed": 352,
+    "complete_reproduction_directory_collection": "blocked: six legacy sklearn imports absent from minimal profile",
+    "existing_deprecation_warnings": 151,
+    "projection_and_existing_helper_subset_passed": 61
+  },
+  "total": {
+    "cells": 148,
+    "client_fits": 59200,
+    "rounds": 2960
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "basis_retention": [
+    {
+      "no_noise": {
+        "mean_auroc": 0.6617574287748436,
+        "training_seed_sd": 0.00030845570588563316
+      },
+      "private": {
+        "mean_auroc": 0.5459083564018781,
+        "training_seed_sd": 0.009716352032690998
+      },
+      "projection_seed": 20261101,
+      "retained_teacher_energy": 0.27656610045137786
+    },
+    {
+      "no_noise": {
+        "mean_auroc": 0.663376861780147,
+        "training_seed_sd": 0.00030697501941342114
+      },
+      "private": {
+        "mean_auroc": 0.5395673605382102,
+        "training_seed_sd": 0.027989004634085202
+      },
+      "projection_seed": 20261102,
+      "retained_teacher_energy": 0.272851606718131
+    },
+    {
+      "no_noise": {
+        "mean_auroc": 0.6371706730137281,
+        "training_seed_sd": 0.00024737349780285087
+      },
+      "private": {
+        "mean_auroc": 0.5222696628382928,
+        "training_seed_sd": 0.013800114118851119
+      },
+      "projection_seed": 20261103,
+      "retained_teacher_energy": 0.2251627874882507
+    },
+    {
+      "no_noise": {
+        "mean_auroc": 0.6490608617927849,
+        "training_seed_sd": 0.0003207027784150198
+      },
+      "private": {
+        "mean_auroc": 0.5410335000158271,
+        "training_seed_sd": 0.016531025012987418
+      },
+      "projection_seed": 20261104,
+      "retained_teacher_energy": 0.23685560978801234
+    },
+    {
+      "no_noise": {
+        "mean_auroc": 0.6453424430761787,
+        "training_seed_sd": 5.936003678125367e-05
+      },
+      "private": {
+        "mean_auroc": 0.532668496054875,
+        "training_seed_sd": 0.0093156637913308
+      },
+      "projection_seed": 20261105,
+      "retained_teacher_energy": 0.23944493238659437
+    }
+  ],
+  "between_basis_mean_sd": {
+    "no_noise": 0.011128160645248693,
+    "private": 0.0091575079572227
+  },
+  "derivation": "basis teacher retention=sum(P[0,:]^2); basis means/within-basis sample SD use four training seeds; between-basis sample SD uses five means. Padding ratio sums logged Gaussian energy over20 rounds. Teacher score is2*x0 on fixed generated evaluation labels; not a population AUROC bound.",
+  "padding_energy_ratios": [
+    {
+      "noise_energy_ratio": 4.002701733431255,
+      "seed": 24001
+    },
+    {
+      "noise_energy_ratio": 4.030941676380087,
+      "seed": 24002
+    },
+    {
+      "noise_energy_ratio": 3.9576379817957723,
+      "seed": 24003
+    },
+    {
+      "noise_energy_ratio": 4.049378498538273,
+      "seed": 24004
+    }
+  ],
+  "pooled_padding_energy_ratio": 4.0098765628717095,
+  "schema": "capstone.projection.derived.v1",
+  "teacher_observed_evaluation_metrics": {
+    "auroc": 0.8597750212563251,
+    "brier": 0.1527570606306045,
+    "log_loss": 0.4646030327432751
+  }
+}
