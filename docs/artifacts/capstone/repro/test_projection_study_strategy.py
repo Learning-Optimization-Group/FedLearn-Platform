@@ -65,3 +65,19 @@ def test_noise_is_added_once_and_preview_does_not_consume_it():
     expected=noise_draw(11,1,128,s.last_round_stats['noise_std'])
     assert all(torch.equal(actual[k],expected[k]) for k in p)
     assert s.last_round_stats['sensitivity']==pytest.approx(.005)
+
+
+def test_wide_native_and_study_noise_marginals_cover_inactive_rows_and_biases():
+    p=initial_parameters(512)
+    native=ComposedStrategy(p,clip_norm=.05,clients_per_round=20,min_fit_clients=20,
+                           central_noise_multiplier=20.,noise_seed=73)
+    custom=[];original=[]
+    for r in range(1,1501):
+        old=native._global
+        out=native.aggregate_fit(r,[(str(i),old,205) for i in range(20)])
+        original.append(torch.cat([(out[k]-old[k]).flatten() for k in p]))
+        noise=noise_draw(73,r,512,.1);custom.append(torch.cat([noise[k].flatten() for k in p]))
+    for values in (torch.stack(original).double(),torch.stack(custom).double()):
+        assert torch.allclose(values.var(0),torch.full((1026,),.01,dtype=torch.float64),rtol=.22,atol=0)
+        cov=torch.cov(values[:,[0,128,511,512,640,1023,1024,1025]].T);cov.fill_diagonal_(0)
+        assert float(cov.abs().max())<.001

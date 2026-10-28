@@ -80,12 +80,25 @@ def preflight(output,stage,qualification=None):
               calibration=calibration_check(),qualification=q,
               runtime={p:importlib.metadata.version(p) for p in ('torch','numpy','scipy')})
     write_json(output/'plan.json',plan);(output/'plan.sha256').write_text(sha(output/'plan.json')+'\n')
+    if stage=='main':
+        write_json(output/'qualification-location.json',dict(path=str(Path(qualification).resolve())))
     return plan
 
 
 def verify_plan(path):
     path=Path(path);p=path/'plan.json';plan=json.loads(p.read_text())
     if sha(p)!=(path/'plan.sha256').read_text().strip():raise ValueError('manifest digest mismatch')
+    validate_plan(plan)
+    if plan['stage']=='main':
+        location=json.loads((path/'qualification-location.json').read_text())['path']
+        if validate_qualification(Path(location))!=plan['qualification']:
+            raise ValueError('qualified prerequisite changed')
+    return plan
+
+
+def validate_plan(plan):
+    if plan.get('schema')!='capstone.projection.plan.v1' or plan.get('stage') not in ('qualification','main'):
+        raise ValueError('invalid manifest schema or stage')
     expected=qualification_cells() if plan['stage']=='qualification' else cells()
     if plan['cells']!=[c.record() for c in expected] or plan['settings']!=SETTINGS \
             or plan['sources']!=sources() or plan.get('synthetic') is not True:
@@ -96,7 +109,22 @@ def verify_plan(path):
     if plan['bases']!={c.name:tensor_sha(basis(c)) for c in expected}:
         raise ValueError('projection basis drift')
     if plan['calibration']!=calibration_check():raise ValueError('calibration drift')
+    runtime={p:importlib.metadata.version(p) for p in ('torch','numpy','scipy')}
+    if plan['runtime']!=runtime:raise ValueError('runtime version drift')
+    if plan['stage']=='main':
+        q=plan.get('qualification') or {}
+        if q.get('status')!='qualified' or q.get('cells')!=12 or not 0<q.get('projected_main_s',0)<=43200:
+            raise ValueError('qualified prerequisite missing')
     return plan
+
+
+def verify_checkpoint(plan,checkpoint):
+    if not isinstance(checkpoint,str) or len(checkpoint)!=40 or any(c not in '0123456789abcdef' for c in checkpoint):
+        raise ValueError('immutable full source checkpoint required')
+    for path,digest in plan['sources'].items():
+        try:content=subprocess.check_output(['git','show',f'{checkpoint}:{path}'],cwd=ROOT,stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as error:raise ValueError('source absent from checkpoint') from error
+        if hashlib.sha256(content).hexdigest()!=digest:raise ValueError('source differs from checkpoint')
 
 
 def attack_check():
@@ -157,6 +185,8 @@ def run_cell(cell,data,out,deadline):
                 p,n=local_fit(parameters,data['train_x'][index],data['train_y'][index],cell.seed,round,cid)
                 uploads.append((str(cid),p,n))
             clean= strategy.preview(uploads)
+            clean_raww=torch.stack([p['head.weight']-parameters['head.weight'] for _,p,_ in uploads])
+            clean_rawb=torch.stack([p['head.bias']-parameters['head.bias'] for _,p,_ in uploads])
             attack=None
             if cell.steps:uploads,attack=_attack(parameters,uploads,data,parts,cell,round,history)
             if time.monotonic()>deadline:raise TimeoutError('declared execution budget exhausted')
@@ -183,7 +213,8 @@ def run_cell(cell,data,out,deadline):
             np.savez_compressed(out/'rounds'/f'{round:02}.npz',weight=parameters['head.weight'].numpy(),
                 bias=parameters['head.bias'].numpy(),pre_weight=strategy.last_pre_noise['head.weight'].numpy(),
                 pre_bias=strategy.last_pre_noise['head.bias'].numpy(),noise_weight=noise['head.weight'].numpy(),
-                noise_bias=noise['head.bias'].numpy(),raw_weight=raww.numpy(),raw_bias=rawb.numpy())
+                noise_bias=noise['head.bias'].numpy(),raw_weight=raww.numpy(),raw_bias=rawb.numpy(),
+                clean_raw_weight=clean_raww.numpy(),clean_raw_bias=clean_rawb.numpy())
             row['arrays_sha256']=sha(out/'rounds'/f'{round:02}.npz');rounds.append(row)
             write_json(out/'rounds.json',rounds)
         scores=score(parameters,data['eval_x']).numpy()
@@ -207,17 +238,34 @@ def validate_qualification(out):
         raise ValueError('complete qualification required')
     for c,r in zip(expected,summary['runs'],strict=True):
         if c.record()!={k:r[k] for k in c.record()}:raise ValueError('qualification cell drift')
+        if r.get('status')!='completed' or r.get('rounds')!=20 or r.get('client_fits')!=400 \
+                or not math.isfinite(r.get('elapsed_s',float('nan'))) or r['elapsed_s']<=0 \
+                or set(r.get('artifacts',{}))!={'head.npz','predictions.npz','rounds.json'}:
+            raise ValueError('incomplete qualification cell')
         path=out/'runs'/c.name
         if sha(path/'result.json')!=summary['result_hashes'][c.name]:raise ValueError('qualification result changed')
+        if json.loads((path/'result.json').read_text())!=r:raise ValueError('qualification summary differs from result')
         for file,digest in r['artifacts'].items():
             if sha(path/file)!=digest:raise ValueError('qualification artifact changed')
+    if not math.isfinite(summary['elapsed_s']) or not 0<summary['elapsed_s']<=1800:
+        raise ValueError('invalid qualification elapsed time')
+    proof=out/'attack-check.json'
+    if not proof.is_file() or sha(proof)!=summary.get('attack_check_sha256'):
+        raise ValueError('attack check receipt missing or changed')
+    if json.loads(proof.read_text())!=attack_check():raise ValueError('attack check does not replay')
+    from analyze_projection_study import analyze
+    audit=analyze(out)
+    if audit['status']!='verified' or audit['cells']!=12 or audit['rounds']!=240 or audit['client_fits']!=4800:
+        raise ValueError('independent qualification audit failed')
+    write_json(out/'independent-audit.json',audit)
     checks={}
     for left,right in ((0,1),(3,4),(5,6)):
         a=out/'runs'/expected[left].name;b=out/'runs'/expected[right].name
         for round in range(1,21):
             x=np.load(a/'rounds'/f'{round:02}.npz');y=np.load(b/'rounds'/f'{round:02}.npz')
+            width=512 if left==0 else 128
             for key in ('weight','pre_weight','noise_weight'):
-                difference=float(np.max(np.abs(x[key][:,:128]-y[key][:,:128])))
+                difference=float(np.max(np.abs(x[key][:,:width]-y[key][:,:width])))
                 if difference>1e-5:raise ValueError('qualification padding/replay discrepancy')
             if float(np.max(np.abs(x['bias']-y['bias'])))>1e-5:raise ValueError('qualification bias discrepancy')
         ax=np.load(a/'predictions.npz')['scores'];bx=np.load(b/'predictions.npz')['scores']
@@ -225,22 +273,25 @@ def validate_qualification(out):
         if difference>1e-5:raise ValueError('qualification prediction discrepancy')
         checks[f'{left+1}-{right+1}']=difference
     return dict(status='qualified',summary_sha256=sha(out/'summary.json'),padding_replay_max_score_discrepancies=checks,
+                independent_audit_sha256=sha(out/'independent-audit.json'),attack_check_sha256=sha(proof),
                 projected_main_s=max(r['elapsed_s'] for r in summary['runs'])*136,
                 elapsed_s=summary['elapsed_s'],cells=12)
 
 
 def execute(plan_dir,output,checkpoint):
     plan_dir,output=Path(plan_dir),Path(output);plan=verify_plan(plan_dir)
-    for path,digest in plan['sources'].items():
-        content=subprocess.check_output(['git','show',f'{checkpoint}:{path}'],cwd=ROOT,stderr=subprocess.PIPE)
-        if hashlib.sha256(content).hexdigest()!=digest:raise ValueError('source differs from checkpoint')
+    checkpoint=subprocess.check_output(['git','rev-parse',checkpoint],cwd=ROOT,text=True).strip()
+    verify_checkpoint(plan,checkpoint)
     output.mkdir(parents=True,exist_ok=False);write_json(output/'frozen-plan.json',plan)
     budget=1800 if plan['stage']=='qualification' else 43200
     start=time.monotonic();deadline=start+budget;rows=[];hashes={};cache={};data=dataset()
     summary=dict(status='running',stage=plan['stage'],checkpoint=checkpoint,plan_sha256=sha(plan_dir/'plan.json'),runs=rows,result_hashes=hashes)
     write_json(output/'summary.json',summary)
     try:
-        if plan['stage']=='qualification':write_json(output/'attack-check.json',attack_check())
+        if plan['stage']=='qualification':
+            write_json(output/'attack-check.json',attack_check())
+            summary['attack_check_sha256']=sha(output/'attack-check.json')
+            write_json(output/'summary.json',summary)
         for raw in plan['cells']:
             c=read_cell(raw);key=(c.family,c.eta,c.projection_seed)
             if key not in cache:cache[key]=features(data,c)
