@@ -1,0 +1,86 @@
+{
+  "schema": "capstone.ieee.report.v1",
+  "date": "2026-10-28",
+  "status": "verified",
+  "title": "Measuring Privacy, Robustness, and Projection Tradeoffs in Federated Learning",
+  "author": "Anurag Lnu",
+  "format": {
+    "class_name": "IEEEtran",
+    "mode": "conference",
+    "paper": "US Letter",
+    "columns": 2,
+    "pages": 9,
+    "figures": 7,
+    "tables": 4,
+    "references": 13
+  },
+  "outline": [
+    "Introduction",
+    "Solution",
+    "Details",
+    "Evaluation",
+    "Discussion",
+    "Related Work",
+    "Conclusion and Future Work"
+  ],
+  "reference_outline": "IMG_4884.HEIC",
+  "checks": {
+    "all_pages_visually_inspected": true,
+    "metadata_only_final_build_pixel_identical_pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "medical_table_matches_16_aggregate_means": true,
+    "primary_intervals_match_public_results": true,
+    "reported_projection_columns_match_public_results": true,
+    "no_unresolved_references": true,
+    "no_overfull_boxes": true,
+    "no_font_substitutions": true,
+    "source_zip_integrity": true,
+    "standalone_source_package_compiles": true,
+    "standalone_source_package_pixel_identical_pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ]
+  },
+  "compiler": {
+    "name": "Tectonic",
+    "version": "0.17.0",
+    "asset_sha256": "a3f1cac7c5678f01661a92212f58480ae3b0634115d880dbc59e2953ded45667"
+  },
+  "inputs": {
+    "capstone-final-report-v5-working.md": "a2aceebe15cb9653f73be35cdacb96066103c17ee42f808c47e964a3dcfcde81",
+    "effusion-finalists-2026-10-25.json": "582a4a04ef7f37abf27ff9cefed6bd1096a9de934e0c32f3e476ed246cb5e71f",
+    "multihost-results-2026-10-26.json": "d6d1af7a0c5e5e45e7a3be1a01e878f71e363ca7c0c5ced21974a5f89a3ac8fd",
+    "projection-study-results-2026-10-28.json": "018aa0cf4d0132e8153ffc8ed1c0edfeb0f24426a84a5bf63a93cfc5917d2dba",
+    "projection-study-derived-2026-10-28.json": "5cbdaf90a5cd368d6747cc77cd6691d044de085f9844385a26f56ffcd400ec78"
+  },
+  "artifacts": {
+    "capstone-report-v6-ieee.tex": "1ea002d6ab58008c8bd475eb08e13ea69e4451331dcc4969c73806e2b5bf34ec",
+    "capstone-report-v6-ieee.pdf": "dde15b2bf2eabe250d7980b7c92b30d6e2e74c64da04d02c4cd0c931e050cc38",
+    "capstone-report-v6-ieee-source.zip": "e79065ce41e79eb6a2f2bf050eadfbaaf353e8ebd9556c92e0fdf7c1149d3da4",
+    "figures/ieee-2026-10-28/medical-policies.pdf": "b5f080f5a54cf0618771bb11379cd7026edefa730e2bb3e0d5e0aeca84303ee7",
+    "figures/ieee-2026-10-28/medical-primary.pdf": "45e8b4af8d14c75f639404cbeca85e7db72539388b3aa9fc9cecd6b827a3abfc",
+    "figures/ieee-2026-10-28/cpu-placement.pdf": "1cd27d95be38cbb6e90b75c52844e449fc1b7a48e02f6013291337b822c6f9c4",
+    "figures/ieee-2026-10-28/signal-retention.pdf": "9d7355f592fd1a099c6882b7f06d5d6d01161e77315f4b476cc480dcbc4abaa6",
+    "figures/ieee-2026-10-28/random-bases.pdf": "52e1314e55928cc05771411219e1983778f4ca2e37c6305a5993187bfa27d3b2",
+    "figures/ieee-2026-10-28/attack-effort.pdf": "0989fccc64224d7a1eb2a17e128ee80f2b84ed64b0ec47c1cec42acab885861b",
+    "repro/render_ieee_figures.py": "42b4a083cf1f780fad812a9e69f118d263c59877dfa7e8b7dc630cb9d225a7a3",
+    "capstone-report-v6-ieee-README.md": "97091bbdadce5cd67057c144ff9c12e464e4fb2811e039fde1488dc0c6ec13bd"
+  },
+  "scope": "Editorial integration and IEEE layout only. No new fitting, medical inputs, holdout/test evaluation, or experimental changes."
+}

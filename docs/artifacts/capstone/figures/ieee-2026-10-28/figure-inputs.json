@@ -1,0 +1,9 @@
+{
+  "inputs": {
+    "effusion-finalists-2026-10-25.json": "582a4a04ef7f37abf27ff9cefed6bd1096a9de934e0c32f3e476ed246cb5e71f",
+    "multihost-results-2026-10-26.json": "d6d1af7a0c5e5e45e7a3be1a01e878f71e363ca7c0c5ced21974a5f89a3ac8fd",
+    "projection-study-results-2026-10-28.json": "018aa0cf4d0132e8153ffc8ed1c0edfeb0f24426a84a5bf63a93cfc5917d2dba"
+  },
+  "matplotlib": "3.9.4",
+  "scope": "Layout-only redraws from frozen public aggregate records; no training or new estimation target."
+}
