@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from concurrent import futures
 import grpc
 import time
@@ -16,6 +18,10 @@ import sys
 import os
 import json
 from datetime import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .checkpoint import CheckpointIdentity
 
 class JSONFormatter(logging.Formatter):
     def format(self, record):
@@ -58,6 +64,9 @@ class ServerConfig:
     # Shamir reconstruction threshold -- how many holders must return a summed share. Validated
     # against the cohort in build_servicer, where clients_per_round is known.
     secure_agg_threshold: int = 2
+    checkpoint_directory: str | None = None
+    checkpoint_identity: CheckpointIdentity | None = None
+    resume_from_checkpoint: bool = False
 
 
 def build_coordinator(strategy, config: ServerConfig) -> FLCoordinator:
@@ -68,14 +77,33 @@ def build_coordinator(strategy, config: ServerConfig) -> FLCoordinator:
     secure aggregation or central DP refuses it here, before any port is bound."""
     recorder = update_recorder_from_env(secure_aggregation=config.secure_aggregation,
                                         dp_enabled=bool(getattr(strategy, "dp_enabled", False)))
+    store = None
+    snapshot = None
+    if config.checkpoint_directory is not None:
+        from .checkpoint import CheckpointIdentity, RoundCheckpointStore
+        if not isinstance(config.checkpoint_identity, CheckpointIdentity):
+            raise ValueError("checkpoint directory requires a run/configuration identity")
+        if config.secure_aggregation:
+            raise ValueError("checkpoint recovery for secure aggregation is not yet qualified")
+        store = RoundCheckpointStore(config.checkpoint_directory, config.checkpoint_identity)
+        snapshot = store.load_latest()
+        if config.resume_from_checkpoint and snapshot is None:
+            raise ValueError("no completed-round checkpoint is available to resume")
+        if not config.resume_from_checkpoint and snapshot is not None:
+            raise ValueError("existing checkpoint requires an explicit resume request")
+    elif config.checkpoint_identity is not None or config.resume_from_checkpoint:
+        raise ValueError("checkpoint identity/resume requires a checkpoint directory")
     coordinator = FLCoordinator(
         strategy=strategy,
         min_clients_for_aggregation=strategy.min_fit_clients,
         clients_per_round=strategy.clients_per_round,
         num_rounds=config.num_rounds,
         async_round_completion=True,
+        checkpoint_store=store,
     )
     coordinator.update_recorder = recorder
+    if snapshot is not None:
+        coordinator.restore_checkpoint(snapshot)
     return coordinator
 
 
@@ -137,7 +165,9 @@ def start_server(
     # Create coordinator
     coordinator = build_coordinator(strategy, config)
 
-    coordinator.set_initial_parameters(strategy.initial_parameters)
+    if not config.resume_from_checkpoint:
+        coordinator.set_initial_parameters(strategy.initial_parameters)
+    first_round = coordinator._completed_round_number + 1
     # Create gRPC server with proper options
     max_expected_clients = int(os.environ.get('MAX_CLIENTS', 50))
     optimal_workers = (max_expected_clients * 2) + 10
@@ -212,16 +242,17 @@ def start_server(
         logging.warning("gRPC server running without TLS. Set FEDLEARN_GRPC_USE_TLS=1 for production.")
 
     # Open the first round before clients can submit to the listening server.
-    coordinator.start_round(1)
+    coordinator.start_round(first_round)
     # Start server
     grpc_server.start()
     logging.info(f"gRPC server started and listening on {server_address}")
 
     try:
         # Run federated learning training loop
-        history = []
+        history = [(number, metrics) for number, metrics in sorted(coordinator._completed_round_metrics.items())
+                   if number < first_round and metrics]
 
-        for round_num in range(1,config.num_rounds+1):
+        for round_num in range(first_round, config.num_rounds + 1):
 
             coordinator.start_round(round_num)
             logging.info(f"[Server] Starting round {round_num}/{config.num_rounds}")

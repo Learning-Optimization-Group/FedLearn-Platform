@@ -60,7 +60,8 @@ class FLCoordinator:
                  grad_clip_threshold: Optional[float] = 1000.0,
                  client_update_l2_clip: Optional[float] = None,
                  num_rounds: Optional[int] = None,
-                 async_round_completion: bool = False):
+                 async_round_completion: bool = False,
+                 checkpoint_store=None):
         self.strategy = strategy
         self.min_clients = min_clients_for_aggregation
         self.clients_per_round = clients_per_round
@@ -83,6 +84,14 @@ class FLCoordinator:
         self._aggregation_worker = None
         self._completed_round_number = 0
         self._completed_round_metrics = {}
+        # Cancellation shares this brief publication lock, never the disk-write interval.
+        self._publication_lock = threading.Lock()
+        self.checkpoint_store = checkpoint_store
+        if checkpoint_store is not None:
+            from .strategy_checkpoint import validate_checkpoint_strategy
+            validate_checkpoint_strategy(strategy)
+            if type(num_rounds) is not int or num_rounds < 1:
+                raise ValueError("checkpoint recovery requires a fixed positive round budget")
 
         # SE-3 poisoning defense (layer 2): clamp each DeComFL gradient scalar into
         # [-grad_clip_threshold, +grad_clip_threshold] at ingress. The honest zeroth-order scalar
@@ -664,28 +673,45 @@ class FLCoordinator:
         aggregated_parameters = self.strategy.aggregate_fit(self.current_round, results)
 
         if aggregated_parameters is not None:
-            self._global_model_params = aggregated_parameters
             # FR-22: Strategy.evaluate is Optional[Tuple[float, dict]] — it returns None when no
             # evaluate_fn is configured (the constructor default for FedAvg/FedProx/FedOpt/FedLoRA/
             # Robust). Unpacking None as a 2-tuple raised a TypeError inside the lock, after updates
             # were cleared, wedging the round. Guard it exactly as the DeComFL trigger already does.
-            eval_result = self.strategy.evaluate(self.current_round, self._global_model_params)
+            eval_result = self.strategy.evaluate(self.current_round, aggregated_parameters)
             if eval_result is not None:
                 loss, metrics = eval_result
-                self.latest_metrics = {"loss": loss, **metrics}
+                round_metrics = {"loss": loss, **metrics}
             else:
-                self.latest_metrics = None
+                round_metrics = None
+            if self.checkpoint_store is not None:
+                try:
+                    self.checkpoint_store.save(self._capture_checkpoint(
+                        self.current_round, aggregated_parameters, round_metrics))
+                except Exception:
+                    log.exception("Checkpoint commit failed for round %d", self.current_round)
+                    self.last_round_failed = True
+                    self.last_round_message = f'Round {self.current_round} checkpoint failed; server stopped.'
+                    self.stop_requested = True
+                    self._round_complete_event.set()
+                    return
         else:
             # Aggregation returning None is a hard failure for the round, but
             # the server can continue — log at WARNING so operators see it
             # without breaking out of the federated loop.
             log.warning("Aggregation for round %d failed", self.current_round)
-            self.latest_metrics = None
+            round_metrics = None
+            if self.checkpoint_store is not None:
+                self.last_round_failed = True
+                self.last_round_message = f'Round {self.current_round} aggregation failed; server stopped.'
+                self.stop_requested = True
+                self._round_complete_event.set()
+                return
 
-        # Advance round and signal LAST — state is consistent before any
-        # waiting thread wakes up, because we are still inside _lock.
-        self.current_round += 1
-        self._round_complete_event.set()
+        self._publish_completed_round(
+            self.current_round,
+            aggregated_parameters if aggregated_parameters is not None else self._global_model_params,
+            round_metrics,
+        )
 
     def _start_async_round_completion(self):
         """Freeze one cohort under the lock; publish its result only after evaluation.
@@ -709,35 +735,84 @@ class FLCoordinator:
                     raise RuntimeError('aggregation returned no model')
                 evaluation = self.strategy.evaluate(round_number, aggregate)
                 metrics = None if evaluation is None else {'loss': evaluation[0], **evaluation[1]}
+                if self.checkpoint_store is not None:
+                    with self._lock:
+                        if self.stop_requested or self.current_round != round_number:
+                            self._aggregation_in_progress = False
+                            return
+                        snapshot = self._capture_checkpoint(round_number, aggregate, metrics)
+                    # Keep control RPCs responsive while storage is flushed. Uploads remain closed.
+                    self.checkpoint_store.save(snapshot)
             except Exception:
-                log.exception('Aggregation/evaluation failed for round %d', round_number)
+                log.exception('Aggregation/evaluation/checkpoint failed for round %d', round_number)
                 with self._lock:
                     self._aggregation_in_progress = False
                     if not self.stop_requested:
                         self.last_round_failed = True
-                        self.last_round_message = f'Round {round_number} aggregation/evaluation failed; server stopped.'
+                        self.last_round_message = f'Round {round_number} aggregation/evaluation/checkpoint failed; server stopped.'
                         self.stop_requested = True
                     self._round_complete_event.set()
                 return
             with self._lock:
                 self._aggregation_in_progress = False
-                if self.stop_requested or self.current_round != round_number:
-                    return
-                self._global_model_params = aggregate
-                self.latest_metrics = metrics
-                self._completed_round_number = round_number
-                self._completed_round_metrics[round_number] = metrics
-                self.current_round += 1
-                # Open the next round before publishing it to clients. The main
-                # loop must not discard an update that beats its next iteration.
-                self._round_started_number = self.current_round
-                self._round_started_at = time.monotonic()
-                self._round_started_wall = time.time()
-                self._round_complete_event.set()
+                self._publish_completed_round(round_number, aggregate, metrics, open_next_round=True)
 
         self._aggregation_worker = threading.Thread(target=complete, daemon=True,
                                                     name=f'round-{round_number}-completion')
         self._aggregation_worker.start()
+
+    def _publish_completed_round(self, round_number, parameters, metrics, *, open_next_round=False):
+        """Publish under the coordinator lock and serialize that transition with Stop."""
+        with self._publication_lock:
+            if self.stop_requested or self.current_round != round_number:
+                return
+            self._global_model_params = parameters
+            self.latest_metrics = metrics
+            self._completed_round_number = round_number
+            self._completed_round_metrics[round_number] = metrics
+            self.current_round += 1
+            if open_next_round:
+                # Open before exposing the new round so start_round cannot discard a fast upload.
+                self._round_started_number = self.current_round
+                self._round_started_at = time.monotonic()
+                self._round_started_wall = time.time()
+            self._round_complete_event.set()
+
+    def _capture_checkpoint(self, round_number, parameters, metrics):
+        """Capture a frozen numerical boundary while the coordinator lock is held."""
+        from .strategy_checkpoint import capture_round
+        history = dict(self._completed_round_metrics)
+        history[round_number] = metrics
+        return capture_round(
+            self.strategy, completed_round=round_number, total_rounds=self.num_rounds,
+            parameters=parameters, history=sorted(history.items()),
+            partition_to_client=self._partition_to_client,
+        )
+
+    def restore_checkpoint(self, snapshot):
+        """Restore only into a fresh coordinator, before accepting any clients."""
+        from .strategy_checkpoint import restore_strategy
+        with self._lock:
+            if (self.checkpoint_store is None or self._aggregation_in_progress
+                    or self._completed_round_number or self._client_updates_received
+                    or self._registered_clients or self._partition_to_client
+                    or self.stop_requested or self.training_complete):
+                raise ValueError("checkpoint restore requires a fresh checkpoint-enabled coordinator")
+            if snapshot.total_rounds != self.num_rounds:
+                raise ValueError("checkpoint round budget does not match the configured run")
+            restore_strategy(self.strategy, snapshot)
+            self.set_initial_parameters(OrderedDict((key, value.clone())
+                                                   for key, value in snapshot.parameters.items()))
+            self._completed_round_number = snapshot.completed_round
+            self._completed_round_metrics = dict(snapshot.history)
+            self.latest_metrics = self._completed_round_metrics.get(snapshot.completed_round)
+            self.current_round = snapshot.completed_round + 1
+            self._partition_to_client = dict(snapshot.partition_to_client)
+            self._client_to_partition = {value: key for key, value in self._partition_to_client.items()}
+            self._round_started_number = 0
+            self._round_started_at = time.monotonic()
+            self._round_started_wall = time.time()
+            self._round_complete_event.clear()
 
     def set_initial_parameters(self, params: Optional[OrderedDict[str, torch.Tensor]]):
         if self._allowed_client_order is not None:
@@ -757,13 +832,14 @@ class FLCoordinator:
 
     def get_latest_metrics(self, round_number=None) -> Optional[dict]:
         """Returns the metrics from the last completed round."""
-        if self.async_round_completion and round_number in self._completed_round_metrics:
+        if round_number in self._completed_round_metrics:
             return self._completed_round_metrics[round_number]
         return self.latest_metrics
 
     def signal_stop(self):
-        self.stop_requested = True
-        self._round_complete_event.set()  # Release any waiting threads
+        with self._publication_lock:
+            self.stop_requested = True
+            self._round_complete_event.set()  # Release any waiting threads
 
     def mark_training_complete(self):
         """Signal that all configured rounds finished successfully.
