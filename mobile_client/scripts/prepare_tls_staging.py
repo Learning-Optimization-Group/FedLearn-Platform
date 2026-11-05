@@ -81,6 +81,7 @@ subjectAltName = DNS:localhost,IP:127.0.0.1
         'FEDLEARN_GRPC_SERVER_CERT': str(output / 'grpc.crt'),
         'FEDLEARN_GRPC_SERVER_KEY': str(output / 'grpc.key'),
         'FL_SERVER_GRPC_HOST': '127.0.0.1', 'FL_PORT_RANGE_START': '55100', 'FL_PORT_RANGE_END': '55103',
+        'FEDLEARN_GRPC_BIND_ADDRESS': '127.0.0.1',
         'APP_BACKEND_INTERNAL_URL': 'http://127.0.0.1:8086',
         'APP_AUTH_COOKIE_SECURE': 'true', 'CORS_ALLOWED_ORIGINS': 'https://localhost:8443',
         'FEDLEARN_PYTHON': str(python), 'MODEL_BUNDLE_PYTHON': str(python),

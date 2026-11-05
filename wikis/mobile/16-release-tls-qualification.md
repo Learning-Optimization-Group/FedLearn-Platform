@@ -32,10 +32,14 @@ client-certificate provisioning is not implemented. This does not qualify mTLS.
 Use a fresh private output directory inside the checkout, an isolated PostgreSQL
 database/container, unused API/gRPC ports and separate bundle/artifact directories.
 Do not reuse or reconcile the historical experiment database. Bind the API/proxy
-to loopback; use only explicitly owned routes for remote participants. The current
-neural FL server binds `[::]`: `FL_SERVER_GRPC_HOST` changes its advertised address,
-not its bind address. Before starting a run, verify firewall or network-namespace
-isolation of the gRPC ports. The generated files alone do not provide that isolation.
+to loopback; use only explicitly owned routes for remote participants. The neural
+FL server defaults to `[::]`. Set `FEDLEARN_GRPC_BIND_ADDRESS` to the intended
+numeric interface IP to restrict its listener; `FL_SERVER_GRPC_HOST` separately
+sets the advertised hostname, which must match the certificate SAN. The local
+preparation helper selects `127.0.0.1`. For a remote participant, explicitly choose
+its reachable private interface and matching certificate. Before training, verify
+the actual listening sockets and reachability; generated settings alone do not
+qualify network isolation.
 
 The existing deployment layout terminates HTTPS at nginx and sends requests to
 the API over host loopback; callbacks also use loopback. See

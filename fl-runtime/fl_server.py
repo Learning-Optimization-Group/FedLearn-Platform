@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import benchmarks  # noqa: E402
 import recipes      # noqa: E402  (class labels per recipe, for per-class metrics)
 from model_output import save_final_model
+from server_binding import grpc_bind_host
 
 import torch
 import json
@@ -51,7 +52,7 @@ from data import load_server_test_data
 
 target_ip = os.environ.get('SERVER_HOST') or os.environ.get('AWS_HOST') or 'localhost'
 base_url = target_ip  # Preserved to ensure downstream REST logs don't break
-bind_address = "[::]"
+bind_address = grpc_bind_host(os.environ.get('FEDLEARN_GRPC_BIND_ADDRESS'))
 
 # Backend URL used for service-to-service callbacks (round results, project-finished
 # notifications). Prefer FEDLEARN_BACKEND_URL when set — e.g. the internal ALB or

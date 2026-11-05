@@ -43,6 +43,7 @@ class TlsStagingTest(unittest.TestCase):
         probe = subprocess.run(['bash', '-c', 'set -e; source "$1"; test "$APP_FL_REQUIRE_TLS" = true; '
                                'test "$APP_FL_REQUIRE_CLIENT_AUTH" = true; '
                                'test "$SPRING_PROFILES_ACTIVE" = dev; '
+                               'test "$FEDLEARN_GRPC_BIND_ADDRESS" = 127.0.0.1; '
                                'test -f "$FEDLEARN_GRPC_SERVER_KEY"', 'bash', str(self.output / 'backend.env')])
         self.assertEqual(probe.returncode, 0)
         self.assertFalse(report['grpc_listener_is_loopback_isolated'])
