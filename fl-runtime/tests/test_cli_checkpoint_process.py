@@ -96,12 +96,25 @@ def test_cli_recovery_matches_uninterrupted_training_with_real_clients(tmp_path,
                 port = free_port()
                 runner = "import fl_server; fl_server.bind_address='127.0.0.1'; fl_server.main()"
                 if interrupted and not resume and boundary != "partial_round":
+                    if boundary == "partial_final_save":
+                        injection = [
+                            "def fail_final_save(output, **weights):",
+                            "    output.write(b'partial final model')",
+                            "    output.flush()",
+                            "    os._exit(90)",
+                            "fl_server.np.savez = fail_final_save",
+                        ]
+                    else:
+                        injection = [
+                            "original_save = fl_server.save_final_model",
+                            "def fail_final_save(path, weights):",
+                            "    original_save(path, weights)",
+                            "    os._exit(90)",
+                            "fl_server.save_final_model = fail_final_save",
+                        ]
                     runner = "\n".join([
                         "import os", "from pathlib import Path", "import fl_server",
-                        "original_save = fl_server.np.savez", "def fail_final_save(path, **weights):",
-                        "    Path(path).write_bytes(b'partial final model')" if boundary == "partial_final_save"
-                        else "    original_save(path, **weights)",
-                        "    os._exit(90)", "fl_server.np.savez = fail_final_save",
+                        *injection,
                         "fl_server.bind_address = '127.0.0.1'", "fl_server.main()",
                     ])
                 command = [sys.executable, "-u", "-c",
@@ -154,6 +167,10 @@ def test_cli_recovery_matches_uninterrupted_training_with_real_clients(tmp_path,
                         await_round(stub, round_ + 1)
                 if interrupted and boundary != "partial_round":
                     assert process.wait(timeout=20) == 90
+                    if boundary == "partial_final_save":
+                        assert output.read_bytes() == initial.read_bytes()
+                        with np.load(output, allow_pickle=False) as preserved:
+                            assert len(preserved.files) > 0
                     channel.close()
                     process, channel, stub = launch(resume=True, connect=False)
                 assert process.wait(timeout=25) == 0

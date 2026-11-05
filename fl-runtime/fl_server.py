@@ -17,6 +17,7 @@ if sys.stdout.encoding != 'utf-8':
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import benchmarks  # noqa: E402
 import recipes      # noqa: E402  (class labels per recipe, for per-class metrics)
+from model_output import save_final_model
 
 import torch
 import json
@@ -1414,11 +1415,8 @@ def run_training(args, recovery=None):
             for key, tensor in model_to_save.items()
         }
 
-        try:
-            np.savez(save_path, **params_to_save)
-            logging.info(f"Final model weights successfully saved to: {save_path}")
-        except Exception as e:
-            logging.error(f"Failed to save final model to {save_path}. Reason: {e}", exc_info=True)
+        save_final_model(save_path, params_to_save)
+        logging.info(f"Final model weights successfully saved to: {save_path}")
 
         # DA-2/DA-3: register this run's final model as a versioned, content-addressed artifact
         # (write-new-not-overwrite) with an eval card built from the honest server-side evaluation
@@ -1449,10 +1447,10 @@ def run_training(args, recovery=None):
 
     if history and headers is not None:
         for r, metrics in history:
-            acc_metric = float(metrics.get("accuracy", 0.0))
             # The evaluate_fn returns accuracy as a percentage (e.g. 52.74)
             # The database / frontend expects a decimal for precision (e.g. 0.5274)
-            decimal_accuracy = acc_metric / 100.0 if acc_metric > 1.0 else acc_metric
+            decimal_accuracy = (float(metrics["accuracy"]) / 100.0
+                                if metrics.get("accuracy") is not None else None)
 
             result_payload = {
                 "serverRound": r,
