@@ -1,6 +1,10 @@
 package com.federated.fl_platform_api;
 
 import com.federated.fl_platform_api.security.ConnectionTokenService;
+import com.federated.fl_platform_api.model.*;
+import com.federated.fl_platform_api.repository.ProjectRepository;
+import com.federated.fl_platform_api.repository.RunRepository;
+import java.time.Instant;
 import com.federated.fl_platform_api.security.RunTokenRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,8 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *   2. once past the gate, a valid connection token minted for the matching run resolves to
  *      the enrolled identity (200), while a token scoped to another run/project is rejected.
  *
- * <p>Runs on the shared Testcontainers-Postgres context; the endpoint itself is stateless
- * (pure token verification) so no DB rows are needed.
+ * <p>Runs on the shared Testcontainers-Postgres context. Accepted requests persist the active
+ * server execution and its current authorization; filter-only refusals need no database rows.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
@@ -33,6 +37,37 @@ class InternalRunTokenVerifyIntegrationTest {
     @Autowired private TestRestTemplate rest;
     @Autowired private RunTokenRegistry runTokenRegistry;
     @Autowired private ConnectionTokenService tokenService;
+
+    @Autowired private ProjectRepository projects;
+    @Autowired private RunRepository runs;
+
+    record ActiveRun(UUID projectId, UUID runId, String token) {}
+
+    private ActiveRun activeRun() {
+        Project project = new Project();
+        project.setName("conn-verify-" + UUID.randomUUID());
+        project.setModelType("CNN");
+        project.setModelName("net");
+        project.setStatus("RUNNING");
+        project.setOrgId(UUID.fromString("00000000-0000-0000-0000-000000000001"));
+        project = projects.saveAndFlush(project);
+        Run run = new Run();
+        run.setProjectId(project.getId());
+        run.setStrategy("FedAvg");
+        run.setRecipeKey("CNN");
+        run.setNumRounds(3);
+        run.setMinClients(1);
+        run.setClientsPerRound(1);
+        run.setStatus(RunStatus.RUNNING);
+        run.setCreatedAt(Instant.now());
+        run = runs.saveAndFlush(run);
+        String token = runTokenRegistry.mint(project.getId(), run.getId());
+        run.setInternalTokenHash(runTokenRegistry.hash(token));
+        runs.saveAndFlush(run);
+        project.setActiveRunId(run.getId());
+        projects.saveAndFlush(project);
+        return new ActiveRun(project.getId(), run.getId(), token);
+    }
 
     private HttpHeaders headers(String internalKey, String runToken) {
         HttpHeaders h = new HttpHeaders();
@@ -108,9 +143,10 @@ class InternalRunTokenVerifyIntegrationTest {
 
     @Test
     void validConnectionTokenForMatchingRun_returns200_withIdentity() {
-        UUID projectId = UUID.randomUUID();
-        UUID runId = UUID.randomUUID();
-        String runToken = runTokenRegistry.mint(projectId, runId);
+        ActiveRun active = activeRun();
+        UUID projectId = active.projectId();
+        UUID runId = active.runId();
+        String runToken = active.token();
         String connToken = mintConnectionToken(99L, runId, projectId, 2, "SHARD");
 
         ResponseEntity<String> resp = rest.exchange(
@@ -128,12 +164,13 @@ class InternalRunTokenVerifyIntegrationTest {
 
     @Test
     void connectionTokenForDifferentRun_returns403() {
-        UUID projectId = UUID.randomUUID();
+        ActiveRun active = activeRun();
+        UUID projectId = active.projectId();
         UUID tokenRunId = UUID.randomUUID();
-        UUID pathRunId = UUID.randomUUID();   // != token's runId
+        UUID pathRunId = active.runId();   // != token's runId
         // Run token must be scoped to the SAME project so the filter admits the call; the
         // controller then rejects because the connection token belongs to a different run.
-        String runToken = runTokenRegistry.mint(projectId, pathRunId);
+        String runToken = active.token();
         String connToken = mintConnectionToken(1L, tokenRunId, projectId, 0, "SHARD");
 
         ResponseEntity<String> resp = rest.exchange(

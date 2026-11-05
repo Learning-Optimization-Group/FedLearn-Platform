@@ -1,6 +1,10 @@
 package com.federated.fl_platform_api.controller;
 
 import com.federated.fl_platform_api.security.ConnectionTokenService;
+import com.federated.fl_platform_api.security.InternalCallbackAuthorization;
+import com.federated.fl_platform_api.security.InternalCallbackContext;
+import com.federated.fl_platform_api.service.RunConnectionTokenVerifier;
+import com.federated.fl_platform_api.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -44,7 +48,9 @@ class InternalRunControllerTest {
         // relative to the real key, indistinguishable from a tampered/forged token.
         forgedSigner = signer(base64Of("x".repeat(40)), 3600L);
 
-        mvc = MockMvcBuilders.standaloneSetup(new InternalRunController(goodSigner)).build();
+        mvc = MockMvcBuilders.standaloneSetup(new InternalRunController(new RunConnectionTokenVerifier(goodSigner,
+                org.mockito.Mockito.mock(InternalCallbackAuthorization.class))))
+                .setControllerAdvice(new GlobalExceptionHandler()).build();
     }
 
     private static ConnectionTokenService signer(String secret, long ttlSeconds) {
@@ -78,6 +84,7 @@ class InternalRunControllerTest {
 
         mvc.perform(post("/api/internal/runs/{projectId}/{runId}/verify-connection-token",
                         projectId, runId)
+                        .requestAttr(InternalCallbackContext.REQUEST_ATTRIBUTE, new InternalCallbackContext(projectId, runId, "test-hash"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(token)))
                 .andExpect(status().isOk())
@@ -96,6 +103,7 @@ class InternalRunControllerTest {
 
         mvc.perform(post("/api/internal/runs/{projectId}/{runId}/verify-connection-token",
                         projectId, runId)
+                        .requestAttr(InternalCallbackContext.REQUEST_ATTRIBUTE, new InternalCallbackContext(projectId, runId, "test-hash"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(forged)))
                 .andExpect(status().isUnauthorized());
@@ -109,6 +117,7 @@ class InternalRunControllerTest {
 
         mvc.perform(post("/api/internal/runs/{projectId}/{runId}/verify-connection-token",
                         projectId, runId)
+                        .requestAttr(InternalCallbackContext.REQUEST_ATTRIBUTE, new InternalCallbackContext(projectId, runId, "test-hash"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(expired)))
                 .andExpect(status().isUnauthorized());
@@ -123,6 +132,7 @@ class InternalRunControllerTest {
 
         mvc.perform(post("/api/internal/runs/{projectId}/{runId}/verify-connection-token",
                         projectId, pathRunId)
+                        .requestAttr(InternalCallbackContext.REQUEST_ATTRIBUTE, new InternalCallbackContext(projectId, pathRunId, "test-hash"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(token)))
                 .andExpect(status().isForbidden());
@@ -137,6 +147,7 @@ class InternalRunControllerTest {
 
         mvc.perform(post("/api/internal/runs/{projectId}/{runId}/verify-connection-token",
                         pathProjectId, runId)
+                        .requestAttr(InternalCallbackContext.REQUEST_ATTRIBUTE, new InternalCallbackContext(pathProjectId, runId, "test-hash"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(token)))
                 .andExpect(status().isForbidden());
