@@ -60,8 +60,9 @@ public class ResultsController {
     }
 
     @PostMapping("/{projectId}/finished")
-    public ResponseEntity<Void> markProjectAsFinished(@PathVariable @NonNull UUID projectId) {
-        projectService.markProjectAsCompleted(projectId);
+    public ResponseEntity<Void> markProjectAsFinished(@PathVariable @NonNull UUID projectId,
+            @RequestAttribute(InternalCallbackContext.REQUEST_ATTRIBUTE) InternalCallbackContext context) {
+        projectService.markProjectAsCompleted(projectId, context);
         return ResponseEntity.ok().build();
     }
 }

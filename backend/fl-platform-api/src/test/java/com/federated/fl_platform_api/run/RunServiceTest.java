@@ -35,6 +35,7 @@ class RunServiceTest {
     @Mock ConnectionTokenService tokenService;
     @Mock FlClientCertificateAuthority clientCa;
     @Mock com.federated.fl_platform_api.security.FlServerCertificate serverCert;
+    @Mock jakarta.persistence.EntityManager entityManager;
 
     @Mock com.federated.fl_platform_api.contract.ExecutionContractStore contractStore;
 
@@ -114,7 +115,7 @@ class RunServiceTest {
         Run r = new Run();
         r.setId(rid);
         r.setStatus(RunStatus.STARTING);
-        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(runRepository.lockById(rid)).thenReturn(java.util.Optional.of(r));
         when(runRepository.save(any(Run.class))).thenAnswer(i -> i.getArgument(0));
 
         runService.markRunning(rid, 50001);
@@ -135,7 +136,7 @@ class RunServiceTest {
         r.setServerPid(1234L);
         r.setProcessStartedAt(java.time.Instant.parse("2026-09-18T12:00:00Z"));
         r.setInternalTokenHash("old-token-hash");
-        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(runRepository.lockById(rid)).thenReturn(java.util.Optional.of(r));
         when(runRepository.save(any(Run.class))).thenAnswer(i -> i.getArgument(0));
 
         runService.markFailed(rid);
@@ -157,7 +158,7 @@ class RunServiceTest {
         Run r = new Run();
         r.setId(rid);
         r.setStatus(RunStatus.COMPLETED);
-        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(runRepository.lockById(rid)).thenReturn(java.util.Optional.of(r));
 
         runService.markFailed(rid);
 
@@ -173,7 +174,7 @@ class RunServiceTest {
         Run r = new Run();
         r.setId(rid);
         r.setStatus(RunStatus.COMPLETED);
-        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(runRepository.lockById(rid)).thenReturn(java.util.Optional.of(r));
 
         runService.markRunning(rid, 50001);
 
@@ -782,7 +783,7 @@ class RunServiceTest {
     void markRunning_recordsTheServerCertificateFingerprint_whenTlsIsRequired() {
         UUID rid = UUID.randomUUID();
         Run r = new Run(); r.setId(rid); r.setStatus(RunStatus.STARTING);
-        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(runRepository.lockById(rid)).thenReturn(java.util.Optional.of(r));
         when(serverCert.tlsRequired()).thenReturn(true);
         when(serverCert.fingerprint()).thenReturn(java.util.Optional.of("srv-fp"));
 
@@ -795,7 +796,7 @@ class RunServiceTest {
     void markRunning_onAPlaintextDeployment_recordsNoFingerprint() {
         UUID rid = UUID.randomUUID();
         Run r = new Run(); r.setId(rid); r.setStatus(RunStatus.STARTING);
-        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(runRepository.lockById(rid)).thenReturn(java.util.Optional.of(r));
         when(serverCert.tlsRequired()).thenReturn(false);
 
         runService.markRunning(rid, 50001);

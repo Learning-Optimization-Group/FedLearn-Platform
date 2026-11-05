@@ -35,6 +35,9 @@ import org.springframework.core.env.Environment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import jakarta.annotation.PostConstruct;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import java.util.Arrays;
 
 import java.io.IOException;
@@ -61,6 +64,7 @@ public class RunService {
     @Autowired private FlClientCertificateAuthority clientCa;
     @Autowired private FlServerCertificate serverCert;
     @Autowired private ObjectMapper objectMapper;
+    @PersistenceContext private EntityManager entityManager;
 
     private static final Logger log = LoggerFactory.getLogger(RunService.class);
 
@@ -195,8 +199,10 @@ public class RunService {
 
     @Transactional
     public void markRunning(UUID runId, Integer port) {
-        Run run = runRepository.findById(runId)
+        Run run = runRepository.lockById(runId)
                 .orElseThrow(() -> ResourceNotFoundException.run(runId));
+        // A locking query does not refresh a Run already cached by an outer transaction.
+        entityManager.refresh(run, LockModeType.PESSIMISTIC_WRITE);
         if (isTerminal(run.getStatus())) {
             // A fast run can reach a terminal state (its /finished callback wrote COMPLETED) before the
             // start thread's markRunning executes — do not revert a finished run to RUNNING.
@@ -230,8 +236,9 @@ public class RunService {
 
     private void endRun(UUID runId, RunStatus status) {
         if (runId == null) return;
-        Run run = runRepository.findById(runId).orElse(null);
+        Run run = runRepository.lockById(runId).orElse(null);
         if (run == null) return;
+        entityManager.refresh(run, LockModeType.PESSIMISTIC_WRITE);
         if (isTerminal(run.getStatus())) {
             // Terminal status is write-once: a completed run must not be flipped to FAILED by the
             // start-probe catch or the reconciler sweep (the FAILED-clobbers-COMPLETED race the

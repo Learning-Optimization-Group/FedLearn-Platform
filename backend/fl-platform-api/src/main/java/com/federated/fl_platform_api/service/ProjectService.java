@@ -26,6 +26,11 @@ import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.orchestration.FlServerManager;
 import com.federated.fl_platform_api.repository.RoundResultRepository;
+import com.federated.fl_platform_api.security.InternalCallbackAuthorization;
+import com.federated.fl_platform_api.security.InternalCallbackContext;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -91,6 +96,10 @@ public class ProjectService {
     private ModelBundleStager modelBundleStager;   // MO-15: best-effort on-device bundle auto-stage at start
     @Autowired
     private RegistryModelResolver registryModelResolver;   // BA-11: inference reads the registry, not the .npz
+    @Autowired
+    private InternalCallbackAuthorization callbackAuthorization;
+    @PersistenceContext
+    private EntityManager entityManager;
 
     // BA-2: serialize per-project /start so two concurrent calls can't both pass the isServerRunning
     // check and double-spawn a server. One lock per project id; the project set is bounded, so is the map.
@@ -628,8 +637,10 @@ public class ProjectService {
         ReentrantLock startLock = startLocks.computeIfAbsent(projectId, k -> new ReentrantLock());
         startLock.lock();
         try {
-            Project project = projectRepository.findById(projectId)
+            Project project = projectRepository.lockById(projectId)
                     .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+            // Stop and callbacks must acquire Project before Run, including deferred JPA writes.
+            entityManager.refresh(project, LockModeType.PESSIMISTIC_WRITE);
             authz.requireOrgScope(project.getOrgId());
             authz.requireOwnerOrAdmin(project);
 
@@ -735,17 +746,15 @@ public class ProjectService {
     }
 
     @Transactional
-    public void markProjectAsCompleted(@NonNull UUID projectId) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+    public void markProjectAsCompleted(@NonNull UUID projectId, InternalCallbackContext context) {
+        var authorized = callbackAuthorization.requireActiveRun(projectId, context);
+        Project project = authorized.project();
 
         project.setStatus(ProjectStatus.COMPLETED.name());
         project.setServerPort(null);
         projectRepository.save(project);
 
-        if (project.getActiveRunId() != null) {
-            runService.markCompleted(project.getActiveRunId());
-        }
+        runService.markCompleted(authorized.run().getId());
 
         webSocketService.sendStatusUpdate(
                 new ProjectStatusUpdateDto(project.getId(),

@@ -10,6 +10,9 @@ import com.federated.fl_platform_api.repository.RoundResultRepository;
 import com.federated.fl_platform_api.repository.RunRepository;
 import com.federated.fl_platform_api.repository.UserRepository;
 import com.federated.fl_platform_api.security.RunTokenRegistry;
+import com.federated.fl_platform_api.security.InternalCallbackContext;
+import com.federated.fl_platform_api.service.ProjectService;
+import com.federated.fl_platform_api.service.RunService;
 import com.federated.fl_platform_api.service.WebSocketService;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -20,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.SpyBean;
@@ -29,7 +33,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -45,6 +52,11 @@ class RunResultIdempotencyIntegrationTest {
     @Autowired UserRepository users;
     @Autowired RoundResultRepository results;
     @Autowired RunTokenRegistry tokens;
+    @SpyBean RunService lifecycle;
+    @Autowired ProjectService projectService;
+    @Autowired PlatformTransactionManager transactionManager;
+    @Autowired JdbcTemplate jdbc;
+    @Autowired org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     @SpyBean WebSocketService webSockets;
 
     record ActiveRun(Project project, Run run, String token) {}
@@ -94,6 +106,14 @@ class RunResultIdempotencyIntegrationTest {
         headers.set("X-Internal-Run-Token", active.token());
         return HttpStatus.valueOf(rest.exchange("/api/internal/results/" + active.project().getId(),
                 HttpMethod.POST, new HttpEntity<>(body, headers), String.class).getStatusCode().value());
+    }
+
+    private HttpStatus finish(ActiveRun active) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Internal-Key", "test-internal-key");
+        headers.set("X-Internal-Run-Token", active.token());
+        return HttpStatus.valueOf(rest.exchange("/api/internal/results/" + active.project().getId() + "/finished",
+                HttpMethod.POST, new HttpEntity<>(headers), String.class).getStatusCode().value());
     }
 
     @Test
@@ -203,5 +223,179 @@ class RunResultIdempotencyIntegrationTest {
         assertEquals(HttpStatus.BAD_REQUEST, postBody(active, "{\"serverRound\":" + round + "}"));
         assertTrue(results.findByProjectIdOrderByServerRoundAsc(active.project().getId()).isEmpty());
         verify(webSockets, never()).sendResultUpdate(eq(active.project().getId()), any());
+    }
+
+    @Test
+    void oldRunCannotCompleteTheProjectsNewRun() {
+        ActiveRun first = activeRun();
+        ActiveRun current = newRun(first.project());
+        assertEquals(HttpStatus.CONFLICT, finish(first));
+        assertEquals(RunStatus.RUNNING, runs.findById(current.run().getId()).orElseThrow().getStatus());
+        assertEquals(RunStatus.RUNNING, runs.findById(first.run().getId()).orElseThrow().getStatus());
+        assertEquals("RUNNING", projects.findById(first.project().getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void retiredAttemptCannotFinishTheCurrentAttempt() {
+        ActiveRun active = activeRun();
+        String replacement = tokens.mint(active.project().getId(), active.run().getId());
+        active.run().setInternalTokenHash(tokens.hash(replacement));
+        runs.saveAndFlush(active.run());
+        assertEquals(HttpStatus.FORBIDDEN, finish(active));
+        assertEquals(RunStatus.RUNNING, runs.findById(active.run().getId()).orElseThrow().getStatus());
+        assertEquals(HttpStatus.OK, finish(new ActiveRun(active.project(), active.run(), replacement)));
+        assertEquals(RunStatus.COMPLETED, runs.findById(active.run().getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void completionCannotReclassifyAFailedProject() {
+        ActiveRun active = activeRun();
+        active.run().setStatus(RunStatus.FAILED);
+        runs.saveAndFlush(active.run());
+        active.project().setStatus("FAILED");
+        projects.saveAndFlush(active.project());
+        assertEquals(HttpStatus.CONFLICT, finish(active));
+        assertEquals("FAILED", projects.findById(active.project().getId()).orElseThrow().getStatus());
+        assertEquals(RunStatus.FAILED, runs.findById(active.run().getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void currentRunMayFinishAndRetiresItsAuthorization() {
+        ActiveRun active = activeRun();
+        active.run().setStatus(RunStatus.STARTING);
+        runs.saveAndFlush(active.run());
+        assertEquals(HttpStatus.OK, finish(active));
+        var run = runs.findById(active.run().getId()).orElseThrow();
+        assertEquals(RunStatus.COMPLETED, run.getStatus());
+        assertNull(run.getInternalTokenHash());
+        assertEquals("COMPLETED", projects.findById(active.project().getId()).orElseThrow().getStatus());
+        assertEquals(HttpStatus.FORBIDDEN, post(active, 1, .5));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"running,false", "failed,false", "stopped,false", "running,true", "failed,true", "stopped,true"})
+    void waitingLifecycleWriterCannotOverwriteTheFirstTerminalTransition(String transition, boolean preloaded) throws Exception {
+        ActiveRun active = activeRun();
+        active.run().setStatus(RunStatus.STARTING);
+        runs.saveAndFlush(active.run());
+        var pending = new java.util.concurrent.atomic.AtomicReference<java.util.concurrent.Future<?>>();
+        try (var worker = Executors.newSingleThreadExecutor()) {
+            new TransactionTemplate(transactionManager).executeWithoutResult(transaction -> {
+                // Hold the row while the other transaction reaches its read/write boundary.
+                runs.lockById(active.run().getId()).orElseThrow();
+                pending.set(worker.submit(() -> {
+                    Runnable write = () -> {
+                        switch (transition) {
+                            case "running" -> lifecycle.markRunning(active.run().getId(), 50001);
+                            case "failed" -> lifecycle.markFailed(active.run().getId());
+                            case "stopped" -> lifecycle.markStopped(active.run().getId());
+                            default -> throw new AssertionError(transition);
+                        }
+                    };
+                    if (preloaded) {
+                        new TransactionTemplate(transactionManager).executeWithoutResult(outer -> {
+                            runs.findById(active.run().getId()).orElseThrow();
+                            write.run();
+                        });
+                    } else {
+                        write.run();
+                    }
+                }));
+                awaitRunLockWait();
+                projectService.markProjectAsCompleted(active.project().getId(), new InternalCallbackContext(
+                        active.project().getId(), active.run().getId(), tokens.hash(active.token())));
+            });
+            pending.get().get(20, TimeUnit.SECONDS);
+        }
+        var completed = runs.findById(active.run().getId()).orElseThrow();
+        assertEquals(RunStatus.COMPLETED, completed.getStatus());
+        assertNull(completed.getInternalTokenHash());
+        assertNull(completed.getServerPort());
+    }
+
+    @Test
+    void cachedProjectCannotAuthorizeCompletionAfterAnotherRunBecomesActive() {
+        ActiveRun original = activeRun();
+        var replacement = new java.util.concurrent.atomic.AtomicReference<ActiveRun>();
+        try (var worker = Executors.newSingleThreadExecutor()) {
+            assertThrows(IllegalStateException.class, () -> new TransactionTemplate(transactionManager)
+                    .executeWithoutResult(transaction -> {
+                        projects.findById(original.project().getId()).orElseThrow();
+                        runs.findById(original.run().getId()).orElseThrow();
+                        replacement.set(java.util.concurrent.CompletableFuture.supplyAsync(() ->
+                                newRun(projects.findById(original.project().getId()).orElseThrow()), worker).join());
+                        projectService.markProjectAsCompleted(original.project().getId(), new InternalCallbackContext(
+                                original.project().getId(), original.run().getId(), tokens.hash(original.token())));
+                    }));
+        }
+        assertEquals(replacement.get().run().getId(), projects.findById(original.project().getId()).orElseThrow().getActiveRunId());
+        assertEquals(RunStatus.RUNNING, runs.findById(original.run().getId()).orElseThrow().getStatus());
+        assertEquals(RunStatus.RUNNING, runs.findById(replacement.get().run().getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void stoppingAndAnAlreadyAuthenticatedCompletionDoNotDeadlock() throws Exception {
+        ActiveRun active = activeRun();
+        var owner = users.findById(active.project().getUser().getId()).orElseThrow();
+        owner.setPassword(passwordEncoder.encode("Password1!"));
+        users.saveAndFlush(owner);
+        var loginHeaders = new HttpHeaders();
+        loginHeaders.setContentType(MediaType.APPLICATION_JSON);
+        var login = rest.postForEntity("/api/auth/login", new HttpEntity<>(java.util.Map.of(
+                "username", owner.getUsername(), "password", "Password1!"), loginHeaders), String.class);
+        assertEquals(HttpStatus.OK, login.getStatusCode());
+        var stopHeaders = new HttpHeaders();
+        stopHeaders.set(HttpHeaders.COOKIE, login.getHeaders().getFirst(HttpHeaders.SET_COOKIE).split(";")[0]);
+        var runLocked = new CountDownLatch(1);
+        var allowStopToCommit = new CountDownLatch(1);
+        doAnswer(call -> {
+            Object result = call.callRealMethod();
+            runLocked.countDown();
+            assertTrue(allowStopToCommit.await(10, TimeUnit.SECONDS));
+            return result;
+        }).when(lifecycle).markStopped(active.run().getId());
+        try (var workers = Executors.newFixedThreadPool(2)) {
+            var stopped = workers.submit(() -> rest.exchange("/api/projects/" + active.project().getId() + "/stop",
+                    HttpMethod.POST, new HttpEntity<>(stopHeaders), String.class));
+            try {
+                assertTrue(runLocked.await(10, TimeUnit.SECONDS));
+                var completion = workers.submit(() -> {
+                    try {
+                        // Represents a callback admitted before stop evicted its token from the filter registry.
+                        projectService.markProjectAsCompleted(active.project().getId(), new InternalCallbackContext(
+                                active.project().getId(), active.run().getId(), tokens.hash(active.token())));
+                        return false;
+                    } catch (org.springframework.security.access.AccessDeniedException | IllegalStateException retired) {
+                        return true;
+                    }
+                });
+                awaitRunLockWait();
+                allowStopToCommit.countDown();
+                assertEquals(HttpStatus.OK, stopped.get(20, TimeUnit.SECONDS).getStatusCode());
+                assertTrue(completion.get(20, TimeUnit.SECONDS));
+            } finally {
+                allowStopToCommit.countDown();
+            }
+        }
+        assertEquals(RunStatus.STOPPED, runs.findById(active.run().getId()).orElseThrow().getStatus());
+        assertEquals("STOPPED", projects.findById(active.project().getId()).orElseThrow().getStatus());
+    }
+
+    private void awaitRunLockWait() {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (System.nanoTime() < deadline) {
+            jdbc.execute("SELECT pg_stat_clear_snapshot()");
+            Boolean waiting = jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM pg_stat_activity "
+                    + "WHERE datname = current_database() AND wait_event_type = 'Lock' "
+                    + "AND (lower(query) LIKE '%runs%' OR lower(query) LIKE '%projects%'))", Boolean.class);
+            if (Boolean.TRUE.equals(waiting)) return;
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError(interrupted);
+            }
+        }
+        fail("The competing lifecycle transaction did not reach the held database lock");
     }
 }

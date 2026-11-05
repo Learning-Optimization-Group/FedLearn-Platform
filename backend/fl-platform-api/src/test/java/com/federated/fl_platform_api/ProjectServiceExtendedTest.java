@@ -48,6 +48,7 @@ class ProjectServiceExtendedTest {
     @Mock private com.federated.fl_platform_api.repository.ProjectMembershipRepository membershipRepository;
     @Mock private com.federated.fl_platform_api.security.OrgScope orgScope;
     @Mock private RunService runService;
+    @Mock private jakarta.persistence.EntityManager entityManager;
     @Mock private com.federated.fl_platform_api.service.ProjectStatusService projectStatusService;
 
     @InjectMocks
@@ -110,7 +111,7 @@ class ProjectServiceExtendedTest {
     @Test
     void stopServerForProject_whenRunning_shouldSetStatusToStopped() {
         testProject.setStatus("RUNNING");
-        when(projectRepository.findById(testProject.getId())).thenReturn(Optional.of(testProject));
+        when(projectRepository.lockById(testProject.getId())).thenReturn(Optional.of(testProject));
         asRegularUser();
         when(flServerManager.stopServerForProject(testProject.getId())).thenReturn(true);
         when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -167,7 +168,7 @@ class ProjectServiceExtendedTest {
 
     @Test
     void stopServerForProject_whenCallerIsNotOwner_shouldThrowAccessDeniedException() {
-        when(projectRepository.findById(testProject.getId())).thenReturn(Optional.of(testProject));
+        when(projectRepository.lockById(testProject.getId())).thenReturn(Optional.of(testProject));
         // AuthorizationService rejects the caller; ProjectService must surface
         // the AccessDeniedException unchanged.
         doThrow(new AccessDeniedException("You do not have access to this project"))
