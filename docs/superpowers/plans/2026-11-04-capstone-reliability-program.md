@@ -49,7 +49,22 @@
 
 **Files:** runtime CLI/configuration and tests; backend run model, migrations, orchestration, controller/service and tests; strategy checkpoint adapters.
 
-- [ ] Bind checkpoints to run/source/configuration/model identities and configure private per-run storage.
+**Runtime files:** create `fl-runtime/recovery.py` and `fl-runtime/tests/test_runtime_recovery.py`; modify `fl-runtime/fl_server.py` and add entrypoint forwarding coverage.
+
+**Runtime interfaces:** `runtime_recovery(args, *, env=None, source_files=None)` is a context manager yielding `RuntimeRecovery | None`; its `server_options()` supplies the existing framework configuration fields and `validate_inputs()` rechecks source/initial bytes before listening. `source_sha256([(logical_name, path), ...])` binds source content independently of checkout location. An exclusive file lease lasts through the complete training entrypoint.
+
+Runtime sequence: write and observe failing CLI/session/identity/lease tests; implement the private session context; forward options through the actual entrypoint; run runtime and framework recovery regressions; exercise a real CLI process interruption/restart; review and commit. Retain both full-source and generated-fixture scope in evidence.
+
+Backend continuation requirements, before wiring the public resume action:
+
+- Preserve the logical run UUID and client bindings; append an execution-attempt record for each authorized restart. Automatic terminal callbacks cannot reopen a run.
+- Lock/check project and run ownership, unchanged intent, absence of a different active run and absence of a live matching training process. Never reuse a start path that unconditionally stops another active server.
+- Configure checkpoint paths from a private server root plus run UUID; never accept a filesystem path from a browser request or serve checkpoint contents through artifact endpoints.
+- Rotate callback authorization per attempt and reject stale-attempt callbacks even if a request was already in flight during rotation.
+- Add run-scoped round-result idempotency with a database uniqueness/atomic-insert boundary. Retain first metrics, reject conflicting replay and broadcast only newly accepted results.
+- Prove controller-to-worker resume and callback replay with PostgreSQL and actual processes before qualifying the dashboard action. Runtime command-line recovery is a separate completed slice, not evidence for these API guarantees.
+
+- [x] Bind runtime checkpoints to run/source/configuration/model identities and configure private per-run storage. Backend-managed provisioning remains part of the API workflow below.
 - [ ] Specify continuation ownership, eligible terminal states and lineage before adding API behavior.
 - [ ] Add private/robust/DeComFL state with uninterrupted-versus-resumed tests and privacy/release invariants; no silent fallback.
 - [ ] Implement explicit owned continuation, preserving accepted history and truthful failure states; qualify API/worker restart with actual processes.
@@ -97,4 +112,6 @@
 
 Initial recovery slice: private immutable storage, FedAvg/FedProx/FedOpt CPU adapters, coordinator/server opt-in restore, and a real gRPC process-kill check are implemented. A 121-test selection passed before final review corrections. Review reproduced oversized unreadable generations, incompatible saved layouts, incomplete histories and a Stop/publication race; all have failing reproductions and corrections. The current 92-test recovery/coordinator/heartbeat selection passes, including the real process restart. The broader framework run, collected before the final review corrections, passed 2,440 tests with 14 deselected and 79.02% coverage against the 73% floor. Retain that scope distinction; a final whole-program gate still follows remaining implementation. This is not runtime/API continuation or complete area-2 qualification.
 
-Physical qualification constraint: no Android device is available, as confirmed by the user. Continue implementation and host/native validation; preserve physical training, release-update, thermal/Wi-Fi and Android interoperability gates as pending rather than substituting host tests.
+Runtime continuation gate (5 November): 838 runtime tests pass, with 30 slow tests deselected; the final source also passes 105 framework recovery/coordinator/strategy tests. Five actual generated-data runtime/client cases cover all three CPU strategies and exits during/after final saving. CLI recovery is implemented; backend provisioning, execution-attempt transitions, callback idempotency and API/browser qualification remain open.
+
+Physical qualification status (5 November): the user now reports physical resources connected. Connection/authentication verification is pending. Preserve physical training, release-update, thermal/Wi-Fi and Android interoperability gates until direct device evidence exists; host tests do not substitute for them.

@@ -723,6 +723,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-type", type=str.upper, required=True, choices=recipes.catalog_keys(), help="Model type (recipe catalog key; data-driven — DA-14 Ph3.1)")
     parser.add_argument("--model-name", type=str, required=True, help="Model name")
     parser.add_argument("--port", type=int, default=50051, help="gRPC server port")
+    parser.add_argument("--checkpoint-directory", default=None,
+                        help="Private per-run completed-round state directory; opt-in CPU recovery")
+    parser.add_argument("--resume-from-checkpoint", action="store_true",
+                        help="Resume the same run/configuration from its latest committed round")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="Aggregation strategy")
     # P2-2 (LightSecAgg). Orthogonal to --strategy: secure aggregation masks the DeComFL
     # gradient scalars in transit, it does not change which rule aggregates them.
@@ -815,7 +819,15 @@ def resolve_run_seed(args) -> int:
 def main():
     args = build_arg_parser().parse_args()
     resolve_fedopt_settings(args)
-    resolve_run_seed(args)  # DA-3: seed RNGs before any data loading/training; card records it
+    from recovery import runtime_recovery
+    with runtime_recovery(args) as recovery:
+        resolve_run_seed(args)  # Restore the original seed before any model/data initialization.
+        if recovery is not None:
+            args.init_model_path = str(recovery.initial_model)
+        return run_training(args, recovery)
+
+
+def run_training(args, recovery=None):
 
     # if args.model_type == 'TRANSFORMER' and args.strategy.lower() == 'decomfl':
     #     args.min_clients = 1
@@ -1311,12 +1323,16 @@ def main():
     server_address = f"{bind_address}:{args.port}"
     logging.info(f"Starting FedLearn gRPC server on {server_address}...")
 
+    if recovery is not None:
+        recovery.validate_inputs()
+
     history, final_parameters = fl.server.start_server(
         server_address=server_address,
         config=fl.server.ServerConfig(
             num_rounds=args.num_rounds,
             secure_aggregation=getattr(args, "secure_aggregation", False),
             secure_agg_threshold=getattr(args, "secure_agg_threshold", 2),
+            **(recovery.server_options() if recovery is not None else {}),
         ),
         strategy=strategy,
     )

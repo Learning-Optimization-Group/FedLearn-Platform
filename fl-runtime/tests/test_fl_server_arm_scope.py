@@ -27,10 +27,10 @@ HERE = os.path.dirname(__file__)
 SERVER = os.path.join(HERE, "..", "fl_server.py")
 
 
-def _main_fn():
+def _main_fn(name="main"):
     tree = ast.parse(open(SERVER).read())
-    fns = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "main"]
-    assert fns, "fl_server.main() not found"
+    fns = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == name]
+    assert fns, f"fl_server.{name}() not found"
     return fns[0]
 
 
@@ -55,7 +55,8 @@ def test_main_does_not_shadow_a_module_level_import():
     """
     module_names = _module_level_imports()
     offenders = []
-    for node in ast.walk(_main_fn()):
+    runtime_functions = ast.Module(body=[_main_fn(), _main_fn("run_training")], type_ignores=[])
+    for node in ast.walk(runtime_functions):
         if isinstance(node, ast.Import):
             for a in node.names:
                 bound = a.asname or a.name.split(".")[0]
@@ -69,7 +70,7 @@ def test_main_does_not_shadow_a_module_level_import():
                     offenders.append(f"line {node.lineno}: from {node.module} import {a.name}")
 
     assert not offenders, (
-        "fl_server.main() re-imports a name already imported at module scope, which makes that "
+        "A runtime function re-imports a name already imported at module scope, which makes that "
         "name LOCAL to the whole function and turns every earlier use into an UnboundLocalError:\n  "
         + "\n  ".join(offenders)
         + "\nDrop the inner import — the module-level one already covers it.")
@@ -84,12 +85,12 @@ def test_recipes_is_available_at_module_scope():
 def test_the_arm_filter_precedes_the_dataset_branches():
     """Ordering matters and should stay this way: the filter must reject an impossible arm BEFORE
     the server spends time loading a dataset, so a bad arm fails fast rather than after minutes."""
-    main = _main_fn()
+    main = _main_fn("run_training")
     filter_line = next(
         (n.lineno for n in ast.walk(main)
          if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
          and n.func.attr == "validate_arm"), None)
-    assert filter_line, "fl_server.main() no longer validates the training arm"
+    assert filter_line, "fl_server.run_training() no longer validates the training arm"
 
     loads = [n.lineno for n in ast.walk(main)
              if isinstance(n, ast.Call) and (

@@ -132,6 +132,11 @@ def validate_snapshot(snapshot):
 def capture_round(strategy, *, completed_round, total_rounds, parameters, history, partition_to_client=None):
     """Copy one evaluated boundary; callers must freeze aggregation while capturing."""
     config = _configuration(strategy)
+    _validate_parameters(parameters)
+    if set(parameters) != set(strategy.initial_parameters):
+        raise ValueError("checkpoint model layout differs from the original strategy")
+    # Protobuf map iteration is unordered; snapshot names in the original canonical layout.
+    parameters = OrderedDict((name, parameters[name]) for name in strategy.initial_parameters)
     if any(value.device.type != "cpu" for value in parameters.values()):
         raise ValueError("checkpoint recovery currently requires CPU training")
     groups = {}
