@@ -8,11 +8,9 @@ import com.federated.fl_platform_api.model.ArtifactKind;
 import com.federated.fl_platform_api.model.ArtifactLineage;
 import com.federated.fl_platform_api.model.LineageRelationship;
 import com.federated.fl_platform_api.model.ModelArtifact;
-import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.repository.ArtifactBlobRepository;
 import com.federated.fl_platform_api.repository.ArtifactLineageRepository;
 import com.federated.fl_platform_api.repository.ModelArtifactRepository;
-import com.federated.fl_platform_api.repository.ProjectRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +29,7 @@ import java.util.UUID;
  * Registers a run's final model as a versioned, content-addressed artifact (write-new-not-overwrite,
  * DA-2) and records its provenance in the lineage DAG (DA-3): a LORA_ADAPTER is linked ADAPTER_OF to
  * a deduped, license-tagged BASE_REF, and a re-training run is linked CONTINUED_FROM the project's
- * prior head. Storage dedups on content; provenance and lineage never do.
+ * prior head. Storage deduplicates content; retried run outputs reuse their existing provenance row.
  */
 @Service
 public class ArtifactRegistryService {
@@ -40,20 +38,17 @@ public class ArtifactRegistryService {
     private final ArtifactBlobRepository blobs;
     private final ModelArtifactRepository artifacts;
     private final ArtifactLineageRepository lineage;
-    private final ProjectRepository projects;
     private final ObjectMapper objectMapper;
 
     public ArtifactRegistryService(ArtifactBlobStore blobStore,
                                    ArtifactBlobRepository blobs,
                                    ModelArtifactRepository artifacts,
                                    ArtifactLineageRepository lineage,
-                                   ProjectRepository projects,
                                    ObjectMapper objectMapper) {
         this.blobStore = blobStore;
         this.blobs = blobs;
         this.artifacts = artifacts;
         this.lineage = lineage;
-        this.projects = projects;
         this.objectMapper = objectMapper;
     }
 
@@ -114,20 +109,6 @@ public class ArtifactRegistryService {
             lineage.save(new ArtifactLineage(artifact.getId(), priorHead.getId(), LineageRelationship.CONTINUED_FROM, Instant.now()));
         }
         return artifact;
-    }
-
-    /**
-     * Resolve the owning org and active run from the project, then register. Used by the internal
-     * callback {@code fl_server.py} posts to (which knows its projectId).
-     */
-    @Transactional
-    public ModelArtifact registerForProject(UUID projectId, byte[] content, ArtifactKind kind,
-                                            String recipeKey, String baseModelRef, String licenseTag,
-                                            String evalCardJson) {
-        Project project = projects.findById(projectId)
-                .orElseThrow(() -> new IllegalArgumentException("unknown project " + projectId));
-        return register(project.getOrgId(), projectId, project.getActiveRunId(), content, kind,
-                recipeKey, baseModelRef, licenseTag, evalCardJson);
     }
 
     /**

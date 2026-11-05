@@ -4,7 +4,8 @@ import com.federated.fl_platform_api.controller.InternalArtifactController;
 import com.federated.fl_platform_api.exception.GlobalExceptionHandler;
 import com.federated.fl_platform_api.model.ArtifactKind;
 import com.federated.fl_platform_api.model.ModelArtifact;
-import com.federated.fl_platform_api.service.ArtifactRegistryService;
+import com.federated.fl_platform_api.service.RunArtifactIngestService;
+import com.federated.fl_platform_api.security.InternalCallbackContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
@@ -25,24 +26,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Standalone MockMvc (no Spring context, no database): verifies the controller parses the multipart
- * model upload and delegates to the registry. The {@code X-Internal-Key} gate is a cross-cutting
- * filter over all {@code /api/internal/**} (wired in SecurityConfig), exercised by the existing
- * internal endpoints — it is not this controller's own logic, so it is intentionally out of scope
- * here. Using standalone setup keeps this test off the shared Testcontainers context.
+ * model upload and forwards the verified callback context to ingestion. This standalone setup
+ * supplies that context explicitly; actual HTTP/PostgreSQL tests exercise the authentication filter
+ * and transactional authorization. Using standalone setup keeps parsing checks independent of storage.
  */
 class InternalArtifactControllerTest {
 
-    private final ArtifactRegistryService registry = mock(ArtifactRegistryService.class);
+    private final RunArtifactIngestService registry = mock(RunArtifactIngestService.class);
     private final MockMvc mvc =
             MockMvcBuilders.standaloneSetup(new InternalArtifactController(registry)).build();
 
     @Test
     void posts_model_bytes_and_delegates_to_the_registry() throws Exception {
         UUID projectId = UUID.randomUUID();
+        var context = new InternalCallbackContext(projectId, UUID.randomUUID(), "verified-test-hash");
         ModelArtifact stub = new ModelArtifact();
         stub.setId(UUID.randomUUID());
         stub.setBlobSha256("d".repeat(64));
-        when(registry.registerForProject(eq(projectId), any(byte[].class), eq(ArtifactKind.LORA_ADAPTER),
+        when(registry.register(eq(projectId), eq(context), any(byte[].class), eq(ArtifactKind.LORA_ADAPTER),
                 any(), any(), any(), any())).thenReturn(stub);
 
         MockMultipartFile model = new MockMultipartFile(
@@ -50,12 +51,13 @@ class InternalArtifactControllerTest {
 
         mvc.perform(multipart("/api/internal/projects/{id}/artifacts", projectId)
                         .file(model)
+                        .requestAttr(InternalCallbackContext.REQUEST_ATTRIBUTE, context)
                         .param("kind", "LORA_ADAPTER")
                         .param("recipeKey", "LLM_LORA"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sha256").value("d".repeat(64)));
 
-        verify(registry).registerForProject(eq(projectId), any(byte[].class), eq(ArtifactKind.LORA_ADAPTER),
+        verify(registry).register(eq(projectId), eq(context), any(byte[].class), eq(ArtifactKind.LORA_ADAPTER),
                 eq("LLM_LORA"), isNull(), isNull(), isNull());
     }
 
@@ -67,7 +69,8 @@ class InternalArtifactControllerTest {
     @Test
     void dp_policy_rejection_surfaces_as_a_400_with_the_policy_message() throws Exception {
         UUID projectId = UUID.randomUUID();
-        when(registry.registerForProject(eq(projectId), any(byte[].class), eq(ArtifactKind.LORA_ADAPTER),
+        var context = new InternalCallbackContext(projectId, UUID.randomUUID(), "verified-test-hash");
+        when(registry.register(eq(projectId), eq(context), any(byte[].class), eq(ArtifactKind.LORA_ADAPTER),
                 any(), any(), any(), any()))
                 .thenThrow(new IllegalArgumentException(
                         "an artifact may not claim DP without a committed accountant trace"));
@@ -82,6 +85,7 @@ class InternalArtifactControllerTest {
 
         mvcWithAdvice.perform(multipart("/api/internal/projects/{id}/artifacts", projectId)
                         .file(model)
+                        .requestAttr(InternalCallbackContext.REQUEST_ATTRIBUTE, context)
                         .param("kind", "LORA_ADAPTER")
                         .param("evalCard", "{\"dp\":{\"enabled\":true}}"))
                 .andExpect(status().isBadRequest())
