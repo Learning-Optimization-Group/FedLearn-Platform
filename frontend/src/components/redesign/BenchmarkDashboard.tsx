@@ -174,9 +174,38 @@ const th = 'text-left text-caption font-semibold uppercase tracking-wider text-f
 const td = 'px-3 py-2 text-body text-fg align-middle tabular-nums';
 
 // ─── Drilldown ───────────────────────────────────────────────────────────
+function LegacyMeasurements({ data, onBack }: { data: ProjectBenchmark; onBack: () => void }) {
+    return (
+        <div className="flex flex-col gap-5">
+            <Button variant="ghost" size="sm" onClick={onBack}>
+                <ArrowLeft className="h-4 w-4" strokeWidth={1.5} /> Back
+            </Button>
+            <Card className="p-5">
+                <h3 className="text-h4 font-semibold text-fg">Legacy benchmark records</h3>
+                <p className="mt-2 text-body text-fg-muted">
+                    These preserved measurements have unverified run identity. They cannot establish a single training curve.
+                </p>
+                {data.runId && <p className="mt-2 text-caption text-fg-muted">Reported run: {data.runId}</p>}
+                <div className="mt-4 overflow-x-auto">
+                    <table className="w-full" aria-label="Legacy benchmark measurements">
+                        <thead><tr><th className={th}>Round</th><th className={th}>Loss</th><th className={th}>Accuracy</th><th className={th}>Perplexity</th></tr></thead>
+                        <tbody>{data.rounds.map((r, i) => <tr key={i}>
+                            <td className={td}>{r.serverRound}</td><td className={td}>{num(r.loss)}</td>
+                            <td className={td}>{pct(r.accuracy)}</td><td className={td}>{num(r.perplexity)}</td>
+                        </tr>)}</tbody>
+                    </table>
+                </div>
+            </Card>
+        </div>
+    );
+}
+
 function ProjectDetail({ data, onBack }: { data: ProjectBenchmark; onBack: () => void }) {
     const generative = isGenerative(data.taskType);
     const summary = data.summary;
+    if (data.rounds.length > 0 && summary?.runIdentityVerified !== true) {
+        return <LegacyMeasurements data={data} onBack={onBack} />;
+    }
     const chart = data.rounds.map((r) => ({
         round: r.serverRound,
         accuracy: r.accuracy != null ? r.accuracy * 100 : null,
@@ -200,6 +229,7 @@ function ProjectDetail({ data, onBack }: { data: ProjectBenchmark; onBack: () =>
                     {summary?.projectName ?? 'Project'}
                 </h3>
                 <span className="chip">{summary?.modelType ?? 'model'}</span>
+                {summary?.runId && <span className="chip">Run {summary.runId.slice(0, 8)}</span>}
                 {data.taskType && <span className="text-caption text-fg-muted">{data.taskType}</span>}
             </div>
 
@@ -355,9 +385,9 @@ export function BenchmarkDashboard() {
         loadOverview();
     }, [loadOverview]);
 
-    const openProject = useCallback(async (projectId: string) => {
+    const openProject = useCallback(async (projectId: string, runId: string | null) => {
         try {
-            const res = await api.fetchProjectBenchmark(projectId);
+            const res = await api.fetchProjectBenchmark(projectId, runId);
             setDetail(res.data);
         } catch (e) {
             log.error('project benchmark load failed', e);
@@ -389,6 +419,9 @@ export function BenchmarkDashboard() {
                         <ProjectDetail data={detail} onBack={() => setDetail(null)} />
                     ) : (
                         <>
+                            <p className="text-caption text-fg-muted">
+                                Run statistics cover the latest verified benchmark run per project. Legacy snapshots are excluded.
+                            </p>
                             {/* Health strip */}
                             <StatGroup
                                 stats={[
@@ -445,7 +478,7 @@ export function BenchmarkDashboard() {
                                                     <tr
                                                         key={r.projectId}
                                                         className="border-t border-hairline hover:bg-surface-2 cursor-pointer transition-colors"
-                                                        onClick={() => openProject(r.projectId)}
+                                                        onClick={() => openProject(r.projectId, r.runId ?? null)}
                                                     >
                                                         <td className="px-3 py-2">
                                                             {/* Real button so the drilldown is keyboard-reachable. */}
@@ -453,20 +486,21 @@ export function BenchmarkDashboard() {
                                                                 type="button"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    openProject(r.projectId);
+                                                                    openProject(r.projectId, r.runId ?? null);
                                                                 }}
                                                                 className="text-body font-medium text-fg rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-1"
                                                             >
                                                                 {r.projectName ?? r.projectId.slice(0, 8)}
                                                             </button>
+                                                            {r.runIdentityVerified !== true && <span className="block text-caption text-fg-muted">Legacy · unverified</span>}
                                                         </td>
                                                         <td className="px-3 py-2 text-body text-fg-muted">{r.modelType ?? DASH}</td>
                                                         <td className="px-3 py-2 text-caption text-fg-subtle">{isGenerative(r.taskType) ? 'CAUSAL_LM' : 'classification'}</td>
                                                         <td className={td}>{r.roundsCompleted ?? DASH}</td>
-                                                        <td className={td}><span className="text-fg">{h.value}</span> <span className="text-caption text-fg-subtle">{h.label}</span></td>
-                                                        <td className={td}>{pct(r.finalF1Macro)}</td>
-                                                        <td className={td}>{r.roundsToTarget != null ? `${r.roundsToTarget}r` : DASH}</td>
-                                                        <td className={td}>{ms(r.avgRoundMs)}</td>
+                                                        <td className={td}>{r.runIdentityVerified === true ? <><span className="text-fg">{h.value}</span> <span className="text-caption text-fg-subtle">{h.label}</span></> : DASH}</td>
+                                                        <td className={td}>{r.runIdentityVerified === true ? pct(r.finalF1Macro) : DASH}</td>
+                                                        <td className={td}>{r.runIdentityVerified === true && r.roundsToTarget != null ? `${r.roundsToTarget}r` : DASH}</td>
+                                                        <td className={td}>{r.runIdentityVerified === true ? ms(r.avgRoundMs) : DASH}</td>
                                                         <td className={td}>{params(r.paramCount)}</td>
                                                         <td className="px-3 py-2 text-caption text-fg-subtle">{when(r.lastRecordedAt)}</td>
                                                     </tr>

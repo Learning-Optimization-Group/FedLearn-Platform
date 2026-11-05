@@ -6,6 +6,8 @@ import lombok.Data;
 @Data
 public class BenchmarkRunDto {
     private String projectId;
+    private String runId;
+    private boolean runIdentityVerified;
     private String projectName;
     private String modelType;
     private String taskType;

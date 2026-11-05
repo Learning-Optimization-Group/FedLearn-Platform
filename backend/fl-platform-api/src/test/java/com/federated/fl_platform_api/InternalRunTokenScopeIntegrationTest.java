@@ -131,9 +131,7 @@ class InternalRunTokenScopeIntegrationTest {
             "a run A token must not ingest benchmarks for project B");
     }
 
-    @Test
-    void legitimateResultIngestionForOwnProject_succeeds() {
-        Project project = seedProject();
+    private String seedRunToken(Project project) {
         Run run = new Run();
         run.setProjectId(project.getId());
         run.setStrategy("FedAvg");
@@ -143,12 +141,20 @@ class InternalRunTokenScopeIntegrationTest {
         run.setClientsPerRound(1);
         run.setStatus(RunStatus.RUNNING);
         run.setCreatedAt(Instant.now());
+        run.setIntent(com.federated.fl_platform_api.model.RunIntent.capture(project, false, false));
         run = runRepository.saveAndFlush(run);
         String token = runTokenRegistry.mint(project.getId(), run.getId());
         run.setInternalTokenHash(runTokenRegistry.hash(token));
         runRepository.saveAndFlush(run);
         project.setActiveRunId(run.getId());
         projectRepository.saveAndFlush(project);
+        return token;
+    }
+
+    @Test
+    void legitimateResultIngestionForOwnProject_succeeds() {
+        Project project = seedProject();
+        String token = seedRunToken(project);
         long before = roundResultRepository.count();
 
         ResponseEntity<String> resp = rest.exchange(
@@ -164,7 +170,7 @@ class InternalRunTokenScopeIntegrationTest {
     @Test
     void legitimateBenchmarkIngestionForOwnProject_succeeds() {
         Project project = seedProject();
-        String token = runTokenRegistry.mint(project.getId(), UUID.randomUUID());
+        String token = seedRunToken(project);
 
         ResponseEntity<String> resp = rest.exchange(
             "/api/internal/benchmarks/" + project.getId(), HttpMethod.POST,

@@ -7,6 +7,11 @@ import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.model.BenchmarkRound;
 import com.federated.fl_platform_api.model.BenchmarkRun;
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.Run;
+import com.federated.fl_platform_api.repository.RunRepository;
+import com.federated.fl_platform_api.security.InternalCallbackAuthorization;
+import com.federated.fl_platform_api.security.InternalCallbackContext;
+import java.util.Objects;
 import com.federated.fl_platform_api.repository.BenchmarkRoundRepository;
 import com.federated.fl_platform_api.repository.BenchmarkRunRepository;
 import com.federated.fl_platform_api.repository.ProjectRepository;
@@ -24,8 +29,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Ingest + read model for the benchmarking suite. {@link #recordRound} upserts a
- * per-round metric vector and recomputes the denormalized run rollup (including
+ * Ingest + read model for the benchmarking suite. {@link #recordRound} preserves an
+ * immutable run/round metric vector and recomputes the denormalized run rollup (including
  * time-to-target-accuracy); the read methods power the admin dashboard.
  */
 @Service
@@ -37,32 +42,59 @@ public class BenchmarkService {
     private final BenchmarkRunRepository runRepo;
     private final ProjectRepository projectRepository;
     private final ObjectMapper objectMapper;
+    private final RunRepository trainingRuns;
+    private final InternalCallbackAuthorization authorization;
 
     public BenchmarkService(BenchmarkRoundRepository roundRepo,
                             BenchmarkRunRepository runRepo,
                             ProjectRepository projectRepository,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper,
+                            RunRepository trainingRuns,
+                            InternalCallbackAuthorization authorization) {
         this.roundRepo = roundRepo;
         this.runRepo = runRepo;
         this.projectRepository = projectRepository;
         this.objectMapper = objectMapper;
+        this.trainingRuns = trainingRuns;
+        this.authorization = authorization;
     }
 
     // ── Ingest ────────────────────────────────────────────────────────────────
     @Transactional
-    public void recordRound(UUID projectId, BenchmarkRoundDto dto) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-
-        BenchmarkRound row = roundRepo
-                .findByProjectIdAndServerRound(projectId, dto.getServerRound())
-                .orElseGet(BenchmarkRound::new);
-
+    public void recordRound(UUID projectId, InternalCallbackContext context, BenchmarkRoundDto dto) {
+        var bound = authorization.requireActiveRun(projectId, context);
+        Project project = bound.project();
+        Run trainingRun = bound.run();
+        if (dto == null || dto.getServerRound() == null || dto.getServerRound() < 1
+                || dto.getServerRound() > trainingRun.getNumRounds()) {
+            throw new IllegalArgumentException("Round must be within the run's round budget");
+        }
+        var intent = trainingRun.getIntent().orElseThrow(() ->
+                new IllegalStateException("Run has no recorded benchmark intent"));
+        if (dto.getModelType() != null && !dto.getModelType().equals(trainingRun.getRecipeKey())) {
+            throw new IllegalArgumentException("Benchmark model must match the recorded run");
+        }
+        String expectedTask = taskType(intent.taskType());
+        if (dto.getTaskType() != null && !taskType(dto.getTaskType()).equals(expectedTask)) {
+            throw new IllegalArgumentException("Benchmark task must match the recorded run");
+        }
+        dto.setModelType(trainingRun.getRecipeKey());
+        dto.setTaskType(expectedTask);
+        String fingerprint = BenchmarkPayloadFingerprint.of(dto, objectMapper);
+        var existing = roundRepo.findByRunIdAndServerRound(trainingRun.getId(), dto.getServerRound());
+        if (existing.isPresent()) {
+            if (!fingerprint.equals(existing.get().getPayloadSha256())) {
+                throw new IllegalStateException("Benchmark replay conflicts with recorded or unverified legacy evidence");
+            }
+            return;
+        }
+        BenchmarkRound row = new BenchmarkRound();
         row.setProjectId(projectId);
-        row.setRunId(project.getActiveRunId());
+        row.setRunId(trainingRun.getId());
+        row.setPayloadSha256(fingerprint);
         row.setServerRound(dto.getServerRound());
-        row.setModelType(dto.getModelType() != null ? dto.getModelType() : project.getModelType());
-        row.setTaskType(dto.getTaskType() != null ? dto.getTaskType() : project.getTaskType());
+        row.setModelType(dto.getModelType());
+        row.setTaskType(dto.getTaskType());
 
         row.setLoss(dto.getLoss());
         row.setAccuracy(dto.getAccuracy());
@@ -101,18 +133,19 @@ public class BenchmarkService {
         row.setRecordedAt(Instant.now());
 
         roundRepo.save(row);
-        recomputeSummary(projectId, project);
+        List<BenchmarkRound> selected = roundRepo.findByProjectIdAndRunIdOrderByServerRoundAsc(projectId, trainingRun.getId());
+        BenchmarkRun summary = buildSummary(project, trainingRun.getId(), selected);
+        runRepo.findByProjectId(projectId).ifPresent(previous -> summary.setId(previous.getId()));
+        runRepo.save(summary);
     }
 
-    private void recomputeSummary(UUID projectId, Project project) {
-        List<BenchmarkRound> rounds = roundRepo.findByProjectIdOrderByServerRoundAsc(projectId);
-        if (rounds.isEmpty()) return;
-
-        BenchmarkRun run = runRepo.findByProjectId(projectId).orElseGet(BenchmarkRun::new);
+    private BenchmarkRun buildSummary(Project project, UUID runId, List<BenchmarkRound> rounds) {
+        BenchmarkRun run = new BenchmarkRun();
         BenchmarkRound last = rounds.get(rounds.size() - 1);
 
-        run.setProjectId(projectId);
-        run.setRunId(project.getActiveRunId());
+        run.setProjectId(project.getId());
+        run.setRunId(runId);
+        run.setRunIdentityVerified(runId != null && rounds.stream().allMatch(r -> r.getPayloadSha256() != null));
         run.setProjectName(project.getName());
         run.setModelType(last.getModelType());
         run.setTaskType(last.getTaskType());
@@ -140,7 +173,7 @@ public class BenchmarkService {
             }
             if (r.getTargetAccuracy() != null) target = r.getTargetAccuracy();
             if (r.getRoundDurationMs() != null) {
-                totalMs += r.getRoundDurationMs();
+                totalMs = addDuration(totalMs, r.getRoundDurationMs());
                 msCount++;
             }
         }
@@ -155,43 +188,51 @@ public class BenchmarkService {
         run.setTargetAccuracy(target);
         run.setRoundsToTarget(null);
         run.setMsToTarget(null);
-        if (target != null) {
+        if (target != null && run.isRunIdentityVerified()) {
             long cum = 0;
+            int expectedRound = 1;
+            boolean completeAccuracy = true, completeDuration = true;
             for (BenchmarkRound r : rounds) {
-                if (r.getRoundDurationMs() != null) cum += r.getRoundDurationMs();
+                if (r.getServerRound() != expectedRound || r.getAccuracy() == null) completeAccuracy = false;
+                expectedRound = r.getServerRound() + 1;
+                if (r.getRoundDurationMs() != null) cum = addDuration(cum, r.getRoundDurationMs());
+                else completeDuration = false;
                 if (r.getAccuracy() != null && r.getAccuracy() >= target) {
-                    run.setRoundsToTarget(r.getServerRound());
-                    run.setMsToTarget(cum);
+                    if (completeAccuracy) {
+                        run.setRoundsToTarget(r.getServerRound());
+                        if (completeDuration) run.setMsToTarget(cum);
+                    }
                     break;
                 }
             }
         }
 
-        run.setFirstRecordedAt(rounds.get(0).getRecordedAt());
-        run.setLastRecordedAt(last.getRecordedAt());
-        runRepo.save(run);
+        run.setFirstRecordedAt(rounds.stream().map(BenchmarkRound::getRecordedAt).min(Comparator.naturalOrder()).orElseThrow());
+        run.setLastRecordedAt(rounds.stream().map(BenchmarkRound::getRecordedAt).max(Comparator.naturalOrder()).orElseThrow());
+        return run;
     }
 
     // ── Reads ───────────────────────────────────────────────────────────────
     @Transactional(readOnly = true)
     public BenchmarkOverviewDto getOverview() {
         List<BenchmarkRun> runs = runRepo.findAllByOrderByLastRecordedAtDesc();
+        List<BenchmarkRun> verified = runs.stream().filter(BenchmarkRun::isRunIdentityVerified).toList();
         BenchmarkOverviewDto o = new BenchmarkOverviewDto();
         o.setBenchmarkedProjects(runs.size());
-        o.setTotalRoundsRecorded(runs.stream()
+        o.setTotalRoundsRecorded(verified.stream()
                 .mapToLong(r -> r.getRoundsCompleted() == null ? 0 : r.getRoundsCompleted()).sum());
 
-        List<BenchmarkRun> classification = runs.stream()
+        List<BenchmarkRun> classification = verified.stream()
                 .filter(r -> !isGenerative(r.getTaskType())).collect(Collectors.toList());
         o.setClassificationRuns(classification.size());
-        o.setGenerativeRuns(runs.size() - classification.size());
+        o.setGenerativeRuns(verified.size() - classification.size());
 
         o.setAvgFinalAccuracy(avg(classification, BenchmarkRun::getFinalAccuracy));
         o.setAvgFinalF1Macro(avg(classification, BenchmarkRun::getFinalF1Macro));
-        o.setAvgRoundDurationMs(avg(runs, r -> r.getAvgRoundMs() == null ? null : r.getAvgRoundMs().doubleValue()));
-        o.setAvgModelSizeMb(avg(runs, BenchmarkRun::getModelSizeMb));
+        o.setAvgRoundDurationMs(avg(verified, r -> r.getAvgRoundMs() == null ? null : r.getAvgRoundMs().doubleValue()));
+        o.setAvgModelSizeMb(avg(verified, BenchmarkRun::getModelSizeMb));
 
-        runs.stream()
+        verified.stream()
                 .filter(r -> r.getBestAccuracy() != null)
                 .max(Comparator.comparingDouble(BenchmarkRun::getBestAccuracy))
                 .ifPresent(best -> {
@@ -205,9 +246,32 @@ public class BenchmarkService {
 
     @Transactional(readOnly = true)
     public ProjectBenchmarkDto getProjectBenchmark(UUID projectId) {
-        List<BenchmarkRound> rounds = roundRepo.findByProjectIdOrderByServerRoundAsc(projectId);
+        return getProjectBenchmark(projectId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public ProjectBenchmarkDto getProjectBenchmark(UUID projectId, UUID requestedRunId) {
+        return getProjectBenchmark(projectId, requestedRunId, false);
+    }
+
+    @Transactional(readOnly = true)
+    public ProjectBenchmarkDto getProjectBenchmark(UUID projectId, UUID requestedRunId, boolean legacy) {
+        if (legacy && requestedRunId != null) throw new IllegalArgumentException("Select a run or legacy records, not both");
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        UUID runId = legacy ? null : requestedRunId != null ? requestedRunId : project.getActiveRunId();
+        if (!legacy && runId == null) runId = runRepo.findByProjectId(projectId).map(BenchmarkRun::getRunId).orElse(null);
+        List<BenchmarkRound> rounds = roundRepo.findByProjectIdAndRunIdOrderByServerRoundAsc(projectId, runId);
+        if (runId != null) {
+            var selected = trainingRuns.findById(runId);
+            if ((selected.isPresent() && !projectId.equals(selected.get().getProjectId()))
+                    || (selected.isEmpty() && rounds.isEmpty())) {
+                throw new ResourceNotFoundException("Benchmark run not found");
+            }
+        }
         ProjectBenchmarkDto d = new ProjectBenchmarkDto();
-        runRepo.findByProjectId(projectId).ifPresent(r -> d.setSummary(toRunDto(r)));
+        d.setRunId(runId == null ? null : runId.toString());
+        if (!rounds.isEmpty()) d.setSummary(toRunDto(buildSummary(project, runId, rounds)));
         d.setRounds(rounds.stream().map(this::toPointDto).collect(Collectors.toList()));
 
         if (!rounds.isEmpty()) {
@@ -232,6 +296,8 @@ public class BenchmarkService {
     private BenchmarkRunDto toRunDto(BenchmarkRun r) {
         BenchmarkRunDto d = new BenchmarkRunDto();
         d.setProjectId(r.getProjectId() != null ? r.getProjectId().toString() : null);
+        d.setRunId(r.getRunId() == null ? null : r.getRunId().toString());
+        d.setRunIdentityVerified(r.isRunIdentityVerified());
         d.setProjectName(r.getProjectName());
         d.setModelType(r.getModelType());
         d.setTaskType(r.getTaskType());
@@ -245,8 +311,8 @@ public class BenchmarkService {
         d.setBestPerplexity(r.getBestPerplexity());
         d.setFinalEce(r.getFinalEce());
         d.setTargetAccuracy(r.getTargetAccuracy());
-        d.setRoundsToTarget(r.getRoundsToTarget());
-        d.setMsToTarget(r.getMsToTarget());
+        d.setRoundsToTarget(r.isRunIdentityVerified() ? r.getRoundsToTarget() : null);
+        d.setMsToTarget(r.isRunIdentityVerified() ? r.getMsToTarget() : null);
         d.setTotalRoundMs(r.getTotalRoundMs());
         d.setAvgRoundMs(r.getAvgRoundMs());
         d.setModelSizeMb(r.getModelSizeMb());
@@ -293,6 +359,20 @@ public class BenchmarkService {
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
+    private static String taskType(String value) {
+        if (value == null || value.isBlank() || "CLASSIFICATION".equalsIgnoreCase(value)
+                || "SEQ_CLASSIFICATION".equalsIgnoreCase(value)) return "SEQ_CLASSIFICATION";
+        if ("CAUSAL_LM".equalsIgnoreCase(value)) return "CAUSAL_LM";
+        throw new IllegalArgumentException("Unknown benchmark task");
+    }
+
+    private static long addDuration(long first, long second) {
+        try { return Math.addExact(first, second); }
+        catch (ArithmeticException overflow) {
+            throw new IllegalArgumentException("Benchmark duration total exceeds the supported range", overflow);
+        }
+    }
+
     private static boolean isGenerative(String taskType) {
         return "CAUSAL_LM".equalsIgnoreCase(taskType);
     }

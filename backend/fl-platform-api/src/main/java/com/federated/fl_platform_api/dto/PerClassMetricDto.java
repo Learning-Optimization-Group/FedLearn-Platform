@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -13,5 +14,6 @@ public class PerClassMetricDto {
     private Double precision;
     private Double recall;
     private Double f1;
+    @JsonDeserialize(using = IntegralNumberDeserializers.IntegerValue.class)
     private Integer support;
 }

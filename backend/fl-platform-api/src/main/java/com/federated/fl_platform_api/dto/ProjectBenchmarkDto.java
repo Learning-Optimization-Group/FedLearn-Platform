@@ -11,6 +11,7 @@ import java.util.List;
  */
 @Data
 public class ProjectBenchmarkDto {
+    private String runId;
     private BenchmarkRunDto summary;
     private List<BenchmarkRoundPointDto> rounds;
     private String taskType;

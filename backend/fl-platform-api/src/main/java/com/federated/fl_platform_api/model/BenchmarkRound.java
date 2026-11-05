@@ -14,7 +14,8 @@ import java.util.UUID;
  */
 @Entity
 @Data
-@Table(name = "benchmark_rounds")
+@Table(name = "benchmark_rounds", uniqueConstraints = @UniqueConstraint(
+        name = "uq_benchmark_run_round", columnNames = {"run_id", "server_round"}))
 public class BenchmarkRound {
 
     @Id
@@ -26,6 +27,10 @@ public class BenchmarkRound {
 
     @Column(name = "run_id")
     private UUID runId;
+
+    // Null for legacy records whose original callback payload and authorization were not bound.
+    @Column(name = "payload_sha256", length = 64)
+    private String payloadSha256;
 
     @Column(name = "server_round", nullable = false)
     private Integer serverRound;

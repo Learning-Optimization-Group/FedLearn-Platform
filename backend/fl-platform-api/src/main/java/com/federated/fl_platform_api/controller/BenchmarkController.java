@@ -32,7 +32,9 @@ public class BenchmarkController {
 
     /** Per-project drilldown: time series + latest per-class table + confusion matrix. */
     @GetMapping("/projects/{projectId}")
-    public ResponseEntity<ProjectBenchmarkDto> project(@PathVariable UUID projectId) {
-        return ResponseEntity.ok(benchmarkService.getProjectBenchmark(projectId));
+    public ResponseEntity<ProjectBenchmarkDto> project(@PathVariable UUID projectId,
+            @RequestParam(required = false) UUID runId,
+            @RequestParam(defaultValue = "false") boolean legacy) {
+        return ResponseEntity.ok(benchmarkService.getProjectBenchmark(projectId, runId, legacy));
     }
 }

@@ -780,6 +780,8 @@ export const requestProjectAccess = (
 /** Per-project benchmark rollup row (the runs table + drilldown header). */
 export interface BenchmarkRun {
     projectId: string;
+    runId?: string | null;
+    runIdentityVerified?: boolean;
     projectName: string | null;
     modelType: string | null;
     taskType: string | null;
@@ -858,6 +860,7 @@ export interface PerClassMetric {
 
 /** Full per-project drilldown. */
 export interface ProjectBenchmark {
+    runId?: string | null;
     summary: BenchmarkRun | null;
     rounds: BenchmarkRoundPoint[];
     taskType: string | null;
@@ -872,6 +875,10 @@ export const fetchBenchmarkOverview = (): Promise<AxiosResponse<BenchmarkOvervie
 
 export const fetchProjectBenchmark = (
     projectId: string,
+    runId?: string | null,
 ): Promise<AxiosResponse<ProjectBenchmark>> => {
-    return api.get<ProjectBenchmark>(`/admin/benchmarks/projects/${projectId}`);
+    const path = `/admin/benchmarks/projects/${projectId}`;
+    if (runId === null) return api.get<ProjectBenchmark>(path, { params: { legacy: true } });
+    if (runId !== undefined) return api.get<ProjectBenchmark>(path, { params: { runId } });
+    return api.get<ProjectBenchmark>(path);
 };

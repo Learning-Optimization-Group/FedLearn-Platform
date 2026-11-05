@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import lombok.Data;
 
 import java.util.List;
@@ -15,6 +16,7 @@ import java.util.Map;
 @Data
 public class BenchmarkRoundDto {
 
+    @JsonDeserialize(using = IntegralNumberDeserializers.IntegerValue.class)
     private Integer serverRound;
     private String modelType;
     private String taskType;
@@ -43,16 +45,23 @@ public class BenchmarkRoundDto {
     private Double targetAccuracy;
 
     // System / efficiency
+    @JsonDeserialize(using = IntegralNumberDeserializers.LongValue.class)
     private Long roundDurationMs;
+    @JsonDeserialize(using = IntegralNumberDeserializers.LongValue.class)
     private Long evalDurationMs;
     private Double modelSizeMb;
+    @JsonDeserialize(using = IntegralNumberDeserializers.LongValue.class)
     private Long paramCount;
+    @JsonDeserialize(using = IntegralNumberDeserializers.IntegerValue.class)
     private Integer clientCount;
+    @JsonDeserialize(using = IntegralNumberDeserializers.IntegerValue.class)
     private Integer samplesEvaluated;
+    @JsonDeserialize(using = IntegralNumberDeserializers.IntegerValue.class)
     private Integer numClasses;
 
     // Micro / structured
     private List<PerClassMetricDto> perClass;
+    @JsonDeserialize(using = IntegralNumberDeserializers.ConfusionMatrix.class)
     private List<List<Integer>> confusionMatrix;
     private List<String> classLabels;
     private Map<String, Double> extraMetrics;

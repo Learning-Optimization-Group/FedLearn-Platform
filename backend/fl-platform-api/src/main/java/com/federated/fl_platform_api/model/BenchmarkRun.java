@@ -26,6 +26,9 @@ public class BenchmarkRun {
     @Column(name = "run_id")
     private UUID runId;
 
+    @Column(name = "run_identity_verified", nullable = false)
+    private boolean runIdentityVerified;
+
     @Column(name = "project_name")
     private String projectName;
 

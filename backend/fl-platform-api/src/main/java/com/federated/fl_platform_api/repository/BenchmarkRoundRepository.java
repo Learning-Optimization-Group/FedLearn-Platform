@@ -9,8 +9,9 @@ import java.util.UUID;
 
 public interface BenchmarkRoundRepository extends JpaRepository<BenchmarkRound, UUID> {
 
-    /** Idempotent ingest: a re-reported round upserts the same row. */
-    Optional<BenchmarkRound> findByProjectIdAndServerRound(UUID projectId, Integer serverRound);
+    Optional<BenchmarkRound> findByRunIdAndServerRound(UUID runId, Integer serverRound);
+
+    List<BenchmarkRound> findByProjectIdAndRunIdOrderByServerRoundAsc(UUID projectId, UUID runId);
 
     /** Full per-round series for one project, ordered for charting. */
     List<BenchmarkRound> findByProjectIdOrderByServerRoundAsc(UUID projectId);

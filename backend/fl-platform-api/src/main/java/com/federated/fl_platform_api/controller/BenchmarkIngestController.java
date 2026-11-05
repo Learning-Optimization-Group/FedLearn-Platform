@@ -2,6 +2,7 @@ package com.federated.fl_platform_api.controller;
 
 import com.federated.fl_platform_api.dto.BenchmarkRoundDto;
 import com.federated.fl_platform_api.service.BenchmarkService;
+import com.federated.fl_platform_api.security.InternalCallbackContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
@@ -30,11 +31,12 @@ public class BenchmarkIngestController {
 
     @PostMapping("/{projectId}")
     public ResponseEntity<Void> recordRound(@PathVariable @NonNull UUID projectId,
+                                            @RequestAttribute(InternalCallbackContext.REQUEST_ATTRIBUTE) InternalCallbackContext context,
                                             @RequestBody BenchmarkRoundDto dto) {
-        if (!enabled || dto == null || dto.getServerRound() == null) {
+        if (!enabled) {
             return ResponseEntity.ok().build();
         }
-        benchmarkService.recordRound(projectId, dto);
+        benchmarkService.recordRound(projectId, context, dto);
         return ResponseEntity.ok().build();
     }
 }
