@@ -57,6 +57,8 @@ class RunResultIdempotencyIntegrationTest {
     @Autowired PlatformTransactionManager transactionManager;
     @Autowired JdbcTemplate jdbc;
     @Autowired org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    @Autowired com.federated.fl_platform_api.orchestration.FlServerManager serverManager;
+    @Autowired com.federated.fl_platform_api.orchestration.RunProcessIdentityStore processIdentities;
     @SpyBean WebSocketService webSockets;
 
     record ActiveRun(Project project, Run run, String token) {}
@@ -379,6 +381,102 @@ class RunResultIdempotencyIntegrationTest {
         }
         assertEquals(RunStatus.STOPPED, runs.findById(active.run().getId()).orElseThrow().getStatus());
         assertEquals("STOPPED", projects.findById(active.project().getId()).orElseThrow().getStatus());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void lateProcessIdentityCannotRestoreCompletedRun(boolean preloaded) {
+        ActiveRun active = activeRun();
+        Runnable attach = () -> {
+            assertEquals(HttpStatus.OK, finish(active));
+            attachIdentity(active, tokens.hash(active.token()));
+        };
+        if (preloaded) {
+            new TransactionTemplate(transactionManager).executeWithoutResult(transaction -> {
+                runs.findById(active.run().getId()).orElseThrow();
+                attach.run();
+            });
+        } else {
+            attach.run();
+        }
+        var completed = runs.findById(active.run().getId()).orElseThrow();
+        assertEquals(RunStatus.COMPLETED, completed.getStatus());
+        assertNull(completed.getServerPid());
+        assertNull(completed.getProcessStartedAt());
+        assertNull(completed.getServerPort());
+        assertNull(completed.getInternalTokenHash());
+    }
+
+    @Test
+    void processIdentityCannotRestoreRetiredCallbackAuthorization() {
+        ActiveRun active = activeRun();
+        String replacement = tokens.mint(active.project().getId(), active.run().getId());
+        active.run().setInternalTokenHash(tokens.hash(replacement));
+        runs.saveAndFlush(active.run());
+        assertThrows(IllegalStateException.class, () -> attachIdentity(active, tokens.hash(active.token())));
+        var current = runs.findById(active.run().getId()).orElseThrow();
+        assertEquals(tokens.hash(replacement), current.getInternalTokenHash());
+        assertNull(current.getServerPid());
+        assertEquals(HttpStatus.FORBIDDEN, post(active, 1, .5));
+        assertEquals(HttpStatus.OK, post(new ActiveRun(active.project(), current, replacement), 1, .5));
+    }
+
+    @Test
+    void currentProcessMayRecordItsIdentityWithoutChangingItsAuthorization() {
+        ActiveRun active = activeRun();
+        String hash = tokens.hash(active.token());
+        attachIdentity(active, hash);
+        var current = runs.findById(active.run().getId()).orElseThrow();
+        assertEquals(RunStatus.RUNNING, current.getStatus());
+        assertEquals(12345L, current.getServerPid());
+        assertEquals(50001, current.getServerPort());
+        assertEquals(hash, current.getInternalTokenHash());
+        assertEquals(HttpStatus.OK, post(active, 1, .5));
+    }
+
+    private void attachIdentity(ActiveRun active, String hash) {
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(serverManager, "recordProcessIdentity",
+                active.run().getId(), 12345L, Instant.now(), 50001, hash);
+    }
+
+    @Test
+    void launchAuthorizationCommitsBeforeAnEnclosingRequestCanRollBack() {
+        ActiveRun active = activeRun();
+        active.run().setStatus(RunStatus.STARTING);
+        runs.saveAndFlush(active.run());
+        String replacement = tokens.mint(active.project().getId(), active.run().getId());
+        new TransactionTemplate(transactionManager).executeWithoutResult(transaction -> {
+            runs.findById(active.run().getId()).orElseThrow();
+            processIdentities.authorizeLaunch(active.run().getId(), tokens.hash(replacement));
+            assertEquals(HttpStatus.OK, post(new ActiveRun(active.project(), active.run(), replacement), 1, .5));
+            transaction.setRollbackOnly();
+        });
+        assertEquals(tokens.hash(replacement), runs.findById(active.run().getId()).orElseThrow().getInternalTokenHash());
+        assertEquals(HttpStatus.FORBIDDEN, post(active, 2, .5));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"COMPLETED", "FAILED", "STOPPED", "RUNNING"})
+    void onlyAStartingRunCanAuthorizeALaunch(String status) {
+        ActiveRun active = activeRun();
+        active.run().setStatus(RunStatus.valueOf(status));
+        runs.saveAndFlush(active.run());
+        assertThrows(IllegalStateException.class, () -> processIdentities.authorizeLaunch(active.run().getId(), "replacement"));
+        assertEquals(tokens.hash(active.token()), runs.findById(active.run().getId()).orElseThrow().getInternalTokenHash());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"FAILED", "STOPPED"})
+    void inactiveProcessCannotAttachAnIdentity(String status) {
+        ActiveRun active = activeRun();
+        active.run().setStatus(RunStatus.valueOf(status));
+        active.run().setInternalTokenHash(null);
+        runs.saveAndFlush(active.run());
+        assertThrows(IllegalStateException.class, () -> attachIdentity(active, tokens.hash(active.token())));
+        var run = runs.findById(active.run().getId()).orElseThrow();
+        assertEquals(RunStatus.valueOf(status), run.getStatus());
+        assertNull(run.getServerPid());
+        assertNull(run.getInternalTokenHash());
     }
 
     private void awaitRunLockWait() {

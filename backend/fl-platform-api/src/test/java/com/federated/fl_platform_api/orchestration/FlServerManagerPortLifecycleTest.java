@@ -4,6 +4,7 @@ import com.federated.fl_platform_api.dto.ModelRecipeDto;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.model.RunIntent;
+import com.federated.fl_platform_api.model.RunStatus;
 import com.federated.fl_platform_api.repository.RunRepository;
 import com.federated.fl_platform_api.security.RunTokenRegistry;
 import com.federated.fl_platform_api.service.ModelRecipeService;
@@ -98,6 +99,7 @@ class FlServerManagerPortLifecycleTest {
         RunRepository runRepository = mock(RunRepository.class);
         // BA-3 recordProcessIdentity: no bound Run -> the persistence step is a no-op.
         when(runRepository.findById(any())).thenReturn(Optional.empty());
+        when(runRepository.lockById(any())).thenReturn(Optional.empty());
 
         // One handle instance, returned by every toHandle() call, so the keyed
         // runningServers.remove(projectId, handle) in onChildExit matches what start stored.
@@ -117,6 +119,9 @@ class FlServerManagerPortLifecycleTest {
         ReflectionTestUtils.setField(manager, "logBroadcaster", mock(WebSocketService.class));
         ReflectionTestUtils.setField(manager, "runTokenRegistry", runTokenRegistry);
         ReflectionTestUtils.setField(manager, "runRepository", runRepository);
+        var identityStore = new RunProcessIdentityStore(runRepository);
+        ReflectionTestUtils.setField(identityStore, "entityManager", mock(jakarta.persistence.EntityManager.class));
+        ReflectionTestUtils.setField(manager, "processIdentityStore", identityStore);
         ReflectionTestUtils.setField(manager, "modelRecipeService", modelRecipeService);
         ReflectionTestUtils.setField(manager, "registryModelResolver", registryModelResolver);
         ReflectionTestUtils.setField(manager, "processRunner",
@@ -202,9 +207,11 @@ class FlServerManagerPortLifecycleTest {
         Project project = newProject();
         Run run = new Run();
         run.setId(project.getActiveRunId());
+        run.setStatus(RunStatus.STARTING);
         run.setIntent(RunIntent.capture(project, false, false));
         RunRepository repository = (RunRepository) ReflectionTestUtils.getField(manager, "runRepository");
         when(repository.findById(run.getId())).thenReturn(Optional.of(run));
+        when(repository.lockById(run.getId())).thenReturn(Optional.of(run));
         var persistedHash = new AtomicReference<String>();
         when(repository.saveAndFlush(run)).thenAnswer(call -> {
             persistedHash.set(run.getInternalTokenHash());
@@ -220,6 +227,30 @@ class FlServerManagerPortLifecycleTest {
         ReflectionTestUtils.setField(manager, "processRunner", immediateChild);
 
         assertTrue(manager.startServerForProject(project, "CNN", 1, 1).isPresent());
+    }
+
+    @Test
+    void authorizationPersistenceFailurePreventsChildCreationAndReleasesItsPort() {
+        Project project = newProject();
+        Run run = new Run();
+        run.setId(project.getActiveRunId());
+        run.setStatus(RunStatus.STARTING);
+        run.setIntent(RunIntent.capture(project, false, false));
+        RunRepository repository = (RunRepository) ReflectionTestUtils.getField(manager, "runRepository");
+        when(repository.findById(run.getId())).thenReturn(Optional.of(run));
+        when(repository.lockById(run.getId())).thenReturn(Optional.of(run));
+        when(repository.saveAndFlush(run)).thenThrow(new IllegalStateException("storage unavailable"));
+        var starts = new java.util.concurrent.atomic.AtomicInteger();
+        FlServerProcessRunner runner = (command, customize, directory) -> {
+            starts.incrementAndGet();
+            return new FakeChildProcess(childHandle);
+        };
+        ReflectionTestUtils.setField(manager, "processRunner", runner);
+
+        assertThrows(IllegalStateException.class, () -> manager.startServerForProject(project, "CNN", 1, 1));
+        assertEquals(0, starts.get());
+        assertFalse(manager.isServerRunning(project.getId()));
+        assertEquals(reservedPort, (Integer) ReflectionTestUtils.invokeMethod(manager, "findFreePort"));
     }
 
     // --- helpers ------------------------------------------------------------

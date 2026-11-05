@@ -1,6 +1,7 @@
 package com.federated.fl_platform_api.orchestration;
 
 import com.federated.fl_platform_api.model.Run;
+import com.federated.fl_platform_api.model.RunStatus;
 import com.federated.fl_platform_api.repository.RunRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,7 +31,9 @@ class FlServerManagerProcessIdentityTest {
 
     private FlServerManager managerWith(RunRepository repo) {
         FlServerManager m = new FlServerManager();
-        ReflectionTestUtils.setField(m, "runRepository", repo);
+        var store = new RunProcessIdentityStore(repo);
+        ReflectionTestUtils.setField(store, "entityManager", mock(jakarta.persistence.EntityManager.class));
+        ReflectionTestUtils.setField(m, "processIdentityStore", store);
         return m;
     }
 
@@ -39,7 +42,9 @@ class FlServerManagerProcessIdentityTest {
         RunRepository repo = mock(RunRepository.class);
         UUID runId = UUID.randomUUID();
         Run run = new Run();
-        when(repo.findById(runId)).thenReturn(Optional.of(run));
+        run.setStatus(RunStatus.STARTING);
+        run.setInternalTokenHash("deadbeefhash");
+        when(repo.lockById(runId)).thenReturn(Optional.of(run));
 
         managerWith(repo).recordProcessIdentity(runId, 4242L, STARTED, 50005, "deadbeefhash");
 
@@ -61,7 +66,7 @@ class FlServerManagerProcessIdentityTest {
     void missingRun_doesNotSave() {
         RunRepository repo = mock(RunRepository.class);
         UUID runId = UUID.randomUUID();
-        when(repo.findById(runId)).thenReturn(Optional.empty());
+        when(repo.lockById(runId)).thenReturn(Optional.empty());
 
         managerWith(repo).recordProcessIdentity(runId, 1L, STARTED, 50005, "hash");
 
@@ -75,7 +80,9 @@ class FlServerManagerProcessIdentityTest {
         RunRepository repo = mock(RunRepository.class);
         UUID runId = UUID.randomUUID();
         Run run = new Run();
-        when(repo.findById(runId)).thenReturn(Optional.of(run));
+        run.setStatus(RunStatus.STARTING);
+        run.setInternalTokenHash("hash");
+        when(repo.lockById(runId)).thenReturn(Optional.of(run));
         doThrow(new RuntimeException("db down")).when(repo).save(run);
 
         assertThrows(RuntimeException.class, () -> managerWith(repo)

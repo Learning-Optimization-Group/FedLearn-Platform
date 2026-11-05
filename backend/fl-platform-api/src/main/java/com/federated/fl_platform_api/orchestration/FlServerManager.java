@@ -99,6 +99,8 @@ public class FlServerManager {
 
     @Autowired
     private com.federated.fl_platform_api.service.RunService runService;
+    @Autowired
+    private RunProcessIdentityStore processIdentityStore;
 
     @Autowired
     private com.federated.fl_platform_api.service.ModelRecipeService modelRecipeService;
@@ -292,10 +294,7 @@ public class FlServerManager {
             // A child may finish quickly and call back before start() returns. Its authorization
             // must already be durable when it can issue its first request.
             if (project.getActiveRunId() != null) {
-                runRepository.findById(project.getActiveRunId()).ifPresent(run -> {
-                    run.setInternalTokenHash(internalTokenHash);
-                    runRepository.saveAndFlush(run);
-                });
+                processIdentityStore.authorizeLaunch(project.getActiveRunId(), internalTokenHash);
             }
             String runIdArg = project.getActiveRunId() != null
                     ? project.getActiveRunId().toString() : null;
@@ -948,7 +947,8 @@ public class FlServerManager {
      * share it.
      *
      * <p>A {@code null} run (e.g. a bare-manager test with no bound run) or a since-deleted run is a
-     * no-op. A persistence failure, however, PROPAGATES: the caller must fail the spawn closed (kill
+     * no-op. A completed run keeps its cleared identity. A retired token, inactive run or persistence
+     * failure PROPAGATES: the caller must fail the spawn closed (kill
      * the child), because a live server whose identity was never recorded is an orphan that can never
      * be reconciled or reaped — exactly the leak this feature exists to prevent.
      *
@@ -961,13 +961,7 @@ public class FlServerManager {
         if (runId == null) {
             return;
         }
-        runRepository.findById(runId).ifPresent(run -> {
-            run.setServerPid(pid);
-            run.setProcessStartedAt(startInstant);
-            run.setServerPort(port);
-            run.setInternalTokenHash(internalTokenHash);
-            runRepository.save(run);
-        });
+        processIdentityStore.recordProcessIdentity(runId, pid, startInstant, port, internalTokenHash);
     }
 
     public boolean stopServerForProject(UUID projectId) {
