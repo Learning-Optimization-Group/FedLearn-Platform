@@ -2,6 +2,8 @@ package com.federated.fl_platform_api.orchestration;
 
 import com.federated.fl_platform_api.dto.ModelRecipeDto;
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.Run;
+import com.federated.fl_platform_api.model.RunIntent;
 import com.federated.fl_platform_api.repository.RunRepository;
 import com.federated.fl_platform_api.security.RunTokenRegistry;
 import com.federated.fl_platform_api.service.ModelRecipeService;
@@ -28,6 +30,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -192,6 +195,31 @@ class FlServerManagerPortLifecycleTest {
         childExitFuture.complete(childHandle);
 
         verify(runService, never()).markFailed(any());
+    }
+
+    @Test
+    void childCanAuthenticateCallbacksAsSoonAsItStarts() {
+        Project project = newProject();
+        Run run = new Run();
+        run.setId(project.getActiveRunId());
+        run.setIntent(RunIntent.capture(project, false, false));
+        RunRepository repository = (RunRepository) ReflectionTestUtils.getField(manager, "runRepository");
+        when(repository.findById(run.getId())).thenReturn(Optional.of(run));
+        var persistedHash = new AtomicReference<String>();
+        when(repository.saveAndFlush(run)).thenAnswer(call -> {
+            persistedHash.set(run.getInternalTokenHash());
+            return run;
+        });
+        FlServerProcessRunner immediateChild = (command, customize, directory) -> {
+            var env = new java.util.HashMap<String, String>();
+            customize.accept(env);
+            assertEquals("tok", env.get("FEDLEARN_INTERNAL_RUN_TOKEN"));
+            assertEquals("h", persistedHash.get(), "authorization must be durable before the child can send callbacks");
+            return new FakeChildProcess(childHandle);
+        };
+        ReflectionTestUtils.setField(manager, "processRunner", immediateChild);
+
+        assertTrue(manager.startServerForProject(project, "CNN", 1, 1).isPresent());
     }
 
     // --- helpers ------------------------------------------------------------

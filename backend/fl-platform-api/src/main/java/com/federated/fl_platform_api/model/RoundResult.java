@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.util.UUID;
 
 @Entity
-
+@Table(uniqueConstraints = @UniqueConstraint(name = "uq_round_result_run_round", columnNames = {"run_id", "server_round"}))
 public class RoundResult {
 
     @Id
@@ -14,6 +14,10 @@ public class RoundResult {
     @ManyToOne
     @JoinColumn(name = "project_id",nullable = false)
     private Project project;
+
+    // Historical project-only rows cannot be assigned to a run reliably.
+    @Column(name = "run_id")
+    private UUID runId;
 
     @Column(nullable = false)
     private Integer serverRound;
@@ -37,6 +41,10 @@ public class RoundResult {
     public void setProject(Project project) {
         this.project = project;
     }
+
+    public UUID getRunId() { return runId; }
+
+    public void setRunId(UUID runId) { this.runId = runId; }
 
     public Integer getServerRound() {
         return serverRound;

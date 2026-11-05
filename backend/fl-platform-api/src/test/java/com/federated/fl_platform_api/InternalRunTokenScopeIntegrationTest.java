@@ -3,8 +3,11 @@ package com.federated.fl_platform_api;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.ProjectVisibility;
 import com.federated.fl_platform_api.model.User;
+import com.federated.fl_platform_api.model.Run;
+import com.federated.fl_platform_api.model.RunStatus;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.repository.RoundResultRepository;
+import com.federated.fl_platform_api.repository.RunRepository;
 import com.federated.fl_platform_api.repository.UserRepository;
 import com.federated.fl_platform_api.security.RunTokenRegistry;
 import org.junit.jupiter.api.Test;
@@ -16,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.UUID;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -38,6 +42,7 @@ class InternalRunTokenScopeIntegrationTest {
     @Autowired private UserRepository userRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private RoundResultRepository roundResultRepository;
+    @Autowired private RunRepository runRepository;
 
     private HttpHeaders headers(String runToken) {
         HttpHeaders h = new HttpHeaders();
@@ -129,7 +134,21 @@ class InternalRunTokenScopeIntegrationTest {
     @Test
     void legitimateResultIngestionForOwnProject_succeeds() {
         Project project = seedProject();
-        String token = runTokenRegistry.mint(project.getId(), UUID.randomUUID());
+        Run run = new Run();
+        run.setProjectId(project.getId());
+        run.setStrategy("FedAvg");
+        run.setRecipeKey("CNN");
+        run.setNumRounds(3);
+        run.setMinClients(1);
+        run.setClientsPerRound(1);
+        run.setStatus(RunStatus.RUNNING);
+        run.setCreatedAt(Instant.now());
+        run = runRepository.saveAndFlush(run);
+        String token = runTokenRegistry.mint(project.getId(), run.getId());
+        run.setInternalTokenHash(runTokenRegistry.hash(token));
+        runRepository.saveAndFlush(run);
+        project.setActiveRunId(run.getId());
+        projectRepository.saveAndFlush(project);
         long before = roundResultRepository.count();
 
         ResponseEntity<String> resp = rest.exchange(

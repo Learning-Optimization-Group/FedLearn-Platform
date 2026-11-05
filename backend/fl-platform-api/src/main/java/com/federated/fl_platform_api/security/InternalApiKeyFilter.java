@@ -88,6 +88,9 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
             return;
         }
 
+        request.setAttribute(InternalCallbackContext.REQUEST_ATTRIBUTE,
+                new InternalCallbackContext(scope.get().projectId(), scope.get().runId(),
+                        runTokenRegistry.hash(request.getHeader(RUN_TOKEN_HEADER))));
         chain.doFilter(request, response);
     }
 

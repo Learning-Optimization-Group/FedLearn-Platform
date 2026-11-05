@@ -2,12 +2,10 @@ package com.federated.fl_platform_api.controller;
 
 
 import com.federated.fl_platform_api.dto.RoundResultDto;
-import com.federated.fl_platform_api.exception.ResourceNotFoundException;
-import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.RoundResult;
-import com.federated.fl_platform_api.repository.ProjectRepository;
-import com.federated.fl_platform_api.repository.RoundResultRepository;
+import com.federated.fl_platform_api.security.InternalCallbackContext;
 import com.federated.fl_platform_api.service.ProjectService;
+import com.federated.fl_platform_api.service.RoundResultIngestService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -21,10 +19,7 @@ import java.util.UUID;
 public class ResultsController {
 
     @Autowired
-    private RoundResultRepository roundResultRepository;
-
-    @Autowired
-    private ProjectRepository projectRepository;
+    private RoundResultIngestService roundResultIngestService;
 
     @Autowired
     private ProjectService projectService;
@@ -37,21 +32,17 @@ public class ResultsController {
 
     @PostMapping("/{projectId}")
     public ResponseEntity<Void> reportRoundResult(@PathVariable @NonNull UUID projectId,
+                                                  @RequestAttribute(InternalCallbackContext.REQUEST_ATTRIBUTE)
+                                                  InternalCallbackContext context,
                                                   @Valid @RequestBody RoundResultDto resultDto) {
         if (!roundResultsEnabled) {
             return ResponseEntity.ok().build();
         }
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-
-        RoundResult result = new RoundResult();
-        result.setProject(project);
-        result.setServerRound(resultDto.getServerRound());
-        result.setLoss(resultDto.getLoss());
-        result.setAccuracy(resultDto.getAccuracy());
-        result.setGpuUtilization(resultDto.getGpuUtilization());
-
-        RoundResult saved = roundResultRepository.save(result);
+        var recorded = roundResultIngestService.record(projectId, context, resultDto);
+        if (!recorded.created()) {
+            return ResponseEntity.ok().build();
+        }
+        RoundResult saved = recorded.result();
 
         // Broadcast a DTO, not the JPA entity. The entity's lazy Hibernate proxies (project -> user)
         // are not JSON-serializable by the STOMP message converter (no Hibernate Jackson module is

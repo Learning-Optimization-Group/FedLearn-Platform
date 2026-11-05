@@ -289,6 +289,14 @@ public class FlServerManager {
             // BA-3: persist the token's hash on the run so a re-adopted server's token can be
             // rehydrated after a restart (the plaintext goes only to the child, below).
             String internalTokenHash = runTokenRegistry.hash(internalRunToken);
+            // A child may finish quickly and call back before start() returns. Its authorization
+            // must already be durable when it can issue its first request.
+            if (project.getActiveRunId() != null) {
+                runRepository.findById(project.getActiveRunId()).ifPresent(run -> {
+                    run.setInternalTokenHash(internalTokenHash);
+                    runRepository.saveAndFlush(run);
+                });
+            }
             String runIdArg = project.getActiveRunId() != null
                     ? project.getActiveRunId().toString() : null;
 

@@ -1,10 +1,17 @@
 package com.federated.fl_platform_api.dto;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import java.io.IOException;
 import java.util.UUID;
 
 
 public class RoundResultDto {
     private UUID id;
+    @JsonDeserialize(using = RoundNumberDeserializer.class)
     private Integer serverRound;
     private Double loss;
     private Double accuracy;
@@ -48,5 +55,16 @@ public class RoundResultDto {
 
     public void setId(UUID id) {
         this.id = id;
+    }
+
+    /** Round identity must not be truncated from a float or coerced from a string. */
+    public static class RoundNumberDeserializer extends JsonDeserializer<Integer> {
+        @Override
+        public Integer deserialize(JsonParser parser, DeserializationContext context) throws IOException {
+            if (!parser.hasToken(JsonToken.VALUE_NUMBER_INT)) {
+                return context.reportInputMismatch(Integer.class, "serverRound must be a JSON integer");
+            }
+            return parser.getIntValue();
+        }
     }
 }
