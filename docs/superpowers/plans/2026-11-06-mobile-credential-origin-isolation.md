@@ -28,7 +28,7 @@ Files: create `mobile_client/src/lib/backendOrigin.ts`; modify `authStore.ts`, `
 - [x] Build qualification Release version 3 with the retained key. Verify package, signer, embedded bundle, nondebuggable status and unchanged transport policy before in-place installation.
 - [x] Verify migration of the saved trusted origin/session, dataset and receipts after a cold launch. Recheck the 36 original-app dataset hashes. Exercise a deliberate server-origin change with disposable credentials and return to the trusted endpoint through normal login.
 - [x] Run the physical untrusted-HTTPS control using a fresh correct-host self-signed certificate and a bounded private-interface listener. Use a signed-out session and fake credentials; prove reachability separately and zero HTTP credential requests from the refused phone handshake. Do not install trust roots or weaken hostname/TLS checks. Restore the saved trusted origin/account and remove only owned listener/helpers.
-- [ ] Retain evidence and limits, update the two-line progress source, commit the verified implementation on the isolated branch, and continue the seven-area program.
+- [x] Retain evidence and limits, update the two-line progress source, commit the verified implementation on the isolated branch, and continue the seven-area program.
 
 ## Review refinements and native transport evidence
 

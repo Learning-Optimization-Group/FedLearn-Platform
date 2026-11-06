@@ -38,9 +38,18 @@ The updated phone imported eight newly generated synthetic vector examples throu
 Android's file picker and completed one TinyNet FedAvg round. Three new native
 program downloads preceded the accepted update. This exposed a separate API
 defect: asynchronous response completion lost authentication after streaming the
-bytes, producing authorization errors and container access status 500. The completed
-phone round does not qualify clean backend streaming completion; that defect needs
-its own correction and regression coverage.
+bytes, producing authorization errors and container access status 500.
+
+The API correction saves validated JWT identity in request attributes for asynchronous
+completion, preserving stateless authentication and participant/tenant checks. Ten
+embedded-Tomcat/PostgreSQL cases cover full/ranged cookie and native downloads plus
+authentication and tenancy refusals. All passed; the full backend gate passed 1,344
+tests with two optional worker tests skipped, and both worker controls passed separately.
+Line coverage was 86.55%. Actual HTTPS checks then returned three complete 200s and
+three exact 206 ranges, with matching final container statuses and no late authorization
+errors. One earlier control received a gateway 502 with a malformed upstream header;
+18 direct and 18 proxied follow-up reads passed. That failed attempt is retained and
+its cause remains unknown.
 
 A correct-host self-signed HTTPS listener passed a host-side positive control with
 explicit test trust. The signed phone rejected its certificate on both the

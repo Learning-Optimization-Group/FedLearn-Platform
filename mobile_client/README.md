@@ -23,9 +23,11 @@ implemented plans from actual device evidence. Android portable CPU/FULL trainin
 covers six recipes and 24 declared strategy plans. Real vector/image datasets and
 bounded CNN FedAvg/DeComFL manual cold recovery have retained evidence.
 
-The packaged Metro-free client is internal Debug. Production signing identity,
-full Release HTTPS/gRPC TLS training and same-release-key update qualification
-remain open; follow the [release procedure](../wikis/mobile/16-release-tls-qualification.md).
+A separately packaged, signed Release qualification client completed authenticated
+HTTPS/gRPC TLS training and same-test-key updates alongside the standalone Debug
+evidence. See the [Release scope and procedure](../wikis/mobile/16-release-tls-qualification.md)
+and [credential-origin qualification](../wikis/mobile/17-credential-origin-isolation.md).
+Production distribution identity and verified backup remain open.
 iOS training and Android XGBoost are not implemented.
 
 ## Platform status — read this before you build
@@ -264,9 +266,10 @@ moved into `android/app/src/main/jni/` in `1edf350`.)
 
 Android Release requires an explicitly configured non-Debug keystore; missing or
 invalid signing credentials fail the build. See
-[signing/TLS requirements](../wikis/mobile/14-release-readiness.md). A persistent
-backed-up release identity, full physical Release training and same-key Release
-updates are still unqualified. The iOS runtime migration and signing remain open.
+[signing/TLS requirements](../wikis/mobile/14-release-readiness.md). Physical Release
+training and same-test-key updates have separate qualification evidence above;
+a production distribution identity with verified backup remains unqualified.
+The iOS runtime migration and signing remain open.
 
 ---
 
