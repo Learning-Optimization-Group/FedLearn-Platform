@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -127,6 +128,19 @@ def _operators(program: bytes) -> set[str]:
             for plan in parsed.execution_plan for op in plan.operators}
 
 
+def _require_flatbuffers_compiler() -> None:
+    """Detect missing operator-metadata tooling before model construction or graph export."""
+    from executorch.exir._serialize._flatbuffer import _get_flatc_path
+
+    try:
+        subprocess.run([_get_flatc_path(), "--version"], check=True, capture_output=True, timeout=10)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise RuntimeError(
+            "FlatBuffers compiler flatc must be executable on the export process PATH or supplied by "
+            "ExecuTorch; check flatc --version before starting a run."
+        ) from error
+
+
 def _sha256(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as f:
@@ -182,6 +196,8 @@ def export_recipe_bundle(
     key = recipe_key.upper()
     if key not in EXAMPLE_SHAPES:
         raise SystemExit(f"no example-input shape registered for recipe {key}; add it to EXAMPLE_SHAPES")
+    if key in ENVELOPES:
+        _require_flatbuffers_compiler()
 
     # Seeded, so the weights a program embeds (and its probe reference is computed from) are the same on every export.
     torch.manual_seed(seed)

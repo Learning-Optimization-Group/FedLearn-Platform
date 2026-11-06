@@ -83,6 +83,14 @@ the standalone command above does not. Release is a separate qualification.
    environment. Set `APP_MODEL_BUNDLE_DIR` to a writable experiment directory.
    The real export entry point is repository-root `scripts/export_model.py`;
    model construction imports `fl-runtime/recipes.py`.
+   Operator metadata extraction also needs the host FlatBuffers compiler. Check
+   `flatc --version` in the environment that starts the backend/export subprocess.
+   The pinned Android ExecuTorch build supplies the host executable under
+   `$ET_BUILD/third-party/flatc_ep/bin`; add that directory to `PATH` if ExecuTorch's
+   Python package does not bundle it. The Python `flatbuffers` package alone does
+   not supply this executable. A missing compiler fails export before model
+   construction; fix the environment and start a fresh run after an immutable
+   `STAGING_FAILED` decision.
 2. Choose a reachable API origin in the phone's **Settings → Backend server URL**.
    Confirm the reachability check, then log in normally. For development USB
    routes, the API and the advertised gRPC endpoint must both map through the

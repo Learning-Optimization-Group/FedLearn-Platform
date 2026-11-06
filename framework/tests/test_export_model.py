@@ -62,6 +62,22 @@ def test_nih_export_uses_local_data_plan_batch_bound_instead_of_probe_rows(expor
     assert exporter._plan_batch_size("NIH_PNEUMONIA_CNN") == 16
 
 
+def test_missing_flatbuffers_compiler_refuses_before_building_the_model(exporter, monkeypatch, tmp_path):
+    from executorch.exir._serialize import _flatbuffer
+
+    monkeypatch.setenv("PATH", str(tmp_path))
+    monkeypatch.setattr(_flatbuffer, "_get_flatc_path", lambda: "flatc")
+
+    def unexpected_model_build(_):
+        pytest.fail("Model construction ran before the missing compiler was detected")
+
+    monkeypatch.setattr(exporter, "build_recipe_model", unexpected_model_build)
+    output = tmp_path / "bundles"
+    with pytest.raises(RuntimeError, match="FlatBuffers compiler.*flatc.*PATH"):
+        exporter.export_recipe_bundle(RUN_ID, "CNN", output)
+    assert not output.exists()
+
+
 def test_the_exported_bundle_names_its_recipe(mlp_bundle):
     _, manifest = mlp_bundle
     assert manifest["meta"]["recipe"] == "mlp"
