@@ -166,9 +166,9 @@ class FlServerManagerPortLifecycleTest {
         boolean stopped = manager.stopServerForProject(project.getId());
 
         assertTrue(stopped, "stop must report it terminated the tracked child");
-        Integer freed = ReflectionTestUtils.invokeMethod(manager, "findFreePort");
+        FlServerManager.PortReservation freed = ReflectionTestUtils.invokeMethod(manager, "findFreePort");
         assertNotNull(freed, "the port must be free again after stop");
-        assertEquals(reservedPort, freed.intValue(), "stop must release the held port back to the pool");
+        assertEquals(reservedPort, freed.port(), "stop must release the held port back to the pool");
     }
 
     /**
@@ -184,9 +184,9 @@ class FlServerManagerPortLifecycleTest {
         // Complete the child's onExit future: the watcher registered at start runs synchronously here.
         childExitFuture.complete(childHandle);
 
-        Integer freed = ReflectionTestUtils.invokeMethod(manager, "findFreePort");
+        FlServerManager.PortReservation freed = ReflectionTestUtils.invokeMethod(manager, "findFreePort");
         assertNotNull(freed, "child exit must free the port");
-        assertEquals(reservedPort, freed.intValue(), "child exit must release the held port");
+        assertEquals(reservedPort, freed.port(), "child exit must release the held port");
         assertFalse(manager.isServerRunning(project.getId()),
                 "child exit must evict the tracking entry");
         verify(runService).markFailed(project.getActiveRunId());
@@ -200,6 +200,47 @@ class FlServerManagerPortLifecycleTest {
         childExitFuture.complete(childHandle);
 
         verify(runService, never()).markFailed(any());
+    }
+
+    @Test
+    void delayedOldExitCannotReleaseTheReplacementChildsReusedPort() {
+        Project original = newProject();
+        manager.startServerForProject(original, "CNN", 1, 1);
+        // The child has ended, but its exit callback has not been delivered yet.
+        when(childHandle.isAlive()).thenReturn(false);
+        manager.stopServerForProject(original.getId());
+
+        ProcessHandle replacementHandle = mock(ProcessHandle.class);
+        CompletableFuture<ProcessHandle> replacementExit = new CompletableFuture<>();
+        when(replacementHandle.isAlive()).thenReturn(true);
+        when(replacementHandle.pid()).thenReturn(5678L);
+        when(replacementHandle.onExit()).thenReturn(replacementExit);
+        ReflectionTestUtils.setField(manager, "processRunner", new FakeRunner(new FakeChildProcess(replacementHandle)));
+        Project replacement = newProject();
+        replacement.setId(original.getId());
+        assertEquals(reservedPort, manager.startServerForProject(replacement, "CNN", 1, 1).orElseThrow());
+
+        childExitFuture.complete(childHandle);
+
+        assertTrue(manager.isServerRunning(replacement.getId()), "The replacement child must remain tracked");
+        assertThrows(IllegalStateException.class, () -> ReflectionTestUtils.invokeMethod(manager, "findFreePort"),
+                "The old exit must not release the replacement child's reservation for the same port");
+        verify(runService, never()).markFailed(any());
+        replacementExit.complete(replacementHandle);
+        assertNotNull(ReflectionTestUtils.invokeMethod(manager, "findFreePort"), "The replacement's own exit releases its reservation");
+    }
+
+    @Test
+    void replayedReleaseCannotFreeANewReservationForTheSamePort() {
+        Object original = ReflectionTestUtils.invokeMethod(manager, "findFreePort");
+        assertNotNull(original);
+        ReflectionTestUtils.invokeMethod(manager, "releasePort", original);
+        assertNotNull(ReflectionTestUtils.invokeMethod(manager, "findFreePort"));
+
+        ReflectionTestUtils.invokeMethod(manager, "releasePort", original);
+
+        assertThrows(IllegalStateException.class, () -> ReflectionTestUtils.invokeMethod(manager, "findFreePort"),
+                "Replaying an earlier release must not free the current reservation");
     }
 
     @Test
@@ -250,7 +291,8 @@ class FlServerManagerPortLifecycleTest {
         assertThrows(IllegalStateException.class, () -> manager.startServerForProject(project, "CNN", 1, 1));
         assertEquals(0, starts.get());
         assertFalse(manager.isServerRunning(project.getId()));
-        assertEquals(reservedPort, (Integer) ReflectionTestUtils.invokeMethod(manager, "findFreePort"));
+        FlServerManager.PortReservation freed = ReflectionTestUtils.invokeMethod(manager, "findFreePort");
+        assertEquals(reservedPort, freed.port());
     }
 
     // --- helpers ------------------------------------------------------------
@@ -308,7 +350,7 @@ class FlServerManagerPortLifecycleTest {
 
         @Override
         public long pid() {
-            return 1234L;
+            return handle.pid();
         }
 
         @Override

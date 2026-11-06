@@ -138,7 +138,9 @@ public class FlServerManager {
     // has not yet bound — see findFreePort/releasePort. Without this,
     // concurrent project starts can race: both probes find the same port
     // free, both close their probe socket, and both spawn Python on it.
-    private final java.util.Set<Integer> reservedPorts = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    record PortReservation(int port, UUID owner) {}
+
+    private final Map<Integer, PortReservation> reservedPorts = new ConcurrentHashMap<>();
     private final Object portReservationLock = new Object();
 
     // BA-13: the port each running project holds. A reserved port stays reserved for the CHILD'S LIFE,
@@ -146,7 +148,7 @@ public class FlServerManager {
     // slow child (torch import + model build routinely > the probe window) had not yet bound, so a
     // concurrent cross-project start could grab the same port and silently cross-wire the two servers.
     // The reservation is released when the child exits (onExit watcher) or is stopped.
-    private final Map<UUID, Integer> reservedPortByProject = new ConcurrentHashMap<>();
+    private final Map<UUID, PortReservation> reservedPortByProject = new ConcurrentHashMap<>();
 
     /**
      * Whether spawned FL servers require a verified client connection token (SE-14). Secure aggregation depends
@@ -248,11 +250,13 @@ public class FlServerManager {
                                                Integer clientsPerRound) {
         SpawnedFlProcess process = null;
         int freePort = -1;
+        PortReservation reservation = null;
         boolean started = false;   // BA-13: true once the child is tracked + holds its port for its life
         try {
             stopServerForProject(project.getId());
 
-            freePort = findFreePort();
+            reservation = findFreePort();
+            freePort = reservation.port();
             // Federation over Text (FoT) is a SEPARATE text-federation server spawned through the
             // same seam as the gradient FL server. This is purely ADDITIVE: the FoT branch selects
             // its own wrapper + flag contract, and the gradient (FedAvg/DeComFL) spawn is the
@@ -403,11 +407,11 @@ public class FlServerManager {
             // is still binding. Release it when the child exits — this same watcher also evicts the
             // tracking entry, so a mid-run crash frees the port and clears runningServers.
             final ProcessHandle trackedHandle = process.toHandle();
-            reservedPortByProject.put(project.getId(), freePort);
-            final int heldPort = freePort;
+            reservedPortByProject.put(project.getId(), reservation);
+            final PortReservation heldReservation = reservation;
             final UUID heldProject = project.getId();
             final UUID heldRun = project.getActiveRunId();
-            trackedHandle.onExit().thenRun(() -> onChildExit(heldProject, heldRun, trackedHandle, heldPort));
+            trackedHandle.onExit().thenRun(() -> onChildExit(heldProject, heldRun, trackedHandle, heldReservation));
             captureStartup.set(false);   // startup done — stop growing startupOutput for the child's run
             started = true;   // the finally must NOT release the port now; the watcher/stop owns it
             log.info("Started FL server for project {} on port {}", project.getId(), freePort);
@@ -431,8 +435,8 @@ public class FlServerManager {
             // dead or was never spawned, so no one holds the port. On SUCCESS the port stays reserved
             // for the child's life (released by the onExit watcher or stopServerForProject); freeing it
             // here on a fixed timer, before a slow child bound, was the cross-project port-collision bug.
-            if (freePort != -1 && !started) {
-                releasePort(freePort);
+            if (!started) {
+                releasePort(reservation);
             }
         }
     }
@@ -443,16 +447,12 @@ public class FlServerManager {
      * restart that already replaced them is not disturbed. Idempotent and safe to run concurrently with
      * {@link #stopServerForProject} (both release/evict the same port/entry).
      */
-    private void onChildExit(UUID projectId, UUID runId, ProcessHandle handle, int port) {
+    private void onChildExit(UUID projectId, UUID runId, ProcessHandle handle, PortReservation reservation) {
         boolean unexpectedExit = runningServers.remove(projectId, handle);
-        // Release the port ONLY if THIS project still holds THIS port. A prior stop (which already
-        // released it) or a RESTART that re-reserved the same port under a new child must not have its
-        // reservation freed by this old child's late-firing exit callback — releasePort is an
-        // unconditional set removal, so gating it on the conditional map remove is what makes the whole
-        // release path race-safe.
-        if (reservedPortByProject.remove(projectId, Integer.valueOf(port))) {
-            releasePort(port);
-            log.debug("FL server child for project {} exited; released port {}", projectId, port);
+        // Both indexes compare the reservation identity: a replacement may hold the same numeric port.
+        reservedPortByProject.remove(projectId, reservation);
+        if (releasePort(reservation)) {
+            log.debug("FL server child for project {} exited; released port {}", projectId, reservation.port());
         }
         // An unrequested exit after the short startup probe is still a failure. The run service's
         // terminal guard preserves COMPLETED when the server already delivered its /finished callback.
@@ -968,10 +968,8 @@ public class FlServerManager {
         runTokenRegistry.evictForProject(projectId);   // SE-7: invalidate this run's internal token
         // BA-13: free the port this project's child held (it is reserved for the child's life now, not
         // just the startup probe). Idempotent with the onExit watcher that also fires on destroyForcibly.
-        Integer heldPort = reservedPortByProject.remove(projectId);
-        if (heldPort != null) {
-            releasePort(heldPort);
-        }
+        PortReservation reservation = reservedPortByProject.remove(projectId);
+        releasePort(reservation);
         ProcessHandle handle = runningServers.remove(projectId);
         if (handle != null && handle.isAlive()) {
             log.info("Stopping FL server for project {}", projectId);
@@ -1053,18 +1051,19 @@ public class FlServerManager {
      * Reserve a free port in [portRangeStart, portRangeEnd]. The port is
      * tracked in {@link #reservedPorts} so concurrent callers cannot pick
      * the same port between probe-close and Python bind. Callers MUST call
-     * {@link #releasePort(int)} once the spawned process has bound or has
-     * failed to start.
+     * {@link #releasePort(PortReservation)} when the owning child exits, is stopped,
+     * or fails to start.
      */
-    private int findFreePort() {
+    private PortReservation findFreePort() {
         synchronized (portReservationLock) {
             for (int port = portRangeStart; port <= portRangeEnd; port++) {
-                if (reservedPorts.contains(port)) {
+                if (reservedPorts.containsKey(port)) {
                     continue;
                 }
                 if (isPortFree(port)) {
-                    reservedPorts.add(port);
-                    return port;
+                    PortReservation reservation = new PortReservation(port, UUID.randomUUID());
+                    reservedPorts.put(port, reservation);
+                    return reservation;
                 }
             }
             throw new IllegalStateException(
@@ -1092,8 +1091,8 @@ public class FlServerManager {
         }
     }
 
-    private void releasePort(int port) {
-        reservedPorts.remove(port);
+    private boolean releasePort(PortReservation reservation) {
+        return reservation != null && reservedPorts.remove(reservation.port(), reservation);
     }
 
     private long stopWaitSeconds() {
