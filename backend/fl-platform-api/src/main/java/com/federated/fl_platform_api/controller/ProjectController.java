@@ -83,8 +83,10 @@ public class ProjectController {
     }
 
     @GetMapping("/{projectId}/results")
-    public ResponseEntity<List<RoundResultDto>> getProjectResults(@PathVariable @NonNull UUID projectId) {
-        return ResponseEntity.ok(projectService.getResultsForProject(projectId));
+    public ResponseEntity<List<RoundResultDto>> getProjectResults(
+            @PathVariable @NonNull UUID projectId,
+            @RequestParam(required = false) UUID runId) {
+        return ResponseEntity.ok(projectService.getResultsForProject(projectId, runId));
     }
 
     /**

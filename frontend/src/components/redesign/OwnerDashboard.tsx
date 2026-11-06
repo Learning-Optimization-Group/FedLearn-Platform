@@ -6,7 +6,7 @@
 // approvals, membership management, request-deletion). Reuses ProjectCard and
 // the shared project lifecycle (WebSocket status, start/stop, edit, results, logs).
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Search, AlertCircle, FolderPlus } from 'lucide-react';
 import * as api from '../../services/apiServices';
 import type { OwnedProject, ProjectResult, Project } from '../../services/apiServices';
@@ -37,8 +37,8 @@ export function OwnerDashboard() {
 
     const [logViewProjectId, setLogViewProjectId] = useState<string | null>(null);
     const [resultsProject, setResultsProject] = useState<{ id: string; name: string } | null>(null);
-    const [results, setResults] = useState<ProjectResult[]>([]);
     const [resultsMap, setResultsMap] = useState<Record<string, ProjectResult[]>>({});
+    const resultRequests = useRef<Record<string, number>>({});
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
@@ -55,6 +55,16 @@ export function OwnerDashboard() {
     // Project ids with a deletion request awaiting platform-admin approval.
     const [pendingDeletions, setPendingDeletions] = useState<Record<string, boolean>>({});
 
+    const refreshResults = useCallback(async (projectId: string, clear = false) => {
+        const generation = (resultRequests.current[projectId] ?? 0) + 1;
+        resultRequests.current[projectId] = generation;
+        if (clear) setResultsMap((prev) => ({ ...prev, [projectId]: [] }));
+        const response = await api.fetchProjectResults(projectId);
+        if (resultRequests.current[projectId] === generation) {
+            setResultsMap((prev) => ({ ...prev, [projectId]: response.data }));
+        }
+    }, []);
+
     const loadProjects = useCallback(async () => {
         try {
             setIsLoading(true);
@@ -63,17 +73,7 @@ export function OwnerDashboard() {
             setProjects(loaded);
             setError('');
             if (loaded.length > 0) {
-                Promise.allSettled(
-                    loaded.map((p) =>
-                        api.fetchProjectResults(p.id).then((res) => ({ id: p.id, results: res.data })),
-                    ),
-                ).then((resultsData) => {
-                    const newMap: Record<string, ProjectResult[]> = {};
-                    resultsData.forEach((r) => {
-                        if (r.status === 'fulfilled') newMap[r.value.id] = r.value.results;
-                    });
-                    setResultsMap((prev) => ({ ...prev, ...newMap }));
-                });
+                void Promise.allSettled(loaded.map((p) => refreshResults(p.id)));
 
                 // Which projects already have a pending deletion request, so the
                 // card shows the pending state instead of "Request deletion".
@@ -98,7 +98,7 @@ export function OwnerDashboard() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [refreshResults]);
 
     useEffect(() => {
         loadProjects();
@@ -117,12 +117,11 @@ export function OwnerDashboard() {
                         : p,
                 ),
             );
+            void refreshResults(update.projectId, true).catch((err) => log.error('Could not refresh results', err));
         },
-        onResult: (projectId, result) => {
-            setResultsMap((prev) => ({
-                ...prev,
-                [projectId]: [...(prev[projectId] || []), result],
-            }));
+        onResult: (projectId) => {
+            // A push has no run identity; reload the authoritative current-run curve.
+            void refreshResults(projectId).catch((err) => log.error('Could not refresh results', err));
         },
     });
 
@@ -162,6 +161,7 @@ export function OwnerDashboard() {
         // the backend detail inline; the modal is only closed here on success.
         const res = await api.startProjectServer(projectId, config);
         setProjects((prev) => prev.map((p) => (p.id === res.data.id ? { ...p, ...res.data } : p)));
+        void refreshResults(projectId, true).catch((err) => log.error('Could not refresh results', err));
         setIsStartModalOpen(false);
         setStartProject(null);
     };
@@ -202,8 +202,7 @@ export function OwnerDashboard() {
 
     const handleOpenResults = async (project: OwnedProject) => {
         try {
-            const res = await api.fetchProjectResults(project.id);
-            setResults(res.data);
+            await refreshResults(project.id);
             setResultsProject({ id: project.id, name: project.name });
         } catch {
             setError('Could not fetch results.');
@@ -368,7 +367,7 @@ export function OwnerDashboard() {
                 isOpen={!!resultsProject}
                 onClose={() => setResultsProject(null)}
                 projectName={resultsProject?.name || ''}
-                results={results}
+                results={resultsProject ? resultsMap[resultsProject.id] || [] : []}
             />
         </div>
     );

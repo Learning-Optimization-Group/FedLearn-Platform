@@ -26,6 +26,7 @@ import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.orchestration.FlServerManager;
 import com.federated.fl_platform_api.repository.RoundResultRepository;
+import com.federated.fl_platform_api.repository.RunRepository;
 import com.federated.fl_platform_api.security.InternalCallbackAuthorization;
 import com.federated.fl_platform_api.security.InternalCallbackContext;
 import jakarta.persistence.EntityManager;
@@ -72,6 +73,8 @@ public class ProjectService {
     private ProjectMembershipRepository membershipRepository;
     @Autowired
     private RoundResultRepository roundResultRepository;
+    @Autowired
+    private RunRepository runRepository;
     @Autowired
     private WebSocketService webSocketService;
     @Autowired
@@ -736,11 +739,22 @@ public class ProjectService {
     }
 
     public List<RoundResultDto> getResultsForProject(@NonNull UUID projectId) {
+        return getResultsForProject(projectId, null);
+    }
+
+    public List<RoundResultDto> getResultsForProject(@NonNull UUID projectId, UUID runId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
         authz.requireOrgScope(project.getOrgId());
         authz.requireOwnerOrAdmin(project);
-        return roundResultRepository.findByProjectIdOrderByServerRoundAsc(projectId).stream()
+        UUID selectedRunId = runId == null ? project.getActiveRunId() : runId;
+        if (selectedRunId != null) {
+            runRepository.findById(selectedRunId)
+                    .filter(run -> projectId.equals(run.getProjectId()))
+                    .orElseThrow(() -> ResourceNotFoundException.run(selectedRunId));
+        }
+        // Without a run pointer, retain access only to pre-run legacy results.
+        return roundResultRepository.findByProjectIdAndRunIdOrderByServerRoundAsc(projectId, selectedRunId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }

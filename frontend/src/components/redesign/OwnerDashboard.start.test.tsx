@@ -17,6 +17,7 @@ vi.mock('../../services/apiServices', async (importOriginal) => {
     fetchOwnedProjects: vi.fn(),
     fetchProjectResults: vi.fn(),
     fetchProjectDeletionRequest: vi.fn(),
+    fetchModelRecipes: vi.fn(),
     startProjectServer: vi.fn(),
   };
 });
@@ -84,6 +85,7 @@ describe('OwnerDashboard — a failed start propagates into the modal (FE-4)', (
     vi.mocked(api.fetchOwnedProjects).mockResolvedValue(resp([PROJECT]));
     vi.mocked(api.fetchProjectResults).mockResolvedValue(resp([]));
     vi.mocked(api.fetchProjectDeletionRequest).mockResolvedValue(resp(''));
+    vi.mocked(api.fetchModelRecipes).mockResolvedValue(resp([]));
   });
 
   it('keeps the modal open with the backend detail inline — not on the route behind it', async () => {

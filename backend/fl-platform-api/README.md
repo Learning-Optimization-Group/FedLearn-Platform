@@ -152,7 +152,7 @@ Platform roles map to `ROLE_*` authorities and are reloaded from the database on
 | GET | `/api/projects/discover` | Discoverable (`PUBLIC` + `RESTRICTED`) projects |
 | GET / **PATCH** | `/api/projects/{id}` | Read / partial update (**there is no `PUT`**) |
 | POST | `/api/projects/{id}/start` \| `/stop` | Spawn / kill the FL server |
-| GET | `/api/projects/{id}/results` | Round-by-round metrics |
+| GET | `/api/projects/{id}/results` | Current-run metrics; optional `?runId={uuid}` selects a same-project historical run. Without an active run, returns only unbound legacy metrics. Owner/admin access required. |
 | GET | `/api/projects/{id}/logs` | Paged log history (`?page=&size=`, default 200); live stream is over WebSocket |
 | GET | `/api/projects/{id}/logs/export` | Whole log as a `text/plain` attachment |
 | POST / GET | `/api/projects/{id}/deletion-request` | Owner files for deletion / reads its status |

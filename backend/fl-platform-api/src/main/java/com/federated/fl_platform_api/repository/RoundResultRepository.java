@@ -11,5 +11,7 @@ public interface RoundResultRepository extends JpaRepository<RoundResult, UUID> 
 
     List<RoundResult> findByProjectIdOrderByServerRoundAsc(UUID projectId);
 
+    List<RoundResult> findByProjectIdAndRunIdOrderByServerRoundAsc(UUID projectId, UUID runId);
+
     Optional<RoundResult> findByRunIdAndServerRound(UUID runId, Integer serverRound);
 }
