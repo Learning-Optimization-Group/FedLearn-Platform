@@ -22,7 +22,7 @@ class ArtifactDownloadException(val code: String, message: String) : IOException
  * `artifacts/quarantine/`. A partial file resumes with `Range` only when the server's validator from the first
  * attempt is held and still matches (`If-Range`); otherwise it restarts from zero.
  *
- * The OkHttp client is injected, so production can pass React Native's shared client and its session cookie jar.
+ * The injected client supplies request-scoped authentication without an ambient cookie jar.
  */
 class ArtifactDownloader(
     private val client: OkHttpClient,

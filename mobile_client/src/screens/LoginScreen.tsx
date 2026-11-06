@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -6,12 +6,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronDown, ChevronRight, Server, Eye, EyeOff, Check } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { useThemeTokens } from '../theme/useThemeTokens';
-import { getServerBaseUrl, setServerBaseUrl } from '../lib/serverConfig';
-import {
-  getSavedCredentials,
-  saveCredentials,
-  clearSavedCredentials,
-} from '../lib/credentialStore';
+import { getServerBaseUrl, normalizeBaseUrl, setServerBaseUrl } from '../lib/serverConfig';
+import { getSavedCredentials } from '../lib/credentialStore';
 import type { RootStackParamList } from '../navigation/types';
 
 export default function LoginScreen() {
@@ -27,40 +23,79 @@ export default function LoginScreen() {
   const [showServer, setShowServer] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [savePassword, setSavePassword] = useState(false);
+  const formOrigin = useRef<string | null>(null);
+  const formVersion = useRef(0);
 
   // On mount: prefill the server URL (persisted or default) and any saved credentials.
   useEffect(() => {
-    void getServerBaseUrl().then(setServerUrl);
-    void getSavedCredentials().then((creds) => {
-      if (creds) {
-        setUsername(creds.username);
-        setPassword(creds.password);
-        setSavePassword(true);
-      }
-    });
+    const version = formVersion.current;
+    let mounted = true;
+    void getServerBaseUrl().then(async (base) => {
+      if (!mounted || version !== formVersion.current) return;
+      const origin = normalizeBaseUrl(base);
+      formOrigin.current = origin;
+      setServerUrl(origin);
+      const credentials = await getSavedCredentials(origin);
+      if (!mounted || version !== formVersion.current || formOrigin.current !== origin || !credentials) return;
+      setUsername(credentials.username);
+      setPassword(credentials.password);
+      setSavePassword(true);
+    }).catch(() => { if (mounted) setError('Could not load saved server settings.'); });
+    return () => { mounted = false; };
   }, []);
 
+  const onServerChange = (value: string) => {
+    let origin: string | null = null;
+    try { origin = normalizeBaseUrl(value); } catch { /* Do not preserve a password for an incomplete authority. */ }
+    if (origin !== formOrigin.current) {
+      formVersion.current++;
+      formOrigin.current = origin;
+      setUsername('');
+      setPassword('');
+      setSavePassword(false);
+      setError(null);
+    }
+    setServerUrl(value);
+  };
+
   const onSubmit = async () => {
+    let origin: string;
+    try { origin = normalizeBaseUrl(serverUrl); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Enter a valid server URL.'); return; }
+    if (origin !== formOrigin.current) {
+      setPassword('');
+      setError('Enter credentials for this server.');
+      return;
+    }
+    if (!username.trim() || !password) { setError('Enter your username and password.'); return; }
     setBusy(true);
     setError(null);
     try {
       // Point the REST client at the entered backend BEFORE logging in, so the credentials
       // and the resulting token go to the host the user actually chose (not a stale default).
       try {
-        await setServerBaseUrl(serverUrl.trim());
+        await setServerBaseUrl(origin);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Enter a valid server URL.');
         return;
       }
-      await login(username.trim(), password);
-      // Persist or forget the password per the opt-in — only after a successful sign-in.
-      if (savePassword) {
-        await saveCredentials({ username: username.trim(), password });
-      } else {
-        await clearSavedCredentials();
-      }
+      await login(username.trim(), password, savePassword);
     } catch {
       setError('Sign-in failed. Check your username and password.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onCreateAccount = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const origin = await setServerBaseUrl(normalizeBaseUrl(serverUrl));
+      setServerUrl(origin);
+      navigation.navigate('Register');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save the server settings.');
     } finally {
       setBusy(false);
     }
@@ -102,7 +137,8 @@ export default function LoginScreen() {
               autoCorrect={false}
               keyboardType="url"
               value={serverUrl}
-              onChangeText={setServerUrl}
+              onChangeText={onServerChange}
+              editable={!busy}
               placeholder="https://your-backend.example.com"
               placeholderTextColor={colors['fg-subtle']}
             />
@@ -119,7 +155,8 @@ export default function LoginScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           value={username}
-          onChangeText={setUsername}
+          onChangeText={(value) => { formVersion.current++; setUsername(value); }}
+          editable={!busy}
         />
 
         <Text className="text-label font-sans text-fg-muted">Password</Text>
@@ -129,7 +166,8 @@ export default function LoginScreen() {
             accessibilityLabel="Password"
             secureTextEntry={!showPassword}
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(value) => { formVersion.current++; setPassword(value); }}
+            editable={!busy}
           />
           <Pressable
             accessibilityRole="button"
@@ -179,7 +217,7 @@ export default function LoginScreen() {
           className="mt-3 py-2 items-center active:opacity-80"
           hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}
           disabled={busy}
-          onPress={() => navigation.navigate('Register')}>
+          onPress={onCreateAccount}>
           <Text className="text-caption font-sans text-fg-muted">
             No account? <Text className="text-accent">Create one</Text>
           </Text>

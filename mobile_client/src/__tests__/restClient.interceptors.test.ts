@@ -1,107 +1,93 @@
-import {
-  api,
-  setAuthLostHandler,
-  NATIVE_CLIENT_HEADER,
-  NATIVE_CLIENT_VALUE,
-} from '../lib/restClient';
+import EncryptedStorage from 'react-native-encrypted-storage';
+import { api, configureApi, setAuthLostHandler } from '../lib/restClient';
+import { clearToken, getToken, setToken } from '../lib/authStore';
 import { stompAuthHeaders } from '../lib/stompClient';
-import * as authStore from '../lib/authStore';
 
-jest.mock('../lib/authStore');
-// stompClient pulls in serverConfig (native encrypted storage) — not needed for the
-// pure header-builder under test here.
-jest.mock('../lib/serverConfig', () => ({ getServerBaseUrl: jest.fn() }));
-const store = authStore as jest.Mocked<typeof authStore>;
+jest.mock('react-native-encrypted-storage', () => {
+  const values = new Map<string, string>();
+  return {
+    getItem: jest.fn(async (key: string) => values.get(key) ?? null),
+    setItem: jest.fn(async (key: string, value: string) => { values.set(key, value); }),
+    removeItem: jest.fn(async (key: string) => { values.delete(key); }),
+    clear: jest.fn(async () => { values.clear(); }),
+  };
+});
+const ORIGIN = 'https://issuer.example.invalid';
+const TOKEN = 'placeholder-session-token';
 
-// Axios's public TS types don't expose InterceptorManager's internal `.handlers` array — reaching
-// into it is the simplest way to invoke a registered interceptor directly, without a live network
-// call. These describe only the shape restClient.ts's own interceptors actually consume/return.
-interface RequestInterceptors {
-  handlers: Array<{
-    fulfilled: (config: {
-      headers: Record<string, string>;
-      url?: string;
-    }) => Promise<{ headers: Record<string, string> }>;
-  }>;
-}
-interface ResponseInterceptors {
-  handlers: Array<{
-    rejected: (error: {
-      response?: { status: number };
-      config?: { url?: string };
-    }) => Promise<never>;
-  }>;
-}
+beforeEach(async () => {
+  jest.clearAllMocks();
+  await EncryptedStorage.clear();
+  configureApi(ORIGIN);
+  await setToken(TOKEN, ORIGIN);
+});
+afterEach(() => { setAuthLostHandler(null); });
 
-describe('restClient interceptors', () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  test('request interceptor attaches Bearer when a token exists', async () => {
-    store.getToken.mockResolvedValue('jwt-xyz');
-    // Run the request interceptor directly against a config object.
-    const handler = (api.interceptors.request as unknown as RequestInterceptors).handlers[0]!.fulfilled;
-    const cfg = await handler({ headers: {}, url: '/api/client/projects' });
-    expect(cfg.headers.Authorization).toBe('Bearer jwt-xyz');
-  });
-
-  test('request interceptor omits Bearer when no token', async () => {
-    store.getToken.mockResolvedValue(null);
-    const handler = (api.interceptors.request as unknown as RequestInterceptors).handlers[0]!.fulfilled;
-    const cfg = await handler({ headers: {}, url: '/api/client/projects' });
-    expect(cfg.headers.Authorization).toBeUndefined();
-  });
-
-  test('401 (non-probe) clears token and signals auth-lost', async () => {
-    const onLost = jest.fn();
-    setAuthLostHandler(onLost);
-    const rejected = (api.interceptors.response as unknown as ResponseInterceptors).handlers[0]!.rejected;
-    await expect(
-      rejected({ response: { status: 401 }, config: { url: '/api/projects' } }),
-    ).rejects.toBeDefined();
-    expect(store.clearToken).toHaveBeenCalled();
-    expect(onLost).toHaveBeenCalled();
-  });
-
-  test('401 on /auth/me probe does NOT signal auth-lost', async () => {
-    const onLost = jest.fn();
-    setAuthLostHandler(onLost);
-    const rejected = (api.interceptors.response as unknown as ResponseInterceptors).handlers[0]!.rejected;
-    await expect(
-      rejected({ response: { status: 401 }, config: { url: '/api/auth/me' } }),
-    ).rejects.toBeDefined();
-    expect(onLost).not.toHaveBeenCalled();
-  });
+test('outbound native requests carry the bound Bearer and native-client marker', async () => {
+  let headers: Record<string, unknown> = {};
+  await api.get('/api/client/projects', { adapter: async (config) => {
+    headers = config.headers.toJSON();
+    return { data: {}, status: 200, statusText: 'OK', headers: {}, config };
+  } });
+  expect(headers.Authorization).toBe('Bearer ' + TOKEN);
+  expect(headers['X-FedLearn-Client']).toBe('fedlearn-mobile');
 });
 
-// SE-9: the backend honors `Authorization: Bearer` only when the request also carries the
-// X-FedLearn-Client marker (browsers stay cookie-only). Every mobile request must send it.
-describe('native-client marker (SE-9)', () => {
-  beforeEach(() => jest.clearAllMocks());
+test('a signed-out native request keeps its marker without inheriting Authorization', async () => {
+  await clearToken();
+  let headers: Record<string, unknown> = {};
+  await api.get('/api/client/projects', { adapter: async (config) => {
+    headers = config.headers.toJSON();
+    return { data: {}, status: 200, statusText: 'OK', headers: {}, config };
+  } });
+  expect(headers.Authorization).toBeUndefined();
+  expect(headers['X-FedLearn-Client']).toBe('fedlearn-mobile');
+});
 
-  test('X-FedLearn-Client is a shared default header on the api instance', () => {
-    expect(NATIVE_CLIENT_HEADER).toBe('X-FedLearn-Client');
-    expect(api.defaults.headers.common[NATIVE_CLIENT_HEADER]).toBe('fedlearn-mobile');
-  });
+test('401 for the presented current session removes that credential and signals auth loss', async () => {
+  const onLost = jest.fn();
+  setAuthLostHandler(onLost);
+  await expect(api.get('/api/projects', { adapter: async (config) => {
+    throw { response: { status: 401 }, config };
+  } })).rejects.toBeDefined();
+  await expect(getToken(ORIGIN)).resolves.toBeNull();
+  expect(onLost).toHaveBeenCalledTimes(1);
+});
 
-  test('an outbound request carries the marker alongside the Bearer token', async () => {
-    store.getToken.mockResolvedValue('jwt-xyz');
-    let seen: { get(name: string): unknown } | null = null;
-    // Stub adapter — captures the fully-merged headers without touching the network.
-    await api.get('/api/client/projects', {
-      adapter: async (config) => {
-        seen = config.headers as unknown as { get(name: string): unknown };
-        return { data: {}, status: 200, statusText: 'OK', headers: {}, config };
-      },
-    });
-    expect(seen!.get(NATIVE_CLIENT_HEADER)).toBe(NATIVE_CLIENT_VALUE);
-    expect(seen!.get('Authorization')).toBe('Bearer jwt-xyz');
-  });
+test('a failed silent session probe leaves sign-in recovery to its caller', async () => {
+  const onLost = jest.fn();
+  setAuthLostHandler(onLost);
+  await expect(api.get('/api/auth/me', { adapter: async (config) => {
+    throw { response: { status: 401 }, config };
+  } })).rejects.toBeDefined();
+  await expect(getToken(ORIGIN)).resolves.toBe(TOKEN);
+  expect(onLost).not.toHaveBeenCalled();
+});
 
-  test('STOMP headers (WS upgrade + CONNECT frame) carry the marker with and without a token', () => {
-    expect(stompAuthHeaders('jwt-xyz')).toEqual({
-      [NATIVE_CLIENT_HEADER]: NATIVE_CLIENT_VALUE,
-      Authorization: 'Bearer jwt-xyz',
-    });
-    expect(stompAuthHeaders(null)).toEqual({ [NATIVE_CLIENT_HEADER]: NATIVE_CLIENT_VALUE });
+test('an unauthenticated foreign response cannot sign out the configured backend', async () => {
+  const onLost = jest.fn();
+  setAuthLostHandler(onLost);
+  await expect(api.get('https://other.example.invalid/api/projects', { adapter: async (config) => {
+    expect(config.headers.get('Authorization')).toBeUndefined();
+    throw { response: { status: 401 }, config };
+  } })).rejects.toBeDefined();
+  await expect(getToken(ORIGIN)).resolves.toBe(TOKEN);
+  expect(onLost).not.toHaveBeenCalled();
+});
+
+test('callers cannot restore ambient cookies or substitute an unscoped Authorization header', async () => {
+  await api.get('/api/projects', { headers: { Cookie: 'jwtToken=placeholder-cookie', Authorization: 'Bearer placeholder-foreign' },
+    withCredentials: true, adapter: async (config) => {
+      expect(config.withCredentials).toBe(false);
+      expect(config.headers.get('Cookie')).toBeUndefined();
+      expect(config.headers.get('Authorization')).toBe('Bearer ' + TOKEN);
+      return { data: {}, status: 200, statusText: 'OK', headers: {}, config };
+    } });
+});
+
+test('STOMP upgrade and CONNECT headers use the native-client authentication contract', () => {
+  expect(stompAuthHeaders(TOKEN)).toEqual({
+    'X-FedLearn-Client': 'fedlearn-mobile', Authorization: 'Bearer ' + TOKEN,
   });
+  expect(stompAuthHeaders(null)).toEqual({ 'X-FedLearn-Client': 'fedlearn-mobile' });
 });

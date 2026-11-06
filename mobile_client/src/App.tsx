@@ -1,13 +1,13 @@
 import './theme/global.css'; // NativeWind: load the Tailwind layers
-import React, { useEffect } from 'react';
-import { StatusBar } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, StatusBar, Text, TextInput, View } from 'react-native';
 import { useColorScheme } from 'nativewind';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DarkTheme, DefaultTheme, NavigationContainer, type Theme } from '@react-navigation/native';
 
 import { AuthProvider } from './context/AuthContext';
 import RootNavigator from './navigation/RootNavigator';
-import { initServerConfig } from './lib/serverConfig';
+import { initServerConfig, recoverServerConfig } from './lib/serverConfig';
 import { tokens } from './theme/tokens.generated';
 
 // Navigation chrome (stack/tab backgrounds, headers, borders) themed from the same generated
@@ -43,20 +43,63 @@ const darkNavTheme = buildNavTheme(DarkTheme, tokens.colorDark);
 
 export default function App() {
   const { colorScheme } = useColorScheme();
+  const [configuration, setConfiguration] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const [attempt, setAttempt] = useState(0);
+  const [recoveryUrl, setRecoveryUrl] = useState('');
+  const [recovering, setRecovering] = useState(false);
+  const [recoveryError, setRecoveryError] = useState('');
+  const recover = async () => {
+    setRecovering(true);
+    setRecoveryError('');
+    try {
+      await recoverServerConfig(recoveryUrl);
+      setConfiguration('ready');
+    } catch {
+      setRecoveryError('Could not save this server and clear the previous sign-in. Try again.');
+    } finally { setRecovering(false); }
+  };
   // Bind the REST client to the persisted backend URL (Settings → Backend server) before any call.
   useEffect(() => {
-    void initServerConfig().catch(() => {});
-  }, []);
+    let mounted = true;
+    setConfiguration('loading');
+    void initServerConfig().then(
+      () => { if (mounted) setConfiguration('ready'); },
+      () => { if (mounted) setConfiguration('failed'); },
+    );
+    return () => { mounted = false; };
+  }, [attempt]);
 
   return (
     <SafeAreaProvider>
       {/* Match the status bar to the OS scheme: dark glyphs on the light canvas, light on dark. */}
       <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
-      <AuthProvider>
+      {configuration !== 'ready' ? (
+        <View className="flex-1 bg-canvas items-center justify-center px-6">
+          {configuration === 'loading' ? <>
+            <ActivityIndicator />
+            <Text className="mt-3 text-body text-fg">Loading saved settings…</Text>
+          </> : <>
+            <Text className="text-body text-fg">Could not load saved server settings.</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Retry loading settings"
+              disabled={recovering} className="mt-4 px-5 py-3 rounded-md bg-accent" onPress={() => setAttempt((value) => value + 1)}>
+              <Text className="text-label text-accent-fg">Retry</Text>
+            </Pressable>
+            <Text className="mt-6 text-body text-fg">Or choose a server and sign in again. Saved sign-in details will be cleared; datasets stay on this device.</Text>
+            <TextInput accessibilityLabel="Recovery server URL" value={recoveryUrl} onChangeText={setRecoveryUrl}
+              autoCapitalize="none" autoCorrect={false} keyboardType="url" editable={!recovering}
+              placeholder="https://your-backend.example.com" className="mt-3 w-full px-3 py-2 rounded-md bg-surface-2 text-fg" />
+            <Pressable accessibilityRole="button" accessibilityLabel="Use recovery server" disabled={recovering}
+              className="mt-3 px-5 py-3 rounded-md bg-accent" onPress={() => { void recover(); }}>
+              <Text className="text-label text-accent-fg">{recovering ? 'Saving…' : 'Use this server'}</Text>
+            </Pressable>
+            {!!recoveryError && <Text className="mt-3 text-body text-danger">{recoveryError}</Text>}
+          </>}
+        </View>
+      ) : <AuthProvider>
         <NavigationContainer theme={colorScheme === 'dark' ? darkNavTheme : lightNavTheme}>
           <RootNavigator />
         </NavigationContainer>
-      </AuthProvider>
+      </AuthProvider>}
     </SafeAreaProvider>
   );
 }

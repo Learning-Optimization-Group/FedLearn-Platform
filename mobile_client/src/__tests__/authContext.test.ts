@@ -1,5 +1,6 @@
 import { api } from '../lib/restClient';
 import * as authStore from '../lib/authStore';
+import { publishBackendOrigin } from '../lib/backendScope';
 import { performLogin, performRegister, probeSession } from '../context/AuthContext';
 
 jest.mock('../lib/restClient', () => ({ api: { post: jest.fn(), get: jest.fn() }, setAuthLostHandler: jest.fn() }));
@@ -8,13 +9,16 @@ const store = authStore as jest.Mocked<typeof authStore>;
 const mApi = api as unknown as { post: jest.Mock; get: jest.Mock };
 
 describe('AuthContext logic', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.resetAllMocks();
+    publishBackendOrigin('https://issuer.example.invalid');
+  });
 
   test('performLogin posts credentials, stores the body token, returns identity', async () => {
     mApi.post.mockResolvedValue({ data: { accessToken: 'jwt-1', username: 'alice' } });
     const id = await performLogin('alice', 'pw');
-    expect(mApi.post).toHaveBeenCalledWith('/api/auth/login', { username: 'alice', password: 'pw' });
-    expect(store.setToken).toHaveBeenCalledWith('jwt-1');
+    expect(mApi.post).toHaveBeenCalledWith('/api/auth/login', { username: 'alice', password: 'pw' }, { baseURL: 'https://issuer.example.invalid' });
+    expect(store.setToken.mock.calls[0]?.slice(0, 2)).toEqual(['jwt-1', 'https://issuer.example.invalid']);
     expect(id.username).toBe('alice');
   });
 
@@ -50,12 +54,12 @@ describe('AuthContext logic', () => {
       username: 'bob',
       email: 'bob@example.com',
       password: 'sekret1',
-    });
+    }, { baseURL: 'https://issuer.example.invalid' });
     expect(mApi.post).toHaveBeenNthCalledWith(2, '/api/auth/login', {
       username: 'bob',
       password: 'sekret1',
-    });
-    expect(store.setToken).toHaveBeenCalledWith('jwt-2');
+    }, { baseURL: 'https://issuer.example.invalid' });
+    expect(store.setToken.mock.calls[0]?.slice(0, 2)).toEqual(['jwt-2', 'https://issuer.example.invalid']);
     expect(id.username).toBe('bob');
   });
 
