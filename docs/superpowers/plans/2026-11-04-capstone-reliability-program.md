@@ -92,7 +92,8 @@ Backend continuation requirements, before wiring the public resume action:
 
 - [ ] Add generated-data real-process fault cases for upload, response loss, process exit, API/server restart and deadline.
 - [ ] Add a CI smoke gate that does real training and checks committed state, contribution uniqueness and cleanup.
-- [ ] Build/install with persistent signing material, qualify HTTPS enrollment/TLS training, then same-key update and unchanged dataset hashes.
+- [x] Build/install with retained qualification signing material, qualify HTTPS enrollment/TLS training, then same-key update and unchanged dataset hashes. Production distribution identity/backup remains separate.
+- [x] Qualify physical signed-app refusals for wrong gRPC hostname, untrusted gRPC certificate and plaintext training, with live-listener controls, required token authentication and zero accepted updates/results; restore the original transport environment.
 - [ ] Run bounded physical Wi-Fi/screen-off and fault checks with retained failed outcomes.
 
 ## Task 6: Profile and improve distributed execution (area 5)

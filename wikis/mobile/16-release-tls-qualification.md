@@ -6,6 +6,23 @@ CNN/FULL/LOCAL_SNAPSHOT/FedAvg with one powered phone and one Linux client, thre
 rounds and 32 disjoint CIFAR images per participant. Exercise DeComFL only after
 this first path works.
 
+The 6 November physical qualification completed this CNN path using two disjoint
+32-example synthetic image datasets, the signed qualification package and a
+Linux client. Three rounds produced six unique contributions; independent
+averaging reproduced the registered final model exactly. The same-key version-2
+update retained the account, settings, dataset and receipts, then completed a new
+two-client round. A controlled app interruption required an explicit rejoin.
+One coefficient failed the original float32 reference tolerance; its failure is
+retained, alongside a separate passing higher-precision diagnostic comparison.
+
+The signed app also refused wrong gRPC hostname, untrusted gRPC certificate and
+plaintext training controls, each against a reachable listener with token
+authentication enabled and zero accepted updates/results. The baseline transport
+configuration was restored; all 36 original-app dataset hashes still matched.
+These results use a retained qualification-only signer and an isolated development
+API profile. Production signing/backup, production-profile deployment, physical
+untrusted-HTTPS and device network/screen-off faults remain separate checks.
+
 ## Trust and identity prerequisites
 
 There are three different identities:
