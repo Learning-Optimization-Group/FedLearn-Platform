@@ -136,6 +136,19 @@ any qualification-only packaging difference. Never uninstall or clear the curren
 app to work around the signature mismatch. A separate staging package cannot
 qualify migration of the original Debug app's data.
 
+Build an isolated test installation with `-PfedlearnQualification=true`. This
+selects package `com.fedlearn.mobile.qualification`, the label **FedLearn
+Qualification**, and a qualification version-name suffix. The Kotlin/JNI namespace,
+Release signing gate and transport policy remain the same. Omit this property for
+the original production package. Use `-PfedlearnVersionCode=1` for the first test
+APK and `-PfedlearnVersionCode=2` for its same-key update. Version codes must be
+positive integers within the [Android publishing range](https://developer.android.com/studio/publish/versioning).
+
+Run `python mobile_client/scripts/check_android_packaging.py` after installing the
+Android and React Native build dependencies. It checks real Gradle configuration
+for both identities and invalid inputs. It builds and installs no APK; inspect
+the merged manifest, signer and packaged artifacts before installation.
+
 Keep the signing key between the first install and the update test. A disposable
 test signer can qualify the update mechanism, but is not the future production
 identity. Establish and back up the production signer before distributing an APK.

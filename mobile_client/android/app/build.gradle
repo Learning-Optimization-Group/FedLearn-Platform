@@ -15,6 +15,16 @@ if (!(standaloneValue in ['true', 'false'])) {
 }
 def standaloneDebug = standaloneValue == 'true'
 
+def qualificationValue = providers.gradleProperty('fedlearnQualification').getOrElse('false')
+if (!(qualificationValue in ['true', 'false'])) {
+  throw new GradleException('fedlearnQualification must be true or false')
+}
+def qualificationPackage = qualificationValue == 'true'
+def versionCodeValue = providers.gradleProperty('fedlearnVersionCode').getOrElse('1')
+if (!(versionCodeValue ==~ /[1-9][0-9]{0,9}/) || versionCodeValue.toLong() > 2100000000L) {
+  throw new GradleException('fedlearnVersionCode must be an integer from 1 to 2100000000')
+}
+
 react {
   autolinkLibrariesWithApp()
   // Autolinking + codegen for the New Architecture; the NativeFedLearnCore spec is in bridge/specs.
@@ -37,17 +47,31 @@ if (standaloneDebug) {
   }
 }
 
+// App CMake consumes autolinked libraries' generated C++ headers before their Java builds.
+// Their own preBuild dependencies alone do not order those producers ahead of this consumer.
+def appTasks = tasks
+rootProject.subprojects { dependencyProject ->
+  dependencyProject.plugins.withId('com.facebook.react') {
+    // Some libraries apply React before Android registers the producer; keep this collection lazy.
+    def codegen = dependencyProject.tasks.matching { it.name == 'generateCodegenArtifactsFromSchema' }
+    appTasks.matching { it.name.startsWith('configureCMake') }.configureEach { nativeTask ->
+      nativeTask.dependsOn(codegen)
+    }
+  }
+}
+
 android {
   namespace "com.fedlearn.mobile"
   compileSdk rootProject.ext.compileSdkVersion
   ndkVersion rootProject.ext.ndkVersion
 
   defaultConfig {
-    applicationId "com.fedlearn.mobile"
+    applicationId qualificationPackage ? "com.fedlearn.mobile.qualification" : "com.fedlearn.mobile"
     minSdk rootProject.ext.minSdkVersion
     targetSdk rootProject.ext.targetSdkVersion
-    versionCode 1
-    versionName "2.0.0"
+    versionCode versionCodeValue.toInteger()
+    versionName qualificationPackage ? "2.0.0-qualification" : "2.0.0"
+    manifestPlaceholders['fedlearnAppLabel'] = qualificationPackage ? 'FedLearn Qualification' : 'FedLearn'
     buildConfigField 'boolean', 'FEDLEARN_METRO_ENABLED', 'false'
     ndk { abiFilters "arm64-v8a" }   // the only shipped ABI
     externalNativeBuild {

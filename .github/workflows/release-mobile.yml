@@ -132,6 +132,14 @@ jobs:
         # assembleRelease autolinks + bundles the JS from node_modules.
         run: npm install --legacy-peer-deps --no-audit --no-fund
 
+      - name: Verify Android packaging identity
+        timeout-minutes: 10
+        run: python mobile_client/scripts/check_android_packaging.py
+
+      - name: Verify native code-generation dependencies
+        timeout-minutes: 10
+        run: python mobile_client/scripts/check_android_codegen_order.py
+
       - name: Restore cross-compiled ARM64 ExecuTorch + gRPC
         uses: actions/cache@v4
         with:
