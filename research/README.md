@@ -7,16 +7,19 @@ This directory houses the experimental harnesses, raw machine-readable results, 
 ## Directory Structure
 
 - **[`benchmarks/`](file:///Users/anurag/code/FedLearn-Platform/research/benchmarks/)**: Execution harnesses and benchmarking drivers.
+  - `run_production_fl_benchmark.py`: Production FL benchmark on real CIFAR-10 data using ImageNet-pretrained ResNet-18 frozen features, FedAdam server optimization, and realistic 25-round convergence horizons (>77% accuracy).
   - `run_heterogeneous_cifar_benchmark.py`: Second non-medical benchmark comparing `Mean512`, `Projected128`, `Trim16`, and `CenterQuarter` under Dirichlet label skew ($\alpha = 0.5$).
   - `capstone_final.sh` & `analyze_capstone_final.py`: The confirmatory capstone study driver and analysis.
   - `nih_learning.py`, `nih_finetune.py`, `nih_pretrained.py`: NIH ChestX-ray14 evaluation scripts.
   - `resnet_client_rates.py`: Client-side forward/backward compute and networking rate benchmarks.
 - **[`results/`](file:///Users/anurag/code/FedLearn-Platform/research/results/)**: Machine-readable JSON outputs with full `meta` blocks and per-round trajectories.
+  - `production_fl/production_cifar_benchmark.json`: Raw results for the production FL benchmark with ResNet-18 backbone.
   - `heterogeneous_cifar/cifar_heterogeneous_benchmark.json`: Raw results for the 4-policy CIFAR-10 Dirichlet study.
   - `capstone/`: Results from the 360-cell study and pilot evaluations.
   - `on-device/`: Physical mobile client telemetry and qualification receipts.
   - `robust-aggregation/`: Fixed IPM and ByzFL adapter evaluation matrices.
 - **[`notes/`](file:///Users/anurag/code/FedLearn-Platform/research/notes/)**: Dated scientific interpretation notes.
+  - `production_fl/2026-11-07-production-fl-analysis.md`: Empirical analysis and deployment guidelines for production FL.
   - `heterogeneous_cifar/2026-11-07-cifar-heterogeneous-analysis.md`: Empirical analysis of the second non-medical benchmark.
   - `capstone/2026-10-05-final-study-results.md`: Capstone final study results against pre-registration.
   - `capstone/2026-10-05-pilot-and-preregistration.md`: Pre-registered analysis plan.
