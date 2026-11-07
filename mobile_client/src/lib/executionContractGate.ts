@@ -7,6 +7,7 @@ import { ArtifactBackend, BatchNormStats, BatchOrder, ContractIssueCodeSchema, D
 } from '../gen/fedlearn/contract/v1/execution_contract_pb';
 import { MalformedContractError, parseContractJson, validateContract } from './executionContract';
 import { SERVER_PROTOCOL_VERSION } from './nativeCompatibility';
+import { isNativeCoreAvailable } from './nativeCore';
 import type { ContractProgram } from './modelProvisioning';
 
 /** The contract fields of a run manifest or connection payload, as the backend serves them. */
@@ -271,7 +272,11 @@ function projectDeComFL(contract: ExecutionContract, contractId: string, trainin
   if (training.updateProtocol !== UpdateProtocol.UPDATE_DECOMFL_SCALAR) {
     return refuse('UNSUPPORTED_UPDATE_PROTOCOL', 'This DeComFL run expects an update this app does not produce.');
   }
-  if (contract.security?.secureAggregation !== SecureAggregation.SECAGG_NONE) {
+  if (contract.security?.secureAggregation === SecureAggregation.SECAGG_LIGHTSECAGG_SCALAR) {
+    if (typeof isNativeCoreAvailable !== 'function' || !isNativeCoreAvailable()) {
+      return refuse('UNSUPPORTED_SECURITY', 'This run requires secure aggregation, which this app cannot perform without native core.');
+    }
+  } else if (contract.security?.secureAggregation !== SecureAggregation.SECAGG_NONE) {
     return refuse('UNSUPPORTED_SECURITY', 'This run requires secure aggregation, which this app cannot perform.');
   }
   const local = training.localTraining;

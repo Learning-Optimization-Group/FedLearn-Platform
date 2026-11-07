@@ -35,12 +35,13 @@ set(FEDLEARN_BUILD_TRAINING ON CACHE BOOL "" FORCE)
 add_subdirectory("${FEDLEARN_ROOT}/shared" "${CMAKE_BINARY_DIR}/fedlearn_shared")
 
 # OnLoad.cpp is globbed from this dir by ReactNative-application.cmake; add the remaining bridge sources
-# (the JNI device-state shim + the shared TurboModule impl) directly into libappmodules.so.
+# (the JNI device-state shim + the shared TurboModule impl + native LightSecAgg arithmetic) directly into libappmodules.so.
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
   ${FEDLEARN_ROOT}/bridge/android/jni/DeviceStateJni.cpp
   ${FEDLEARN_ROOT}/bridge/common/FedLearnCoreModule.cpp
-  ${FEDLEARN_ROOT}/bridge/common/DeviceState.cpp)
-# These 3 files are grafted onto the `appmodules` target and so inherit RN's strict -Werror flag set,
+  ${FEDLEARN_ROOT}/bridge/common/DeviceState.cpp
+  ${FEDLEARN_ROOT}/android/app/src/main/cpp/LightSecAggMath.cpp)
+# These files are grafted onto the `appmodules` target and so inherit RN's strict -Werror flag set,
 # which is RN's policy for RN's own sources — not our contract. Keep warnings visible but non-fatal on
 # just our glue (this appends after RN's -Werror, so -Wno-error wins) so an incidental RN-pedantic
 # warning can't fail the whole app build. Real correctness lives in the shared/ audit + our own review.
@@ -48,8 +49,10 @@ set_source_files_properties(
   ${FEDLEARN_ROOT}/bridge/android/jni/DeviceStateJni.cpp
   ${FEDLEARN_ROOT}/bridge/common/FedLearnCoreModule.cpp
   ${FEDLEARN_ROOT}/bridge/common/DeviceState.cpp
+  ${FEDLEARN_ROOT}/android/app/src/main/cpp/LightSecAggMath.cpp
   PROPERTIES COMPILE_OPTIONS "-Wno-error")
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
   ${FEDLEARN_ROOT}/bridge/common
-  ${FEDLEARN_ROOT}/shared/include)
+  ${FEDLEARN_ROOT}/shared/include
+  ${FEDLEARN_ROOT}/android/app/src/main/cpp)
 target_link_libraries(${CMAKE_PROJECT_NAME} fedlearn_core fedlearn_grpc)

@@ -2,7 +2,7 @@
 // the model + local data and runs rounds against the server run until it ends. All training compute
 // (forward passes, DeComFL perturbations, first-order updates) happens natively ON THE DEVICE;
 // DeComFL uploads scalars and first-order strategies upload trainable weights; training batches are not uploaded.
-import nativeCore, { type RoundConfig, type RoundResult, type Strategy } from './nativeCore';
+import nativeCore, { isNativeCoreAvailable, type RoundConfig, type RoundResult, type Strategy } from './nativeCore';
 import { foregroundService } from './foregroundService';
 import { joinRun, RunJoinRefusedError, type JoinedRun, type RunManifest } from './runJoin';
 import { provisionTrainingBundle } from './modelProvisioning';
@@ -432,6 +432,10 @@ export async function runResilientRoundLoop(
  * `overrides` exists only so tests / advanced callers can inject the resilience policy or ops; production
  * callers pass just (joined, hooks) and get the native ops + DEFAULT_RESILIENCE.
  */
+function checkNativeCoreAvailable(): boolean {
+  return typeof isNativeCoreAvailable === 'function' && isNativeCoreAvailable();
+}
+
 export async function runTrainingLoop(
   joined: JoinedRun,
   hooks: TrainingHooks,
@@ -445,10 +449,12 @@ export async function runTrainingLoop(
   // One legacy refusal stays ahead of the contract, because it names the real obstacle better than a missing
   // contract would: a secure-aggregation run the phone cannot mask for.
   if (joined.manifest.secureAggregation === true) {
-    throw new MobileSecureAggregationUnsupportedError(
-      'This run uses secure aggregation, which this device cannot take part in yet: the phone cannot mask ' +
-        'its update, and the server refuses unmasked ones. Join this run from the desktop app instead.',
-    );
+    if (joined.manifest.firstOrderSupported === true || !checkNativeCoreAvailable()) {
+      throw new MobileSecureAggregationUnsupportedError(
+        'This run uses secure aggregation, which this device cannot take part in yet: the phone cannot mask ' +
+          'its update, and the server refuses unmasked ones. Join this run from the desktop app instead.',
+      );
+    }
   }
 
   // The run's published execution contract decides everything about this round: whether this device may train it
