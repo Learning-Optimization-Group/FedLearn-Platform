@@ -1,6 +1,7 @@
 package com.federated.fl_platform_api.bootstrap;
 
 import com.federated.fl_platform_api.orchestration.FlServerManager;
+import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.model.RunStatus;
 import com.federated.fl_platform_api.repository.ProjectRepository;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -107,13 +109,16 @@ public class StartupReconciler implements HealthIndicator {
     @PostConstruct
     void reconcileOnStartup() {
         if (reconcileOnStartup) {
-            reconcile();
+            ReconciliationResult result = reconcile();
+            if (result.error() != null) {
+                throw new IllegalStateException("Startup reconciliation failed: " + result.error());
+            }
         }
     }
 
     /**
      * Reconcile every in-flight run against its recorded process. Package-private and returns the
-     * summary so tests can drive it directly. Never throws.
+     * summary so tests can drive it directly. Never throws out of this method.
      */
     ReconciliationResult reconcile() {
         List<Run> inFlight;
@@ -121,22 +126,48 @@ public class StartupReconciler implements HealthIndicator {
             inFlight = runRepository.findByStatusIn(IN_FLIGHT);
         } catch (RuntimeException e) {
             log.error("Startup reconciliation could not load in-flight runs; skipping", e);
-            this.lastResult = new ReconciliationResult(0, 0, e.getClass().getSimpleName());
+            this.lastResult = new ReconciliationResult(0, 0, e.getClass().getSimpleName() + ": " + e.getMessage());
+            return this.lastResult;
+        }
+
+        List<LiveCandidate> liveCandidates = new ArrayList<>();
+        List<Run> deadCandidates = new ArrayList<>();
+
+        for (Run run : inFlight) {
+            Optional<ProcessHandle> verified = verifyLiveProcess(run);
+            if (verified.isPresent()) {
+                liveCandidates.add(new LiveCandidate(run, verified.get()));
+            } else {
+                deadCandidates.add(run);
+            }
+        }
+
+        String preflightError = preflightLiveCohort(liveCandidates);
+        if (preflightError != null) {
+            log.error("Startup reconciliation preflight failed; refusing adoption and reaping to prevent unsafe state: {}",
+                    preflightError);
+            this.lastResult = new ReconciliationResult(0, 0, preflightError);
             return this.lastResult;
         }
 
         int adopted = 0;
+        for (LiveCandidate candidate : liveCandidates) {
+            Run run = candidate.run();
+            serverManager.adopt(run.getProjectId(), run.getId(), candidate.handle(), run.getServerPort());
+            if (run.getInternalTokenHash() != null) {
+                runTokenRegistry.rehydrate(run.getInternalTokenHash(),
+                        new RunTokenRegistry.Scope(run.getProjectId(), run.getId()));
+            }
+            adopted++;
+        }
+
         int reaped = 0;
-        for (Run run : inFlight) {
+        for (Run run : deadCandidates) {
             try {
-                if (adoptIfLive(run)) {
-                    adopted++;
-                } else {
-                    reap(run);
-                    reaped++;
-                }
+                reap(run);
+                reaped++;
             } catch (RuntimeException e) {
-                log.warn("Reconciliation failed for run {} (project {}); leaving it as-is: {}",
+                log.warn("Reconciliation reaping failed for run {} (project {}); leaving it as-is: {}",
                         run.getId(), run.getProjectId(), e.toString());
             }
         }
@@ -151,56 +182,90 @@ public class StartupReconciler implements HealthIndicator {
         return this.lastResult;
     }
 
+    private String preflightLiveCohort(List<LiveCandidate> candidates) {
+        Set<UUID> seenProjects = new HashSet<>();
+        Set<Integer> seenPorts = new HashSet<>();
+
+        for (LiveCandidate candidate : candidates) {
+            Run run = candidate.run();
+            Integer port = run.getServerPort();
+            if (port == null || port < 1 || port > 65535) {
+                return "Run " + run.getId() + " has invalid persisted server port: " + port;
+            }
+
+            UUID projectId = run.getProjectId();
+            if (projectId == null) {
+                return "Run " + run.getId() + " has null projectId";
+            }
+
+            if (!seenProjects.add(projectId)) {
+                return "Multiple live runs claim project " + projectId;
+            }
+            if (!seenPorts.add(port)) {
+                return "Multiple live runs claim port " + port;
+            }
+
+            Optional<Project> projectOpt = projectRepository.findById(projectId);
+            if (projectOpt.isEmpty()) {
+                return "Run " + run.getId() + " references missing project " + projectId;
+            }
+            Project project = projectOpt.get();
+            if (!run.getId().equals(project.getActiveRunId())) {
+                return "Run " + run.getId() + " is live but not the active run for project " + projectId
+                        + " (activeRunId=" + project.getActiveRunId() + ")";
+            }
+
+            if (serverManager.isServerRunning(projectId)) {
+                return "Server is already running in manager for project " + projectId;
+            }
+            if (serverManager.hasReservedPort(projectId)) {
+                return "Port is already reserved in manager for project " + projectId;
+            }
+            if (serverManager.isPortReserved(port)) {
+                return "Port " + port + " is already reserved in manager";
+            }
+        }
+        return null;
+    }
+
     /**
-     * @return {@code true} if the run's recorded process is live and identity-matched (and was
-     *         re-adopted); {@code false} if the run should be reaped. Never kills the inspected
-     *         process — a reaped run's own server is already dead.
+     * @return an engaged {@link ProcessHandle} if the run's recorded process is live and identity-matched;
+     *         {@link Optional#empty()} if the run's process is gone, unrecorded, or PID-reused.
      */
-    private boolean adoptIfLive(Run run) {
+    private Optional<ProcessHandle> verifyLiveProcess(Run run) {
         Long pid = run.getServerPid();
         if (pid == null) {
-            // No PID recorded. With fail-closed spawn (a spawn that can't persist its identity kills
-            // the child), the only way here is a JVM crash in the sub-millisecond window between
-            // pb.start() and the identity write — extremely rare. We cannot identify or kill a process
-            // we have no PID for, so reap the run; if a child did survive that window its port may need
-            // manual reclamation.
-            log.warn("Run {} is in-flight but recorded no server PID; reaping it (any surviving child "
-                    + "process from the crash window cannot be identified)", run.getId());
-            return false;
+            log.warn("Run {} is in-flight but recorded no server PID; candidate for reaping", run.getId());
+            return Optional.empty();
         }
         Optional<ProcessHandle> live = processProbe.of(pid);
         if (live.isEmpty()) {
-            return false;   // our server is gone; its OS port is already free
+            return Optional.empty();   // our server is gone; its OS port is already free
         }
         ProcessHandle handle = live.get();
+        if (!handle.isAlive()) {
+            return Optional.empty();
+        }
 
         Instant recorded = run.getProcessStartedAt();
         Optional<Instant> liveStart = handle.info().startInstant();
         if (recorded != null && liveStart.isPresent()) {
-            // Both known: a start-instant that differs by more than the tolerance is a CONFIRMED
-            // different process (the PID was recycled). Reap the run, but never touch that process.
             long deltaMs = Math.abs(Duration.between(recorded, liveStart.get()).toMillis());
             if (deltaMs > IDENTITY_TOLERANCE_MS) {
                 log.warn("Run {} PID {} is live but its start-instant differs by {}ms from the recorded "
-                                + "one (PID reuse); reaping the run without touching that process",
+                                + "one (PID reuse); candidate for reaping without touching that process",
                         run.getId(), pid, deltaMs);
-                return false;
+                return Optional.empty();
             }
         } else {
-            // Start-instant unavailable (rare on Linux). We recorded exactly this PID for this run, so
-            // a live process on it is almost certainly still ours — adopt to avoid leaking its port,
-            // rather than reap-and-leak.
-            log.warn("Run {} PID {} is live but a start-instant is unavailable; adopting on PID match "
-                    + "alone", run.getId(), pid);
+            log.warn("Run {} PID {} is live but a start-instant is unavailable; matching on PID alone",
+                    run.getId(), pid);
         }
 
-        serverManager.adopt(run.getProjectId(), handle);
-        // Restore the surviving server's token so its result/benchmark callbacks keep authorizing —
-        // the plaintext lives only in the still-running child; we rehydrate from the persisted hash.
-        runTokenRegistry.rehydrate(run.getInternalTokenHash(),
-                new RunTokenRegistry.Scope(run.getProjectId(), run.getId()));
-        return true;
+        return Optional.of(handle);
     }
+
+    private record LiveCandidate(Run run, ProcessHandle handle) {}
 
     /** Reset an orphaned run to FAILED and, if it is still the project's active run, return it to idle. */
     private void reap(Run run) {
@@ -286,8 +351,8 @@ public class StartupReconciler implements HealthIndicator {
         if (r == null) {
             return Health.unknown().withDetail("state", "not-run-yet").build();
         }
-        Health.Builder builder = Health.up()
-                .withDetail("adopted", r.adopted())
+        Health.Builder builder = (r.error() == null) ? Health.up() : Health.down();
+        builder.withDetail("adopted", r.adopted())
                 .withDetail("reaped", r.reaped());
         if (r.error() != null) {
             builder = builder.withDetail("error", r.error());

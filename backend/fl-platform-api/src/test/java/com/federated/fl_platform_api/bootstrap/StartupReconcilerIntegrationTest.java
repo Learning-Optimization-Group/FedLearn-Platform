@@ -66,12 +66,18 @@ class StartupReconcilerIntegrationTest {
     }
 
     private Run seedRunningRun(Project project, long pid, Instant startInstant) {
+        return seedRunningRun(project, pid, startInstant, 50001);
+    }
+
+    private Run seedRunningRun(Project project, long pid, Instant startInstant, int port) {
         Run run = runService.createForStart(project, "FedAvg", 1, 1, 1);
         run.setStatus(RunStatus.RUNNING);
         run.setServerPid(pid);
         run.setProcessStartedAt(startInstant);
+        run.setServerPort(port);
         run = runRepository.save(run);
         project.setActiveRunId(run.getId());
+        project.setServerPort(port);
         projectRepository.save(project);
         return run;
     }
@@ -94,6 +100,26 @@ class StartupReconcilerIntegrationTest {
             assertTrue(serverManager.stopServerForProject(project.getId()));
             assertTrue(proc.waitFor(5, TimeUnit.SECONDS), "stop should terminate the adopted process");
             assertFalse(serverManager.isServerRunning(project.getId()));
+        } finally {
+            proc.destroyForcibly();
+        }
+    }
+
+    @Test
+    void liveUnboundServer_reconcileRestoresPortReservation_preventingPortStealing() throws Exception {
+        Process proc = new ProcessBuilder("bash", "-c", "sleep 60").start();
+        try {
+            Project project = seedProject();
+            int chosenPort = 50005;
+            Run run = seedRunningRun(project, proc.pid(), proc.info().startInstant().orElseThrow(), chosenPort);
+
+            reconciler.reconcile();
+
+            assertTrue(serverManager.isServerRunning(project.getId()), "server must be adopted");
+            assertTrue(serverManager.isPortReserved(chosenPort), "port reservation must be restored");
+
+            assertTrue(serverManager.stopServerForProject(project.getId()));
+            assertFalse(serverManager.isPortReserved(chosenPort), "stop must release restored port reservation");
         } finally {
             proc.destroyForcibly();
         }

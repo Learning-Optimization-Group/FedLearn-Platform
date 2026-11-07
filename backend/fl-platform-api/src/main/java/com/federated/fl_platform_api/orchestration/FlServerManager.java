@@ -1034,12 +1034,60 @@ public class FlServerManager {
      * hand it out. Only the startup reconciler, which has already verified PID + start-instant
      * identity, calls this.
      */
+    public boolean isPortReserved(int port) {
+        synchronized (portReservationLock) {
+            return reservedPorts.containsKey(port);
+        }
+    }
+
+    public boolean hasReservedPort(UUID projectId) {
+        synchronized (portReservationLock) {
+            return reservedPortByProject.containsKey(projectId);
+        }
+    }
+
+    /**
+     * BA-3 / PR-2: re-adopt an FL-server child that outlived a backend restart, restoring both its
+     * tracking handle and its unique port reservation before an unbound child binds.
+     */
+    public void adopt(UUID projectId, UUID runId, ProcessHandle handle, int port) {
+        if (projectId == null) {
+            throw new IllegalArgumentException("projectId is required");
+        }
+        if (handle == null) {
+            throw new IllegalArgumentException("ProcessHandle is required");
+        }
+        if (port <= 0 || port > 65535) {
+            throw new IllegalArgumentException("Invalid port: " + port);
+        }
+        synchronized (portReservationLock) {
+            if (runningServers.containsKey(projectId)) {
+                throw new IllegalStateException("A server process is already tracked for project " + projectId);
+            }
+            if (reservedPortByProject.containsKey(projectId)) {
+                throw new IllegalStateException("A port is already reserved for project " + projectId);
+            }
+            if (reservedPorts.containsKey(port)) {
+                throw new IllegalStateException("Port " + port + " is already reserved");
+            }
+
+            PortReservation reservation = new PortReservation(port, UUID.randomUUID());
+            reservedPorts.put(port, reservation);
+            reservedPortByProject.put(projectId, reservation);
+            runningServers.put(projectId, handle);
+
+            final PortReservation heldReservation = reservation;
+            final UUID heldProject = projectId;
+            final UUID heldRun = runId;
+            handle.onExit().thenRun(() -> onChildExit(heldProject, heldRun, handle, heldReservation));
+            log.info("Re-adopted orphaned FL server for project {} (pid {}, port {})", projectId, handle.pid(), port);
+        }
+    }
+
+    @Deprecated
     public void adopt(UUID projectId, ProcessHandle handle) {
         ProcessHandle existing = runningServers.putIfAbsent(projectId, handle);
         if (existing != null) {
-            // A process is already tracked for this project. Reconciliation runs before the HTTP layer
-            // opens, so this should not happen — but never clobber a live tracked handle (that would
-            // orphan it and leak its port). Keep the existing one.
             log.warn("Skipped re-adopting FL server for project {} (pid {}): a process is already tracked",
                     projectId, handle.pid());
             return;

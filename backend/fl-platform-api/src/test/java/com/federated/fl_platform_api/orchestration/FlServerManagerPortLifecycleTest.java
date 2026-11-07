@@ -295,6 +295,81 @@ class FlServerManagerPortLifecycleTest {
         assertEquals(reservedPort, freed.port());
     }
 
+    @Test
+    void adoptedServer_holdsItsPortReservation_andExitReleasesIt() {
+        Project project = newProject();
+        UUID runId = project.getActiveRunId();
+
+        manager.adopt(project.getId(), runId, childHandle, reservedPort);
+
+        assertTrue(manager.isServerRunning(project.getId()), "adopted child must be tracked as running");
+        assertThrows(IllegalStateException.class,
+                () -> ReflectionTestUtils.invokeMethod(manager, "findFreePort"),
+                "adopted server's port must stay held in reservedPorts even if unbound");
+
+        // Complete the child's onExit future
+        childExitFuture.complete(childHandle);
+
+        assertFalse(manager.isServerRunning(project.getId()), "child exit must evict tracking entry");
+        FlServerManager.PortReservation freed = ReflectionTestUtils.invokeMethod(manager, "findFreePort");
+        assertNotNull(freed, "child exit must free the port");
+        assertEquals(reservedPort, freed.port());
+        verify(runService).markFailed(runId);
+    }
+
+    @Test
+    void adoptedServer_rejectsDuplicateAdoptionForSameProject() {
+        Project project = newProject();
+        manager.adopt(project.getId(), project.getActiveRunId(), childHandle, reservedPort);
+
+        ProcessHandle secondHandle = mock(ProcessHandle.class);
+        when(secondHandle.isAlive()).thenReturn(true);
+        when(secondHandle.pid()).thenReturn(5555L);
+
+        assertThrows(IllegalStateException.class,
+                () -> manager.adopt(project.getId(), UUID.randomUUID(), secondHandle, reservedPort),
+                "cannot adopt another process for an already-tracked project");
+    }
+
+    @Test
+    void adoptedServer_rejectsPortConflictWithDifferentProject() {
+        Project first = newProject();
+        manager.adopt(first.getId(), first.getActiveRunId(), childHandle, reservedPort);
+
+        Project second = newProject();
+        ProcessHandle secondHandle = mock(ProcessHandle.class);
+        when(secondHandle.isAlive()).thenReturn(true);
+        when(secondHandle.pid()).thenReturn(5555L);
+
+        assertThrows(IllegalStateException.class,
+                () -> manager.adopt(second.getId(), second.getActiveRunId(), secondHandle, reservedPort),
+                "cannot adopt a process on a port already held by another project");
+    }
+
+    @Test
+    void adoptedServer_acceptsValidPortOutsideConfiguredRange() {
+        Project project = newProject();
+        int outsidePort = (reservedPort > 5000) ? (reservedPort - 10) : (reservedPort + 10);
+
+        manager.adopt(project.getId(), project.getActiveRunId(), childHandle, outsidePort);
+
+        assertTrue(manager.isServerRunning(project.getId()));
+        assertTrue(manager.isPortReserved(outsidePort));
+        assertTrue(manager.hasReservedPort(project.getId()));
+    }
+
+    @Test
+    void adoptedServer_rejectsInvalidPort() {
+        Project project = newProject();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> manager.adopt(project.getId(), project.getActiveRunId(), childHandle, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> manager.adopt(project.getId(), project.getActiveRunId(), childHandle, -500));
+        assertThrows(IllegalArgumentException.class,
+                () -> manager.adopt(project.getId(), project.getActiveRunId(), childHandle, 70000));
+    }
+
     // --- helpers ------------------------------------------------------------
 
     /** A regulated=false CNN project whose argv fields all pass buildServerCommand's SAFE_* validators. */
