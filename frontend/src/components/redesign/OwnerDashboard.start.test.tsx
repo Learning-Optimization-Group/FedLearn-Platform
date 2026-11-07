@@ -19,6 +19,8 @@ vi.mock('../../services/apiServices', async (importOriginal) => {
     fetchProjectDeletionRequest: vi.fn(),
     fetchModelRecipes: vi.fn(),
     startProjectServer: vi.fn(),
+    resumeProjectServer: vi.fn(),
+    resumeRun: vi.fn(),
   };
 });
 vi.mock('@stomp/stompjs', () => ({ Client: vi.fn() }));
@@ -122,5 +124,23 @@ describe('OwnerDashboard — a failed start propagates into the modal (FE-4)', (
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     // The card reflects the server response: a running project offers Stop.
     expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
+  });
+
+  it('resumes a failed project when clicking Resume', async () => {
+    vi.mocked(api.fetchOwnedProjects).mockResolvedValue(
+      resp([{ ...PROJECT, status: 'FAILED' as const, activeRunId: 'r1' }]),
+    );
+    vi.mocked(api.resumeProjectServer).mockResolvedValue(
+      resp({ runId: 'r1', status: 'RUNNING', grpcEndpoint: 'localhost:50001', caFingerprint: null }),
+    );
+
+    render(<OwnerDashboard />);
+    const resumeBtn = await screen.findByRole('button', { name: /resume/i });
+    expect(resumeBtn).toBeInTheDocument();
+    fireEvent.click(resumeBtn);
+
+    await waitFor(() => {
+      expect(api.resumeProjectServer).toHaveBeenCalledWith('p1');
+    });
   });
 });

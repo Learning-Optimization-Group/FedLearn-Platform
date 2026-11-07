@@ -7,6 +7,7 @@ import com.federated.fl_platform_api.dto.DeletionRequestDto;
 import com.federated.fl_platform_api.dto.DiscoverProjectDto;
 import com.federated.fl_platform_api.dto.ProjectResponseDto;
 import com.federated.fl_platform_api.dto.RoundResultDto;
+import com.federated.fl_platform_api.dto.RunStatusDto;
 import com.federated.fl_platform_api.dto.ServerLogDto;
 import com.federated.fl_platform_api.dto.StartProject;
 import com.federated.fl_platform_api.dto.UpdateProjectRequest;
@@ -80,6 +81,11 @@ public class ProjectController {
     @PostMapping("/{projectId}/stop")
     public ResponseEntity<ProjectResponseDto> stopProjectServer(@PathVariable @NonNull UUID projectId) {
         return ResponseEntity.ok(projectService.stopServerForProject(projectId));
+    }
+
+    @PostMapping("/{projectId}/resume")
+    public ResponseEntity<RunStatusDto> resumeProjectServer(@PathVariable @NonNull UUID projectId) {
+        return ResponseEntity.ok(projectService.resumeProject(projectId));
     }
 
     @GetMapping("/{projectId}/results")

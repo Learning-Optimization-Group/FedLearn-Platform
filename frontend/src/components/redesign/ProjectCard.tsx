@@ -16,6 +16,7 @@ interface ProjectCardProps {
   onOpenResults: () => void;
   onOpenLogs: () => void;
   onToggleServer: () => void;
+  onResumeServer?: () => void;
   onEditProject: () => void;
   /**
    * Hard delete (DELETE /projects/{id}). Admin-only on the backend — the card
@@ -93,6 +94,7 @@ export function ProjectCard({
   onOpenResults,
   onOpenLogs,
   onToggleServer,
+  onResumeServer,
   onEditProject,
   onDeleteProject,
   onRequestDeletion,
@@ -330,12 +332,23 @@ export function ProjectCard({
         <Button variant="ghost" size="sm" onClick={onOpenLogs}>
           Logs
         </Button>
+        {onResumeServer && (project.status === 'FAILED' || project.status === 'STOPPED') && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onResumeServer}
+            aria-label={`Resume ${project.name}`}
+            className="ml-auto"
+          >
+            <Play className="w-3.5 h-3.5" strokeWidth={2} /> Resume
+          </Button>
+        )}
         <Button
           variant={isRunning ? 'danger' : 'primary'}
           size="sm"
           onClick={onToggleServer}
           disabled={isFailed}
-          className="ml-auto"
+          className={onResumeServer && (project.status === 'FAILED' || project.status === 'STOPPED') ? '' : 'ml-auto'}
         >
           {isRunning ? (
             <>

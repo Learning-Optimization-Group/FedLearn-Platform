@@ -86,6 +86,7 @@ export interface Project {
     // active run yet. Both were previously absent here though the backend always sent CREATED.
     status: 'INITIALIZING' | 'CREATED' | 'RUNNING' | 'STOPPED' | 'COMPLETED' | 'FAILED';
     serverPort?: number;
+    activeRunId?: string | null;
 }
 
 export interface ProjectResult {
@@ -263,6 +264,21 @@ export const startProjectServer = (projectId: string, startData: StartServerData
 
 export const stopProjectServer = (projectId: string): Promise<AxiosResponse<Project>> => {
     return api.post<Project>(`/projects/${projectId}/stop`, {});
+};
+
+export interface RunStatusDto {
+    runId: string;
+    status: string;
+    grpcEndpoint?: string | null;
+    caFingerprint?: string | null;
+}
+
+export const resumeProjectServer = (projectId: string): Promise<AxiosResponse<RunStatusDto>> => {
+    return api.post<RunStatusDto>(`/projects/${projectId}/resume`, {});
+};
+
+export const resumeRun = (runId: string): Promise<AxiosResponse<RunStatusDto>> => {
+    return api.post<RunStatusDto>(`/runs/${runId}/resume`, {});
 };
 
 export const updateProject = (projectId: string, updateData: Partial<Project>): Promise<AxiosResponse<Project>> => {

@@ -156,6 +156,17 @@ export function OwnerDashboard() {
         }
     };
 
+    const handleResumeServer = async (project: OwnedProject) => {
+        try {
+            await api.resumeProjectServer(project.id);
+            setProjects((prev) => prev.map((p) => (p.id === project.id ? { ...p, status: 'RUNNING' } : p)));
+            void refreshResults(project.id, true).catch((err) => log.error('Could not refresh results', err));
+        } catch (err) {
+            log.error('resumeProjectServer failed', err);
+            setError('Failed to resume server.');
+        }
+    };
+
     const handleStartSubmit = async (projectId: string, config: api.StartServerData) => {
         // Errors propagate to StartProjectModal, which stays open and renders
         // the backend detail inline; the modal is only closed here on success.
@@ -284,6 +295,7 @@ export function OwnerDashboard() {
                                 onOpenLogs={() => setLogViewProjectId(project.id)}
                                 onOpenResults={() => handleOpenResults(project)}
                                 onToggleServer={() => handleToggleServer(project)}
+                                onResumeServer={() => handleResumeServer(project)}
                                 onEditProject={() => {
                                     setEditProject(project);
                                     setIsEditModalOpen(true);

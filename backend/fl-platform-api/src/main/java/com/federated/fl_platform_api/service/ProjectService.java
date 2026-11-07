@@ -372,6 +372,7 @@ public class ProjectService {
         dto.setServerPort(project.getServerPort());
         dto.setOptimizer(project.getOptimizer());
         dto.setStatus(projectStatusService.currentStatus(project).name());   // BA-4: derived from active run
+        dto.setActiveRunId(project.getActiveRunId());
         dto.setVisibility(project.getVisibility() != null ? project.getVisibility().name() : null);
 
         return dto;
@@ -636,6 +637,19 @@ public class ProjectService {
         } finally {
             startLock.unlock();
         }
+    }
+
+    @Auditable(action = AuditAction.RUN_STARTED, targetIdParam = "projectId", targetType = "PROJECT")
+    public RunStatusDto resumeProject(@NonNull UUID projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        authz.requireOrgScope(project.getOrgId());
+        authz.requireOwnerOrAdmin(project);
+        UUID activeRunId = project.getActiveRunId();
+        if (activeRunId == null) {
+            throw new ProjectStateException("Project " + projectId + " has no active run to resume");
+        }
+        return resumeRun(activeRunId);
     }
 
     @Auditable(action = AuditAction.RUN_STARTED, targetIdParam = "runId", targetType = "RUN")

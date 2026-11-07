@@ -22,6 +22,7 @@ public class ProjectResponseDto {
     private Integer serverPort;
     private String optimizer;
     private String status;
+    private UUID activeRunId;
     private String myRelationship;  // "OWNER" | "MEMBER" | "CLIENT" | null
     private String visibility;       // "PUBLIC" | "RESTRICTED" | "PRIVATE"
     // Populated only by the admin all-projects view (null elsewhere): lets the
@@ -83,6 +84,14 @@ public class ProjectResponseDto {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public UUID getActiveRunId() {
+        return activeRunId;
+    }
+
+    public void setActiveRunId(UUID activeRunId) {
+        this.activeRunId = activeRunId;
     }
 
     public String getMyRelationship() {

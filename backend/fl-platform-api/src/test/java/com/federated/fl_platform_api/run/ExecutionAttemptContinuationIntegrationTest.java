@@ -324,4 +324,24 @@ class ExecutionAttemptContinuationIntegrationTest {
         assertEquals(RunStatus.RUNNING, second.getStatus());
         assertEquals(resumed.getCurrentAttemptId(), second.getId());
     }
+
+    @Test
+    void resumeProject_resumesActiveRun() throws IOException {
+        Run run = runService.createForStart(testProject, "FedAvg", 3, 1, 1);
+        testProject.setActiveRunId(run.getId());
+        projectRepository.save(testProject);
+
+        UUID attempt1 = run.getCurrentAttemptId();
+        runService.markRunning(run.getId(), attempt1, 50001);
+        runService.markFailed(run.getId(), attempt1, "Worker died");
+
+        createSessionFile(run.getId());
+
+        RunStatusDto dto = projectService.resumeProject(testProject.getId());
+
+        assertEquals("RUNNING", dto.getStatus());
+        Run resumed = runRepository.findById(run.getId()).orElseThrow();
+        assertEquals(RunStatus.RUNNING, resumed.getStatus());
+        assertEquals(2, resumed.getAttemptCount());
+    }
 }
