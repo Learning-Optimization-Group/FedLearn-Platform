@@ -168,3 +168,58 @@ def test_reset_state(daemon_client):
     status_after = daemon_client.get_status()
     assert status_after["model_loaded"] is False
     assert status_after["active_project_id"] is None
+
+
+def test_daemon_observability_metrics(daemon_client):
+    """Verifies observability metrics: startup, model load, worker reuse, failures, restarts, round latency."""
+    initial_status = daemon_client.get_status()
+    assert initial_status["process_startup_count"] >= 1
+    base_load_count = initial_status["model_load_count"]
+    base_reuse_count = initial_status["worker_reuse_count"]
+    base_restart_count = initial_status["restart_count"]
+    base_failure_count = initial_status["failure_count"]
+
+    # 1. Model init increments model_load_count
+    daemon_client.init_model(
+        project_id="proj-obs",
+        run_id="run-obs",
+        model_type="CNN",
+        dataset_name="synthetic",
+    )
+    s1 = daemon_client.get_status()
+    assert s1["model_load_count"] == base_load_count + 1
+
+    # 2. Idempotent init increments worker_reuse_count
+    daemon_client.init_model(
+        project_id="proj-obs",
+        run_id="run-obs",
+        model_type="CNN",
+        dataset_name="synthetic",
+    )
+    s2 = daemon_client.get_status()
+    assert s2["worker_reuse_count"] == base_reuse_count + 1
+
+    # 3. Round execution records last_round_latency_ms
+    r = daemon_client.execute_round(
+        project_id="proj-obs",
+        run_id="run-obs",
+        round_number=1,
+    )
+    assert r["compute_ms"] > 0
+    s3 = daemon_client.get_status()
+    assert s3["last_round_latency_ms"] > 0
+
+    # 4. Fencing violation increments failure_count
+    with pytest.raises(RuntimeError):
+        daemon_client.execute_round(
+            project_id="foreign-proj",
+            run_id="foreign-run",
+            round_number=2,
+        )
+    s4 = daemon_client.get_status()
+    assert s4["failure_count"] == base_failure_count + 1
+
+    # 5. Reset increments restart_count
+    daemon_client.reset_state()
+    s5 = daemon_client.get_status()
+    assert s5["restart_count"] == base_restart_count + 1

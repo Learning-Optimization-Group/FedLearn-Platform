@@ -76,8 +76,14 @@ class DaemonState:
         self.trainloader: Optional[DataLoader] = None
         self.optimizer: Optional[torch.optim.Optimizer] = None
 
-        # Telemetry
+        # Observability and Telemetry
+        self.process_startup_count: int = 1
+        self.model_load_count: int = 0
+        self.worker_reuse_count: int = 0
+        self.failure_count: int = 0
+        self.restart_count: int = 0
         self.model_load_ms: float = 0.0
+        self.last_round_latency_ms: float = 0.0
         self.cumulative_compute_ms: float = 0.0
         self.completed_rounds: int = 0
         self.last_error: Optional[str] = None
@@ -102,6 +108,7 @@ class DaemonState:
     def reset(self):
         """Clears all cached models, datasets, and project/run fences."""
         with self.lock:
+            self.restart_count += 1
             self.model = None
             self.trainloader = None
             self.optimizer = None
@@ -139,12 +146,14 @@ class DaemonState:
                     )
                 # If already initialized for the exact same project and run, reuse cached model
                 if self.model is not None:
+                    self.worker_reuse_count += 1
                     return {
                         "status": "REUSED",
                         "project_id": self.active_project_id,
                         "run_id": self.active_run_id,
                         "model_type": self.model_type,
                         "model_load_ms": 0.0,
+                        "worker_reuse_count": self.worker_reuse_count,
                         "param_count": sum(p.numel() for p in self.model.parameters()),
                     }
 
@@ -154,6 +163,7 @@ class DaemonState:
             mt = model_type.upper()
             recipe = recipes.get_recipe(mt)
             model = recipe.build_model(self.device)
+            self.model_load_count += 1
 
             # Load or generate partition data
             if dataset_name == "synthetic":
@@ -265,6 +275,7 @@ class DaemonState:
             compute_ms = (time.perf_counter() - start_t) * 1000.0
             self.cumulative_compute_ms += compute_ms
             self.completed_rounds += 1
+            self.last_round_latency_ms = compute_ms
             self.status = "READY"
 
             avg_loss = total_loss / max(total_samples, 1)
@@ -324,6 +335,12 @@ class DaemonRequestHandler(BaseHTTPRequestHandler):
                 "model_loaded": state.model is not None,
                 "completed_rounds": state.completed_rounds,
                 "cumulative_compute_ms": state.cumulative_compute_ms,
+                "process_startup_count": state.process_startup_count,
+                "model_load_count": state.model_load_count,
+                "worker_reuse_count": state.worker_reuse_count,
+                "failure_count": state.failure_count,
+                "restart_count": state.restart_count,
+                "last_round_latency_ms": state.last_round_latency_ms,
                 "memory": state.get_memory_info(),
             }
             self._send_json(HTTPStatus.OK, resp)
@@ -335,6 +352,7 @@ class DaemonRequestHandler(BaseHTTPRequestHandler):
         try:
             req = self._read_json()
         except Exception as e:
+            self.daemon_state.failure_count += 1
             self._send_json(HTTPStatus.BAD_REQUEST, {"error": f"Malformed JSON: {e}"})
             return
 
@@ -376,8 +394,10 @@ class DaemonRequestHandler(BaseHTTPRequestHandler):
                 self._send_json(HTTPStatus.NOT_FOUND, {"error": f"Endpoint {path} not found."})
 
         except ValueError as ve:
+            self.daemon_state.failure_count += 1
             self._send_json(HTTPStatus.CONFLICT, {"error": str(ve), "type": "FencingConflict"})
         except Exception as ex:
+            self.daemon_state.failure_count += 1
             logger.exception("Error processing request")
             self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(ex), "type": type(ex).__name__})
 
