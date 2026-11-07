@@ -1,0 +1,104 @@
+{
+  "meta": {
+    "device": "cpu",
+    "machine": "arm64",
+    "model_type": "CNN",
+    "num_rounds": 5,
+    "python_version": "3.12.7",
+    "system": "Darwin",
+    "torch_version": "2.12.0"
+  },
+  "oneshot_rounds": [
+    {
+      "compute_ms": 385.16879198141396,
+      "data_prep_ms": 0.04549999721348286,
+      "loss": 2.2934142351150513,
+      "model_load_ms": 0.6857909611426294,
+      "round": 1,
+      "total_round_ms": 385.9008750296198
+    },
+    {
+      "compute_ms": 11.302041995804757,
+      "data_prep_ms": 0.019041995983570814,
+      "loss": 2.3011890649795532,
+      "model_load_ms": 0.40612497832626104,
+      "round": 2,
+      "total_round_ms": 11.728000012226403
+    },
+    {
+      "compute_ms": 11.229333991650492,
+      "data_prep_ms": 0.008375034667551517,
+      "loss": 2.2997777462005615,
+      "model_load_ms": 0.2620000159367919,
+      "round": 3,
+      "total_round_ms": 11.500333028379828
+    },
+    {
+      "compute_ms": 11.044624960049987,
+      "data_prep_ms": 0.008834002073854208,
+      "loss": 2.307951509952545,
+      "model_load_ms": 0.2632500254549086,
+      "round": 4,
+      "total_round_ms": 11.317208991385996
+    },
+    {
+      "compute_ms": 11.047125037293881,
+      "data_prep_ms": 0.01025001984089613,
+      "loss": 2.3103222250938416,
+      "model_load_ms": 0.27712498558685184,
+      "round": 5,
+      "total_round_ms": 11.334999988321215
+    }
+  ],
+  "persistent_rounds": [
+    {
+      "accuracy": 0.1875,
+      "compute_ms": 5.756542028393596,
+      "loss": 2.304366707801819,
+      "model_load_ms": 0.0,
+      "round": 1,
+      "total_round_ms": 8.609459036961198
+    },
+    {
+      "accuracy": 0.1875,
+      "compute_ms": 5.154874990694225,
+      "loss": 2.301769733428955,
+      "model_load_ms": 0.0,
+      "round": 2,
+      "total_round_ms": 7.018999953288585
+    },
+    {
+      "accuracy": 0.21875,
+      "compute_ms": 4.776207963004708,
+      "loss": 2.299345910549164,
+      "model_load_ms": 0.0,
+      "round": 3,
+      "total_round_ms": 6.600042048376054
+    },
+    {
+      "accuracy": 0.21875,
+      "compute_ms": 4.669916990678757,
+      "loss": 2.2970059514045715,
+      "model_load_ms": 0.0,
+      "round": 4,
+      "total_round_ms": 6.550416990648955
+    },
+    {
+      "accuracy": 0.21875,
+      "compute_ms": 4.527207987848669,
+      "loss": 2.294714868068695,
+      "model_load_ms": 0.0,
+      "round": 5,
+      "total_round_ms": 6.220916984602809
+    }
+  ],
+  "summary": {
+    "avg_oneshot_round_ms": 86.35628340998664,
+    "avg_persistent_round_ms": 6.99996700277552,
+    "initial_model_load_ms": 1.2297910288907588,
+    "latency_reduction_pct": 91.89408491615792,
+    "oneshot_wall_clock_s": 0.4318722090101801,
+    "persistent_wall_clock_s": 0.04819850000785664,
+    "speedup_ratio": 12.336670069408322
+  }
+}

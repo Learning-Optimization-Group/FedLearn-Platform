@@ -1302,7 +1302,12 @@ def build_arg_parser():
     parser.add_argument("--device", default=os.environ.get("FEDLEARN_DEVICE", "auto"),
                         choices=["auto", "cpu", "cuda", "mps"],
                         help="Compute device (default: auto — cuda>mps>cpu; FEDLEARN_DEVICE env fallback)")
-
+    parser.add_argument("--worker-mode", type=str, default=os.environ.get("FEDLEARN_WORKER_MODE", "oneshot"),
+                        choices=["oneshot", "persistent"],
+                        help="Worker execution mode: 'oneshot' (default, fresh process per invocation) or "
+                             "'persistent' (retains model in memory across rounds via worker daemon).")
+    parser.add_argument("--daemon-url", type=str, default=os.environ.get("FEDLEARN_DAEMON_URL", "http://127.0.0.1:8089"),
+                        help="Base URL of persistent worker daemon when --worker-mode=persistent (default: http://127.0.0.1:8089)")
 
     return parser
 
