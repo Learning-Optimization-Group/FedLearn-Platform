@@ -131,6 +131,39 @@ class RunResultIdempotencyIntegrationTest {
     }
 
     @Test
+    void roundResultWithTimingBreakdownIsPersistedAndBroadcasted() {
+        ActiveRun active = activeRun();
+        String body = "{\"serverRound\":1,\"loss\":0.42,\"accuracy\":0.88,\"gpuUtilization\":0.0,"
+                + "\"time_data_loading_s\":0.123,\"time_forward_backward_s\":0.456,\"time_optimizer_step_s\":0.078,"
+                + "\"time_wire_encode_s\":0.025,\"time_aggregation_s\":0.089,\"time_wire_decode_s\":0.015,\"time_eval_s\":0.234}";
+        assertEquals(HttpStatus.OK, postBody(active, body));
+        var stored = results.findByProjectIdOrderByServerRoundAsc(active.project().getId());
+        assertEquals(1, stored.size());
+        var res = stored.getFirst();
+        assertEquals(0.123, res.getTimeDataLoadingS(), 1e-4);
+        assertEquals(0.456, res.getTimeForwardBackwardS(), 1e-4);
+        assertEquals(0.078, res.getTimeOptimizerStepS(), 1e-4);
+        assertEquals(0.025, res.getTimeWireEncodeS(), 1e-4);
+        assertEquals(0.089, res.getTimeAggregationS(), 1e-4);
+        assertEquals(0.015, res.getTimeWireDecodeS(), 1e-4);
+        assertEquals(0.234, res.getTimeEvalS(), 1e-4);
+
+        org.mockito.ArgumentCaptor<com.federated.fl_platform_api.dto.RoundResultDto> captor =
+                org.mockito.ArgumentCaptor.forClass(com.federated.fl_platform_api.dto.RoundResultDto.class);
+        verify(webSockets).sendResultUpdate(eq(active.project().getId()), captor.capture());
+        var broadcast = captor.getValue();
+        assertEquals(0.123, broadcast.getTimeDataLoadingS(), 1e-4);
+        assertEquals(0.456, broadcast.getTimeForwardBackwardS(), 1e-4);
+        assertEquals(0.078, broadcast.getTimeOptimizerStepS(), 1e-4);
+        assertEquals(0.025, broadcast.getTimeWireEncodeS(), 1e-4);
+        assertEquals(0.089, broadcast.getTimeAggregationS(), 1e-4);
+        assertEquals(0.015, broadcast.getTimeWireDecodeS(), 1e-4);
+        assertEquals(0.234, broadcast.getTimeEvalS(), 1e-4);
+        assertEquals(0.123, broadcast.getTimeDataLoadingS(), 1e-4);
+        assertEquals(0.234, broadcast.getTimeEvalS(), 1e-4);
+    }
+
+    @Test
     void conflictingRetryCannotReplaceTheFirstResult() {
         ActiveRun active = activeRun();
         assertEquals(HttpStatus.OK, post(active, 1, .5));

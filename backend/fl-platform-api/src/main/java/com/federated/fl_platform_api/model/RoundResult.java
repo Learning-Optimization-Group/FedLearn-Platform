@@ -26,6 +26,27 @@ public class RoundResult {
     private Double accuracy;
     private Double gpuUtilization;
 
+    @Column(name = "time_data_loading_s")
+    private Double timeDataLoadingS;
+
+    @Column(name = "time_forward_backward_s")
+    private Double timeForwardBackwardS;
+
+    @Column(name = "time_optimizer_step_s")
+    private Double timeOptimizerStepS;
+
+    @Column(name = "time_wire_encode_s")
+    private Double timeWireEncodeS;
+
+    @Column(name = "time_aggregation_s")
+    private Double timeAggregationS;
+
+    @Column(name = "time_wire_decode_s")
+    private Double timeWireDecodeS;
+
+    @Column(name = "time_eval_s")
+    private Double timeEvalS;
+
     public UUID getId() {
         return id;
     }
@@ -76,5 +97,61 @@ public class RoundResult {
 
     public void setGpuUtilization(Double gpuUtilization) {
         this.gpuUtilization = gpuUtilization;
+    }
+
+    public Double getTimeDataLoadingS() {
+        return timeDataLoadingS;
+    }
+
+    public void setTimeDataLoadingS(Double timeDataLoadingS) {
+        this.timeDataLoadingS = timeDataLoadingS;
+    }
+
+    public Double getTimeForwardBackwardS() {
+        return timeForwardBackwardS;
+    }
+
+    public void setTimeForwardBackwardS(Double timeForwardBackwardS) {
+        this.timeForwardBackwardS = timeForwardBackwardS;
+    }
+
+    public Double getTimeOptimizerStepS() {
+        return timeOptimizerStepS;
+    }
+
+    public void setTimeOptimizerStepS(Double timeOptimizerStepS) {
+        this.timeOptimizerStepS = timeOptimizerStepS;
+    }
+
+    public Double getTimeWireEncodeS() {
+        return timeWireEncodeS;
+    }
+
+    public void setTimeWireEncodeS(Double timeWireEncodeS) {
+        this.timeWireEncodeS = timeWireEncodeS;
+    }
+
+    public Double getTimeAggregationS() {
+        return timeAggregationS;
+    }
+
+    public void setTimeAggregationS(Double timeAggregationS) {
+        this.timeAggregationS = timeAggregationS;
+    }
+
+    public Double getTimeWireDecodeS() {
+        return timeWireDecodeS;
+    }
+
+    public void setTimeWireDecodeS(Double timeWireDecodeS) {
+        this.timeWireDecodeS = timeWireDecodeS;
+    }
+
+    public Double getTimeEvalS() {
+        return timeEvalS;
+    }
+
+    public void setTimeEvalS(Double timeEvalS) {
+        this.timeEvalS = timeEvalS;
     }
 }

@@ -33,12 +33,26 @@ public class RoundResultIngestService {
         requireFinite(dto.getLoss());
         requireFinite(dto.getAccuracy());
         requireFinite(dto.getGpuUtilization());
+        requireFinite(dto.getTimeDataLoadingS());
+        requireFinite(dto.getTimeForwardBackwardS());
+        requireFinite(dto.getTimeOptimizerStepS());
+        requireFinite(dto.getTimeWireEncodeS());
+        requireFinite(dto.getTimeAggregationS());
+        requireFinite(dto.getTimeWireDecodeS());
+        requireFinite(dto.getTimeEvalS());
         var existing = results.findByRunIdAndServerRound(run.getId(), dto.getServerRound());
         if (existing.isPresent()) {
             var previous = existing.get();
             if (!Objects.equals(previous.getLoss(), dto.getLoss())
                     || !Objects.equals(previous.getAccuracy(), dto.getAccuracy())
-                    || !Objects.equals(previous.getGpuUtilization(), dto.getGpuUtilization())) {
+                    || !Objects.equals(previous.getGpuUtilization(), dto.getGpuUtilization())
+                    || !Objects.equals(previous.getTimeDataLoadingS(), dto.getTimeDataLoadingS())
+                    || !Objects.equals(previous.getTimeForwardBackwardS(), dto.getTimeForwardBackwardS())
+                    || !Objects.equals(previous.getTimeOptimizerStepS(), dto.getTimeOptimizerStepS())
+                    || !Objects.equals(previous.getTimeWireEncodeS(), dto.getTimeWireEncodeS())
+                    || !Objects.equals(previous.getTimeAggregationS(), dto.getTimeAggregationS())
+                    || !Objects.equals(previous.getTimeWireDecodeS(), dto.getTimeWireDecodeS())
+                    || !Objects.equals(previous.getTimeEvalS(), dto.getTimeEvalS())) {
                 throw new IllegalStateException("Round result conflicts with the recorded metrics");
             }
             return new Recorded(previous, false);
@@ -50,6 +64,13 @@ public class RoundResultIngestService {
         result.setLoss(dto.getLoss());
         result.setAccuracy(dto.getAccuracy());
         result.setGpuUtilization(dto.getGpuUtilization());
+        result.setTimeDataLoadingS(dto.getTimeDataLoadingS());
+        result.setTimeForwardBackwardS(dto.getTimeForwardBackwardS());
+        result.setTimeOptimizerStepS(dto.getTimeOptimizerStepS());
+        result.setTimeWireEncodeS(dto.getTimeWireEncodeS());
+        result.setTimeAggregationS(dto.getTimeAggregationS());
+        result.setTimeWireDecodeS(dto.getTimeWireDecodeS());
+        result.setTimeEvalS(dto.getTimeEvalS());
         return new Recorded(results.saveAndFlush(result), true);
     }
 

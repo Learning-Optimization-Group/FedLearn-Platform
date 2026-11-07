@@ -81,7 +81,13 @@ def start_client(server_address: str, client: Client, client_id: str):
                     # comm_client.update_status() during training to drive heartbeats.
                     # Batching and dropout use the streamed round, even when strategy settings are empty.
                     training_config = {**config, "server_round": server_round}
-                    new_parameters, num_examples = client.fit(parameters, training_config)
+                    fit_result = client.fit(parameters, training_config)
+                    if isinstance(fit_result, tuple) and len(fit_result) == 3:
+                        new_parameters, num_examples, client_metrics = fit_result
+                    else:
+                        new_parameters, num_examples = fit_result
+                        raw_timings = getattr(client, "latest_timings", None)
+                        client_metrics = raw_timings if isinstance(raw_timings, dict) else None
 
                     # FR-10: if the server stopped mid-fit, fit() aborted early and the
                     # parameters are a partial round — do not submit them; shut down.
@@ -94,7 +100,10 @@ def start_client(server_address: str, client: Client, client_id: str):
                     log.debug("[%s] Submitting update for round %d", client_id, server_round)
                     comm_client.update_status("submitting_update", 0, 0)
 
-                    if comm_client.submit_update(new_parameters, num_examples, server_round):
+                    submit_kwargs = {}
+                    if isinstance(client_metrics, dict) and client_metrics:
+                        submit_kwargs["client_metrics"] = client_metrics
+                    if comm_client.submit_update(new_parameters, num_examples, server_round, **submit_kwargs):
                         log.info("[%s] Submitted update for round %d", client_id, server_round)
                         last_completed_round = server_round
                         comm_client.update_status("idle", 0, 0)

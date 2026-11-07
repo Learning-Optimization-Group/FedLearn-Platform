@@ -511,11 +511,18 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
     if USE_LLM or USE_MLP:
         print(f"   [Training] Dataset: {dataset_name}")
 
+    total_data_loading_s = 0.0
+    total_forward_backward_s = 0.0
+    total_optimizer_step_s = 0.0
+    last_batch_time = time.perf_counter()
+
     for epoch in range(epochs):
         epoch_loss = 0.0
         epoch_steps = 0
 
         for i, batch in enumerate(trainloader):
+            batch_received_time = time.perf_counter()
+            total_data_loading_s += (batch_received_time - last_batch_time)
             if i == 0:
                 print(f"\n   [DEBUG] First batch info:")
                 if USE_LLM:
@@ -525,6 +532,7 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                     print(f"     Sample labels: {batch['labels'][:5]}")
                 else:
                     print(f"     Batch type: {type(batch)}")
+            t_fb_start = time.perf_counter()
             optimizer.zero_grad()
 
             if USE_LLM or USE_LLM_LORA:
@@ -602,6 +610,8 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
             # BEFORE optimizer.step(). No-op for FedAvg/FedOpt/Robust (mu=0). global_params is the
             # round-start snapshot passed by ZOSLClient.fit.
             _apply_proximal_gradient(net, global_params, proximal_mu)
+            t_fb_end = time.perf_counter()
+            total_forward_backward_s += (t_fb_end - t_fb_start)
 
             if current_step % 10 == 0:
                 log_processing_usage(f"batch {current_step}")
@@ -619,15 +629,16 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                 print(f"\n     [WEIGHT UPDATE CHECK]")
                 # Get a reference weight before optimizer.step()
                 ref_weight_before = net.model.decoder.final_layer_norm.weight.clone()
-            # Gradient clipping for LLM to prevent explosion
-            # if USE_LLM:
-            #
-            #     torch.nn.utils.clip_grad_norm_(net.parameters(), LLM_MAX_GRAD_NORM)
 
+            t_opt_start = time.perf_counter()
             optimizer.step()
             # A contract's seeded dropout masks are per local step (contracted_dropout.SeededDropoutMasks).
             if dropout_masks is not None:
                 dropout_masks.advance()
+            t_opt_end = time.perf_counter()
+            total_optimizer_step_s += (t_opt_end - t_opt_start)
+            last_batch_time = time.perf_counter()
+
             if i == 0 and USE_LLM and not USE_LLM_LORA:
                 ref_weight_after = net.model.decoder.final_layer_norm.weight
                 weight_change = (ref_weight_after - ref_weight_before).abs().mean().item()
@@ -653,16 +664,22 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                 # current_lr = scheduler.get_last_lr()[0] if USE_LLM else optimizer.param_groups[0]['lr']
                 current_lr = optimizer.param_groups[0]['lr']
                 print(f"   [Training] Epoch {epoch+1}/{epochs}, "
-                      f"Step {current_step}/{total_steps}: "
-                      f"Loss = {loss.item():.4f}, "
-                      f"Avg Loss = {avg_loss:.4f}, "
-                      f"LR = {current_lr:.2e}")
+                       f"Step {current_step}/{total_steps}: "
+                       f"Loss = {loss.item():.4f}, "
+                       f"Avg Loss = {avg_loss:.4f}, "
+                       f"LR = {current_lr:.2e}")
 
         # Epoch summary
         avg_epoch_loss = epoch_loss / epoch_steps if epoch_steps > 0 else 0.0
         print(f"   [Training] Epoch {epoch+1} complete. Average loss: {avg_epoch_loss:.4f}")
         print(f"   [Training] Epoch {epoch+1} complete. Average loss: {avg_epoch_loss:.4f}")
         print(f"   [Training] Total batches processed: {epoch_steps}")
+
+    net._train_timings = {
+        "time_data_loading_s": round(total_data_loading_s, 6),
+        "time_forward_backward_s": round(total_forward_backward_s, 6),
+        "time_optimizer_step_s": round(total_optimizer_step_s, 6),
+    }
 
 # ==============================================================================
 # --- FR-20: server-config guards for the first-order (FedAvg-family) client ---
@@ -853,6 +870,7 @@ class ZOSLClient(fl.Client):
         self.partition_id = partition_id
         self.dataset_name = dataset_name
         self.grpc_client = None  # Will be set by start_client
+        self.latest_timings = {}
 
         if USE_MLP:
             # DA-14 Phase 2: build via the recipe registry (single authority). Byte-identical to the
@@ -1137,6 +1155,7 @@ class ZOSLClient(fl.Client):
         # the wire filter, so a BatchNorm model's int64 num_batches_tracked re-entered the global
         # model through the round-1 aggregate and the round-2 download then failed to serialise.
         # A second path around a filter is how the arm broke too; there is now only one.
+        self.latest_timings = getattr(self.net, "_train_timings", {})
         return self.get_parameters(), len(self.trainloader.dataset)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))

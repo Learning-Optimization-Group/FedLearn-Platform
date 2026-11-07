@@ -94,6 +94,13 @@ export interface ProjectResult {
     loss: number;
     accuracy: number;
     gpuUtilization?: number;
+    timeDataLoadingS?: number;
+    timeForwardBackwardS?: number;
+    timeOptimizerStepS?: number;
+    timeWireEncodeS?: number;
+    timeAggregationS?: number;
+    timeWireDecodeS?: number;
+    timeEvalS?: number;
 }
 
 // ─── Authentication ──────────────────────────────────────────────────────

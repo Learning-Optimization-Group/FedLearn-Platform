@@ -275,13 +275,21 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
             # Step 1: Deserialize parameters
             logging.info(f"[Server] Step 1: Deserializing parameters...")
+            t_dec_start = time.perf_counter()
             params, num_examples = proto_to_parameters(request.parameters)
-            logging.info(f"[Server] Deserialized {len(params)} parameters")
+            wire_decode_s = time.perf_counter() - t_dec_start
+            logging.info(f"[Server] Deserialized {len(params)} parameters in {wire_decode_s:.4f}s")
             logging.info(f"[Server] Num examples: {num_examples}")
+
+            metrics_raw = getattr(request, "client_metrics", None)
+            client_metrics = dict(metrics_raw) if metrics_raw else None
 
             # Step 2: Submit to coordinator
             logging.info(f"[Server] Step 2: Submitting to coordinator...")
-            admitted = self.coordinator.submit_client_update(client_id, params, num_examples, trained_on_round)
+            admitted = self.coordinator.submit_client_update(
+                client_id, params, num_examples, trained_on_round,
+                client_metrics=client_metrics, wire_decode_s=wire_decode_s
+            )
             if admitted:
                 logging.info(f"[Server] Coordinator accepted update")
             else:
@@ -404,12 +412,19 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             # (_generate_model_chunks) and the download path (GetGlobalModelStream). Decompression
             # is NOT keyed off the per-process FEDLEARN_USE_COMPRESSION env var, which the client
             # and this server-spawning backend do not necessarily share.
+            t_dec_start = time.perf_counter()
             parameters, num_examples = chunks_to_parameters(full_data, compressed=False)
+            wire_decode_s = time.perf_counter() - t_dec_start
 
-            logging.info(f"[Server] Model reconstructed successfully. Submitting to coordinator...")
+            logging.info(f"[Server] Model reconstructed successfully in {wire_decode_s:.4f}s. Submitting to coordinator...")
+
+            client_metrics = dict(chunk.client_metrics) if (chunk and chunk.client_metrics) else None
 
             # Submit to coordinator
-            admitted = self.coordinator.submit_client_update(client_id, parameters, num_examples, round_num)
+            admitted = self.coordinator.submit_client_update(
+                client_id, parameters, num_examples, round_num,
+                client_metrics=client_metrics, wire_decode_s=wire_decode_s
+            )
             if not admitted:
                 logging.info(f"[Server] Streamed update from {client_id} for round {round_num} was not counted "
                              f"(the run ended, another round is current, or it already reported)")
@@ -728,11 +743,14 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                   f"(echoed seed steps: {echoed_steps})")
 
             # Submit to coordinator (modified to handle DeComFL data)
+            metrics_raw = getattr(request, "client_metrics", None)
+            client_metrics = dict(metrics_raw) if metrics_raw else None
             self.coordinator.submit_decomfl_update(
                 client_id,
                 gradient_scalars,
                 num_examples,
-                trained_on_round
+                trained_on_round,
+                client_metrics=client_metrics,
             )
 
             logging.info(f"[Server] Successfully received gradient scalars from {client_id}")

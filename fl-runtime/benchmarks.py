@@ -344,6 +344,7 @@ def build_round_record(
     client_count: Optional[int] = None,
     target_accuracy: Optional[float] = None,
     extra: Optional[dict] = None,
+    timings: Optional[dict] = None,
 ) -> dict[str, Any]:
     """Assemble one per-round benchmark record (camelCase) for POST to the backend.
 
@@ -372,8 +373,11 @@ def build_round_record(
         rec["clientCount"] = int(client_count)
     if target_accuracy is not None:
         rec["targetAccuracy"] = _round(target_accuracy)
-    if extra:
-        rec["extraMetrics"] = extra
+    if extra or timings:
+        merged_extra = dict(extra or {})
+        if timings:
+            merged_extra["timings"] = timings
+        rec["extraMetrics"] = merged_extra
     return rec
 
 

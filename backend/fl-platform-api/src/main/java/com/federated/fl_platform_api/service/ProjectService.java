@@ -351,6 +351,13 @@ public class ProjectService {
         dto.setLoss(result.getLoss());
         dto.setAccuracy(result.getAccuracy());
         dto.setGpuUtilization(result.getGpuUtilization());
+        dto.setTimeDataLoadingS(result.getTimeDataLoadingS());
+        dto.setTimeForwardBackwardS(result.getTimeForwardBackwardS());
+        dto.setTimeOptimizerStepS(result.getTimeOptimizerStepS());
+        dto.setTimeWireEncodeS(result.getTimeWireEncodeS());
+        dto.setTimeAggregationS(result.getTimeAggregationS());
+        dto.setTimeWireDecodeS(result.getTimeWireDecodeS());
+        dto.setTimeEvalS(result.getTimeEvalS());
         return dto;
     }
 

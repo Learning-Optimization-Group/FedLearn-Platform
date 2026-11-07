@@ -28,13 +28,16 @@ class ClientUpdateRecorder:
         self.path = Path(path)
 
     def record_decomfl(self, round_number: int, client_id: str, gradient_scalars: List[List[float]],
-                       num_examples: int) -> None:
+                       num_examples: int, timings: Optional[dict] = None) -> None:
         line = {"round": round_number, "client_id": client_id, "num_examples": num_examples,
                 "gradient_scalars": gradient_scalars}
+        if timings:
+            line["timings"] = timings
         with self.path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(line) + "\n")
 
-    def record_model(self, round_number: int, client_id: str, parameters, num_examples: int) -> None:
+    def record_model(self, round_number: int, client_id: str, parameters, num_examples: int,
+                     timings: Optional[dict] = None) -> None:
         from fedlearn.communication.safetensors_codec import save_safetensors
 
         payload = save_safetensors([(key, value.detach().float().cpu().numpy())
@@ -55,6 +58,8 @@ class ClientUpdateRecorder:
         line = {'round': round_number, 'client_id': client_id, 'num_examples': num_examples,
                 'model_state': {'codec': 'safetensors-f32-v1', 'path': str(target.relative_to(self.path.parent)),
                                 'sha256': digest, 'bytes': len(payload)}}
+        if timings:
+            line['timings'] = timings
         with self.path.open('a', encoding='utf-8') as fh:
             fh.write(json.dumps(line, allow_nan=False) + '\n')
 

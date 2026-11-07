@@ -84,6 +84,10 @@ class FLCoordinator:
         self._aggregation_worker = None
         self._completed_round_number = 0
         self._completed_round_metrics = {}
+        self._completed_round_timings = {}
+        self._round_client_timings = {}
+        self._round_wire_decode_times = {}
+        self.latest_timings = None
         # Cancellation shares this brief publication lock, never the disk-write interval.
         self._publication_lock = threading.Lock()
         self.checkpoint_store = checkpoint_store
@@ -468,7 +472,8 @@ class FLCoordinator:
     MAX_NUM_EXAMPLES = 100_000
 
     def submit_client_update(self, client_id: str, params: OrderedDict[str, torch.Tensor], num_examples: int,
-                             trained_on_round: int) -> bool:
+                             trained_on_round: int, client_metrics: Optional[dict] = None,
+                             wire_decode_s: Optional[float] = None) -> bool:
         """Count one client's update toward the current round. Returns whether it was counted.
 
         An update is not counted when the run has ended, when it was trained on another round, when the client
@@ -572,8 +577,12 @@ class FLCoordinator:
                 params = self._clip_update_delta(client_id, params)
 
             log.debug("Received update from %s for round %d", client_id, self.current_round)
+            if client_metrics:
+                self._round_client_timings[client_id] = dict(client_metrics)
+            if wire_decode_s is not None:
+                self._round_wire_decode_times[client_id] = float(wire_decode_s)
             if self.update_recorder is not None:
-                self.update_recorder.record_model(self.current_round, client_id, params, num_examples)
+                self.update_recorder.record_model(self.current_round, client_id, params, num_examples, timings=client_metrics)
             # SE-3: tag with the client identity so a poisoned update is attributable (and consistent
             # with the DeComFL path). Strategy aggregators accept this 3-tuple form.
             self._client_updates_received.append((client_id, params, num_examples))
@@ -651,6 +660,34 @@ class FLCoordinator:
         else:
             self._trigger_aggregation_and_evaluation()
 
+    def _compute_round_timings(self, aggregation_s: float, eval_s: float) -> dict[str, float]:
+        timings: dict[str, float] = {
+            "time_aggregation_s": round(float(aggregation_s), 6),
+            "time_eval_s": round(float(eval_s), 6),
+        }
+        if self._round_wire_decode_times:
+            timings["time_wire_decode_s"] = round(
+                sum(self._round_wire_decode_times.values()) / len(self._round_wire_decode_times), 6
+            )
+        else:
+            timings["time_wire_decode_s"] = 0.0
+
+        client_timings = list(self._round_client_timings.values())
+        for key in ("time_data_loading_s", "time_forward_backward_s", "time_optimizer_step_s", "time_wire_encode_s"):
+            vals = [ct[key] for ct in client_timings if key in ct and ct[key] is not None]
+            if vals:
+                timings[key] = round(sum(vals) / len(vals), 6)
+            else:
+                timings[key] = 0.0
+
+        return timings
+
+    def get_latest_timings(self, round_number=None) -> Optional[dict]:
+        """Returns the timing breakdown from the last completed round (or specified round)."""
+        if round_number in self._completed_round_timings:
+            return self._completed_round_timings[round_number]
+        return self.latest_timings
+
     def _trigger_aggregation_and_evaluation(self):
         """Aggregate client updates and advance the round counter.
 
@@ -670,19 +707,31 @@ class FLCoordinator:
         results = self._ordered_client_updates()
         self._client_updates_received.clear()
 
+        t_agg_start = time.perf_counter()
         aggregated_parameters = self.strategy.aggregate_fit(self.current_round, results)
+        agg_duration_s = time.perf_counter() - t_agg_start
 
+        eval_duration_s = 0.0
         if aggregated_parameters is not None:
             # FR-22: Strategy.evaluate is Optional[Tuple[float, dict]] — it returns None when no
             # evaluate_fn is configured (the constructor default for FedAvg/FedProx/FedOpt/FedLoRA/
             # Robust). Unpacking None as a 2-tuple raised a TypeError inside the lock, after updates
             # were cleared, wedging the round. Guard it exactly as the DeComFL trigger already does.
+            t_eval_start = time.perf_counter()
             eval_result = self.strategy.evaluate(self.current_round, aggregated_parameters)
+            eval_duration_s = time.perf_counter() - t_eval_start
             if eval_result is not None:
                 loss, metrics = eval_result
                 round_metrics = {"loss": loss, **metrics}
             else:
                 round_metrics = None
+
+            round_timings = self._compute_round_timings(agg_duration_s, eval_duration_s)
+            self._completed_round_timings[self.current_round] = round_timings
+            self.latest_timings = round_timings
+            self._round_client_timings.clear()
+            self._round_wire_decode_times.clear()
+
             if self.checkpoint_store is not None:
                 try:
                     self.checkpoint_store.save(self._capture_checkpoint(
@@ -730,11 +779,20 @@ class FLCoordinator:
 
         def complete():
             try:
+                t_agg_start = time.perf_counter()
                 aggregate = self.strategy.aggregate_fit(round_number, results)
+                agg_duration_s = time.perf_counter() - t_agg_start
                 if aggregate is None:
                     raise RuntimeError('aggregation returned no model')
+                t_eval_start = time.perf_counter()
                 evaluation = self.strategy.evaluate(round_number, aggregate)
+                eval_duration_s = time.perf_counter() - t_eval_start
                 metrics = None if evaluation is None else {'loss': evaluation[0], **evaluation[1]}
+                round_timings = self._compute_round_timings(agg_duration_s, eval_duration_s)
+                self._completed_round_timings[round_number] = round_timings
+                self.latest_timings = round_timings
+                self._round_client_timings.clear()
+                self._round_wire_decode_times.clear()
                 if self.checkpoint_store is not None:
                     with self._lock:
                         if self.stop_requested or self.current_round != round_number:
@@ -975,7 +1033,9 @@ class FLCoordinator:
             client_id: str,
             gradient_scalars: List[List[float]],
             num_examples: int,
-            trained_on_round: int
+            trained_on_round: int,
+            client_metrics: Optional[dict] = None,
+            wire_decode_s: Optional[float] = None,
     ):
         """
         Handle DeComFL gradient scalar submission.
@@ -1064,10 +1124,14 @@ class FLCoordinator:
                     )
                 gradient_scalars = [[max(-tau, min(tau, g)) for g in row] for row in gradient_scalars]
 
+            if client_metrics:
+                self._round_client_timings[client_id] = dict(client_metrics)
+            if wire_decode_s is not None:
+                self._round_wire_decode_times[client_id] = float(wire_decode_s)
             # Store as tuple: (client_id, gradient_scalars, num_examples)
             self._client_updates_received.append((client_id, gradient_scalars, num_examples))
             if self.update_recorder is not None:   # research-only; see update_recorder.py
-                self.update_recorder.record_decomfl(self.current_round, client_id, gradient_scalars, num_examples)
+                self.update_recorder.record_decomfl(self.current_round, client_id, gradient_scalars, num_examples, timings=client_metrics)
 
             if len(self._client_updates_received) >= self.clients_per_round:
                 log.info(
@@ -1092,7 +1156,9 @@ class FLCoordinator:
         self._client_updates_received.clear()
 
         # Aggregate gradient scalars
+        t_agg_start = time.perf_counter()
         aggregated_parameters = self.strategy.aggregate_fit(self.current_round, results)
+        agg_duration_s = time.perf_counter() - t_agg_start
 
         if aggregated_parameters is not None:
             self._global_model_params = aggregated_parameters
@@ -1108,16 +1174,25 @@ class FLCoordinator:
 
             # Evaluate. evaluate() returns None when the server has no evaluate_fn (e.g. a bare
             # scalar-aggregation MVP); guard so a round completes instead of crashing on unpack.
+            t_eval_start = time.perf_counter()
             eval_result = self.strategy.evaluate(self.current_round, self._global_model_params)
+            eval_duration_s = time.perf_counter() - t_eval_start
             if eval_result is not None:
                 loss, metrics = eval_result
-                self.latest_metrics = {"loss": loss, **metrics}
+                round_metrics = {"loss": loss, **metrics}
                 log.info(
                     "Round %d complete (loss=%.4f, metrics=%s)",
                     self.current_round, loss, metrics,
                 )
             else:
+                round_metrics = None
                 log.info("Round %d complete (no evaluate_fn configured; eval skipped)", self.current_round)
+            round_timings = self._compute_round_timings(agg_duration_s, eval_duration_s)
+            self.latest_metrics = round_metrics
+            self._completed_round_timings[self.current_round] = round_timings
+            self.latest_timings = round_timings
+            self._round_client_timings.clear()
+            self._round_wire_decode_times.clear()
         else:
             log.warning("DeComFL aggregation for round %d failed", self.current_round)
             self.latest_metrics = None

@@ -1453,11 +1453,19 @@ def run_training(args, recovery=None):
             decimal_accuracy = (float(metrics["accuracy"]) / 100.0
                                 if metrics.get("accuracy") is not None else None)
 
+            timings = metrics.get("timings") or {}
             result_payload = {
                 "serverRound": r,
                 "loss": float(metrics.get("loss", 0.0)),
                 "accuracy": decimal_accuracy,
                 "gpuUtilization": 0.0,
+                "timeDataLoadingS": timings.get("time_data_loading_s"),
+                "timeForwardBackwardS": timings.get("time_forward_backward_s"),
+                "timeOptimizerStepS": timings.get("time_optimizer_step_s"),
+                "timeWireEncodeS": timings.get("time_wire_encode_s"),
+                "timeAggregationS": timings.get("time_aggregation_s"),
+                "timeWireDecodeS": timings.get("time_wire_decode_s"),
+                "timeEvalS": timings.get("time_eval_s"),
             }
             try:
                 res = requests.post(results_url, json=result_payload, headers=headers, timeout=30)
@@ -1471,8 +1479,14 @@ def run_training(args, recovery=None):
     # so a benchmarking outage never aborts a real federated run.
     bench_url = f"{BACKEND_URL}/api/internal/benchmarks/{args.project_id}"
     if benchmark_records and headers is not None:
+        history_timings = {r: metrics.get("timings") for r, metrics in (history or []) if metrics.get("timings")}
         ok = 0
         for rec in benchmark_records:
+            round_num = rec.get("serverRound")
+            if round_num in history_timings:
+                extra = rec.get("extraMetrics") or {}
+                extra["timings"] = history_timings[round_num]
+                rec["extraMetrics"] = extra
             try:
                 res = requests.post(bench_url, json=rec, headers=headers, timeout=30)
                 res.raise_for_status()

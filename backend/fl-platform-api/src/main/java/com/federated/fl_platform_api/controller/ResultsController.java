@@ -54,6 +54,13 @@ public class ResultsController {
         out.setLoss(saved.getLoss());
         out.setAccuracy(saved.getAccuracy());
         out.setGpuUtilization(saved.getGpuUtilization());
+        out.setTimeDataLoadingS(saved.getTimeDataLoadingS());
+        out.setTimeForwardBackwardS(saved.getTimeForwardBackwardS());
+        out.setTimeOptimizerStepS(saved.getTimeOptimizerStepS());
+        out.setTimeWireEncodeS(saved.getTimeWireEncodeS());
+        out.setTimeAggregationS(saved.getTimeAggregationS());
+        out.setTimeWireDecodeS(saved.getTimeWireDecodeS());
+        out.setTimeEvalS(saved.getTimeEvalS());
         webSocketService.sendResultUpdate(projectId, out);
 
         return ResponseEntity.ok().build();

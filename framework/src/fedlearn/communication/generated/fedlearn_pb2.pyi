@@ -186,16 +186,25 @@ class ModelChunk(_message.Message):
     def __init__(self, chunk_index: _Optional[int] = ..., total_chunks: _Optional[int] = ..., chunk_data: _Optional[bytes] = ..., is_final_chunk: bool = ..., current_round: _Optional[int] = ..., config: _Optional[_Mapping[str, str]] = ..., codec: _Optional[str] = ..., compressed: bool = ..., total_bytes: _Optional[int] = ..., sha256: _Optional[str] = ...) -> None: ...
 
 class SubmitModelUpdateRequest(_message.Message):
-    __slots__ = ("client_id", "run_id", "parameters", "trained_on_round")
+    __slots__ = ("client_id", "run_id", "parameters", "trained_on_round", "client_metrics")
+    class ClientMetricsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: float
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[float] = ...) -> None: ...
     CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
     RUN_ID_FIELD_NUMBER: _ClassVar[int]
     PARAMETERS_FIELD_NUMBER: _ClassVar[int]
     TRAINED_ON_ROUND_FIELD_NUMBER: _ClassVar[int]
+    CLIENT_METRICS_FIELD_NUMBER: _ClassVar[int]
     client_id: str
     run_id: str
     parameters: ModelParameters
     trained_on_round: int
-    def __init__(self, client_id: _Optional[str] = ..., run_id: _Optional[str] = ..., parameters: _Optional[_Union[ModelParameters, _Mapping]] = ..., trained_on_round: _Optional[int] = ...) -> None: ...
+    client_metrics: _containers.ScalarMap[str, float]
+    def __init__(self, client_id: _Optional[str] = ..., run_id: _Optional[str] = ..., parameters: _Optional[_Union[ModelParameters, _Mapping]] = ..., trained_on_round: _Optional[int] = ..., client_metrics: _Optional[_Mapping[str, float]] = ...) -> None: ...
 
 class SubmitModelUpdateResponse(_message.Message):
     __slots__ = ("received", "bytes_received")
@@ -206,7 +215,14 @@ class SubmitModelUpdateResponse(_message.Message):
     def __init__(self, received: bool = ..., bytes_received: _Optional[int] = ...) -> None: ...
 
 class ModelUpdateChunk(_message.Message):
-    __slots__ = ("client_id", "run_id", "trained_on_round", "chunk_index", "total_chunks", "chunk_data", "is_final_chunk", "num_examples", "codec", "compressed", "total_bytes", "sha256")
+    __slots__ = ("client_id", "run_id", "trained_on_round", "chunk_index", "total_chunks", "chunk_data", "is_final_chunk", "num_examples", "codec", "compressed", "total_bytes", "sha256", "client_metrics")
+    class ClientMetricsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: float
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[float] = ...) -> None: ...
     CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
     RUN_ID_FIELD_NUMBER: _ClassVar[int]
     TRAINED_ON_ROUND_FIELD_NUMBER: _ClassVar[int]
@@ -219,6 +235,7 @@ class ModelUpdateChunk(_message.Message):
     COMPRESSED_FIELD_NUMBER: _ClassVar[int]
     TOTAL_BYTES_FIELD_NUMBER: _ClassVar[int]
     SHA256_FIELD_NUMBER: _ClassVar[int]
+    CLIENT_METRICS_FIELD_NUMBER: _ClassVar[int]
     client_id: str
     run_id: str
     trained_on_round: int
@@ -231,7 +248,8 @@ class ModelUpdateChunk(_message.Message):
     compressed: bool
     total_bytes: int
     sha256: str
-    def __init__(self, client_id: _Optional[str] = ..., run_id: _Optional[str] = ..., trained_on_round: _Optional[int] = ..., chunk_index: _Optional[int] = ..., total_chunks: _Optional[int] = ..., chunk_data: _Optional[bytes] = ..., is_final_chunk: bool = ..., num_examples: _Optional[int] = ..., codec: _Optional[str] = ..., compressed: bool = ..., total_bytes: _Optional[int] = ..., sha256: _Optional[str] = ...) -> None: ...
+    client_metrics: _containers.ScalarMap[str, float]
+    def __init__(self, client_id: _Optional[str] = ..., run_id: _Optional[str] = ..., trained_on_round: _Optional[int] = ..., chunk_index: _Optional[int] = ..., total_chunks: _Optional[int] = ..., chunk_data: _Optional[bytes] = ..., is_final_chunk: bool = ..., num_examples: _Optional[int] = ..., codec: _Optional[str] = ..., compressed: bool = ..., total_bytes: _Optional[int] = ..., sha256: _Optional[str] = ..., client_metrics: _Optional[_Mapping[str, float]] = ...) -> None: ...
 
 class PerturbationSeeds(_message.Message):
     __slots__ = ("local_steps",)
@@ -307,7 +325,14 @@ class GetDeComFLConfigResponse(_message.Message):
     def __init__(self, current_round: _Optional[int] = ..., current_seeds: _Optional[_Union[PerturbationSeeds, _Mapping]] = ..., rebuild_history: _Optional[_Union[RebuildHistory, _Mapping]] = ..., config: _Optional[_Mapping[str, str]] = ..., torch_version: _Optional[str] = ..., grad_estimate_method: _Optional[str] = ..., golden_vector_sha256: _Optional[str] = ...) -> None: ...
 
 class SubmitGradientScalarsRequest(_message.Message):
-    __slots__ = ("client_id", "run_id", "trained_on_round", "gradients", "num_examples", "perturbation_seeds", "masked_gradients")
+    __slots__ = ("client_id", "run_id", "trained_on_round", "gradients", "num_examples", "perturbation_seeds", "masked_gradients", "client_metrics")
+    class ClientMetricsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: float
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[float] = ...) -> None: ...
     CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
     RUN_ID_FIELD_NUMBER: _ClassVar[int]
     TRAINED_ON_ROUND_FIELD_NUMBER: _ClassVar[int]
@@ -315,6 +340,7 @@ class SubmitGradientScalarsRequest(_message.Message):
     NUM_EXAMPLES_FIELD_NUMBER: _ClassVar[int]
     PERTURBATION_SEEDS_FIELD_NUMBER: _ClassVar[int]
     MASKED_GRADIENTS_FIELD_NUMBER: _ClassVar[int]
+    CLIENT_METRICS_FIELD_NUMBER: _ClassVar[int]
     client_id: str
     run_id: str
     trained_on_round: int
@@ -322,7 +348,8 @@ class SubmitGradientScalarsRequest(_message.Message):
     num_examples: int
     perturbation_seeds: PerturbationSeeds
     masked_gradients: MaskedGradientScalars
-    def __init__(self, client_id: _Optional[str] = ..., run_id: _Optional[str] = ..., trained_on_round: _Optional[int] = ..., gradients: _Optional[_Union[GradientScalars, _Mapping]] = ..., num_examples: _Optional[int] = ..., perturbation_seeds: _Optional[_Union[PerturbationSeeds, _Mapping]] = ..., masked_gradients: _Optional[_Union[MaskedGradientScalars, _Mapping]] = ...) -> None: ...
+    client_metrics: _containers.ScalarMap[str, float]
+    def __init__(self, client_id: _Optional[str] = ..., run_id: _Optional[str] = ..., trained_on_round: _Optional[int] = ..., gradients: _Optional[_Union[GradientScalars, _Mapping]] = ..., num_examples: _Optional[int] = ..., perturbation_seeds: _Optional[_Union[PerturbationSeeds, _Mapping]] = ..., masked_gradients: _Optional[_Union[MaskedGradientScalars, _Mapping]] = ..., client_metrics: _Optional[_Mapping[str, float]] = ...) -> None: ...
 
 class SubmitGradientScalarsResponse(_message.Message):
     __slots__ = ("received", "bytes_received", "surviving_partitions", "submissions_closed")
@@ -439,7 +466,14 @@ class SubmitAggregatedShareResponse(_message.Message):
     def __init__(self, received: bool = ..., shares_still_needed: _Optional[int] = ...) -> None: ...
 
 class ReportClientMetricsRequest(_message.Message):
-    __slots__ = ("client_id", "run_id", "round", "loss", "accuracy", "current_step", "total_steps", "client_type", "compute_ms")
+    __slots__ = ("client_id", "run_id", "round", "loss", "accuracy", "current_step", "total_steps", "client_type", "compute_ms", "timing_metrics")
+    class TimingMetricsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: float
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[float] = ...) -> None: ...
     CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
     RUN_ID_FIELD_NUMBER: _ClassVar[int]
     ROUND_FIELD_NUMBER: _ClassVar[int]
@@ -449,6 +483,7 @@ class ReportClientMetricsRequest(_message.Message):
     TOTAL_STEPS_FIELD_NUMBER: _ClassVar[int]
     CLIENT_TYPE_FIELD_NUMBER: _ClassVar[int]
     COMPUTE_MS_FIELD_NUMBER: _ClassVar[int]
+    TIMING_METRICS_FIELD_NUMBER: _ClassVar[int]
     client_id: str
     run_id: str
     round: int
@@ -458,7 +493,8 @@ class ReportClientMetricsRequest(_message.Message):
     total_steps: int
     client_type: str
     compute_ms: int
-    def __init__(self, client_id: _Optional[str] = ..., run_id: _Optional[str] = ..., round: _Optional[int] = ..., loss: _Optional[float] = ..., accuracy: _Optional[float] = ..., current_step: _Optional[int] = ..., total_steps: _Optional[int] = ..., client_type: _Optional[str] = ..., compute_ms: _Optional[int] = ...) -> None: ...
+    timing_metrics: _containers.ScalarMap[str, float]
+    def __init__(self, client_id: _Optional[str] = ..., run_id: _Optional[str] = ..., round: _Optional[int] = ..., loss: _Optional[float] = ..., accuracy: _Optional[float] = ..., current_step: _Optional[int] = ..., total_steps: _Optional[int] = ..., client_type: _Optional[str] = ..., compute_ms: _Optional[int] = ..., timing_metrics: _Optional[_Mapping[str, float]] = ...) -> None: ...
 
 class ReportClientMetricsResponse(_message.Message):
     __slots__ = ("acknowledged",)

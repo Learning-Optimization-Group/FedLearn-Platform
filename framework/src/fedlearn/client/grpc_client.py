@@ -223,15 +223,21 @@ class GrpcClient:
             raise
 
     def _submit_update_unary(self, params: OrderedDict[str, torch.Tensor], num_examples: int,
-                             round_number: int) -> bool:
+                             round_number: int, client_metrics: Optional[dict] = None) -> bool:
         """Submit update using standard unary RPC (for small models)."""
         try:
             log.info("[%s] Unary model upload", self.client_id)
+            metrics_map = dict(client_metrics or {})
+            t_enc_start = time.perf_counter()
             params_proto = parameters_to_proto(params, num_examples)
+            wire_encode_s = time.perf_counter() - t_enc_start
+            metrics_map["time_wire_encode_s"] = round(wire_encode_s, 6)
+
             req = fedlearn_pb2.SubmitModelUpdateRequest(
                 client_id=self.client_id,
                 parameters=params_proto,
                 trained_on_round=round_number,
+                client_metrics=metrics_map,
             )
             res = _retry_unary(
                 lambda: self.stub.SubmitModelUpdate(req, timeout=300),
@@ -248,10 +254,18 @@ class GrpcClient:
             return False
 
     def _generate_model_chunks(self, params: OrderedDict[str, torch.Tensor], num_examples: int,
-                               round_number: int, chunk_size: int = 50 * 1024 * 1024):
+                               round_number: int, chunk_size: int = 50 * 1024 * 1024,
+                               client_metrics: Optional[dict] = None):
         # Delegate serialization to parameters_to_chunks which now uses the safetensors wire
         # format (no lz4; the gRPC streaming path is uncompressed by design — see serializer.py).
-        for chunk_dict in parameters_to_chunks(params, num_examples, chunk_size=chunk_size, compress=False):
+        metrics_map = dict(client_metrics or {})
+        t_enc_start = time.perf_counter()
+        chunks = list(parameters_to_chunks(params, num_examples, chunk_size=chunk_size, compress=False))
+        wire_encode_s = time.perf_counter() - t_enc_start
+        metrics_map["time_wire_encode_s"] = round(wire_encode_s, 6)
+
+        for chunk_dict in chunks:
+            chunk_metrics = metrics_map if chunk_dict["is_final_chunk"] else {}
             yield fedlearn_pb2.ModelUpdateChunk(
                 client_id=self.client_id,
                 trained_on_round=round_number,
@@ -260,16 +274,17 @@ class GrpcClient:
                 chunk_data=chunk_dict["chunk_data"],
                 is_final_chunk=chunk_dict["is_final_chunk"],
                 num_examples=num_examples,
+                client_metrics=chunk_metrics,
             )
 
     def _submit_update_stream(self, params: OrderedDict[str, torch.Tensor], num_examples: int,
-                              round_number: int) -> bool:
+                              round_number: int, client_metrics: Optional[dict] = None) -> bool:
         """Submit update using client streaming RPC (for large models)."""
         try:
             log.info("[%s] Zero-copy streaming upload", self.client_id)
             upload_start = time.time()
             response = self.stub.SubmitModelUpdateStream(
-                self._generate_model_chunks(params, num_examples, round_number),
+                self._generate_model_chunks(params, num_examples, round_number, client_metrics=client_metrics),
                 timeout=3600,
             )
             log.info("[%s] Streaming upload complete in %.1fs", self.client_id, time.time() - upload_start)
@@ -283,7 +298,8 @@ class GrpcClient:
             log.exception("[%s] Unexpected error in SubmitModelUpdateStream", self.client_id)
             return False
 
-    def submit_update(self, params: OrderedDict[str, torch.Tensor], num_examples: int, round_number: int) -> bool:
+    def submit_update(self, params: OrderedDict[str, torch.Tensor], num_examples: int, round_number: int,
+                      client_metrics: Optional[dict] = None) -> bool:
         """Submit model update. Auto-selects streaming for large / transformer models."""
         self.update_status("submitting_update", 0, 0)
 
@@ -300,10 +316,10 @@ class GrpcClient:
         if (is_transformer and ALWAYS_STREAM_TRANSFORMERS) or size_mb > STREAMING_THRESHOLD_MB:
             reason = "transformer" if is_transformer else f"size {size_mb:.2f}MB > {STREAMING_THRESHOLD_MB}MB"
             log.info("[%s] Streaming upload selected (%s)", self.client_id, reason)
-            return self._submit_update_stream(params, num_examples, round_number)
+            return self._submit_update_stream(params, num_examples, round_number, client_metrics=client_metrics)
 
         log.info("[%s] Unary upload selected", self.client_id)
-        return self._submit_update_unary(params, num_examples, round_number)
+        return self._submit_update_unary(params, num_examples, round_number, client_metrics=client_metrics)
 
     def send_heartbeat(self) -> bool:
         status, current_step, total_steps, current_round = self._status_snapshot()

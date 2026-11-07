@@ -267,8 +267,12 @@ def start_server(
 
             # Get metrics from completed round
             metrics = coordinator.get_latest_metrics(round_num)
+            timings = coordinator.get_latest_timings(round_num)
             if metrics:
-                history.append((round_num, metrics))
+                combined = dict(metrics)
+                if timings:
+                    combined["timings"] = timings
+                history.append((round_num, combined))
                 logging.info(f"[Server] Round {round_num} complete. Metrics: {metrics}")
             else:
                 logging.warning(f"[Server] Round {round_num} completed but no metrics available.")
