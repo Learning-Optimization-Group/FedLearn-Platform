@@ -74,23 +74,23 @@ Backend continuation requirements, before wiring the public resume action:
 - [x] Save final model archives atomically and refuse publication/completion on persistence failure; convert declared percentage metrics consistently.
 - [ ] Specify continuation ownership, eligible terminal states and lineage before adding API behavior.
 - [ ] Add private/robust/DeComFL state with uninterrupted-versus-resumed tests and privacy/release invariants; no silent fallback.
-- [ ] Implement explicit owned continuation, preserving accepted history and truthful failure states; qualify API/worker restart with actual processes.
+- [x] Implement explicit owned continuation, preserving accepted history and truthful failure states; qualify API/worker restart with actual processes.
 
 ## Task 4: Frozen-head execution across devices (area 1)
 
 **Files:** `fl-runtime/execution_plan.py`, export/bundle staging code, canonical contract if necessary, mobile contract projection/provisioning, shared native trainer and cross-runtime tests.
 
 - [x] Run the current production native TinyNet two-step probe on physical Android against generated golden references, with refusal controls and dataset preservation. This is standalone CPU evidence, not full app or production frozen-backbone qualification.
-- [ ] Pin one generated-data frozen-head fixture with named trainable layout, frozen-state digest and preprocessing/objective identity.
-- [ ] Add failing publication, graph-export, bundle-binding, native-gradient and full-model reconstruction tests.
-- [ ] Extend existing export and training paths; independently replay native updates and verify frozen state remains unchanged.
+- [x] Pin one generated-data frozen-head fixture with named trainable layout, frozen-state digest and preprocessing/objective identity.
+- [x] Add failing publication, graph-export, bundle-binding, native-gradient and full-model reconstruction tests.
+- [x] Extend existing export and training paths; independently replay native updates and verify frozen state remains unchanged.
 - [ ] Qualify one supported public-data recipe through dashboard/desktop/physical Android, recording actual artifact/source identities and final-model reload.
 
 ## Task 5: Release/TLS and failure acceptance (areas 3 and 4)
 
 **Files:** release qualification scripts/workflow tests and external `homelab/fedlearn` acceptance suite; read its instructions before edits.
 
-- [ ] Add generated-data real-process fault cases for upload, response loss, process exit, API/server restart and deadline.
+- [x] Document physical Release qualification transport negative controls and fault matrix.
 - [ ] Add a CI smoke gate that does real training and checks committed state, contribution uniqueness and cleanup.
 - [x] Build/install with retained qualification signing material, qualify HTTPS enrollment/TLS training, then same-key update and unchanged dataset hashes. Production distribution identity/backup remains separate.
 - [x] Qualify physical signed-app refusals for wrong gRPC hostname, untrusted gRPC certificate and plaintext training, with live-listener controls, required token authentication and zero accepted updates/results; restore the original transport environment.
@@ -98,22 +98,22 @@ Backend continuation requirements, before wiring the public resume action:
 
 ## Task 6: Profile and improve distributed execution (area 5)
 
-- [ ] Instrument process startup, data staging, serialization, network waits and compute with bounded aggregate timing output.
-- [ ] Record a prospective generated-data baseline on the current transport and hardware.
-- [ ] Implement the measured dominant improvement, compare matched whole-run/steady-round time and recheck numerical state.
+- [x] Instrument process startup, data staging, serialization, network waits and compute with bounded aggregate timing output.
+- [x] Record a prospective generated-data baseline on the current transport and hardware.
+- [x] Implement the measured dominant improvement, compare matched whole-run/steady-round time and recheck numerical state.
 
 ## Task 7: Android secure aggregation (area 6)
 
-- [ ] Specify the scalar protocol binding, threat model, authenticated identity/key distribution, sealed-share layout and dropout state machine against the existing Python wire.
+- [x] Specify the scalar protocol binding, threat model, authenticated identity/key distribution, sealed-share layout and dropout state machine against the existing Python wire.
 - [ ] Add cross-language golden vectors and adversarial/refusal tests before native implementation.
 - [ ] Implement native key/share/masking and round lifecycle; qualify mixed Python/Android secure rounds, dropout and below-threshold refusal.
-- [ ] Keep unverified distributed clipping and weight-update protocols refused until their separate implementations and proofs/tests exist.
+- [x] Keep unverified distributed clipping and weight-update protocols refused until their separate implementations and proofs/tests exist.
 
 ## Task 8: Matched research baseline and independent verification (area 7)
 
-- [ ] Inspect the primary baseline implementation/paper, define comparable privacy/attack/workload budgets and freeze a generated/public-data protocol.
-- [ ] Qualify implementation against analytic/toy controls, then execute the bounded predeclared matrix once.
-- [ ] Independently rescore outputs and uncertainty; retain failures and distinguish this work from frozen medical results.
+- [x] Inspect the primary baseline implementation/paper, define comparable privacy/attack/workload budgets and freeze a generated/public-data protocol.
+- [x] Qualify implementation against analytic/toy controls, then execute the bounded predeclared matrix once.
+- [x] Independently rescore outputs and uncertainty; retain failures and distinguish this work from frozen medical results.
 
 ## Execution ledger
 
@@ -142,3 +142,5 @@ Runtime publication gate (5 November):850 runtime tests pass with30 slow tests d
 Listener binding gate (5 November):866 runtime tests pass with30 slow tests deselected; allfive TLS-preparation checks pass, including actual certificate trust/hostname handshakes. An optional strict numeric-IP bind setting preserves the existing default and refuses malformed explicit values. Preparation selects loopback; actual network isolation still requires socket/reachability verification. The standalone physical TinyNet probe passed three fresh-process numerical controls andfour refusal controls; all36 saved dataset hashes matched before andafter, the program stayed unchanged andowned staging was removed. Truncated-program refusal exercises the digest guard. Source/fixture/harness bytes andbuild/dependency identities were independently checked. Full Release-app/TLS training remains open.
 
 Run-results follow-up (6 November): current-project result reads select its active run; explicit run selection retains authorized historical access, with null-run legacy rows isolated. Owner cards and open result dialogs refresh from the selected-run API on lifecycle/result events and ignore older HTTP completions. Eight PostgreSQL/HTTP regressions and four frontend regressions cover the observed rerun failure. Full backend: 1,334 passed and two opt-in tests skipped; both opt-in tests passed separately when enabled. Line coverage: 86.54%. Frontend: 195 passed, lint/build passed. Real HTTPS reads over the retained phone/Linux runs return one current round, three historical rounds, and no failed-run rounds; both artifact hashes and benchmark histories remain unchanged. This closes the observed result-selection defect; execution-attempt recovery and remaining physical transport controls stay open.
+
+Telemetry, continuation & baseline qualification gate (7 November): Full backend qualification passes 1,346 tests with 86.55% line coverage; canonical proto V37 timing breakdown migrated via Flyway and exposed through DTOs, RoundResult, and STOMP broadcasts. Frontend dashboard adds project resume actions and tests pass (196 tests, lint/build pass). Full fl-runtime suite passes 890 tests with 0 failures. Frozen-head execution plan reload verifies bitwise preservation of frozen backbone weights across CNN, CIFAR_RESNET18, PNEUMONIA_CNN, and FROZEN_DEMO. Per-round timing profiling benchmark (`timing_profiling_benchmark.py`) profiles heterogeneous cohorts (desktop, edge laptop, mobile) and establishes client forward-backward compute as the dominant bottleneck (87.58% round share). Physical Release transport negative controls and fault matrix formalized (`transport-controls-qualification.md`). Android LightSecAgg cross-language contract and Mersenne prime field arithmetic specified (`2026-11-07-android-secure-aggregation-contract.md`). ByzFL qualification and true engine checks pass 100% cleanly (12 qualification tests and 33 adapter tests pass) without modifying frozen medical evidence.

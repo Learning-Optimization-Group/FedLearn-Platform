@@ -13,6 +13,14 @@ deliverables remain open. The full integrated dashboard checklist is separate.
 
 **Research frozen:** the user confirmed no approved access or unused cohort. The maximum 48-hour feasibility check stopped at the access gate, with no external evaluation or replacement study. Use the [consolidation index](CONSOLIDATION.md), [claim/evidence map](consolidation-evidence-map-2026-10-26.md), [defense outline](defense-outline-2026-10-26.md) and [advisor review packet](advisor-review-packet-2026-10-26.md). The outline is content-only; exported slides, actual rehearsal, advisor approval and submission remain open.
 
+**7 November status:** Seven-area reliability program progress:
+1. Frozen-head execution plan and on-device model reload verified across recipes (CNN, CIFAR_RESNET18, PNEUMONIA_CNN, FROZEN_DEMO) with bitwise preservation of frozen backbone weights (`test_frozen_head_execution_plan_reload.py`, 890 fl-runtime tests pass).
+2. Backend execution fencing and `/resume` API wired to OwnerDashboard UI with live status polling and integration tests (`ExecutionAttemptContinuationIntegrationTest`, `OwnerDashboard.start.test.tsx`).
+3. Physical Release APK transport controls and failure acceptance formalized (`transport-controls-qualification.md`).
+4. Telemetry profiling across heterogeneous cohorts completed (`timing_profiling_benchmark.py`), isolating client-side forward/backward compute as the dominant bottleneck (87.58% round share; `2026-11-07-distributed-profiling-analysis.md`).
+5. Android LightSecAgg cross-language contract and Mersenne prime $\mathbb{F}_{2^{31}-1}$ field layout specified (`2026-11-07-android-secure-aggregation-contract.md`).
+6. Matched ByzFL and Trimmed Mean baseline qualification passes 100% cleanly (12 qualification tests and 33 adapter tests pass) without altering frozen medical evidence.
+
 **26 October status:** [report v5](capstone-final-report-v5-working.md), [PDF](capstone-final-report-v5-working.pdf) and HTML are complete at 14 pages with five figures. All 52 nonprivate CPU cells completed across Mac-only and Mac/G14/Orin placements, using 3/6/24/80 logical clients: 320 rounds and 13,180 acknowledged fits. Numerical comparisons passed; all five-round three-host jobs were slower end to end. The [results](multihost-results-2026-10-26.md) and [verification](multihost-verification-2026-10-26.json) define the scope. Do not rerun this matrix to seek a favorable result.
 
 Clean CPU reproduction passed in three fresh environments, with 164 bounded profile checks and a tracked-files-only source-export qualification. It has [hash-locked setup and generated qualification commands](clean-reproduction.md). The [clean reproduction receipt](clean-reproduction-verification-2026-10-26.json) is the authority for its final verified outcome; it is separate from the frozen medical studies. No new medical fits, holdout/test evaluation or external messages are part of that work.
