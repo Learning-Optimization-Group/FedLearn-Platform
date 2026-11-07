@@ -71,7 +71,7 @@ def _frozen_state_sha256(model, layout, batch_norm=()) -> str:
     trainable |= {f"{layer.module}.num_batches_tracked" for layer in batch_norm}
     frozen = []
     for name, tensor in model.state_dict().items():
-        if name in trainable:
+        if name in trainable or name.endswith(".num_batches_tracked"):
             continue
         if tensor.dtype != torch.float32:
             raise NotRepresentable(f"frozen tensor {name} is {tensor.dtype}; v1 describes float32 state only")
@@ -511,6 +511,172 @@ def _pneumonia_first_order_full(initial_state_path=None, recipe_key="PNEUMONIA_C
     return plan
 
 
+def _cnn_first_order_frozen_head(initial_state_path=None) -> pb.ModelTraining:
+    import torch
+    recipe = recipes.get_recipe("CNN")
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(0)
+        model = recipe.build_model("cpu")
+    prefixes = recipes.trainable_prefixes("CNN", "FROZEN_HEAD")
+    recipes.apply_arm(model, "FROZEN_HEAD", prefixes)
+    recipes.freeze_untrained_modules(model, prefixes)
+    layout = _trainable_layout(model)
+    local = pb.LocalTraining(
+        local_epochs=1,
+        adam=pb.Adam(learning_rate=_CLIENT_DEFAULT_RATE, beta1=0.9, beta2=0.999, epsilon=1e-8, weight_decay=0.0,
+                     amsgrad=False),
+        reset_optimizer_each_round=True,
+        batch_size=recipes.CNN_BATCH_SIZE,
+        drop_last=False,
+        batch_order=pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH,
+    )
+    plan = pb.ModelTraining(
+        model_id=recipe.base_models[0],
+        arm=pb.ARM_FROZEN_HEAD,
+        task=pb.TASK_IMAGE_CLASSIFICATION,
+        objective=_OBJECTIVES[recipes.ARM_OBJECTIVES["FROZEN_HEAD"]],
+        update_protocol=pb.UPDATE_TRAINABLE_STATE_F32,
+        trainable=layout,
+        frozen_state_sha256=_frozen_state_sha256(model, layout),
+        local_training=local,
+        data=pb.DataRequirement(
+            task=pb.TASK_IMAGE_CLASSIFICATION,
+            input_shape=[3, 32, 32],
+            input_dtype=pb.DTYPE_F32,
+            class_count=len(recipe.classes),
+            label_schema_id=label_schema_id(recipe.classes),
+            transforms=_cnn_image_transforms(),
+            source=pb.DATA_SOURCE_FIXTURE,
+        ),
+    )
+    if initial_state_path is not None:
+        plan.initial_state_sha256 = _initial_state_sha256(initial_state_path, "CNN", "FROZEN_HEAD", layout)
+    return plan
+
+
+def _resnet18_first_order_frozen_head(initial_state_path=None) -> pb.ModelTraining:
+    recipe = recipes.get_recipe("CIFAR_RESNET18")
+    model = recipe.build_model("cpu")
+    side = recipes.RESNET18_IMG_SIZE
+    prefixes = recipes.trainable_prefixes("CIFAR_RESNET18", "FROZEN_HEAD")
+    recipes.apply_arm(model, "FROZEN_HEAD", prefixes)
+    recipes.freeze_untrained_modules(model, prefixes)
+    layout = _trainable_layout(model)
+    plan = pb.ModelTraining(
+        model_id=recipe.base_models[0],
+        arm=pb.ARM_FROZEN_HEAD,
+        task=pb.TASK_IMAGE_CLASSIFICATION,
+        objective=_OBJECTIVES[recipes.ARM_OBJECTIVES["FROZEN_HEAD"]],
+        update_protocol=pb.UPDATE_TRAINABLE_STATE_F32,
+        trainable=layout,
+        frozen_state_sha256=_frozen_state_sha256(model, layout),
+        local_training=pb.LocalTraining(
+            local_epochs=1,
+            adam=pb.Adam(learning_rate=_CLIENT_DEFAULT_RATE, beta1=0.9, beta2=0.999, epsilon=1e-8, weight_decay=0.0,
+                         amsgrad=False),
+            reset_optimizer_each_round=True,
+            batch_size=recipes.CNN_BATCH_SIZE,
+            drop_last=False,
+            batch_order=pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH,
+        ),
+        data=pb.DataRequirement(
+            task=pb.TASK_IMAGE_CLASSIFICATION,
+            input_shape=[3, side, side],
+            input_dtype=pb.DTYPE_F32,
+            class_count=len(recipe.classes),
+            label_schema_id=label_schema_id(recipe.classes),
+            transforms=_resnet18_image_transforms(),
+            source=pb.DATA_SOURCE_FIXTURE,
+        ),
+    )
+    if initial_state_path is not None:
+        plan.initial_state_sha256 = _initial_state_sha256(initial_state_path, "CIFAR_RESNET18", "FROZEN_HEAD", layout)
+    return plan
+
+
+def _pneumonia_first_order_frozen_head(initial_state_path=None, recipe_key="PNEUMONIA_CNN") -> pb.ModelTraining:
+    import torch
+    recipe = recipes.get_recipe(recipe_key)
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(0)
+        model = recipe.build_model("cpu")
+    side = recipes.PNEUMONIA_IMG_SIZE
+    prefixes = recipes.trainable_prefixes(recipe_key, "FROZEN_HEAD")
+    recipes.apply_arm(model, "FROZEN_HEAD", prefixes)
+    recipes.freeze_untrained_modules(model, prefixes)
+    layout = _trainable_layout(model)
+    plan = pb.ModelTraining(
+        model_id=recipe.base_models[0],
+        arm=pb.ARM_FROZEN_HEAD,
+        task=pb.TASK_IMAGE_CLASSIFICATION,
+        objective=_OBJECTIVES[recipes.ARM_OBJECTIVES["FROZEN_HEAD"]],
+        update_protocol=pb.UPDATE_TRAINABLE_STATE_F32,
+        trainable=layout,
+        frozen_state_sha256=_frozen_state_sha256(model, layout),
+        local_training=pb.LocalTraining(
+            local_epochs=1,
+            adam=pb.Adam(learning_rate=_CLIENT_DEFAULT_RATE, beta1=0.9, beta2=0.999, epsilon=1e-8, weight_decay=0.0,
+                         amsgrad=False),
+            reset_optimizer_each_round=True,
+            batch_size=recipes.PNEUMONIA_BATCH_SIZE,
+            drop_last=False,
+            batch_order=pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH,
+        ),
+        data=pb.DataRequirement(
+            task=pb.TASK_IMAGE_CLASSIFICATION,
+            input_shape=[1, side, side],
+            input_dtype=pb.DTYPE_F32,
+            class_count=len(recipe.classes),
+            label_schema_id=label_schema_id(recipe.classes),
+            transforms=_pneumonia_image_transforms(),
+            source=pb.DATA_SOURCE_FIXTURE,
+        ),
+        dropout=_dropout_layers(model),
+    )
+    if initial_state_path is not None:
+        plan.initial_state_sha256 = _initial_state_sha256(initial_state_path, recipe_key, "FROZEN_HEAD", layout)
+    return plan
+
+
+def _frozen_demo_first_order_frozen_head(initial_state_path=None) -> pb.ModelTraining:
+    recipe = recipes.get_recipe("FROZEN_DEMO")
+    model = recipe.build_model("cpu")
+    prefixes = recipes.trainable_prefixes("FROZEN_DEMO", "FROZEN_HEAD")
+    recipes.apply_arm(model, "FROZEN_HEAD", prefixes)
+    recipes.freeze_untrained_modules(model, prefixes)
+    layout = _trainable_layout(model)
+    width = recipes.FROZEN_DEMO_INPUT_DIM
+    plan = pb.ModelTraining(
+        model_id=recipe.base_models[0],
+        arm=pb.ARM_FROZEN_HEAD,
+        task=pb.TASK_VECTOR_CLASSIFICATION,
+        objective=_OBJECTIVES[recipes.ARM_OBJECTIVES["FROZEN_HEAD"]],
+        update_protocol=pb.UPDATE_TRAINABLE_STATE_F32,
+        trainable=layout,
+        frozen_state_sha256=_frozen_state_sha256(model, layout),
+        local_training=pb.LocalTraining(
+            local_epochs=1,
+            sgd=pb.Sgd(learning_rate=0.01, momentum=0.0, dampening=0.0, weight_decay=0.0, nesterov=False),
+            reset_optimizer_each_round=True,
+            batch_size=8,
+            drop_last=False,
+            batch_order=pb.BATCH_ORDER_SHUFFLED_EACH_EPOCH,
+        ),
+        data=pb.DataRequirement(
+            task=pb.TASK_VECTOR_CLASSIFICATION,
+            input_shape=[width],
+            input_dtype=pb.DTYPE_F32,
+            class_count=len(recipe.classes),
+            label_schema_id=label_schema_id(recipe.classes),
+            transforms=[pb.Transform(identity_vector=pb.IdentityVector(width=width))],
+            source=pb.DATA_SOURCE_FIXTURE,
+        ),
+    )
+    if initial_state_path is not None:
+        plan.initial_state_sha256 = _initial_state_sha256(initial_state_path, "FROZEN_DEMO", "FROZEN_HEAD", layout)
+    return plan
+
+
 # client.py's CNN_LEARNING_RATE and one epoch: what a client trains when its server sends no settings.
 _CLIENT_DEFAULT_RATE, _CLIENT_DEFAULT_EPOCHS = 0.001, 1
 
@@ -539,6 +705,15 @@ _PLANS = {
     ("PNEUMONIA_CNN", "Robust", "FULL"): _pneumonia_first_order_full,
     ("NIH_PNEUMONIA_CNN", "FedAvg", "FULL"): lambda initial: _pneumonia_first_order_full(initial, "NIH_PNEUMONIA_CNN"),
     ("NIH_PNEUMONIA_CNN", "Robust", "FULL"): lambda initial: _pneumonia_first_order_full(initial, "NIH_PNEUMONIA_CNN"),
+    # FROZEN_HEAD arm plans (Stage 4 / Capstone): head-only trainable layouts, frozen backbones.
+    ("CNN", "FedAvg", "FROZEN_HEAD"): _cnn_first_order_frozen_head,
+    ("CNN", "Robust", "FROZEN_HEAD"): _cnn_first_order_frozen_head,
+    ("CIFAR_RESNET18", "FedAvg", "FROZEN_HEAD"): _resnet18_first_order_frozen_head,
+    ("CIFAR_RESNET18", "Robust", "FROZEN_HEAD"): _resnet18_first_order_frozen_head,
+    ("PNEUMONIA_CNN", "FedAvg", "FROZEN_HEAD"): _pneumonia_first_order_frozen_head,
+    ("PNEUMONIA_CNN", "Robust", "FROZEN_HEAD"): _pneumonia_first_order_frozen_head,
+    ("FROZEN_DEMO", "FedAvg", "FROZEN_HEAD"): _frozen_demo_first_order_frozen_head,
+    ("FROZEN_DEMO", "Robust", "FROZEN_HEAD"): _frozen_demo_first_order_frozen_head,
 }
 
 
@@ -561,6 +736,10 @@ def _adaptive_adam_plan(build, strategy, recipe):
 for _recipe in ('MLP', 'CNN', 'CIFAR_RESNET18', 'PNEUMONIA_CNN'):
     for _strategy in ('FedOpt', 'FedProx'):
         _PLANS[(_recipe, _strategy, 'FULL')] = _adaptive_adam_plan(_PLANS[(_recipe, 'FedAvg', 'FULL')], _strategy, _recipe)
+
+for _recipe in ('CNN', 'CIFAR_RESNET18', 'PNEUMONIA_CNN'):
+    for _strategy in ('FedOpt', 'FedProx'):
+        _PLANS[(_recipe, _strategy, 'FROZEN_HEAD')] = _adaptive_adam_plan(_PLANS[(_recipe, 'FedAvg', 'FROZEN_HEAD')], _strategy, _recipe)
 
 
 # The run intent's TrainingDataSource names, as the backend passes them.

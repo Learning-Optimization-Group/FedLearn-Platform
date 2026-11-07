@@ -371,3 +371,25 @@ def test_the_pneumonia_probe_is_a_grayscale_image_and_is_what_torch_computes(pne
     reference = pte_export.probe_reference(recipes.get_recipe("PNEUMONIA_CNN").build_model("cpu"), rows=8,
                                            width=224 * 224, classes=2, input_shape=(1, 224, 224))
     assert (probe["lossStep1"], probe["lossStep2"]) == (reference["loss_step1"], reference["loss_step2"])
+
+
+# FROZEN_HEAD arm bundle export
+
+@pytest.fixture(scope="module")
+def cnn_frozen_head_bundle(exporter, tmp_path_factory):
+    dest = exporter.export_recipe_bundle(RUN_ID, "CNN", tmp_path_factory.mktemp("cnn_frozen"),
+                                         training_arm="FROZEN_HEAD")
+    with open(dest / "manifest.json") as fh:
+        return dest, json.load(fh)
+
+
+def test_the_cnn_frozen_head_bundle_manifest_layout_and_arm(cnn_frozen_head_bundle):
+    dest, manifest = cnn_frozen_head_bundle
+    assert manifest["meta"]["arm"] == "frozen_head"
+    assert manifest["meta"]["recipe"] == "cnn"
+    assert manifest["meta"]["trainableParamCount"] == 850
+    layout = [p["name"] for p in manifest["modelManifest"]["paramLayout"]]
+    assert layout == ["fc3.weight", "fc3.bias"]
+    assert manifest["modelManifest"]["trainableParamNames"] == ["base.fc3.weight", "base.fc3.bias"]
+    for f in MODEL_FILES:
+        assert (dest / f).exists() and (dest / f).stat().st_size > 0

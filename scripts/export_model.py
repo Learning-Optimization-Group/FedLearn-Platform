@@ -109,12 +109,12 @@ ENVELOPES["NIH_PNEUMONIA_CNN"] = dict(ENVELOPES["PNEUMONIA_CNN"])
 PROBE_ROWS = 8
 
 
-def _plan_batch_size(key: str) -> int | None:
+def _plan_batch_size(key: str, arm: str = "FULL") -> int | None:
     """The batch size the recipe's first-order contract plan trains with, or None when it has no plan."""
     import execution_plan
     try:
         source = "LOCAL_SNAPSHOT" if key == "NIH_PNEUMONIA_CNN" else "FIXTURE"
-        return int(execution_plan.resolve_model_training(key, "FedAvg", "FULL", data_source=source).local_training.batch_size)
+        return int(execution_plan.resolve_model_training(key, "FedAvg", arm, data_source=source).local_training.batch_size)
     except execution_plan.NotRepresentable:
         return None
 
@@ -192,8 +192,10 @@ def export_recipe_bundle(
     num_samples: int = 8,
     seed: int = 0,
     init_state: Path | None = None,
+    training_arm: str = "FULL",
 ) -> Path:
     key = recipe_key.upper()
+    arm = recipes.validate_arm(key, training_arm)
     if key not in EXAMPLE_SHAPES:
         raise SystemExit(f"no example-input shape registered for recipe {key}; add it to EXAMPLE_SHAPES")
     if key in ENVELOPES:
@@ -204,6 +206,10 @@ def export_recipe_bundle(
     model, num_classes = build_recipe_model(key)
     if init_state is not None:
         _load_init_state(model, init_state)
+
+    prefixes = recipes.trainable_prefixes(key, arm)
+    recipes.apply_arm(model, arm, prefixes)
+    recipes.freeze_untrained_modules(model, prefixes)
 
     # Deterministic example batch (the graph depends only on shapes; also doubles as the demo on-device
     # data partition so the phone has something to train on until real local data is wired).
@@ -216,13 +222,14 @@ def export_recipe_bundle(
     # minibatching, a final partial batch) rather than only a batch of exactly the example's size, which a static
     # export refuses at runtime (ExecuTorch NotSupported). The bound is the batch size the recipe's contract plan
     # trains with (the backend refuses a contract whose batch exceeds it), else the example count.
-    max_batch = _plan_batch_size(key) or num_samples
+    max_batch = _plan_batch_size(key, arm) or num_samples
     if num_samples > max_batch:
         raise SystemExit(f"{num_samples} example rows exceed the programs' batch bound {max_batch}")
 
     # A model with BatchNorm trains it in training mode on a device (Stage 4 S7): its running statistics are federated
     # state, so the loss and infer programs take them in their flat input after the parameters (federated_flat).
-    has_batch_norm = bool(pte_export.batch_norm_layers(model))
+    # Under a frozen arm (FROZEN_HEAD), BatchNorm is frozen in eval mode; its statistics are not federated state.
+    has_batch_norm = (arm == "FULL") and bool(pte_export.batch_norm_layers(model))
 
     # Weight-free graphs. pte_export bakes frozen params as constants; trainable params are the flat input.
     functional_x, functional_y = x, y
@@ -341,6 +348,7 @@ def export_recipe_bundle(
     # Re-write atomically so this second write of the commit-marker manifest can't leave a torn file.
     staged = json.loads((dest / "manifest.json").read_text())
     staged["meta"]["recipe"] = key.lower()
+    staged["meta"]["arm"] = arm.lower()
     stage_model_bundle.atomic_write_text(dest / "manifest.json", json.dumps(staged, indent=2) + "\n")
     return dest
 
@@ -352,10 +360,12 @@ def main() -> None:
     ap.add_argument("--out", default="/var/models", type=Path)
     ap.add_argument("--samples", default=8, type=int)
     ap.add_argument("--seed", default=0, type=int)
+    ap.add_argument("--training-arm", default="FULL", help="training arm (FULL, FROZEN_HEAD, ...)")
     ap.add_argument("--init-state", default=None, type=Path,
                     help="optional initial weights (.safetensors/.npz); frozen params get baked into the graph")
     args = ap.parse_args()
-    dest = export_recipe_bundle(args.run_id, args.recipe, args.out, args.samples, args.seed, args.init_state)
+    dest = export_recipe_bundle(args.run_id, args.recipe, args.out, args.samples, args.seed, args.init_state,
+                                training_arm=args.training_arm)
     print(f"exported recipe bundle -> {dest}")
     for p in sorted(dest.iterdir()):
         print(f"  {p.stat().st_size:>8} {p.name}")

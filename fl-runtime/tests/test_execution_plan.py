@@ -687,13 +687,43 @@ def test_the_pneumonia_strategies_without_a_plan_say_why(strategy, reason):
 
 
 @pytest.mark.parametrize("recipe, strategy, arm", [
-    ("CIFAR_RESNET18", "FedAvg", "FROZEN_HEAD"),
-    ("CNN", "FedAvg", "FROZEN_HEAD"),
-    ("PNEUMONIA_CNN", "FedAvg", "FROZEN_HEAD"),
+    ("MLP", "FedAvg", "FROZEN_HEAD"),
+    ("TRANSFORMER", "FedAvg", "FROZEN_HEAD"),
+    ("TINYNET_GOLDEN", "FedAvg", "FROZEN_HEAD"),
 ])
 def test_a_run_without_a_v1_plan_is_not_representable(recipe, strategy, arm):
     with pytest.raises(execution_plan.NotRepresentable):
         execution_plan.resolve_model_training(recipe, strategy, arm)
+
+
+@pytest.mark.parametrize("recipe, expected_layout", [
+    ("CNN", ["fc3.weight", "fc3.bias"]),
+    ("CIFAR_RESNET18", ["fc.weight", "fc.bias"]),
+    ("PNEUMONIA_CNN", ["classifier.1.weight", "classifier.1.bias", "classifier.4.weight", "classifier.4.bias"]),
+    ("FROZEN_DEMO", ["head.weight", "head.bias"]),
+])
+def test_frozen_head_trainable_layout_matches_recipe_spec(recipe, expected_layout):
+    plan = execution_plan.resolve_model_training(recipe, "FedAvg", "FROZEN_HEAD")
+    assert [spec.name for spec in plan.trainable] == expected_layout
+    assert plan.arm == pb.ARM_FROZEN_HEAD
+    assert plan.objective == pb.OBJECTIVE_CROSS_ENTROPY
+    assert plan.update_protocol == pb.UPDATE_TRAINABLE_STATE_F32
+    assert len(plan.batch_norm) == 0
+    assert len(plan.frozen_state_sha256) == 64
+
+
+@pytest.mark.parametrize("recipe", ["CNN", "CIFAR_RESNET18", "PNEUMONIA_CNN"])
+def test_frozen_head_adaptive_strategies(recipe):
+    import strategy_client_settings
+    fedopt = execution_plan.resolve_model_training(recipe, "FedOpt", "FROZEN_HEAD")
+    assert fedopt.local_training.local_epochs == strategy_client_settings.FEDOPT_CLIENT_LOCAL_EPOCHS
+    assert fedopt.local_training.adam.learning_rate == strategy_client_settings.client_learning_rate("FedOpt", recipe)
+    assert not fedopt.HasField("fedprox_mu")
+
+    fedprox = execution_plan.resolve_model_training(recipe, "FedProx", "FROZEN_HEAD")
+    assert fedprox.local_training.local_epochs == strategy_client_settings.FEDPROX_CLIENT_LOCAL_EPOCHS
+    assert fedprox.local_training.adam.learning_rate == strategy_client_settings.client_learning_rate("FedProx", recipe)
+    assert fedprox.fedprox_mu == strategy_client_settings.FEDPROX_CLIENT_PROXIMAL_MU
 
 
 def _cli(*args):
@@ -724,9 +754,16 @@ def test_the_cli_refuses_a_data_source_outside_its_vocabulary():
 
 
 def test_the_cli_reports_an_unrepresentable_run_without_failing():
-    out = _cli("--recipe", "CIFAR_RESNET18", "--strategy", "FedAvg", "--training-arm", "FROZEN_HEAD")
+    out = _cli("--recipe", "MLP", "--strategy", "FedAvg", "--training-arm", "FROZEN_HEAD")
     assert out["representable"] is False
-    assert "CIFAR_RESNET18" in out["reason"]
+    assert "MLP" in out["reason"]
+
+
+@pytest.mark.parametrize("recipe", ["CNN", "CIFAR_RESNET18", "PNEUMONIA_CNN", "FROZEN_DEMO"])
+def test_the_cli_reports_frozen_head_as_representable(recipe):
+    out = _cli("--recipe", recipe, "--strategy", "FedAvg", "--training-arm", "FROZEN_HEAD")
+    assert out["representable"] is True
+    assert out["modelTraining"]["arm"] == "ARM_FROZEN_HEAD"
 
 
 @pytest.mark.parametrize("recipe", ["TINYNET_GOLDEN", "MLP", "CNN", "CIFAR_RESNET18"])
