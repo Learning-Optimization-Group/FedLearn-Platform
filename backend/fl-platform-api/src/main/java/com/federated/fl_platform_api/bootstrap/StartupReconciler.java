@@ -153,7 +153,11 @@ public class StartupReconciler implements HealthIndicator {
         int adopted = 0;
         for (LiveCandidate candidate : liveCandidates) {
             Run run = candidate.run();
-            serverManager.adopt(run.getProjectId(), run.getId(), candidate.handle(), run.getServerPort());
+            if (run.getCurrentAttemptId() != null) {
+                serverManager.adopt(run.getProjectId(), run.getId(), run.getCurrentAttemptId(), candidate.handle(), run.getServerPort());
+            } else {
+                serverManager.adopt(run.getProjectId(), run.getId(), candidate.handle(), run.getServerPort());
+            }
             if (run.getInternalTokenHash() != null) {
                 runTokenRegistry.rehydrate(run.getInternalTokenHash(),
                         new RunTokenRegistry.Scope(run.getProjectId(), run.getId()));
@@ -269,7 +273,11 @@ public class StartupReconciler implements HealthIndicator {
 
     /** Reset an orphaned run to FAILED and, if it is still the project's active run, return it to idle. */
     private void reap(Run run) {
-        runService.markFailed(run.getId());   // status=FAILED, server_port=null, ended_at=now
+        if (run.getCurrentAttemptId() != null) {
+            runService.markFailed(run.getId(), run.getCurrentAttemptId(), "Reaped by startup reconciler");
+        } else {
+            runService.markFailed(run.getId());
+        }
         projectRepository.findById(run.getProjectId()).ifPresent(project -> {
             // Only clear the project pointer if THIS run is still its active one. A newer run may have
             // become active (and been re-adopted) in the meantime — don't null out its pointer.

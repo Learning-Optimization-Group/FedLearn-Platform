@@ -75,6 +75,8 @@ public class ProjectService {
     private RoundResultRepository roundResultRepository;
     @Autowired
     private RunRepository runRepository;
+    @Autowired(required = false)
+    private com.federated.fl_platform_api.repository.RunExecutionAttemptRepository attemptRepository;
     @Autowired
     private WebSocketService webSocketService;
     @Autowired
@@ -621,7 +623,100 @@ public class ProjectService {
                         projectId, run.getId(), port.orElse(null));
                 return convertToDto(updatedProject);
             } catch (RuntimeException ex) {
-                if (run != null) { runService.markFailed(run.getId()); }
+                if (run != null) { runService.markFailed(run.getId(), run.getCurrentAttemptId(), ex.getMessage()); }
+                throw ex;
+            }
+        } finally {
+            startLock.unlock();
+        }
+    }
+
+    @Auditable(action = AuditAction.RUN_STARTED, targetIdParam = "runId", targetType = "RUN")
+    public RunStatusDto resumeRun(@NonNull UUID runId) {
+        Run run = runRepository.findById(runId)
+                .orElseThrow(() -> ResourceNotFoundException.run(runId));
+        UUID projectId = run.getProjectId();
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+
+        authz.requireOrgScope(project.getOrgId());
+        authz.requireOwnerOrAdmin(project);
+
+        ReentrantLock startLock = startLocks.computeIfAbsent(projectId, k -> new ReentrantLock());
+        startLock.lock();
+        try {
+            project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+            run = runRepository.findById(runId)
+                    .orElseThrow(() -> ResourceNotFoundException.run(runId));
+
+            if (!run.getId().equals(project.getActiveRunId())) {
+                throw new ProjectStateException("Run " + runId + " is not the active run for project " + projectId);
+            }
+
+            if (run.getStatus() != com.federated.fl_platform_api.model.RunStatus.FAILED
+                    && run.getStatus() != com.federated.fl_platform_api.model.RunStatus.STOPPED) {
+                throw new ProjectStateException("Run " + runId + " is in status " + run.getStatus()
+                        + "; only FAILED or STOPPED runs can be resumed");
+            }
+
+            if (flServerManager.isServerRunning(projectId) || flServerManager.hasReservedPort(projectId)) {
+                throw new ProjectStateException("FL server is already running or holding a port for project " + projectId);
+            }
+
+            if (run.getServerPid() != null) {
+                throw new ProjectStateException("Run " + runId + " still has an active recorded PID " + run.getServerPid());
+            }
+
+            String strategy = run.getStrategy();
+            com.federated.fl_platform_api.model.RunIntent intent = run.getIntent().orElseThrow(() ->
+                    new IllegalStateException("Run " + runId + " has no recorded intent"));
+
+            if (run.isSecureAggregation() || intent.dpEnabled() || run.getRobustMethod() != null) {
+                throw new ProjectStateException("Continuation is restricted to qualified CPU FedAvg/FedProx/FedOpt non-DP/non-SecAgg/non-Robust modes");
+            }
+            String s = strategy.toLowerCase();
+            if (!s.equals("fedavg") && !s.equals("fedprox") && !s.equals("fedopt")) {
+                throw new ProjectStateException("Continuation is not supported for strategy " + strategy);
+            }
+
+            java.nio.file.Path cpDir = flServerManager.getCheckpointDirectory(runId);
+            File sessionFile = cpDir.resolve("session.json").toFile();
+            if (!sessionFile.exists() || !sessionFile.isFile()) {
+                throw new ProjectStateException("No valid recovery session exists for run " + runId + " at " + cpDir);
+            }
+
+            int nextAttemptNumber = run.getAttemptCount() + 1;
+            UUID attemptId = UUID.randomUUID();
+            run.setAttemptCount(nextAttemptNumber);
+            run.setCurrentAttemptId(attemptId);
+            run.setStatus(com.federated.fl_platform_api.model.RunStatus.STARTING);
+            run.setEndedAt(null);
+            runRepository.saveAndFlush(run);
+
+            if (attemptRepository != null) {
+                com.federated.fl_platform_api.model.RunExecutionAttempt attempt =
+                        new com.federated.fl_platform_api.model.RunExecutionAttempt(
+                                attemptId, runId, nextAttemptNumber, com.federated.fl_platform_api.model.RunStatus.STARTING);
+                attemptRepository.saveAndFlush(attempt);
+            }
+
+            try {
+                Optional<Integer> port = flServerManager.resumeServerForProject(project, run, attemptId, cpDir.toString());
+                int assignedPort = port.orElseThrow(() -> new ServerProcessException("Failed to obtain port for resumed FL server"));
+
+                project.setServerPort(assignedPort);
+                project.setStatus(ProjectStatus.RUNNING.name());
+                projectRepository.save(project);
+
+                runService.markRunning(run.getId(), attemptId, assignedPort);
+
+                webSocketService.sendStatusUpdate(
+                        new ProjectStatusUpdateDto(project.getId(), ProjectStatus.RUNNING.name(), assignedPort));
+
+                return runService.getStatus(runId);
+            } catch (RuntimeException ex) {
+                runService.markFailed(run.getId(), attemptId, ex.getMessage());
                 throw ex;
             }
         } finally {

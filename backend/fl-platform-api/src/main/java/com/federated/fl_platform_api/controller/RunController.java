@@ -24,6 +24,12 @@ import java.util.UUID;
 public class RunController {
 
     @Autowired private RunService runService;
+    @Autowired private com.federated.fl_platform_api.service.ProjectService projectService;
+
+    @PostMapping("/{runId}/resume")
+    public ResponseEntity<RunStatusDto> resume(@PathVariable UUID runId) {
+        return ResponseEntity.ok(projectService.resumeRun(runId));
+    }
 
     @GetMapping("/{runId}/status")
     public ResponseEntity<RunStatusDto> status(@PathVariable UUID runId) {

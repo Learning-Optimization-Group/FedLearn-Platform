@@ -77,6 +77,13 @@ public class Run {
     @Column(name = "internal_token_hash", length = 64)
     private String internalTokenHash;
 
+    // V36: ID of the currently active or most recent execution attempt.
+    @Column(name = "current_attempt_id")
+    private UUID currentAttemptId;
+
+    @Column(name = "attempt_count", nullable = false)
+    private int attemptCount = 1;
+
     @Column(name = "grpc_ca_fingerprint", length = 128)
     private String grpcCaFingerprint;
 
@@ -196,6 +203,10 @@ public class Run {
 
     public String getInternalTokenHash() { return internalTokenHash; }
     public void setInternalTokenHash(String internalTokenHash) { this.internalTokenHash = internalTokenHash; }
+    public UUID getCurrentAttemptId() { return currentAttemptId; }
+    public void setCurrentAttemptId(UUID currentAttemptId) { this.currentAttemptId = currentAttemptId; }
+    public int getAttemptCount() { return attemptCount; }
+    public void setAttemptCount(int attemptCount) { this.attemptCount = attemptCount; }
     public String getGrpcCaFingerprint() { return grpcCaFingerprint; }
     public void setGrpcCaFingerprint(String grpcCaFingerprint) { this.grpcCaFingerprint = grpcCaFingerprint; }
     public Long getSeed() { return seed; }

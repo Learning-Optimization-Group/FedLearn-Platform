@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +63,27 @@ public class FlServerManager {
     // needs server certs provisioned; flipping it without them would refuse to start.
     @Value("${app.fl.require-tls:false}")
     private boolean requireTls;
+
+    @Value("${app.fl.checkpoint-root:data/checkpoints}")
+    private String checkpointRootDir = "data/checkpoints";
+
+    public Path getCheckpointDirectory(UUID runId) {
+        if (runId == null) {
+            throw new IllegalArgumentException("runId is required");
+        }
+        return Path.of(checkpointRootDir).resolve(runId.toString()).normalize();
+    }
+
+    private static boolean isEligibleForRecovery(String strategy, Integer secureAggThreshold, RunIntent intent) {
+        if (strategy == null) return false;
+        String s = strategy.toLowerCase();
+        if (!s.equals("fedavg") && !s.equals("fedprox") && !s.equals("fedopt")) {
+            return false;
+        }
+        if (secureAggThreshold != null) return false;
+        if (intent != null && intent.dpEnabled()) return false;
+        return true;
+    }
 
     // The per-round deadline the FL server is given (FEDLEARN_ROUND_TIMEOUT_S), recorded in each run's intent.
     // Defaults to the value the server would otherwise inherit from this process's environment.
@@ -215,6 +237,153 @@ public class FlServerManager {
                 clientsPerRound);
     }
 
+    public Optional<Integer> resumeServerForProject(Project project, Run run, UUID attemptId, String checkpointDir) {
+        UUID projectId = project.getId();
+        if (isServerRunning(projectId)) {
+            throw new ProjectStateException("FL server is already running for project " + projectId);
+        }
+        if (hasReservedPort(projectId)) {
+            throw new ProjectStateException("Port is already reserved for project " + projectId);
+        }
+
+        RunIntent intent = run.getIntent().orElseThrow(() ->
+                new IllegalStateException("Run " + run.getId() + " has no recorded intent and cannot be resumed"));
+        requireDpPolicySatisfied(project, intent);
+        requireModelTypeInCatalog(project, run.getStrategy());
+
+        return resumeLocalServer(project, run, intent, attemptId, checkpointDir);
+    }
+
+    private Optional<Integer> resumeLocalServer(Project project, Run run, RunIntent intent,
+                                                UUID attemptId, String checkpointDir) {
+        SpawnedFlProcess process = null;
+        int freePort = -1;
+        PortReservation reservation = null;
+        boolean started = false;
+        try {
+            reservation = findFreePort();
+            freePort = reservation.port();
+
+            String wrapperPath = flServerWrapperPath;
+            String absoluteScriptPath = new File(wrapperPath).getAbsolutePath();
+            boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+            String initModelPath = registryModelResolver.resolveModelPath(project).orElse(null);
+
+            List<String> command = buildServerCommand(
+                    project, intent, run.getStrategy(), run.getNumRounds(), run.getMinClients(), freePort,
+                    absoluteScriptPath, isWindows, initModelPath, null, null,
+                    run.getClientsPerRound() > run.getMinClients() ? run.getClientsPerRound() : null,
+                    "FedOpt".equals(run.getStrategy()) ? run.getFedOpt() : null);
+
+            command.add("--resume-from-checkpoint");
+            command.add("--checkpoint-directory");
+            command.add(checkpointDir);
+
+            String internalRunToken = runTokenRegistry.mint(project.getId(), run.getId());
+            String internalTokenHash = runTokenRegistry.hash(internalRunToken);
+
+            processIdentityStore.authorizeLaunch(run.getId(), attemptId, internalTokenHash);
+            String runIdArg = run.getId().toString();
+
+            log.debug("Resuming FL server for project {} via script {}", project.getId(), absoluteScriptPath);
+
+            process = processRunner.start(command,
+                    env -> {
+                        configureChildEnv(env, internalApiKey, effectiveBackendUrl(),
+                                flTokenSecret, requireClientAuth, runIdArg, requireTls, internalRunToken);
+                        applyRoundTimeout(env, intent);
+                    },
+                    new File("."));
+
+            runningServers.put(project.getId(), process.toHandle());
+            try {
+                recordProcessIdentity(run.getId(), attemptId, process.pid(),
+                        process.startInstant().orElse(null), freePort, internalTokenHash);
+            } catch (RuntimeException e) {
+                log.error("Could not record FL-server identity for resumed run {}; terminating child", run.getId(), e);
+                process.destroyForcibly();
+                runningServers.remove(project.getId());
+                throw new ServerProcessException(
+                        "Failed to record resumed FL-server process identity for project " + project.getId(), e);
+            }
+
+            final StringBuilder startupOutput = new StringBuilder();
+            final boolean[] errorOccurred = {false};
+            final SpawnedFlProcess readerProcess = process;
+            final java.util.concurrent.atomic.AtomicBoolean captureStartup =
+                    new java.util.concurrent.atomic.AtomicBoolean(true);
+
+            Thread outputReaderThread = new Thread(() -> {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(readerProcess.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        log.debug("[FL_SERVER_RESUME {}] {}", project.getId(), line);
+                        if (logBroadcaster != null) {
+                            logBroadcaster.sendLogs(project.getId(), line);
+                        }
+                        if (captureStartup.get()) {
+                            startupOutput.append(line).append('\n');
+                        }
+                    }
+                } catch (IOException e) {
+                    errorOccurred[0] = true;
+                    log.warn("Failed reading resumed FL server output for project {}: {}",
+                            project.getId(), e.getClass().getSimpleName());
+                    if (logBroadcaster != null) {
+                        logBroadcaster.sendLogs(project.getId(),
+                                "ERROR: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+                    }
+                }
+            }, "fl-server-resume-stdout-" + project.getId());
+            outputReaderThread.setDaemon(true);
+            outputReaderThread.start();
+
+            boolean exited = process.waitFor(startupProbeSeconds, TimeUnit.SECONDS);
+            if (exited && process.exitValue() != 0) {
+                outputReaderThread.join(stdoutDrainMillis);
+                runningServers.remove(project.getId());
+                throw new ServerProcessException(
+                        "Resumed FL server exited during startup for project " + project.getId()
+                                + " (exit code " + process.exitValue() + ")\nOutput:\n" + startupOutput);
+            }
+            if (errorOccurred[0]) {
+                outputReaderThread.join(stdoutDrainMillis);
+                process.destroyForcibly();
+                runningServers.remove(project.getId());
+                throw new ServerProcessException(
+                        "Resumed FL server stdout reader failed for project " + project.getId()
+                                + "\nOutput:\n" + startupOutput);
+            }
+
+            final ProcessHandle trackedHandle = process.toHandle();
+            reservedPortByProject.put(project.getId(), reservation);
+            final PortReservation heldReservation = reservation;
+            final UUID heldProject = project.getId();
+            final UUID heldRun = run.getId();
+            final UUID heldAttempt = attemptId;
+            trackedHandle.onExit().thenRun(() -> onChildExit(heldProject, heldRun, heldAttempt, trackedHandle, heldReservation));
+            captureStartup.set(false);
+            started = true;
+            log.info("Successfully resumed FL server for project {} on port {}", project.getId(), freePort);
+            return Optional.of(freePort);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            if (process != null) {
+                process.destroyForcibly();
+                runningServers.remove(project.getId());
+            }
+            throw new ServerProcessException(
+                    "Interrupted while resuming FL server for project " + project.getId(), e);
+        } catch (IOException e) {
+            throw new ServerProcessException(
+                    "Failed to spawn resumed FL server process for project " + project.getId(), e);
+        } finally {
+            if (!started) {
+                releasePort(reservation);
+            }
+        }
+    }
+
     /**
      * The intent the server is spawned from: the active run's recorded intent (V27). A run without one is refused
      * rather than spawned from the project as it reads now. Without an active run there is nothing recorded, and the
@@ -275,6 +444,12 @@ public class FlServerManager {
                     "FedOpt".equals(strategy) && project.getActiveRunId() != null
                             ? runRepository.findById(project.getActiveRunId()).orElseThrow().getFedOpt() : null);
 
+            if (isEligibleForRecovery(strategy, secureAggThreshold, intent) && project.getActiveRunId() != null) {
+                Path cpDir = getCheckpointDirectory(project.getActiveRunId());
+                command.add("--checkpoint-directory");
+                command.add(cpDir.toString());
+            }
+
             String treeContractBase64 = null;
             if ("XGBOOST".equals(project.getModelType())) {
                 Run run = runRepository.findById(project.getActiveRunId()).orElseThrow();
@@ -297,11 +472,13 @@ public class FlServerManager {
             String internalTokenHash = runTokenRegistry.hash(internalRunToken);
             // A child may finish quickly and call back before start() returns. Its authorization
             // must already be durable when it can issue its first request.
-            if (project.getActiveRunId() != null) {
-                processIdentityStore.authorizeLaunch(project.getActiveRunId(), internalTokenHash);
+            UUID activeRunId = project.getActiveRunId();
+            UUID attemptId = null;
+            if (activeRunId != null) {
+                attemptId = runRepository.findById(activeRunId).map(Run::getCurrentAttemptId).orElse(null);
+                processIdentityStore.authorizeLaunch(activeRunId, attemptId, internalTokenHash);
             }
-            String runIdArg = project.getActiveRunId() != null
-                    ? project.getActiveRunId().toString() : null;
+            String runIdArg = activeRunId != null ? activeRunId.toString() : null;
 
             log.debug("Starting FL server for project {} via script {}", project.getId(), absoluteScriptPath);
 
@@ -320,7 +497,7 @@ public class FlServerManager {
                     new File("."));
             runningServers.put(project.getId(), process.toHandle());
             try {
-                recordProcessIdentity(project.getActiveRunId(), process.pid(),
+                recordProcessIdentity(project.getActiveRunId(), attemptId, process.pid(),
                         process.startInstant().orElse(null), freePort, internalTokenHash);
             } catch (RuntimeException e) {
                 // BA-3: we spawned a child but could not persist its identity — after a crash it would
@@ -411,7 +588,8 @@ public class FlServerManager {
             final PortReservation heldReservation = reservation;
             final UUID heldProject = project.getId();
             final UUID heldRun = project.getActiveRunId();
-            trackedHandle.onExit().thenRun(() -> onChildExit(heldProject, heldRun, trackedHandle, heldReservation));
+            final UUID heldAttempt = attemptId;
+            trackedHandle.onExit().thenRun(() -> onChildExit(heldProject, heldRun, heldAttempt, trackedHandle, heldReservation));
             captureStartup.set(false);   // startup done — stop growing startupOutput for the child's run
             started = true;   // the finally must NOT release the port now; the watcher/stop owns it
             log.info("Started FL server for project {} on port {}", project.getId(), freePort);
@@ -447,7 +625,7 @@ public class FlServerManager {
      * restart that already replaced them is not disturbed. Idempotent and safe to run concurrently with
      * {@link #stopServerForProject} (both release/evict the same port/entry).
      */
-    private void onChildExit(UUID projectId, UUID runId, ProcessHandle handle, PortReservation reservation) {
+    private void onChildExit(UUID projectId, UUID runId, UUID attemptId, ProcessHandle handle, PortReservation reservation) {
         boolean unexpectedExit = runningServers.remove(projectId, handle);
         // Both indexes compare the reservation identity: a replacement may hold the same numeric port.
         reservedPortByProject.remove(projectId, reservation);
@@ -459,11 +637,19 @@ public class FlServerManager {
         // A deliberate stop removes the tracked handle before killing it, so its onExit is ignored.
         if (unexpectedExit && runId != null) {
             try {
-                runService.markFailed(runId);
+                if (attemptId != null) {
+                    runService.markFailed(runId, attemptId, "Child process exited unexpectedly");
+                } else {
+                    runService.markFailed(runId);
+                }
             } catch (RuntimeException e) {
                 log.error("Could not reconcile exited FL server for run {}", runId, e);
             }
         }
+    }
+
+    private void onChildExit(UUID projectId, UUID runId, ProcessHandle handle, PortReservation reservation) {
+        onChildExit(projectId, runId, null, handle, reservation);
     }
 
     // SE-10: identifier-like fields (strategy, model-type, task-type) — a bare token, no separators.
@@ -956,12 +1142,17 @@ public class FlServerManager {
      * {@link Process}, so it is decoupled from the process seam — the manager reads them off the
      * {@link SpawnedFlProcess} at the call site.</p>
      */
-    void recordProcessIdentity(UUID runId, long pid, java.time.Instant startInstant, int port,
+    void recordProcessIdentity(UUID runId, UUID attemptId, long pid, java.time.Instant startInstant, int port,
                                String internalTokenHash) {
         if (runId == null) {
             return;
         }
-        processIdentityStore.recordProcessIdentity(runId, pid, startInstant, port, internalTokenHash);
+        processIdentityStore.recordProcessIdentity(runId, attemptId, pid, startInstant, port, internalTokenHash);
+    }
+
+    void recordProcessIdentity(UUID runId, long pid, java.time.Instant startInstant, int port,
+                               String internalTokenHash) {
+        recordProcessIdentity(runId, null, pid, startInstant, port, internalTokenHash);
     }
 
     public boolean stopServerForProject(UUID projectId) {
@@ -1050,7 +1241,7 @@ public class FlServerManager {
      * BA-3 / PR-2: re-adopt an FL-server child that outlived a backend restart, restoring both its
      * tracking handle and its unique port reservation before an unbound child binds.
      */
-    public void adopt(UUID projectId, UUID runId, ProcessHandle handle, int port) {
+    public void adopt(UUID projectId, UUID runId, UUID attemptId, ProcessHandle handle, int port) {
         if (projectId == null) {
             throw new IllegalArgumentException("projectId is required");
         }
@@ -1079,9 +1270,15 @@ public class FlServerManager {
             final PortReservation heldReservation = reservation;
             final UUID heldProject = projectId;
             final UUID heldRun = runId;
-            handle.onExit().thenRun(() -> onChildExit(heldProject, heldRun, handle, heldReservation));
-            log.info("Re-adopted orphaned FL server for project {} (pid {}, port {})", projectId, handle.pid(), port);
+            final UUID heldAttempt = attemptId;
+            handle.onExit().thenRun(() -> onChildExit(heldProject, heldRun, heldAttempt, handle, heldReservation));
+            log.info("Re-adopted orphaned FL server for project {} (pid {}, port {}, attempt {})",
+                    projectId, handle.pid(), port, attemptId);
         }
+    }
+
+    public void adopt(UUID projectId, UUID runId, ProcessHandle handle, int port) {
+        adopt(projectId, runId, null, handle, port);
     }
 
     @Deprecated

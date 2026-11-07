@@ -56,6 +56,7 @@ public class RunService {
 
     @Autowired private RunRepository runRepository;
     @Autowired private RunEnrollmentRepository enrollmentRepository;
+    @Autowired(required = false) private com.federated.fl_platform_api.repository.RunExecutionAttemptRepository attemptRepository;
     @Autowired private ProjectRepository projectRepository;
     @Autowired private ProjectMembershipRepository membershipRepository;
     @Autowired private AuthorizationService authz;
@@ -179,7 +180,17 @@ public class RunService {
         run.setSecureAggThreshold(secureAggThreshold);
         run.setIntent(RunIntent.capture(project, serverCert.tlsRequired(), clientAuthRequired,
                 RunIntent.roundTimeoutMs(roundTimeoutSeconds), dataSource));
-        return runRepository.save(run);
+        UUID attemptId = UUID.randomUUID();
+        run.setCurrentAttemptId(attemptId);
+        run.setAttemptCount(1);
+        Run savedRun = runRepository.save(run);
+        if (attemptRepository != null) {
+            com.federated.fl_platform_api.model.RunExecutionAttempt attempt =
+                    new com.federated.fl_platform_api.model.RunExecutionAttempt(
+                            attemptId, savedRun.getId(), 1, RunStatus.STARTING);
+            attemptRepository.save(attempt);
+        }
+        return savedRun;
     }
 
     /**
@@ -198,7 +209,7 @@ public class RunService {
     }
 
     @Transactional
-    public void markRunning(UUID runId, Integer port) {
+    public void markRunning(UUID runId, UUID attemptId, Integer port) {
         Run run = runRepository.lockById(runId)
                 .orElseThrow(() -> ResourceNotFoundException.run(runId));
         // A locking query does not refresh a Run already cached by an outer transaction.
@@ -206,6 +217,12 @@ public class RunService {
         if (isTerminal(run.getStatus())) {
             // A fast run can reach a terminal state (its /finished callback wrote COMPLETED) before the
             // start thread's markRunning executes — do not revert a finished run to RUNNING.
+            return;
+        }
+        if (attemptId != null && run.getCurrentAttemptId() != null
+                && !attemptId.equals(run.getCurrentAttemptId())) {
+            log.warn("Ignored markRunning for stale attempt {} on run {} (current is {})",
+                    attemptId, runId, run.getCurrentAttemptId());
             return;
         }
         run.setServerHost(advertisedHost());
@@ -217,24 +234,54 @@ public class RunService {
         run.setStatus(RunStatus.RUNNING);
         run.setStartedAt(Instant.now());
         runRepository.save(run);
+
+        UUID activeAttemptId = attemptId != null ? attemptId : run.getCurrentAttemptId();
+        if (activeAttemptId != null && attemptRepository != null) {
+            attemptRepository.findById(activeAttemptId).ifPresent(att -> {
+                att.setStatus(RunStatus.RUNNING);
+                att.setStartedAt(Instant.now());
+                att.setServerPort(port);
+                attemptRepository.save(att);
+            });
+        }
+    }
+
+    @Transactional
+    public void markRunning(UUID runId, Integer port) {
+        markRunning(runId, null, port);
     }
 
     @Transactional
     public void markFailed(UUID runId) {
-        endRun(runId, RunStatus.FAILED);
+        endRun(runId, null, RunStatus.FAILED, null);
+    }
+
+    @Transactional
+    public void markFailed(UUID runId, UUID attemptId, String reason) {
+        endRun(runId, attemptId, RunStatus.FAILED, reason);
     }
 
     @Transactional
     public void markStopped(UUID runId) {
-        endRun(runId, RunStatus.STOPPED);
+        endRun(runId, null, RunStatus.STOPPED, null);
+    }
+
+    @Transactional
+    public void markStopped(UUID runId, UUID attemptId) {
+        endRun(runId, attemptId, RunStatus.STOPPED, null);
     }
 
     @Transactional
     public void markCompleted(UUID runId) {
-        endRun(runId, RunStatus.COMPLETED);
+        endRun(runId, null, RunStatus.COMPLETED, null);
     }
 
-    private void endRun(UUID runId, RunStatus status) {
+    @Transactional
+    public void markCompleted(UUID runId, UUID attemptId) {
+        endRun(runId, attemptId, RunStatus.COMPLETED, null);
+    }
+
+    private void endRun(UUID runId, UUID attemptId, RunStatus status, String reason) {
         if (runId == null) return;
         Run run = runRepository.lockById(runId).orElse(null);
         if (run == null) return;
@@ -245,6 +292,12 @@ public class RunService {
             // StartupReconciler comment flags). The first terminal write wins.
             return;
         }
+        if (attemptId != null && run.getCurrentAttemptId() != null
+                && !attemptId.equals(run.getCurrentAttemptId())) {
+            log.warn("Ignored endRun({}) for stale attempt {} on run {} (current is {})",
+                    status, attemptId, runId, run.getCurrentAttemptId());
+            return;
+        }
         run.setStatus(status);
         run.setServerPort(null);
         run.setServerPid(null);
@@ -252,6 +305,16 @@ public class RunService {
         run.setInternalTokenHash(null);
         run.setEndedAt(Instant.now());
         runRepository.save(run);
+
+        UUID activeAttemptId = attemptId != null ? attemptId : run.getCurrentAttemptId();
+        if (activeAttemptId != null && attemptRepository != null) {
+            attemptRepository.findById(activeAttemptId).ifPresent(att -> {
+                att.setStatus(status);
+                att.setEndedAt(Instant.now());
+                att.setFailureReason(reason);
+                attemptRepository.save(att);
+            });
+        }
     }
 
     /** COMPLETED / FAILED / STOPPED are terminal — the first terminal write wins and no later eager
