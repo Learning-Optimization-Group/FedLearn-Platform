@@ -36,6 +36,9 @@ public class ClientConnectionDto {
     private boolean grpcTls;
     private String grpcServerCertPem;
     private String grpcServerCertFingerprint;
+    // Worker persistence mode ("oneshot" or "persistent") and optional daemon URL for fl-runtime/client.py.
+    private String workerMode = "oneshot";
+    private String daemonUrl;
 
     public UUID getProjectId() { return projectId; }
     public void setProjectId(UUID projectId) { this.projectId = projectId; }
@@ -57,6 +60,10 @@ public class ClientConnectionDto {
     public void setStrategy(String strategy) { this.strategy = strategy; }
     public String getTrainingArm() { return trainingArm; }
     public void setTrainingArm(String trainingArm) { this.trainingArm = trainingArm; }
+    public String getWorkerMode() { return workerMode; }
+    public void setWorkerMode(String workerMode) { this.workerMode = workerMode; }
+    public String getDaemonUrl() { return daemonUrl; }
+    public void setDaemonUrl(String daemonUrl) { this.daemonUrl = daemonUrl; }
 
     public boolean isGrpcTls() { return grpcTls; }
     public void setGrpcTls(boolean grpcTls) { this.grpcTls = grpcTls; }

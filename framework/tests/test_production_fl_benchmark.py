@@ -84,3 +84,24 @@ def test_production_experiment_smoke():
     assert res["final_accuracy"] > 0.40
     assert len(res["round_history"]) == 1  # evaluated at round 2
     assert "final_loss" in res
+
+
+def test_adaptive_centered_clip_bounds_outliers():
+    """Verifies that adaptive_centered_clip scales radius to honest dispersion and suppresses outliers."""
+    from fedlearn.server.robust_aggregation import adaptive_centered_clip
+
+    torch.manual_seed(42)
+    # 8 honest clients with small updates (norm ~1.0)
+    honest = torch.randn(8, 20) * 0.2
+    # 2 Byzantine attackers with huge malicious updates (norm ~50.0)
+    byzantine = torch.ones(2, 20) * 10.0
+
+    stacked = torch.cat([honest, byzantine], dim=0)
+    centre = torch.zeros(20)
+
+    agg, tau = adaptive_centered_clip(stacked, centre=centre, quantile=0.5, min_tau=0.1)
+
+    # Applied tau should adapt to honest cluster (median distance ~0.8-1.5, not 50.0)
+    assert 0.1 <= tau <= 2.5
+    # The aggregate norm should be bounded tightly by tau
+    assert torch.norm(agg).item() < 3.0

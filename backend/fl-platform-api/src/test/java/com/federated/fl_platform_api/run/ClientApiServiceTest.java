@@ -227,6 +227,7 @@ class ClientApiServiceTest {
         // the desktop threads this into fl-runtime/client.py --strategy so a non-MLP DeComFL project
         // runs the DeComFL client path instead of silently defaulting to the FedAvg path.
         assertEquals("DeComFL", dto.getStrategy());
+        assertEquals("oneshot", dto.getWorkerMode());
     }
 
     private com.federated.fl_platform_api.dto.EnrollmentDto enrollmentWith(

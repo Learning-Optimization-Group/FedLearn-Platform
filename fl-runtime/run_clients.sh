@@ -11,6 +11,16 @@ MODEL_TYPE="CNN"
 MODEL_NAME="cnn"
 DATASET="cb"
 STRATEGY="FedAvg"
+WORKER_MODE="${WORKER_MODE:-oneshot}"
+DAEMON_URL="${DAEMON_URL:-}"
+
+EXTRA_CLIENT_ARGS=""
+if [ "$WORKER_MODE" = "persistent" ]; then
+    EXTRA_CLIENT_ARGS="--worker-mode persistent"
+    if [ -n "$DAEMON_URL" ]; then
+        EXTRA_CLIENT_ARGS="$EXTRA_CLIENT_ARGS --daemon-url $DAEMON_URL"
+    fi
+fi
 
 # Number of clients to launch
 NUM_CLIENTS=3
@@ -73,7 +83,7 @@ launch_client() {
                       -e "tell current window" \
                       -e "create tab with default profile" \
                       -e "tell current session of current tab" \
-                      -e "write text \"source '$VENV_PATH/bin/activate' && cd '$CLIENT_SCRIPT_DIR' && python client.py --project-id $PROJECT_ID --server-address $SERVER_ADDRESS --partition-id $partition_id --model-type $MODEL_TYPE --model-name $MODEL_NAME --dataset $DATASET --strategy $STRATEGY; echo ''; echo 'Client $partition_id finished. Press Enter to close...'; read\"" \
+                      -e "write text \"source '$VENV_PATH/bin/activate' && cd '$CLIENT_SCRIPT_DIR' && python client.py --project-id $PROJECT_ID --server-address $SERVER_ADDRESS --partition-id $partition_id --model-type $MODEL_TYPE --model-name $MODEL_NAME --dataset $DATASET --strategy $STRATEGY $EXTRA_CLIENT_ARGS; echo ''; echo 'Client $partition_id finished. Press Enter to close...'; read\"" \
                       -e "end tell" \
                       -e "end tell" \
                       -e "end tell" &
@@ -81,7 +91,7 @@ launch_client() {
         macos-terminal)
             osascript -e "tell application \"Terminal\"" \
                       -e "tell application \"System Events\" to keystroke \"t\" using command down" \
-                      -e "do script \"source '$VENV_PATH/bin/activate' && cd '$CLIENT_SCRIPT_DIR' && python client.py --project-id $PROJECT_ID --server-address $SERVER_ADDRESS --partition-id $partition_id --model-type $MODEL_TYPE --model-name $MODEL_NAME --dataset $DATASET --strategy $STRATEGY; echo ''; echo 'Client $partition_id finished. Press Enter to close...'; read\" in front window" \
+                      -e "do script \"source '$VENV_PATH/bin/activate' && cd '$CLIENT_SCRIPT_DIR' && python client.py --project-id $PROJECT_ID --server-address $SERVER_ADDRESS --partition-id $partition_id --model-type $MODEL_TYPE --model-name $MODEL_NAME --dataset $DATASET --strategy $STRATEGY $EXTRA_CLIENT_ARGS; echo ''; echo 'Client $partition_id finished. Press Enter to close...'; read\" in front window" \
                       -e "end tell" &
             ;;
         gnome-terminal)
@@ -95,7 +105,8 @@ launch_client() {
                     --model-type $MODEL_TYPE \
                     --model-name $MODEL_NAME \
                     --dataset $DATASET \
-                    --strategy $STRATEGY; \
+                    --strategy $STRATEGY \
+                    $EXTRA_CLIENT_ARGS; \
                 echo ''; \
                 echo 'Client $partition_id finished. Press Enter to close...'; \
                 read
@@ -112,7 +123,8 @@ launch_client() {
                     --model-type $MODEL_TYPE \
                     --model-name $MODEL_NAME \
                     --dataset $DATASET \
-                    --strategy $STRATEGY; \
+                    --strategy $STRATEGY \
+                    $EXTRA_CLIENT_ARGS; \
                 echo ''; \
                 echo 'Client $partition_id finished. Press Enter to close...'; \
                 read
@@ -129,7 +141,8 @@ launch_client() {
                     --model-type $MODEL_TYPE \
                     --model-name $MODEL_NAME \
                     --dataset $DATASET \
-                    --strategy $STRATEGY; \
+                    --strategy $STRATEGY \
+                    $EXTRA_CLIENT_ARGS; \
                 echo ''; \
                 echo 'Client $partition_id finished. Press Enter to close...'; \
                 read
@@ -146,7 +159,8 @@ launch_client() {
                     --model-type $MODEL_TYPE \
                     --model-name $MODEL_NAME \
                     --dataset $DATASET \
-                    --strategy $STRATEGY; \
+                    --strategy $STRATEGY \
+                    $EXTRA_CLIENT_ARGS; \
                 echo ''; \
                 echo 'Client $partition_id finished. Press Enter to close...'; \
                 read

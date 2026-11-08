@@ -288,6 +288,55 @@ def centered_clip(
     return v
 
 
+def adaptive_centered_clip(
+        stacked: torch.Tensor,
+        centre: Optional[torch.Tensor] = None,
+        quantile: float = 0.5,
+        min_tau: float = 0.1,
+        max_tau: Optional[float] = None,
+        iterations: int = 1,
+) -> Tuple[torch.Tensor, float]:
+    """Adaptive Centered Clipping (Karimireddy et al. 2021 + Andrew et al. 2021).
+
+    Dynamically tunes clipping radius tau_t to the specified quantile (e.g. median = 0.5)
+    of client update distances from the centre. This prevents artificial throttling of
+    honest gradients during early learning while strictly bounding Byzantine outliers.
+
+    Args:
+        stacked: [n_clients, D] flattened client updates.
+        centre: [D] point to clip around. If None, uses coordinate-wise median.
+        quantile: quantile of distance distribution (0.0 to 1.0, default 0.5 for median).
+        min_tau: lower bound clamp for tau.
+        max_tau: optional upper bound clamp for tau.
+        iterations: number of re-centering iterations.
+
+    Returns:
+        (aggregated_update, applied_tau)
+    """
+    n = int(stacked.shape[0])
+    if n == 0:
+        raise ValueError("adaptive_centered_clip requires at least one client.")
+    if not (0.0 <= quantile <= 1.0):
+        raise ValueError(f"quantile must be in [0.0, 1.0], got {quantile}")
+
+    flat = stacked.float().reshape(n, -1)
+    if centre is None:
+        v_centre = flat.median(dim=0).values
+    else:
+        v_centre = centre.float().reshape(-1)
+
+    deltas = flat - v_centre
+    distances = torch.linalg.vector_norm(deltas, dim=1)
+
+    tau = float(torch.quantile(distances, q=quantile).item())
+    tau = max(tau, float(min_tau))
+    if max_tau is not None:
+        tau = min(tau, float(max_tau))
+
+    agg = centered_clip(stacked=flat, centre=v_centre, tau=tau, iterations=iterations)
+    return agg, tau
+
+
 def clip_l2_norm(
         update: "OrderedDict[str, torch.Tensor]", max_norm: float
 ) -> Tuple["OrderedDict[str, torch.Tensor]", float]:

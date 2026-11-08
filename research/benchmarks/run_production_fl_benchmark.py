@@ -30,7 +30,7 @@ from torch.utils.data import DataLoader, Subset, TensorDataset
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "framework" / "src"))
 
-from fedlearn.server.robust_aggregation import centered_clip, trimmed_mean
+from fedlearn.server.robust_aggregation import adaptive_centered_clip, centered_clip, trimmed_mean
 from fedlearn.simulation.partition import dirichlet_partition
 
 PROJECTION_SEED = 20261107
@@ -272,8 +272,9 @@ def run_production_experiment(
         elif policy == "Trim16":
             agg = trimmed_mean(stacked, trim_ratio=0.2)
         elif policy == "CenterQuarter":
-            tau = clip_c / 4.0
-            agg = centered_clip(stacked, centre=previous_aggregate, tau=tau, iterations=1)
+            agg, _ = adaptive_centered_clip(
+                stacked, centre=previous_aggregate, quantile=0.5, min_tau=0.2, max_tau=clip_c
+            )
 
         # DP Gaussian Noise injection
         if private and sigma > 0:

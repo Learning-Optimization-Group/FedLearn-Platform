@@ -194,6 +194,17 @@ export interface Spec extends TurboModule {
 
   // ---- telemetry ----
   getDeviceMetrics(): Promise<DeviceMetrics>;
+
+  // ---- LightSecAgg arithmetic and secret sharing ----
+  computeLightSecAggShares(
+    secret: ReadonlyArray<number>,
+    numShares: number,
+    threshold: number,
+    scale?: number
+  ): Promise<ReadonlyArray<ReadonlyArray<number>>>;
+  aggregateLightSecAggShares(
+    shares: ReadonlyArray<ReadonlyArray<number>>
+  ): Promise<ReadonlyArray<number>>;
 }
 
 // The native C++ TurboModule is only registered on builds that actually compiled the FL core (Android
@@ -235,6 +246,8 @@ const fallbackCore: Spec = {
   qualifyTrainable: unavailable,
   infer: unavailable,
   getDeviceMetrics: unavailable,
+  computeLightSecAggShares: unavailable,
+  aggregateLightSecAggShares: unavailable,
 };
 
 export default nativeModule ?? fallbackCore;

@@ -154,6 +154,8 @@ public class ClientApiService {
                 dto.setModelName(intent.modelName());
             });
         });
+        dto.setWorkerMode(System.getProperty("app.fl.worker-mode", "oneshot"));
+        dto.setDaemonUrl(System.getProperty("app.fl.daemon-url", null));
         return dto;
     }
 
