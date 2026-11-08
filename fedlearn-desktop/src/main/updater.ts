@@ -37,7 +37,9 @@ export function initializeUpdater(mainWindow: BrowserWindow) {
 
   autoUpdater.on('update-available', (info) => {
     log.info('Update available.');
-    mainWindow.webContents.send('updater:update-available', info);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('updater:update-available', info);
+    }
   });
 
   autoUpdater.on('update-not-available', () => {
@@ -53,12 +55,16 @@ export function initializeUpdater(mainWindow: BrowserWindow) {
     log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
     log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
     log.info(log_message);
-    mainWindow.webContents.send('updater:download-progress', progressObj);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('updater:download-progress', progressObj);
+    }
   });
 
   autoUpdater.on('update-downloaded', (info) => {
     log.info('Update downloaded');
-    mainWindow.webContents.send('updater:update-downloaded', info);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('updater:update-downloaded', info);
+    }
   });
 
   // Check for updates immediately

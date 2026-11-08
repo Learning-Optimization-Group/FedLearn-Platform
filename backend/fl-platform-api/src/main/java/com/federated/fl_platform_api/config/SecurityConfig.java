@@ -107,7 +107,12 @@ public class SecurityConfig {
         // PATCH is load-bearing: project edit (PATCH /api/projects/{id}) and profile
         // updates (PATCH /api/users/me/profile) both preflight against this list.
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+        configuration.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "Accept",
+                "X-Requested-With",
+                JwtAuthenticationFilter.NATIVE_CLIENT_HEADER));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

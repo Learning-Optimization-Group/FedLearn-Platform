@@ -582,36 +582,35 @@ public class ProjectService {
         ReentrantLock startLock = startLocks.computeIfAbsent(projectId, k -> new ReentrantLock());
         startLock.lock();
         try {
-            if (projectRepository.findById(projectId).isEmpty()) {
-                throw ResourceNotFoundException.project(projectId);
-            }
+            Project lockedProject = projectRepository.findById(projectId)
+                    .orElseThrow(() -> ResourceNotFoundException.project(projectId));
 
             if (flServerManager.isServerRunning(projectId)) {
                 // Was previously a silent fall-through that double-spawned the server.
                 throw new ProjectStateException(
                         "FL server is already running for project " + projectId
-                                + " on port " + project.getServerPort());
+                                + " on port " + lockedProject.getServerPort());
             }
 
             Run run = null;
             try {
                 if ("FedOpt".equals(strategyToUse)) {
-                    run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
+                    run = runService.createForStart(lockedProject, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
                             robustSettings, secureAggThreshold, dataSource,
                             request != null ? request.getFedOpt() : null);
                 } else {
-                    run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
+                    run = runService.createForStart(lockedProject, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
                             robustSettings, secureAggThreshold, dataSource);
                 }
-                project.setActiveRunId(run.getId());
-                projectRepository.save(project);
+                lockedProject.setActiveRunId(run.getId());
+                projectRepository.save(lockedProject);
 
                 Optional<Integer> port = flServerManager.startServerForProject(
-                        project, strategyToUse, numRoundsToUse, minClients, robustSettings, secureAggThreshold,
+                        lockedProject, strategyToUse, numRoundsToUse, minClients, robustSettings, secureAggThreshold,
                         clientsPerRound);
-                project.setServerPort(port.orElse(null));
-                project.setStatus(ProjectStatus.RUNNING.name());
-                Project updatedProject = projectRepository.save(project);
+                lockedProject.setServerPort(port.orElse(null));
+                lockedProject.setStatus(ProjectStatus.RUNNING.name());
+                Project updatedProject = projectRepository.save(lockedProject);
                 runService.markRunning(run.getId(), port.orElse(null));
 
                 // MO-15: auto-stage this run's on-device model bundle so a mobile client that joins finds it
@@ -620,7 +619,7 @@ public class ProjectService {
                 // it never blocks the spawn or holds the BA-2 start lock. Phone-only + flag-gated (default off);
                 // its contract is never-throw, but wrap defensively so a scheduling failure can't fail a start.
                 try {
-                    modelBundleStager.stageForRun(run.getId(), project.getModelType());
+                    modelBundleStager.stageForRun(run.getId(), lockedProject.getModelType());
                 } catch (RuntimeException stageEx) {
                     log.warn("model-bundle auto-stage threw for run {} (ignored, start continues): {}",
                             run.getId(), stageEx.toString());
@@ -927,7 +926,6 @@ public class ProjectService {
             projectRepository.deleteById(projectId);
         } finally {
             startLock.unlock();
-            startLocks.remove(projectId);
         }
         log.info("Project {} deleted", projectId);
     }

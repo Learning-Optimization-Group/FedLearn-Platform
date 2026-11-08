@@ -334,18 +334,22 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         String correlationId = newCorrelationId();
         HttpStatusCode status = ex.getStatusCode();
         String reason = ex.getReason() != null ? ex.getReason() : ex.getMessage();
-        log.warn("ResponseStatusException [status={}, correlationId={}]: {}", status.value(), correlationId, reason);
+        if (status.is5xxServerError()) {
+            log.error("ResponseStatusException [status={}, correlationId={}]: {}", status.value(), correlationId, reason, ex);
+        } else {
+            log.warn("ResponseStatusException [status={}, correlationId={}]: {}", status.value(), correlationId, reason);
+        }
 
         ApiError body = ApiError.builder()
                 .status(status.value())
                 .error(HttpStatus.resolve(status.value()) != null
                         ? HttpStatus.resolve(status.value()).getReasonPhrase() : "Error")
-                .message(reason)
+                .message(status.is5xxServerError() ? GENERIC_5XX_MESSAGE : reason)
                 .path(request.getRequestURI())
                 .correlationId(correlationId)
                 .build();
 
-        return new ResponseEntity<>(body, status);
+        return new ResponseEntity<>(body, ex.getHeaders(), status);
     }
 
     // ─── Catch-all ──────────────────────────────────────────────────────────

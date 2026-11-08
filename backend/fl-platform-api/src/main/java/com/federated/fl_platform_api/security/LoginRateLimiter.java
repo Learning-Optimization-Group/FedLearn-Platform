@@ -46,6 +46,10 @@ public class LoginRateLimiter {
         }
         synchronized (window) {
             prune(window);
+            if (window.isEmpty()) {
+                failures.remove(key, window);
+                return false;
+            }
             return window.size() >= MAX_FAILURES;
         }
     }
@@ -77,6 +81,10 @@ public class LoginRateLimiter {
         }
         synchronized (window) {
             prune(window);
+            if (window.isEmpty()) {
+                failures.remove(key, window);
+                return Optional.empty();
+            }
             if (window.size() < MAX_FAILURES) {
                 return Optional.empty();
             }

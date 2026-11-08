@@ -34,7 +34,7 @@ public class AccessRequestService {
 
         User caller = authz.currentUser();
 
-        if (caller.getId().equals(project.getUser().getId())) {
+        if (project.getUser() != null && caller.getId().equals(project.getUser().getId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "Owner cannot request access to their own project");
         }
@@ -80,7 +80,8 @@ public class AccessRequestService {
 
         NotificationDto n = baseNotification(NotificationDto.Type.ACCESS_REQUEST_CREATED,
             project, caller, caller);
-        notifications.notifyOwnerAndMembers(project.getId(), project.getUser().getId(), n);
+        Long ownerId = project.getUser() != null ? project.getUser().getId() : null;
+        notifications.notifyOwnerAndMembers(project.getId(), ownerId, n);
 
         response.setRequest(toDto(saved));
         return response;

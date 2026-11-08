@@ -80,15 +80,23 @@ export function useStompClient({
             return;
         }
 
+        let isDisposed = false;
         let everConnected = false;
         let liveSubs: StompSubscription[] = [];
         const client = new StompClient({ brokerURL, reconnectDelay });
 
         client.onConnect = (frame) => {
-            liveSubs = subscriptionsRef.current.map(({ topic }) =>
+            if (isDisposed) return;
+            liveSubs = subscriptionsRef.current.map(({ topic }, index) =>
                 client.subscribe(topic, (message) => {
-                    const currentSub = subscriptionsRef.current.find((s) => s.topic === topic);
-                    currentSub?.onMessage(message);
+                    const sub = subscriptionsRef.current[index];
+                    if (sub && sub.topic === topic) {
+                        sub.onMessage(message);
+                    } else {
+                        subscriptionsRef.current
+                            .filter((s) => s.topic === topic)
+                            .forEach((s) => s.onMessage(message));
+                    }
                 }),
             );
             everConnected = true;
@@ -99,6 +107,7 @@ export function useStompClient({
         };
 
         client.onWebSocketClose = () => {
+            if (isDisposed || !client.active) return;
             liveSubs.forEach((sub) => sub.unsubscribe());
             liveSubs = [];
             setIsConnected(false);
@@ -109,19 +118,26 @@ export function useStompClient({
         };
 
         client.onStompError = (frame) => {
+            if (isDisposed) return;
             setLastError(frame.headers?.message || frame.body || 'STOMP broker reported an error.');
         };
 
         client.onWebSocketError = () => {
+            if (isDisposed) return;
             setLastError('WebSocket connection error.');
         };
 
         client.activate();
 
         return () => {
+            isDisposed = true;
+            client.onConnect = () => {};
+            client.onWebSocketClose = () => {};
+            client.onStompError = () => {};
+            client.onWebSocketError = () => {};
             liveSubs.forEach((sub) => sub.unsubscribe());
             liveSubs = [];
-            if (client.active) client.deactivate();
+            if (client.active) void client.deactivate();
             setIsConnected(false);
             setIsReconnecting(false);
         };

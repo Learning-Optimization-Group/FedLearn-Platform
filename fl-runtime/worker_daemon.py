@@ -16,6 +16,7 @@ import logging
 import os
 import platform
 import resource
+import signal
 import socket
 import sys
 import threading
@@ -122,6 +123,8 @@ class DaemonState:
             self.last_error = None
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+            if hasattr(torch, "mps") and hasattr(torch.mps, "empty_cache") and torch.backends.mps.is_available():
+                torch.mps.empty_cache()
 
     def init_model(
         self,
@@ -147,6 +150,8 @@ class DaemonState:
                 # If already initialized for the exact same project and run, reuse cached model
                 if self.model is not None:
                     self.worker_reuse_count += 1
+                    self.status = "READY"
+                    self.last_error = None
                     return {
                         "status": "REUSED",
                         "project_id": self.active_project_id,
@@ -282,12 +287,6 @@ class DaemonState:
                 avg_loss = total_loss / max(total_samples, 1)
                 accuracy = correct / max(total_samples, 1)
 
-                # Clear accelerator cache to avoid memory fragmentation over 100+ rounds
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-                if hasattr(torch, "mps") and hasattr(torch.mps, "empty_cache") and torch.backends.mps.is_available():
-                    torch.mps.empty_cache()
-
                 # Serialize updated state dict
                 updated_weights_b64 = serialize_state_dict(self.model.state_dict())
 
@@ -308,6 +307,12 @@ class DaemonState:
                 self.status = "ERROR"
                 self.last_error = str(e)
                 raise
+            finally:
+                # Clear accelerator cache to avoid memory fragmentation over 100+ rounds
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                if hasattr(torch, "mps") and hasattr(torch.mps, "empty_cache") and torch.backends.mps.is_available():
+                    torch.mps.empty_cache()
 
 
 class DaemonRequestHandler(BaseHTTPRequestHandler):
@@ -317,12 +322,15 @@ class DaemonRequestHandler(BaseHTTPRequestHandler):
     server_instance: ThreadingHTTPServer
 
     def _send_json(self, status_code: int, data: Dict[str, Any]):
-        body = json.dumps(data, sort_keys=True).encode("utf-8")
-        self.send_response(status_code)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            body = json.dumps(data, sort_keys=True).encode("utf-8")
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            logger.debug("Client disconnected before response could be sent.")
 
     def _read_json(self) -> Dict[str, Any]:
         length = int(self.headers.get("Content-Length", 0))
@@ -563,12 +571,25 @@ def main():
 
     args = parser.parse_args()
 
+    server = WorkerDaemonServer(host=args.host, port=args.port, device=args.device)
+
+    def _sigterm_handler(signum, frame):
+        raise KeyboardInterrupt("Received SIGTERM signal for graceful shutdown")
+
+    signal.signal(signal.SIGTERM, _sigterm_handler)
+
     if args.pid_file:
         with open(args.pid_file, "w") as f:
             f.write(f"{os.getpid()}\n")
 
-    server = WorkerDaemonServer(host=args.host, port=args.port, device=args.device)
-    server.run_forever()
+    try:
+        server.run_forever()
+    finally:
+        if args.pid_file and os.path.exists(args.pid_file):
+            try:
+                os.remove(args.pid_file)
+            except OSError:
+                pass
 
 
 if __name__ == "__main__":

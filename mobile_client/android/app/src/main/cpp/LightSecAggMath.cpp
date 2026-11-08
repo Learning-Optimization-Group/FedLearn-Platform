@@ -116,8 +116,8 @@ std::vector<int64_t> shamir_reconstruct(
   std::vector<int> xs;
   xs.reserve(threshold);
   for (const auto& kv : shares) {
-    if (kv.first <= 0) {
-      throw std::invalid_argument("Share evaluation points (x) must be positive.");
+    if (kv.first <= 0 || kv.first >= kPrime) {
+      throw std::invalid_argument("Share evaluation points (x) must be in [1, p - 1].");
     }
     xs.push_back(kv.first);
     if (static_cast<int>(xs.size()) == threshold) {
@@ -290,17 +290,17 @@ int32_t lightsecagg_compute_shamir_shares(
     return -2;
   }
 
-  size_t len = static_cast<size_t>(length);
-  std::vector<int64_t> secret_vec(secret, secret + len);
-  std::vector<std::vector<int64_t>> coeffs;
-  coeffs.reserve(threshold - 1);
-  for (int d = 0; d < threshold - 1; ++d) {
-    size_t offset_start = static_cast<size_t>(d) * len;
-    size_t offset_end = static_cast<size_t>(d + 1) * len;
-    coeffs.emplace_back(flattened_coeffs + offset_start, flattened_coeffs + offset_end);
-  }
-
   try {
+    size_t len = static_cast<size_t>(length);
+    std::vector<int64_t> secret_vec(secret, secret + len);
+    std::vector<std::vector<int64_t>> coeffs;
+    coeffs.reserve(threshold - 1);
+    for (int d = 0; d < threshold - 1; ++d) {
+      size_t offset_start = static_cast<size_t>(d) * len;
+      size_t offset_end = static_cast<size_t>(d + 1) * len;
+      coeffs.emplace_back(flattened_coeffs + offset_start, flattened_coeffs + offset_end);
+    }
+
     auto shares = fedlearn::secagg::compute_shamir_shares(secret_vec, num_shares, threshold, coeffs);
     for (int x = 1; x <= num_shares; ++x) {
       const auto& sh = shares[x];
@@ -322,16 +322,16 @@ int32_t lightsecagg_aggregate_shares(
     return -1;
   }
 
-  size_t len = static_cast<size_t>(length);
-  std::vector<std::vector<int64_t>> shares;
-  shares.reserve(num_vectors);
-  for (int i = 0; i < num_vectors; ++i) {
-    size_t offset_start = static_cast<size_t>(i) * len;
-    size_t offset_end = static_cast<size_t>(i + 1) * len;
-    shares.emplace_back(flattened_shares + offset_start, flattened_shares + offset_end);
-  }
-
   try {
+    size_t len = static_cast<size_t>(length);
+    std::vector<std::vector<int64_t>> shares;
+    shares.reserve(num_vectors);
+    for (int i = 0; i < num_vectors; ++i) {
+      size_t offset_start = static_cast<size_t>(i) * len;
+      size_t offset_end = static_cast<size_t>(i + 1) * len;
+      shares.emplace_back(flattened_shares + offset_start, flattened_shares + offset_end);
+    }
+
     auto agg = fedlearn::secagg::aggregate_shares(shares);
     std::copy(agg.begin(), agg.end(), out_aggregate);
     return 0;
@@ -350,11 +350,11 @@ int32_t lightsecagg_mask_vector(
     return -1;
   }
 
-  size_t len = static_cast<size_t>(length);
-  std::vector<double> vals(values, values + len);
-  std::vector<int64_t> m(mask, mask + len);
-
   try {
+    size_t len = static_cast<size_t>(length);
+    std::vector<double> vals(values, values + len);
+    std::vector<int64_t> m(mask, mask + len);
+
     auto masked = fedlearn::secagg::mask_vector(vals, m, scale);
     std::copy(masked.begin(), masked.end(), out_masked);
     return 0;
@@ -374,15 +374,18 @@ int32_t lightsecagg_reconstruct_secret(
     return -1;
   }
 
-  size_t len = static_cast<size_t>(length);
-  std::map<int, std::vector<int64_t>> shares;
-  for (int i = 0; i < num_shares; ++i) {
-    size_t offset_start = static_cast<size_t>(i) * len;
-    size_t offset_end = static_cast<size_t>(i + 1) * len;
-    shares[xs[i]] = std::vector<int64_t>(flattened_shares + offset_start, flattened_shares + offset_end);
-  }
-
   try {
+    size_t len = static_cast<size_t>(length);
+    std::map<int, std::vector<int64_t>> shares;
+    for (int i = 0; i < num_shares; ++i) {
+      if (xs[i] <= 0 || xs[i] >= fedlearn::secagg::kPrime) {
+        return -1;
+      }
+      size_t offset_start = static_cast<size_t>(i) * len;
+      size_t offset_end = static_cast<size_t>(i + 1) * len;
+      shares[xs[i]] = std::vector<int64_t>(flattened_shares + offset_start, flattened_shares + offset_end);
+    }
+
     auto rec = fedlearn::secagg::shamir_reconstruct(shares, threshold);
     std::copy(rec.begin(), rec.end(), out_secret);
     return 0;

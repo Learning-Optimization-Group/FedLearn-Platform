@@ -45,22 +45,22 @@ describe('LightSecAgg Mobile Protocol Unit Tests', () => {
 
     const shares = await computeLightSecAggShares(secret, numShares, threshold);
     expect(shares.length).toBe(numShares);
-    expect(shares[0].length).toBe(secret.length);
+    expect(shares[0]!.length).toBe(secret.length);
 
     // Any subset of threshold shares reconstructs the secret
     const subsetXs = [1, 2, 4];
-    const subsetShares = [shares[0], shares[1], shares[3]];
+    const subsetShares: number[][] = [shares[0]!, shares[1]!, shares[3]!];
 
     const reconstructed = reconstructSecret(subsetXs, subsetShares, threshold);
     for (let i = 0; i < secret.length; i++) {
-      expect(reconstructed[i]).toBeCloseTo(secret[i], 4);
+      expect(reconstructed[i]!).toBeCloseTo(secret[i]!, 4);
     }
   });
 
   it('aggregates shares across clients coordinate-wise', async () => {
     const sharesA = [[10, 20, 30]];
     const sharesB = [[5, 15, 25]];
-    const aggregated = await aggregateLightSecAggShares([sharesA[0], sharesB[0]]);
+    const aggregated = await aggregateLightSecAggShares([sharesA[0]!, sharesB[0]!]);
     expect(aggregated).toEqual([15, 35, 55]);
   });
 

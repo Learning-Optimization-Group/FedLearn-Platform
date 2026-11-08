@@ -99,6 +99,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     setError('');
     try {
       setIsLoading(true);

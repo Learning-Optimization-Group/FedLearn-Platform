@@ -58,7 +58,8 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
   }));
 
   const bestAccuracy = hasResults ? results.reduce((max, r) => Math.max(max, Number.isFinite(r.accuracy) ? r.accuracy : 0), 0) : 0;
-  const finalLoss = hasResults ? (Number.isFinite(results[results.length - 1].loss) ? results[results.length - 1].loss : 0) : 0;
+  const lastRoundLoss = hasResults ? results[results.length - 1].loss : null;
+  const finalLoss = typeof lastRoundLoss === 'number' && Number.isFinite(lastRoundLoss) ? lastRoundLoss : null;
 
   const tabClass = (active: boolean) =>
     cn(
@@ -128,7 +129,7 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
           <StatGroup
             stats={[
               { label: 'Best accuracy', value: Number.isFinite(bestAccuracy) ? `${(bestAccuracy * 100).toFixed(2)}%` : '—' },
-              { label: 'Final loss', value: Number.isFinite(finalLoss) ? finalLoss.toFixed(4) : '—' },
+              { label: 'Final loss', value: finalLoss !== null ? finalLoss.toFixed(4) : '—' },
               { label: 'Rounds done', value: results.length },
             ]}
           />
@@ -172,7 +173,7 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
                         contentStyle={TOOLTIP_CONTENT_STYLE}
                         itemStyle={TOOLTIP_ITEM_STYLE}
                         labelStyle={TOOLTIP_LABEL_STYLE}
-                        formatter={(value: number) => [`${(value * 100).toFixed(2)}%`, 'Accuracy']}
+                        formatter={(value: number) => [Number.isFinite(value) ? `${(value * 100).toFixed(2)}%` : '—', 'Accuracy']}
                         labelFormatter={(label) => `Round ${label}`}
                       />
                       <Line type="monotone" dataKey="accuracy" stroke="var(--color-series-1)" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: 'var(--color-series-1)' }} />
@@ -192,7 +193,7 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
                         contentStyle={TOOLTIP_CONTENT_STYLE}
                         itemStyle={TOOLTIP_ITEM_STYLE}
                         labelStyle={TOOLTIP_LABEL_STYLE}
-                        formatter={(value: number) => [value.toFixed(4), 'Loss']}
+                        formatter={(value: number) => [Number.isFinite(value) ? value.toFixed(4) : '—', 'Loss']}
                         labelFormatter={(label) => `Round ${label}`}
                       />
                       <Line type="monotone" dataKey="loss" stroke="var(--color-series-1)" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: 'var(--color-series-1)' }} />

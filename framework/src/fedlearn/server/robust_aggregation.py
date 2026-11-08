@@ -328,9 +328,13 @@ def adaptive_centered_clip(
 
     deltas = flat - v_centre
     distances = torch.linalg.vector_norm(deltas, dim=1)
+    if not torch.isfinite(distances).all():
+        raise ValueError("Non-finite distances encountered in adaptive_centered_clip.")
 
-    tau = float(torch.quantile(distances, q=quantile).item())
-    tau = max(tau, float(min_tau))
+    tau_val = float(torch.quantile(distances, q=quantile).item())
+    if math.isnan(tau_val) or math.isinf(tau_val):
+        raise ValueError(f"Computed non-finite tau: {tau_val}")
+    tau = max(tau_val, float(min_tau))
     if max_tau is not None:
         tau = min(tau, float(max_tau))
 
@@ -348,7 +352,7 @@ def clip_l2_norm(
     is bounded jointly rather than per tensor. An update already within budget passes through
     unchanged (the scale is exactly 1.0).
     """
-    total_norm = torch.sqrt(sum((t.float() * t.float()).sum() for t in update.values()))
+    total_norm = torch.sqrt(sum((t.double() * t.double()).sum() for t in update.values()))
     orig = float(total_norm.item())
     if math.isnan(orig) or math.isinf(orig):
         raise ValueError("Cannot clip update with non-finite norm (NaN/Inf).")
@@ -522,6 +526,8 @@ class RobustAggregator(Strategy):
                     "(keys/shapes differ from the global model)", client_id,
                 )
                 continue
+            if agg_device is not None:
+                params = OrderedDict((k, v.to(agg_device) if isinstance(v, torch.Tensor) else v) for k, v in params.items())
             survivors.append(self._clip_update(params))
 
         if not survivors:

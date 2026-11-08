@@ -67,6 +67,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
   const [error, setError] = useState('');
   // 'form' shows the inputs; 'preparing' shows the spinner while init is polled (BA-1).
   const [phase, setPhase] = useState<'form' | 'preparing'>('form');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   // Flipped true when the modal closes so an in-flight poll stops touching state.
   const cancelledRef = useRef(false);
 
@@ -146,6 +147,8 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (phase !== 'form' || isSubmitting) return;
+    setIsSubmitting(true);
     setError('');
     try {
       const created = await onSubmit({ name, modelType, modelName, optimizer,
@@ -179,6 +182,8 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
       // letting the failure render on the route hidden behind the modal.
       setPhase('form');
       setError(errorMessage(err, 'Could not create project. Please try again.'));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

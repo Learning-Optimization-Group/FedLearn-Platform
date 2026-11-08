@@ -41,7 +41,10 @@ if __name__ == "__main__":
 
 import os
 import sys
-import sklearn  # Pre-load sklearn to fix ARM64 static TLS block memory allocation issues with libgomp
+try:
+    import sklearn  # Pre-load sklearn to fix ARM64 static TLS block memory allocation issues with libgomp
+except (ImportError, OSError):
+    pass
 
 import argparse
 from pathlib import Path

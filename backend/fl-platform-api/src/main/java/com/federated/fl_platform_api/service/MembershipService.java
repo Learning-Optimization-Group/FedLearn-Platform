@@ -74,7 +74,7 @@ public class MembershipService {
         User target = userRepository.findByUsername(username)
             .orElseThrow(() -> ResourceNotFoundException.forEntity("User", username));
 
-        if (target.getId().equals(project.getUser().getId())) {
+        if (project.getUser() != null && target.getId().equals(project.getUser().getId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "Owner is implicitly a participant; do not create a membership row for them");
         }

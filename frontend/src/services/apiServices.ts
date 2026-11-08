@@ -229,10 +229,10 @@ export const startProjectServer = (projectId: string, startData: StartServerData
     if (startData?.strategy) {
         body.strategy = startData.strategy;
     }
-    if (startData?.numRounds) {
+    if (startData?.numRounds !== undefined) {
         body.numRounds = startData.numRounds;
     }
-    if (startData?.minClients) {
+    if (startData?.minClients !== undefined) {
         body.minClients = startData.minClients;
     }
     if (startData?.clientsPerRound !== undefined) {

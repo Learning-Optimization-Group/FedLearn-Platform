@@ -275,4 +275,6 @@ def dp_robust_aggregate(
             noise.normal_(mean=0.0, std=std, generator=generator)
             agg = agg + noise
         out[k] = ref[k] + agg
+        if "running_var" in k or k.endswith(".var"):
+            out[k] = torch.clamp(out[k], min=1e-6)
     return out

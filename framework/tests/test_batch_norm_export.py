@@ -126,6 +126,7 @@ def test_every_reduction_in_the_training_program_runs_in_float64():
 
 def test_the_evaluation_programs_take_the_running_statistics_as_inputs():
     """A device's running statistics change as it trains, so the loss and infer programs read them from the state."""
+    pytest.importorskip("executorch")
     from executorch.runtime import Runtime
     import tempfile
     torch.manual_seed(0)

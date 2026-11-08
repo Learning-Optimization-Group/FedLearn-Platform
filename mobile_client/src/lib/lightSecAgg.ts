@@ -45,19 +45,30 @@ export function dequantize(val: bigint, scale: bigint = DEFAULT_SCALE, p: bigint
   return Number(signed) / Number(scale);
 }
 
+function getCrypto(): { getRandomValues: (arr: Uint32Array) => void } | undefined {
+  if (typeof globalThis !== 'undefined' && (globalThis as any).crypto?.getRandomValues) {
+    return (globalThis as any).crypto;
+  }
+  return undefined;
+}
+
 function getSecureRandomFieldElement(p: bigint): bigint {
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+  const cryptoObj = getCrypto();
+  if (cryptoObj) {
     const buf = new Uint32Array(1);
-    const limit = (0x100000000n / p) * p;
+    const limit = (0x100000000n / (p - 1n)) * (p - 1n);
     while (true) {
-      crypto.getRandomValues(buf);
-      const val = BigInt(buf[0]);
-      if (val < limit) {
-        return (val % (p - 1n)) + 1n; // Uniform in [1, p-1]
+      cryptoObj.getRandomValues(buf);
+      const raw = buf[0];
+      if (raw !== undefined) {
+        const val = BigInt(raw);
+        if (val < limit) {
+          return (val % (p - 1n)) + 1n; // Uniform in [1, p-1]
+        }
       }
     }
   }
-  return BigInt(Math.floor(Math.random() * (Number(p) - 2))) + 1n;
+  return BigInt(Math.floor(Math.random() * (Number(p) - 1))) + 1n;
 }
 
 /**
@@ -97,7 +108,9 @@ export async function computeLightSecAggShares(
   const shares: bigint[][] = Array.from({ length: numShares }, () => new Array(len));
 
   for (let d = 0; d < len; d++) {
-    const coeffs: bigint[] = [quantized[d]];
+    const qVal = quantized[d];
+    if (qVal === undefined) continue;
+    const coeffs: bigint[] = [qVal];
     for (let deg = 1; deg < threshold; deg++) {
       coeffs.push(getSecureRandomFieldElement(p));
     }
@@ -107,9 +120,15 @@ export async function computeLightSecAggShares(
       const x = BigInt(i);
       let y = 0n;
       for (let k = coeffs.length - 1; k >= 0; k--) {
-        y = mod(y * x + coeffs[k], p);
+        const cK = coeffs[k];
+        if (cK !== undefined) {
+          y = mod(y * x + cK, p);
+        }
       }
-      shares[i - 1][d] = y;
+      const shareRow = shares[i - 1];
+      if (shareRow) {
+        shareRow[d] = y;
+      }
     }
   }
 
@@ -122,7 +141,8 @@ export async function computeLightSecAggShares(
 export async function aggregateLightSecAggShares(
   shares: number[][],
 ): Promise<number[]> {
-  if (shares.length === 0 || shares[0].length === 0) {
+  const firstShare = shares[0];
+  if (!firstShare || firstShare.length === 0) {
     return [];
   }
 
@@ -136,13 +156,17 @@ export async function aggregateLightSecAggShares(
   }
 
   const p = LIGHTSECAGG_PRIME;
-  const len = shares[0].length;
+  const len = firstShare.length;
   const out = new Array<number>(len).fill(0);
 
   for (let d = 0; d < len; d++) {
     let sum = 0n;
     for (let i = 0; i < shares.length; i++) {
-      sum = mod(sum + BigInt(shares[i][d]), p);
+      const shareRow = shares[i];
+      const val = shareRow ? shareRow[d] : undefined;
+      if (val !== undefined) {
+        sum = mod(sum + BigInt(val), p);
+      }
     }
     out[d] = Number(sum);
   }
@@ -159,23 +183,28 @@ export function reconstructSecret(
   threshold: number,
   scale: number = Number(DEFAULT_SCALE),
 ): number[] {
-  if (xs.length < threshold || shares.length < threshold) {
+  const firstShare = shares[0];
+  if (!firstShare || xs.length < threshold || shares.length < threshold) {
     throw new Error(`Insufficient shares (${xs.length}) for threshold ${threshold}`);
   }
   const p = LIGHTSECAGG_PRIME;
   const bigScale = BigInt(scale);
-  const len = shares[0].length;
+  const len = firstShare.length;
   const result: number[] = new Array(len);
 
   // Compute Lagrange basis coefficients lambda_i(0) = prod_{j != i} (0 - x_j)/(x_i - x_j)
   const lambdas: bigint[] = [];
   for (let i = 0; i < threshold; i++) {
+    const xiNum = xs[i];
+    if (xiNum === undefined) continue;
+    const xi = BigInt(xiNum);
     let num = 1n;
     let den = 1n;
     for (let j = 0; j < threshold; j++) {
       if (i === j) continue;
-      const xi = BigInt(xs[i]);
-      const xj = BigInt(xs[j]);
+      const xjNum = xs[j];
+      if (xjNum === undefined) continue;
+      const xj = BigInt(xjNum);
       num = mod(num * (-xj), p);
       den = mod(den * (xi - xj), p);
     }
@@ -187,7 +216,12 @@ export function reconstructSecret(
   for (let d = 0; d < len; d++) {
     let secretInt = 0n;
     for (let i = 0; i < threshold; i++) {
-      secretInt = mod(secretInt + lambdas[i] * BigInt(shares[i][d]), p);
+      const lambda = lambdas[i];
+      const row = shares[i];
+      const val = row ? row[d] : undefined;
+      if (lambda !== undefined && val !== undefined) {
+        secretInt = mod(secretInt + lambda * BigInt(val), p);
+      }
     }
     result[d] = dequantize(secretInt, bigScale, p);
   }
