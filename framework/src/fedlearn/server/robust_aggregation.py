@@ -36,6 +36,7 @@ is exactly why the estimator is opt-in per project rather than the default.
 """
 
 import logging
+import math
 from collections import OrderedDict
 from typing import Callable, List, Optional, Tuple
 
@@ -349,6 +350,8 @@ def clip_l2_norm(
     """
     total_norm = torch.sqrt(sum((t.float() * t.float()).sum() for t in update.values()))
     orig = float(total_norm.item())
+    if math.isnan(orig) or math.isinf(orig):
+        raise ValueError("Cannot clip update with non-finite norm (NaN/Inf).")
     scale = min(1.0, max_norm / (orig + _NORM_EPS))
     clipped = OrderedDict((k, v.float() * scale) for k, v in update.items())
     return clipped, orig
@@ -493,6 +496,13 @@ class RobustAggregator(Strategy):
         # params) into a uniform list of (client_id, state_dict, num_examples).
         normalized = normalize_updates(results)
 
+        # Adopt device of incoming updates if different from self._global
+        agg_device = next((t.device for _, p, _ in normalized for t in p.values() if isinstance(t, torch.Tensor)), None)
+        if agg_device is not None:
+            first_g = next(iter(self._global.values()), None)
+            if first_g is not None and first_g.device != agg_device:
+                self._global = OrderedDict((k, v.to(agg_device)) for k, v in self._global.items())
+
         # Drop non-finite clients (reusing the canonical serializer check) and clip the survivors.
         survivors: List["OrderedDict[str, torch.Tensor]"] = []
         dropped = 0
@@ -523,7 +533,13 @@ class RobustAggregator(Strategy):
             log.error(self.last_round_message)
             return None
 
-        aggregated = self._robust_reduce(survivors)
+        try:
+            aggregated = self._robust_reduce(survivors)
+        except ValueError as exc:
+            self.last_round_failed = True
+            self.last_round_message = f"Round {server_round}: {self.method} refused aggregation: {exc}"
+            log.error(self.last_round_message)
+            return None
 
         if dropped:
             log.info(

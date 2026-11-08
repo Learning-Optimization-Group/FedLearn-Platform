@@ -211,6 +211,11 @@ def torch_rng_scope(seed: int) -> Iterator[None]:
         if torch.cuda.is_available() and torch.cuda.device_count() > 0
         else None
     )
+    mps_state = (
+        torch.mps.get_rng_state()
+        if hasattr(torch, "mps") and hasattr(torch.mps, "get_rng_state") and torch.backends.mps.is_available()
+        else None
+    )
     try:
         torch.manual_seed(int(seed))
         yield
@@ -218,3 +223,5 @@ def torch_rng_scope(seed: int) -> Iterator[None]:
         torch.set_rng_state(cpu_state)
         if cuda_states is not None:
             torch.cuda.set_rng_state_all(cuda_states)
+        if mps_state is not None:
+            torch.mps.set_rng_state(mps_state)

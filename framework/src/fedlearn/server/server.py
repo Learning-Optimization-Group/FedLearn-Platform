@@ -235,11 +235,14 @@ def start_server(
             root_certificates=root_cert,
             require_client_auth=require_client_auth,
         )
-        grpc_server.add_secure_port(server_address, server_credentials)
+        bound_port = grpc_server.add_secure_port(server_address, server_credentials)
         logging.info("gRPC TLS enabled (require_client_auth=%s)", require_client_auth)
     else:
-        grpc_server.add_insecure_port(server_address)
+        bound_port = grpc_server.add_insecure_port(server_address)
         logging.warning("gRPC server running without TLS. Set FEDLEARN_GRPC_USE_TLS=1 for production.")
+
+    if bound_port == 0:
+        raise RuntimeError(f"Could not bind gRPC server to {server_address}. Port may already be in use.")
 
     # Open the first round before clients can submit to the listening server.
     coordinator.start_round(first_round)

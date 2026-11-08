@@ -95,6 +95,7 @@ def test_the_batch_norm_layers_are_listed_in_the_order_their_statistics_are_retu
 
 
 def test_the_training_program_returns_each_layers_batch_mean_and_variance():
+    pytest.importorskip("executorch")
     from executorch.exir._serialize._program import deserialize_pte_binary
     torch.manual_seed(0)
     pte = pte_export.export_bn_trainable_pte(_Net(), (torch.randn(4, 3, 16, 16), torch.zeros(4, dtype=torch.int64)),

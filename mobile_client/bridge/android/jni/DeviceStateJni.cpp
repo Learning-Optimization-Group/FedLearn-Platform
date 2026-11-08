@@ -12,9 +12,20 @@
 extern "C" JNIEXPORT void JNICALL Java_com_fedlearn_mobile_DeviceState_nativeSetState(
     JNIEnv* env, jclass /*clazz*/, jstring thermalState, jdouble batteryLevel,
     jboolean batteryCharging) {
-  const char* t = env->GetStringUTFChars(thermalState, nullptr);
-  fedlearn::bridge::setPlatformDeviceState(
-      {std::string(t ? t : "NOMINAL"), static_cast<double>(batteryLevel),
-       batteryCharging == JNI_TRUE});
-  if (t) env->ReleaseStringUTFChars(thermalState, t);
+  if (!env) return;
+  try {
+    std::string thermal = "NOMINAL";
+    if (thermalState) {
+      const char* t = env->GetStringUTFChars(thermalState, nullptr);
+      if (t) {
+        thermal = t;
+        env->ReleaseStringUTFChars(thermalState, t);
+      }
+    }
+    fedlearn::bridge::setPlatformDeviceState(
+        {std::move(thermal), static_cast<double>(batteryLevel),
+         batteryCharging == JNI_TRUE});
+  } catch (...) {
+    // Prevent C++ exceptions from crossing the extern "C" JNI boundary into the JVM
+  }
 }

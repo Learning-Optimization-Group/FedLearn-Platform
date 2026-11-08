@@ -29,10 +29,13 @@ NUM_CLIENTS=3
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CLIENT_SCRIPT_DIR="${SCRIPT_DIR}"
 
-# Assume the venv is at the root of the project (6 levels up from this script)
-# scripts/ -> resources/ -> main/ -> src/ -> fl-platform-api/ -> backend/ -> PROJECT_ROOT
-PROJECT_ROOT="$( cd "${SCRIPT_DIR}/../../../../../.." && pwd )"
-VENV_PATH="${PROJECT_ROOT}/venv"
+# Assume the venv is at the root of the project (1 level up from fl-runtime)
+PROJECT_ROOT="$( cd "${SCRIPT_DIR}/.." && pwd )"
+if [ -d "${PROJECT_ROOT}/.venv" ]; then
+    VENV_PATH="${PROJECT_ROOT}/.venv"
+else
+    VENV_PATH="${PROJECT_ROOT}/venv"
+fi
 
 # Terminal emulator (will auto-detect)
 TERMINAL=""

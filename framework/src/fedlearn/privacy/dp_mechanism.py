@@ -219,6 +219,8 @@ def dp_aggregate(
             noise.normal_(mean=0.0, std=std, generator=generator)
             mean_delta = mean_delta + noise
         out[k] = ref[k] + mean_delta
+        if "running_var" in k or k.endswith(".var"):
+            out[k] = torch.clamp(out[k], min=1e-6)
     return out
 
 

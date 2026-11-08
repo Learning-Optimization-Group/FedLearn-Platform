@@ -45,9 +45,18 @@ import sklearn  # Pre-load sklearn to fix ARM64 static TLS block memory allocati
 
 import argparse
 from pathlib import Path
+import signal
 import torch
 import time
 import threading
+
+def _sigterm_handler(signum, frame):
+    raise KeyboardInterrupt("Received SIGTERM signal for graceful shutdown")
+
+try:
+    signal.signal(signal.SIGTERM, _sigterm_handler)
+except (ValueError, AttributeError):
+    pass
 import numpy as np
 import pandas as pd
 from collections import OrderedDict

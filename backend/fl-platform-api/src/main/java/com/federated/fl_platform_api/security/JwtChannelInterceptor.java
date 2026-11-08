@@ -34,11 +34,14 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final UserDetailsService userDetailsService;
+    private final TokenRevocationService tokenRevocationService;
 
     public JwtChannelInterceptor(JwtTokenProvider jwtTokenProvider,
-                                 UserDetailsService userDetailsService) {
+                                 UserDetailsService userDetailsService,
+                                 TokenRevocationService tokenRevocationService) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userDetailsService = userDetailsService;
+        this.tokenRevocationService = tokenRevocationService;
     }
 
     @Override
@@ -73,9 +76,10 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
         try {
             String username = jwtTokenProvider.getUsernameFromToken(token);
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-            if (!jwtTokenProvider.validateToken(token, userDetails)) {
-                log.info("STOMP CONNECT rejected: token validation failed");
-                throw new org.springframework.security.core.AuthenticationException("Invalid JWT") {};
+            if (!jwtTokenProvider.validateToken(token, userDetails)
+                    || tokenRevocationService.isRevoked(jwtTokenProvider.getJti(token))) {
+                log.info("STOMP CONNECT rejected: token validation failed or revoked");
+                throw new org.springframework.security.core.AuthenticationException("Invalid or revoked JWT") {};
             }
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                     userDetails, null, userDetails.getAuthorities());

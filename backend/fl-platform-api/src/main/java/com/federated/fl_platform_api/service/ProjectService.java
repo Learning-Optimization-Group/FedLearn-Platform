@@ -582,6 +582,10 @@ public class ProjectService {
         ReentrantLock startLock = startLocks.computeIfAbsent(projectId, k -> new ReentrantLock());
         startLock.lock();
         try {
+            if (projectRepository.findById(projectId).isEmpty()) {
+                throw ResourceNotFoundException.project(projectId);
+            }
+
             if (flServerManager.isServerRunning(projectId)) {
                 // Was previously a silent fall-through that double-spawned the server.
                 throw new ProjectStateException(
@@ -923,6 +927,7 @@ public class ProjectService {
             projectRepository.deleteById(projectId);
         } finally {
             startLock.unlock();
+            startLocks.remove(projectId);
         }
         log.info("Project {} deleted", projectId);
     }

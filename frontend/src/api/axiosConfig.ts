@@ -62,10 +62,10 @@ const api = axios.create({
     withCredentials: true,
 });
 
-// Endpoints whose 401 means "no session" rather than "session expired".
-// We probe these from AuthContext on bootstrap; surfacing the 401 as an
-// authError event would cause an immediate redirect loop.
-const SILENT_401_ENDPOINTS = ['/auth/me'];
+// Endpoints whose 401 means "no session" or already logged out rather than "session expired".
+// We probe these from AuthContext or cleanup; surfacing the 401 as an
+// authError event would cause an immediate redirect loop or race during logout.
+const SILENT_401_ENDPOINTS = ['/auth/me', '/auth/logout'];
 
 function isSilent401(config?: AxiosRequestConfig): boolean {
     if (!config?.url) return false;

@@ -78,7 +78,9 @@ inline int64_t quantize(double value, int64_t scale = kDefaultScale) {
     throw std::invalid_argument("Cannot quantize non-finite float value.");
   }
   double scaled = std::round(value * static_cast<double>(scale));
-  return normalize_mod(static_cast<int64_t>(scaled));
+  double reduced = std::fmod(scaled, static_cast<double>(kPrime));
+  int64_t rem = static_cast<int64_t>(reduced);
+  return (rem < 0) ? (rem + kPrime) : rem;
 }
 
 /**

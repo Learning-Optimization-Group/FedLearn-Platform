@@ -26,9 +26,15 @@ def emit(event: str, **fields) -> None:
 
 
 def build_server(servicer: FotServicer, address: str, *, max_workers: int = 8) -> grpc.Server:
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers))
+    options = [
+        ("grpc.max_send_message_length", 100 * 1024 * 1024),
+        ("grpc.max_receive_message_length", 100 * 1024 * 1024),
+    ]
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers), options=options)
     fot_pb2_grpc.add_FoTServiceServicer_to_server(servicer, server)
-    server.add_insecure_port(address)  # plaintext, consistent with the gradient FL server
+    bound_port = server.add_insecure_port(address)  # plaintext, consistent with the gradient FL server
+    if bound_port == 0:
+        raise RuntimeError(f"Could not bind FoT server to {address}. Port may already be in use.")
     return server
 
 

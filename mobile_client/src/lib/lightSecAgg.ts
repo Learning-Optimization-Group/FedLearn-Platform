@@ -45,6 +45,21 @@ export function dequantize(val: bigint, scale: bigint = DEFAULT_SCALE, p: bigint
   return Number(signed) / Number(scale);
 }
 
+function getSecureRandomFieldElement(p: bigint): bigint {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const buf = new Uint32Array(1);
+    const limit = (0x100000000n / p) * p;
+    while (true) {
+      crypto.getRandomValues(buf);
+      const val = BigInt(buf[0]);
+      if (val < limit) {
+        return (val % (p - 1n)) + 1n; // Uniform in [1, p-1]
+      }
+    }
+  }
+  return BigInt(Math.floor(Math.random() * (Number(p) - 2))) + 1n;
+}
+
 /**
  * Computes Shamir t-out-of-N secret shares for a vector of secrets.
  * Uses native C++ core if registered; falls back to pure TypeScript implementation.
@@ -84,9 +99,7 @@ export async function computeLightSecAggShares(
   for (let d = 0; d < len; d++) {
     const coeffs: bigint[] = [quantized[d]];
     for (let deg = 1; deg < threshold; deg++) {
-      // Deterministic non-zero random coefficient in [1, p-1]
-      const randCoeff = BigInt(Math.floor(Math.random() * 2147483640) + 1);
-      coeffs.push(randCoeff);
+      coeffs.push(getSecureRandomFieldElement(p));
     }
 
     // Evaluate f(x) for x in 1..numShares using Horner's method

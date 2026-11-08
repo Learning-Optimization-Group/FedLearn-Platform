@@ -236,6 +236,12 @@ public class AuthController {
         // SE-8: revoke the current token's jti so it stops working immediately. Clearing the cookie
         // alone leaves the token itself valid until exp — a stolen copy would keep working.
         String jwt = readJwtCookie(http);
+        if (jwt == null || jwt.isBlank()) {
+            String authHeader = http.getHeader(HttpHeaders.AUTHORIZATION);
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                jwt = authHeader.substring(7);
+            }
+        }
         if (jwt != null && !jwt.isEmpty()) {
             try {
                 tokenRevocationService.revoke(tokenProvider.getJti(jwt), tokenProvider.getExpiration(jwt));

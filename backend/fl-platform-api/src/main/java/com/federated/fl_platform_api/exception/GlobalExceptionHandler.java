@@ -23,6 +23,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -325,6 +326,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .build();
 
         return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiError> handleResponseStatusException(
+            ResponseStatusException ex, HttpServletRequest request) {
+        String correlationId = newCorrelationId();
+        HttpStatusCode status = ex.getStatusCode();
+        String reason = ex.getReason() != null ? ex.getReason() : ex.getMessage();
+        log.warn("ResponseStatusException [status={}, correlationId={}]: {}", status.value(), correlationId, reason);
+
+        ApiError body = ApiError.builder()
+                .status(status.value())
+                .error(HttpStatus.resolve(status.value()) != null
+                        ? HttpStatus.resolve(status.value()).getReasonPhrase() : "Error")
+                .message(reason)
+                .path(request.getRequestURI())
+                .correlationId(correlationId)
+                .build();
+
+        return new ResponseEntity<>(body, status);
     }
 
     // ─── Catch-all ──────────────────────────────────────────────────────────

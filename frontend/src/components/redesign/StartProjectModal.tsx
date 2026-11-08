@@ -292,8 +292,8 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
               </Select>
             </FormField>
             {ownData && (
-              <p className="flex items-start gap-2 rounded-md border border-border bg-surface-muted px-3 py-2.5 text-label text-fg">
-                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted" strokeWidth={1.5} />
+              <p className="flex items-start gap-2 rounded-md border border-hairline bg-surface-2 px-3 py-2.5 text-label text-fg">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-fg-muted" strokeWidth={1.5} />
                 Only phones can join. Each phone trains on a dataset it has imported, which must match this model's
                 inputs and classes; the data never leaves the phone.
               </p>

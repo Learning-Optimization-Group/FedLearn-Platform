@@ -21,7 +21,7 @@ import sys
 import threading
 import time
 from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -232,71 +232,82 @@ class DaemonState:
                 )
 
             self.status = "BUSY"
-            start_t = time.perf_counter()
+            try:
+                start_t = time.perf_counter()
 
-            # Apply global weights if sent
-            if weights_b64:
-                global_state = deserialize_state_dict(weights_b64)
-                self.model.load_state_dict(global_state, strict=False)
+                # Apply global weights if sent
+                if weights_b64:
+                    global_state = deserialize_state_dict(weights_b64)
+                    self.model.load_state_dict(global_state, strict=False)
 
-            self.model.train()
-            optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate)
-            criterion = nn.CrossEntropyLoss()
+                self.model.train()
+                optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate)
+                criterion = nn.CrossEntropyLoss()
 
-            total_loss = 0.0
-            total_samples = 0
-            correct = 0
+                total_loss = 0.0
+                total_samples = 0
+                correct = 0
 
-            for _ in range(local_epochs):
-                for batch in self.trainloader:
-                    if isinstance(batch, (list, tuple)):
-                        data, target = batch[0], batch[1]
-                    elif isinstance(batch, dict):
-                        data = batch.get("img") or batch.get("data")
-                        target = batch.get("label") or batch.get("target")
-                    else:
-                        continue
+                for _ in range(local_epochs):
+                    for batch in self.trainloader:
+                        if isinstance(batch, (list, tuple)):
+                            data, target = batch[0], batch[1]
+                        elif isinstance(batch, dict):
+                            data = batch.get("img") or batch.get("data")
+                            target = batch.get("label") or batch.get("target")
+                        else:
+                            continue
 
-                    data = data.to(self.device)
-                    target = target.to(self.device)
+                        data = data.to(self.device)
+                        target = target.to(self.device)
 
-                    optimizer.zero_grad()
-                    output = self.model(data)
-                    loss = criterion(output, target)
-                    loss.backward()
-                    optimizer.step()
+                        optimizer.zero_grad()
+                        output = self.model(data)
+                        loss = criterion(output, target)
+                        loss.backward()
+                        optimizer.step()
 
-                    batch_sz = data.size(0)
-                    total_loss += loss.item() * batch_sz
-                    total_samples += batch_sz
-                    pred = output.argmax(dim=1, keepdim=True)
-                    correct += pred.eq(target.view_as(pred)).sum().item()
+                        batch_sz = data.size(0)
+                        total_loss += loss.item() * batch_sz
+                        total_samples += batch_sz
+                        pred = output.argmax(dim=1, keepdim=True)
+                        correct += pred.eq(target.view_as(pred)).sum().item()
 
-            compute_ms = (time.perf_counter() - start_t) * 1000.0
-            self.cumulative_compute_ms += compute_ms
-            self.completed_rounds += 1
-            self.last_round_latency_ms = compute_ms
-            self.status = "READY"
+                compute_ms = (time.perf_counter() - start_t) * 1000.0
+                self.cumulative_compute_ms += compute_ms
+                self.completed_rounds += 1
+                self.last_round_latency_ms = compute_ms
+                self.status = "READY"
 
-            avg_loss = total_loss / max(total_samples, 1)
-            accuracy = correct / max(total_samples, 1)
+                avg_loss = total_loss / max(total_samples, 1)
+                accuracy = correct / max(total_samples, 1)
 
-            # Serialize updated state dict
-            updated_weights_b64 = serialize_state_dict(self.model.state_dict())
+                # Clear accelerator cache to avoid memory fragmentation over 100+ rounds
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                if hasattr(torch, "mps") and hasattr(torch.mps, "empty_cache") and torch.backends.mps.is_available():
+                    torch.mps.empty_cache()
 
-            return {
-                "status": "COMPLETED",
-                "project_id": project_id,
-                "run_id": run_id,
-                "round_number": round_number,
-                "loss": float(avg_loss),
-                "accuracy": float(accuracy),
-                "samples": total_samples,
-                "compute_ms": compute_ms,
-                "cumulative_compute_ms": self.cumulative_compute_ms,
-                "weights_b64": updated_weights_b64,
-                "memory": self.get_memory_info(),
-            }
+                # Serialize updated state dict
+                updated_weights_b64 = serialize_state_dict(self.model.state_dict())
+
+                return {
+                    "status": "COMPLETED",
+                    "project_id": project_id,
+                    "run_id": run_id,
+                    "round_number": round_number,
+                    "loss": float(avg_loss),
+                    "accuracy": float(accuracy),
+                    "samples": total_samples,
+                    "compute_ms": compute_ms,
+                    "cumulative_compute_ms": self.cumulative_compute_ms,
+                    "weights_b64": updated_weights_b64,
+                    "memory": self.get_memory_info(),
+                }
+            except Exception as e:
+                self.status = "ERROR"
+                self.last_error = str(e)
+                raise
 
 
 class DaemonRequestHandler(BaseHTTPRequestHandler):
@@ -418,7 +429,8 @@ class WorkerDaemonServer:
             daemon_state = self.state
             server_instance = None  # set below
 
-        self.server = HTTPServer((host, port), Handler)
+        self.server = ThreadingHTTPServer((host, port), Handler)
+        self.server.daemon_threads = True
         Handler.server_instance = self.server
         self._thread: Optional[threading.Thread] = None
 

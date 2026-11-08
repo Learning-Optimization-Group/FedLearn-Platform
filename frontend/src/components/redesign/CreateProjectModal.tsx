@@ -309,21 +309,21 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
             {/* The MEASURED trade-off. Every number here comes from the catalog, which generates
                 it from the research record — this component never states a figure of its own. */}
             {tradeoff && (
-              <div className="rounded-lg border border-border bg-surface-muted p-3 text-sm">
-                <p className="font-medium text-ink">{tradeoff.headline}</p>
+              <div className="rounded-lg border border-hairline bg-surface-2 p-3 text-sm">
+                <p className="font-medium text-fg">{tradeoff.headline}</p>
 
-                {armFacts?.summary && <p className="mt-2 text-muted">{armFacts.summary}</p>}
+                {armFacts?.summary && <p className="mt-2 text-fg-muted">{armFacts.summary}</p>}
                 {/* Only the NEGATIVE case gets its own line. The record's summary already states
                     on-device capability for the arm that has it, and repeating it would be
                     duplicate text; infeasibility is the actionable half. */}
                 {armFacts?.ondeviceFeasible === false && (
-                  <p className="mt-1 text-muted">
+                  <p className="mt-1 text-fg-muted">
                     Not feasible on-device — this arm needs a datacenter GPU.
                   </p>
                 )}
 
                 {tradeoff.measuredOn && (
-                  <p className="mt-2 text-xs text-muted">
+                  <p className="mt-2 text-xs text-fg-muted">
                     Measured on {tradeoff.measuredOn.task}
                     {tradeoff.measuredOn.protocol ? ` — ${tradeoff.measuredOn.protocol}` : ''}.
                   </p>
@@ -334,10 +334,10 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
                     numbers without them would state more than was measured. */}
                 {tradeoff.caveats && tradeoff.caveats.length > 0 && (
                   <details className="mt-2">
-                    <summary className="cursor-pointer text-xs text-muted">
+                    <summary className="cursor-pointer text-xs text-fg-muted">
                       What this measurement does not establish
                     </summary>
-                    <ul className="mt-1 list-disc pl-4 text-xs text-muted">
+                    <ul className="mt-1 list-disc pl-4 text-xs text-fg-muted">
                       {tradeoff.caveats.map((c) => <li key={c}>{c}</li>)}
                     </ul>
                   </details>

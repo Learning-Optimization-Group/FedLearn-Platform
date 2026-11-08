@@ -18,6 +18,7 @@ import numpy as np
 import pytest
 import torch
 
+pytest.importorskip("executorch")
 from executorch.exir._serialize._program import deserialize_pte_binary
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))

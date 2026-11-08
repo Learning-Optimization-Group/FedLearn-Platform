@@ -290,18 +290,22 @@ int32_t lightsecagg_compute_shamir_shares(
     return -2;
   }
 
-  std::vector<int64_t> secret_vec(secret, secret + length);
+  size_t len = static_cast<size_t>(length);
+  std::vector<int64_t> secret_vec(secret, secret + len);
   std::vector<std::vector<int64_t>> coeffs;
   coeffs.reserve(threshold - 1);
   for (int d = 0; d < threshold - 1; ++d) {
-    coeffs.emplace_back(flattened_coeffs + d * length, flattened_coeffs + (d + 1) * length);
+    size_t offset_start = static_cast<size_t>(d) * len;
+    size_t offset_end = static_cast<size_t>(d + 1) * len;
+    coeffs.emplace_back(flattened_coeffs + offset_start, flattened_coeffs + offset_end);
   }
 
   try {
     auto shares = fedlearn::secagg::compute_shamir_shares(secret_vec, num_shares, threshold, coeffs);
     for (int x = 1; x <= num_shares; ++x) {
       const auto& sh = shares[x];
-      std::copy(sh.begin(), sh.end(), out_shares + (x - 1) * length);
+      size_t out_offset = static_cast<size_t>(x - 1) * len;
+      std::copy(sh.begin(), sh.end(), out_shares + out_offset);
     }
     return 0;
   } catch (...) {
@@ -318,10 +322,13 @@ int32_t lightsecagg_aggregate_shares(
     return -1;
   }
 
+  size_t len = static_cast<size_t>(length);
   std::vector<std::vector<int64_t>> shares;
   shares.reserve(num_vectors);
   for (int i = 0; i < num_vectors; ++i) {
-    shares.emplace_back(flattened_shares + i * length, flattened_shares + (i + 1) * length);
+    size_t offset_start = static_cast<size_t>(i) * len;
+    size_t offset_end = static_cast<size_t>(i + 1) * len;
+    shares.emplace_back(flattened_shares + offset_start, flattened_shares + offset_end);
   }
 
   try {
@@ -343,8 +350,9 @@ int32_t lightsecagg_mask_vector(
     return -1;
   }
 
-  std::vector<double> vals(values, values + length);
-  std::vector<int64_t> m(mask, mask + length);
+  size_t len = static_cast<size_t>(length);
+  std::vector<double> vals(values, values + len);
+  std::vector<int64_t> m(mask, mask + len);
 
   try {
     auto masked = fedlearn::secagg::mask_vector(vals, m, scale);
@@ -366,9 +374,12 @@ int32_t lightsecagg_reconstruct_secret(
     return -1;
   }
 
+  size_t len = static_cast<size_t>(length);
   std::map<int, std::vector<int64_t>> shares;
   for (int i = 0; i < num_shares; ++i) {
-    shares[xs[i]] = std::vector<int64_t>(flattened_shares + i * length, flattened_shares + (i + 1) * length);
+    size_t offset_start = static_cast<size_t>(i) * len;
+    size_t offset_end = static_cast<size_t>(i + 1) * len;
+    shares[xs[i]] = std::vector<int64_t>(flattened_shares + offset_start, flattened_shares + offset_end);
   }
 
   try {

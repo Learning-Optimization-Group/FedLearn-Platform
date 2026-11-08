@@ -2,6 +2,9 @@
 import os
 import pytest
 import torch
+
+pytest.importorskip("peft")
+pytest.importorskip("transformers")
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from peft import LoraConfig, get_peft_model, get_peft_model_state_dict, set_peft_model_state_dict
 

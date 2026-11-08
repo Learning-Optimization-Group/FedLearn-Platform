@@ -1,6 +1,9 @@
 syntax = "proto3";
 package fedlearn.tree.v1;
 
+option java_package = "com.fedlearn.tree.v1";
+option java_multiple_files = true;
+
 // CPU XGBoost protocol 3. Enrollment and run lifecycle use the platform's REST
 // endpoints. This service deliberately cannot accept neural tensor payloads.
 service FederatedTreeService {

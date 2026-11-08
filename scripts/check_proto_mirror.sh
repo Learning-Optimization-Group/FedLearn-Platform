@@ -60,8 +60,10 @@ if command -v sha256sum >/dev/null 2>&1; then
   echo "  sha256 (fedlearn.v2): $(sha256sum "$CANON" | cut -d' ' -f1)"
   echo "  sha256 (fot.v1):      $(sha256sum "$ROOT/proto/fedlearn/fot/v1/fot.proto" | cut -d' ' -f1)"
   echo "  sha256 (contract.v1): $(sha256sum "$ROOT/proto/fedlearn/contract/v1/execution_contract.proto" | cut -d' ' -f1)"
+  echo "  sha256 (tree.v1):     $(sha256sum "$ROOT/proto/fedlearn/tree/v1/tree.proto" | cut -d' ' -f1)"
 elif command -v shasum >/dev/null 2>&1; then
   echo "  sha256 (fedlearn.v2): $(shasum -a 256 "$CANON" | cut -d' ' -f1)"
   echo "  sha256 (fot.v1):      $(shasum -a 256 "$ROOT/proto/fedlearn/fot/v1/fot.proto" | cut -d' ' -f1)"
   echo "  sha256 (contract.v1): $(shasum -a 256 "$ROOT/proto/fedlearn/contract/v1/execution_contract.proto" | cut -d' ' -f1)"
+  echo "  sha256 (tree.v1):     $(shasum -a 256 "$ROOT/proto/fedlearn/tree/v1/tree.proto" | cut -d' ' -f1)"
 fi

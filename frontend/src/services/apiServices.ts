@@ -223,6 +223,9 @@ export const fetchProject = (projectId: string): Promise<AxiosResponse<Project>>
 
 export const startProjectServer = (projectId: string, startData: StartServerData): Promise<AxiosResponse<Project>> => {
     const body: StartServerData = {};
+    if (startData?.fedOpt) {
+        body.fedOpt = startData.fedOpt;
+    }
     if (startData?.strategy) {
         body.strategy = startData.strategy;
     }
