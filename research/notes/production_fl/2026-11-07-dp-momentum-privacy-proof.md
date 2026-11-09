@@ -72,8 +72,10 @@ $$\epsilon(\delta) = \frac{T}{2 z^2} + \frac{\sqrt{2 T \ln(1/\delta)}}{z}$$
 
 ### Concrete Numerical Audit for $T=25$ rounds, $\delta = 10^{-5}$:
 - For target $\epsilon = 4.0$:
-  Solving $\frac{25}{2 z^2} + \frac{\sqrt{50 \ln(10^5)}}{z} = 4.0$ gives $z \approx 4.8351$.
-- For production setting with $z = 0.5$ over $T=25$ rounds with cohort subsampling $q = N/M = 20 / 1000 = 0.02$:
-  Privacy amplification via subsampling gives:
-  $$\epsilon_{\text{sub}}(\alpha) \le \mathcal{O}(q^2 \epsilon(\alpha))$$
-  yielding $\epsilon < 2.5$ at $\delta = 10^{-5}$, mathematically certifying strong privacy protection.
+  Letting $u = 1/z$, the equation is $12.5 u^2 + \sqrt{50 \ln(10^5)} u - 4.0 = 0$ with $\sqrt{50 \ln(10^5)} \approx 23.9926$.
+  The positive quadratic root is $u \approx 0.15431$, giving $z = 1/u \approx 6.4804$ under the RDP upper bound (and $z \approx 5.4058$ under exact Gaussian Differential Privacy / GDP composition).
+  *(Historical note: an approximate solve of $z \approx 4.8351$ certifies $\epsilon \approx 5.50$ under RDP or $\epsilon \approx 4.55$ under GDP).*
+- For Poisson subsampling setting with cohort rate $q = N/M = 20 / 1000 = 0.02$:
+  Evaluating the exact Mironov et al. (2019) Sampled Gaussian Mechanism (SGM) accountant:
+  - At $z = 0.7323$, certified $\epsilon = 4.00$ at $\delta = 10^{-5}$ ($1.87\times$ amplification over non-subsampled noise).
+  - At $z = 0.5$, certified $\epsilon = 9.51$ at $\delta = 10^{-5}$ under $q = 0.02$ (or $\epsilon = 98.03$ under full participation $q=1.0$). Full-participation deployments must enforce $z \ge 6.4804$ to certify $(\epsilon=4.0, \delta=10^{-5})$.

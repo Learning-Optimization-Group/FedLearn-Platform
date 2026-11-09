@@ -125,6 +125,11 @@ class FedAvgAggregator:
         if not sanitized_updates:
             raise ValueError("No valid updates after sanitization.")
 
+        for cid, params, _ in sanitized_updates:
+            for key, tensor in params.items():
+                if not torch.isfinite(tensor).all():
+                    raise ValueError(f"Client {cid} update contains non-finite values (NaN or Inf) in parameter '{key}'.")
+
         # FR-18 / fedavg-4: template the aggregate on the UNION of client keys, and total examples
         # PER KEY. Templating on updates[0] alone silently drops any key only later clients carry;
         # weighting every key by num_examples/total_examples-over-ALL-clients but summing only the
@@ -151,6 +156,8 @@ class FedAvgAggregator:
                         alpha=weight,
                         out=aggregated_params[key],
                     )
+            # Aggressively free client memory buffer
+            params.clear()
 
 
         return aggregated_params

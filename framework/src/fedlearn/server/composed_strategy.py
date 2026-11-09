@@ -106,7 +106,7 @@ def ks_critical(n: int, alpha: float) -> float:
 class ComposedStrategy(Strategy):
     def __init__(self, initial_parameters, rule: str = "mean", clip_norm: Optional[float] = None,
                  rule_params: Optional[Dict] = None, central_noise_multiplier: float = 0.0,
-                 noise_seed: int = 0, optimizer: str = "none", optimizer_lr: float = 0.01,
+                 noise_seed: Optional[int] = None, optimizer: str = "none", optimizer_lr: float = 0.01,
                  evaluate_fn: Optional[Callable] = None, min_fit_clients: int = 1,
                  clients_per_round: Optional[int] = None,
                  norm_band: Optional[Tuple[float, float]] = None,
@@ -146,7 +146,11 @@ class ComposedStrategy(Strategy):
         self.evaluate_fn = evaluate_fn
         self.min_fit_clients = min_fit_clients
         self.clients_per_round = clients_per_round if clients_per_round is not None else min_fit_clients
-        self._generator = torch.Generator().manual_seed(int(noise_seed))
+        if noise_seed is None:
+            self._generator = torch.Generator()
+            self._generator.seed()
+        else:
+            self._generator = torch.Generator().manual_seed(int(noise_seed))
         self._global = OrderedDict((k, v.detach().float().cpu().clone()) for k, v in initial_parameters.items())
         self._fedopt = (FedOpt(initial_parameters, server_learning_rate=optimizer_lr, variant=optimizer)
                         if optimizer != "none" else None)
@@ -234,7 +238,7 @@ class ComposedStrategy(Strategy):
                 val = torch.clamp(val, min=1e-6)
             out[k] = val
         stats.update(
-            orig_norms={str(c): x for (c, _, _), x in zip(ok, norms)},
+            orig_norms=({str(c): x for (c, _, _), x in zip(ok, norms)} if self.z == 0.0 else None),
             clip_rate=sum(1 for s in shrink if s < 1.0) / len(shrink),
             mean_shrink=sum(shrink) / len(shrink),
             sensitivity=sens, noise_std=std,

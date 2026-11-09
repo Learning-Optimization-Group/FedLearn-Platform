@@ -31,6 +31,7 @@ PROTECTED_METHODS = frozenset({
     "SubmitModelUpdate", "SubmitModelUpdateStream", "GetServerStatus",
     "Heartbeat", "GetDeComFLConfig", "SubmitGradientScalars", "ReportClientMetrics",
     "GetTreeModel", "SubmitTreeUpdate",
+    "PublishPublicKey", "SubmitSecureShares", "SubmitAggregatedShare",
 })
 
 

@@ -152,10 +152,13 @@ def run_experiment(
     proj_matrix: Optional[torch.Tensor] = None,
     num_rounds: int = 5,
     clip_c: float = 0.1,
-    z_noise: float = 4.8351,
+    z_noise: Optional[float] = None,
     seed: int = 42,
 ) -> Dict[str, Any]:
     """Runs one full training trajectory for a specific policy configuration."""
+    if z_noise is None:
+        from fedlearn.privacy.dp_accountant import required_noise_multiplier
+        z_noise = float(required_noise_multiplier(4.0, 1.0, num_rounds, 1e-5))
     num_clients = len(partitions)
     rng = np.random.default_rng(seed)
     torch_rng = torch.Generator().manual_seed(seed)
@@ -370,7 +373,7 @@ def run_full_benchmark() -> Dict[str, Any]:
             "dirichlet_alpha": alpha,
             "num_rounds": num_rounds,
             "clip_norm_C": clip_c,
-            "privacy_target": {"epsilon": 4.0, "delta": 1e-5, "z": 4.8351},
+            "privacy_target": {"epsilon": 4.0, "delta": 1e-5, "accountant": "rdp"},
             "seeds": seeds,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "platform": {

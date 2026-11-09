@@ -395,6 +395,10 @@ public final class ExecutionContractValidator {
             check(positiveFinite(dp.getTargetEpsilon()), ISSUE_OUT_OF_RANGE, "security.centralDp.targetEpsilon");
             check(openUnit(dp.getDelta()), ISSUE_OUT_OF_RANGE, "security.centralDp.delta");
             check(positiveFinite(dp.getClipNorm()), ISSUE_OUT_OF_RANGE, "security.centralDp.clipNorm");
+            if (known(Strategy::forNumber, strategy)
+                    && strategy != Strategy.STRATEGY_FEDAVG_VALUE) {
+                add(ISSUE_INVALID_SECURITY, "security.centralDp");
+            }
         }
     }
 

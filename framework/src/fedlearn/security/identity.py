@@ -25,6 +25,7 @@ from typing import Callable, Optional
 from fedlearn.security.interceptor import (
     ENABLE_ENV,
     METADATA_KEY,
+    RUN_ID_ENV,
     SECRET_ENV,
     SECRET_FALLBACK_ENV,
 )
@@ -38,12 +39,14 @@ from fedlearn.security.token_verify import (
 PartitionExtractor = Callable[[object], Optional[int]]
 
 
-def partition_from_metadata(metadata, secret_base64: str, audience: str = DEFAULT_AUDIENCE) -> Optional[int]:
+def partition_from_metadata(metadata, secret_base64: str, audience: str = DEFAULT_AUDIENCE,
+                            expected_run_id: Optional[str] = None) -> Optional[int]:
     """The verified ``partitionId`` claim from an RPC's ``x-connection-token``, or ``None``.
 
-    Returns ``None`` when there is no token, the token fails verification, or it carries no numeric
-    ``partitionId``. It never raises: the ``ConnectionTokenInterceptor`` is the auth gate that rejects
-    a missing/invalid token before the servicer runs; this is only the *identity* read, so an absent
+    Returns ``None`` when there is no token, the token fails verification, it carries no numeric
+    ``partitionId``, or it was minted for a different run than ``expected_run_id`` (preventing
+    cross-run token replay attacks). It never raises: the ``ConnectionTokenInterceptor`` is the auth gate
+    that rejects a missing/invalid token before the servicer runs; this is only the *identity* read, so an absent
     identity simply means "don't bind" rather than an error.
     """
     token = dict(metadata or ()).get(METADATA_KEY)
@@ -52,6 +55,8 @@ def partition_from_metadata(metadata, secret_base64: str, audience: str = DEFAUL
     try:
         claims = verify_connection_token(token, secret_base64, audience)
     except TokenVerificationError:
+        return None
+    if expected_run_id is not None and claims.get("runId") != expected_run_id:
         return None
     partition = claims.get("partitionId")
     if partition is None:
@@ -78,8 +83,9 @@ def partition_extractor_from_env(env=None) -> Optional[PartitionExtractor]:
     if not secret:
         return None
     audience = DEFAULT_AUDIENCE
+    expected_run_id = env.get(RUN_ID_ENV)
 
     def _extract(context) -> Optional[int]:
-        return partition_from_metadata(context.invocation_metadata(), secret, audience)
+        return partition_from_metadata(context.invocation_metadata(), secret, audience, expected_run_id)
 
     return _extract
