@@ -42,12 +42,12 @@ import torch
 # and Byzantine clipping share one definition of "an update's norm". Imported at module top; the
 # strategy imports THIS module lazily (inside the DP branch) to avoid an import cycle.
 from fedlearn.server._update_normalize import normalize_updates
-from fedlearn.server.robust_aggregation import clip_l2_norm, trimmed_mean
+from fedlearn.server.robust_aggregation import centered_clip, clip_l2_norm, trimmed_mean
 
 
 # Rules whose replace-one L2 sensitivity shrinks with the cohort. The coordinate-wise median is
 # deliberately absent: one client can move it by as much as S at any n, so it has no 1/n bound.
-_REPLACE_ONE_RULES = ("mean", "trimmed_mean")
+_REPLACE_ONE_RULES = ("mean", "trimmed_mean", "centered_clip")
 
 # Neighbour relations dp_aggregate calibrates for, and the sensitivity of its clipped mean under each,
 # in units of S/N. Add/remove holds only over a fixed public denominator: dividing by a cohort size that
@@ -56,7 +56,8 @@ ADJACENCY_SENSITIVITY_FACTOR = {"add_remove": 1.0, "replace_one": 2.0}
 
 
 def replace_one_sensitivity(
-    rule: str, num_clients: int, clip_norm: float, trim_ratio: float = 0.0
+    rule: str, num_clients: int, clip_norm: float, trim_ratio: float = 0.0,
+    centered_clip_tau: Optional[float] = None,
 ) -> float:
     """L2 sensitivity of a clipped aggregate when ONE client's update is replaced by another.
 
@@ -66,6 +67,8 @@ def replace_one_sensitivity(
     :func:`fedlearn.server.robust_aggregation.trimmed_mean`) moves by at most ``2S/(n - 2k)``:
     every coordinate of the trimmed SUM moves by at most the change in the replaced client's value
     at that coordinate, so the joint L2 change is at most ``||x - x'||_2 / (n - 2k)``.
+    For centered clipping around a fixed or previous release with radius ``tau`` (at 1 iteration),
+    every clipped term has norm at most ``min(S, tau)``, yielding sensitivity ``2 * min(S, tau) / n``.
 
     This is replace-one adjacency, which is NOT the default add/remove convention of :func:`dp_aggregate`
     (sensitivity ``S/n``); the two must not be mixed within one comparison.
@@ -82,6 +85,10 @@ def replace_one_sensitivity(
         raise ValueError(f"clip_norm (S) must be positive, got {clip_norm}")
     if rule == "mean":
         return 2.0 * float(clip_norm) / num_clients
+    if rule == "centered_clip":
+        tau = float(centered_clip_tau) if (centered_clip_tau is not None and centered_clip_tau > 0) else float(clip_norm)
+        eff_tau = min(float(clip_norm), tau)
+        return 2.0 * eff_tau / num_clients
     if trim_ratio is None or trim_ratio < 0:
         raise ValueError(f"trim_ratio must be >= 0, got {trim_ratio}")
     k = int(trim_ratio * num_clients)  # floor, matching robust_aggregation.trimmed_mean
@@ -211,6 +218,9 @@ def dp_aggregate(
 
     # Uniform average (1/N) + Gaussian noise N(0, (c*z*S/N)^2) per coordinate on the aggregatable keys.
     std = ADJACENCY_SENSITIVITY_FACTOR[adjacency] * float(noise_multiplier) * float(clip_norm) / n
+    if generator is None and std > 0.0:
+        generator = torch.Generator()
+        generator.seed()
     out: "OrderedDict[str, torch.Tensor]" = OrderedDict()
     for k in keys:
         mean_delta = sum_delta[k] / n
@@ -232,18 +242,18 @@ def dp_robust_aggregate(
     noise_multiplier: float,
     rule: str = "mean",
     trim_ratio: float = 0.0,
+    centered_clip_tau: Optional[float] = None,
     generator: Optional[torch.Generator] = None,
 ) -> "OrderedDict[str, torch.Tensor]":
-    """Central DP over a clipped mean or coordinate-wise trimmed mean, under replace-one adjacency.
+    """Central DP over a clipped mean, coordinate-wise trimmed mean, or centered clipping, under replace-one adjacency.
 
-    Clips each client's delta jointly to L2 norm ``S``, aggregates with ``rule`` (``"mean"`` or
-    ``"trimmed_mean"``, unweighted), then adds Gaussian noise with per-coordinate std
-    ``z * replace_one_sensitivity(rule, n, S, trim_ratio)``. Using one adjacency for both rules keeps
-    a mean-vs-trimmed-mean comparison matched at the same ``z``; the accountant's ``z`` is
-    sensitivity-normalized, so it carries over unchanged.
+    Clips each client's delta jointly to L2 norm ``S``, aggregates with ``rule`` (``"mean"``,
+    ``"trimmed_mean"``, or ``"centered_clip"``, unweighted), then adds Gaussian noise with per-coordinate std
+    ``z * replace_one_sensitivity(rule, n, S, trim_ratio, centered_clip_tau)``. Using one adjacency keeps
+    comparison matched at the same ``z``; the accountant's ``z`` is sensitivity-normalized, so it carries
+    over unchanged.
 
-    Args mirror :func:`dp_aggregate`, plus ``rule`` and ``trim_ratio`` (the trimmed mean drops
-    ``floor(trim_ratio * n)`` values from each end of every coordinate).
+    Args mirror :func:`dp_aggregate`, plus ``rule``, ``trim_ratio``, and ``centered_clip_tau``.
 
     Returns:
         ``OrderedDict`` ``{k: global_params[k] + aggregate[k]}`` for ``k`` in ``aggregatable_keys``
@@ -262,14 +272,47 @@ def dp_robust_aggregate(
     if not keys:
         raise ValueError("dp_robust_aggregate requires at least one aggregatable key.")
 
-    sensitivity = replace_one_sensitivity(rule, len(results), clip_norm, trim_ratio)
+    sensitivity = replace_one_sensitivity(
+        rule, len(results), clip_norm, trim_ratio, centered_clip_tau=centered_clip_tau
+    )
     ref, clipped_deltas = _clipped_deltas(results, global_params, keys, clip_norm)
 
     std = float(noise_multiplier) * sensitivity
+    if generator is None and std > 0.0:
+        generator = torch.Generator()
+        generator.seed()
     out: "OrderedDict[str, torch.Tensor]" = OrderedDict()
+
+    if rule == "centered_clip":
+        eff_tau = (
+            min(float(clip_norm), float(centered_clip_tau))
+            if (centered_clip_tau is not None and centered_clip_tau > 0)
+            else float(clip_norm)
+        )
+        flat = torch.stack([torch.cat([c[k].reshape(-1) for k in keys]) for c in clipped_deltas], dim=0)
+        reduced = centered_clip(flat, centre=torch.zeros_like(flat[0]), tau=eff_tau, iterations=1)
+        offset = 0
+        for k in keys:
+            numel = ref[k].numel()
+            agg = reduced[offset:offset + numel].reshape(ref[k].shape).clone()
+            offset += numel
+            if std > 0.0:
+                noise = torch.empty_like(agg)
+                noise.normal_(mean=0.0, std=std, generator=generator)
+                agg = agg + noise
+            out[k] = ref[k] + agg
+            if "running_var" in k or k.endswith(".var"):
+                out[k] = torch.clamp(out[k], min=1e-6)
+        return out
+
     for k in keys:
         stacked = torch.stack([c[k] for c in clipped_deltas], dim=0)
-        agg = stacked.mean(dim=0) if rule == "mean" else trimmed_mean(stacked, trim_ratio)
+        if rule == "mean":
+            agg = stacked.mean(dim=0)
+        elif rule == "trimmed_mean":
+            agg = trimmed_mean(stacked, trim_ratio)
+        else:
+            raise ValueError(f"rule must be one of {_REPLACE_ONE_RULES}, got {rule!r}")
         if std > 0.0:
             noise = torch.empty_like(agg)
             noise.normal_(mean=0.0, std=std, generator=generator)

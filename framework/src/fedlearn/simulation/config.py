@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Tuple
 SCHEMA_VERSION = 1
 RULES = ("mean", "weighted_mean", "trimmed_mean", "median", "krum", "multi_krum", "bulyan",
          "centered_clip")
-CENTRAL_DP_RULES = ("mean", "trimmed_mean")
+CENTRAL_DP_RULES = ("mean", "trimmed_mean", "centered_clip")
 MALICIOUS = ("sign_flip_scale", "ipm", "alie", "label_flip", "backdoor", "free_rider", "min_max", "fang_trim", "canary", "owned_pgd", "owned_sign_flip")
 FAULTY = ("dropout", "straggler", "label_noise")
 SEED_KEYS = ("partition", "init", "client", "attack", "noise")

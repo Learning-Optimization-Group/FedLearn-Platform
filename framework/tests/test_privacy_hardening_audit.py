@@ -318,3 +318,37 @@ def test_attack_evaluation_membership_inference_resistance():
 
     # DP bounds MIA advantage close to random guess (0.50)
     assert 0.35 <= auroc_dp <= 0.65
+
+
+def test_dp_aggregate_isolated_generator_when_none():
+    """Verify dp_aggregate draws fresh OS entropy when generator=None, ignoring torch.manual_seed."""
+    from fedlearn.privacy.dp_mechanism import dp_aggregate
+
+    glob = OrderedDict(w=torch.zeros(10))
+    updates = [("c0", OrderedDict(w=torch.ones(10)), 1)]
+
+    torch.manual_seed(999)
+    out1 = dp_aggregate(updates, glob, ["w"], clip_norm=1.0, noise_multiplier=1.0, generator=None)
+
+    torch.manual_seed(999)
+    out2 = dp_aggregate(updates, glob, ["w"], clip_norm=1.0, noise_multiplier=1.0, generator=None)
+
+    # Fresh OS entropy ensures noise is NOT identical despite identical manual_seed
+    assert not torch.equal(out1["w"], out2["w"])
+
+
+def test_dp_robust_aggregate_isolated_generator_when_none():
+    """Verify dp_robust_aggregate draws fresh OS entropy when generator=None."""
+    from fedlearn.privacy.dp_mechanism import dp_robust_aggregate
+
+    glob = OrderedDict(w=torch.zeros(10))
+    updates = [("c0", OrderedDict(w=torch.ones(10)), 1), ("c1", OrderedDict(w=torch.ones(10)), 1)]
+
+    torch.manual_seed(999)
+    out1 = dp_robust_aggregate(updates, glob, ["w"], clip_norm=1.0, noise_multiplier=1.0, generator=None)
+
+    torch.manual_seed(999)
+    out2 = dp_robust_aggregate(updates, glob, ["w"], clip_norm=1.0, noise_multiplier=1.0, generator=None)
+
+    assert not torch.equal(out1["w"], out2["w"])
+

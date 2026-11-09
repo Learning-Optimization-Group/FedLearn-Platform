@@ -5,6 +5,7 @@ Currently exposes the RDP accountant for the Sampled Gaussian Mechanism
 tensorflow-privacy runtime dependency.
 """
 
+from fedlearn.privacy.adaptive_clipping import DPAdaptiveClipping
 from fedlearn.privacy.dp_accountant import (
     DEFAULT_ORDERS,
     RDPAccountant,
@@ -12,11 +13,20 @@ from fedlearn.privacy.dp_accountant import (
     get_epsilon,
     required_noise_multiplier,
 )
+from fedlearn.privacy.gdp_accountant import (
+    gdp_delta,
+    gdp_epsilon,
+    gdp_required_noise_multiplier,
+)
 
 __all__ = [
     "DEFAULT_ORDERS",
+    "DPAdaptiveClipping",
     "RDPAccountant",
     "compute_rdp",
     "get_epsilon",
+    "gdp_delta",
+    "gdp_epsilon",
+    "gdp_required_noise_multiplier",
     "required_noise_multiplier",
 ]

@@ -183,3 +183,63 @@ def test_ks_filter_drops_an_in_band_upload_that_is_not_gaussian():
     s = ComposedStrategy(glob, rule="mean", norm_band=(8.0, 11.0), ks_reference_std=0.3, ks_alpha=1e-4)
     s.aggregate_fit(1, [("h", honest, 1), ("a", OrderedDict(w=flat), 1)])
     assert s.last_round_stats["filtered"] == ["a"]
+
+
+def test_centered_clip_with_central_dp_scales_noise_by_tau():
+    """Verify centered_clip with DP sets sensitivity to 2*tau/n and scales noise correctly."""
+    s = ComposedStrategy(
+        _global(),
+        rule="centered_clip",
+        clip_norm=1.0,
+        rule_params={"tau": 0.25, "iterations": 1},
+        central_noise_multiplier=2.0,
+        noise_seed=42,
+    )
+    res = _results(5, n=10)
+    out = s.aggregate_fit(0, res)
+    assert out is not None
+    st = s.last_round_stats
+    assert st["aggregated"] == 10
+    assert st["sensitivity"] == pytest.approx(2.0 * 0.25 / 10)
+    assert st["noise_std"] == pytest.approx(2.0 * (2.0 * 0.25 / 10))
+
+
+def test_centered_clip_with_central_dp_rejects_multi_iterations():
+    """Central DP requires iterations=1 so the sensitivity bound remains exact."""
+    with pytest.raises(ValueError, match="iterations=1"):
+        ComposedStrategy(
+            _global(),
+            rule="centered_clip",
+            clip_norm=1.0,
+            rule_params={"tau": 0.25, "iterations": 2},
+            central_noise_multiplier=2.0,
+        )
+
+
+def test_centered_clip_dp_robust_aggregate_bit_exact():
+    """ComposedStrategy with centered_clip matches dp_robust_aggregate with centered_clip."""
+    res = _results(123, n=8)
+    glob = _global()
+    s = ComposedStrategy(
+        glob,
+        rule="centered_clip",
+        clip_norm=1.0,
+        rule_params={"tau": 0.5, "iterations": 1},
+        central_noise_multiplier=1.5,
+        noise_seed=999,
+    )
+    s_out = s.aggregate_fit(0, _copy(res))
+
+    dp_out = dp_robust_aggregate(
+        _copy(res),
+        glob,
+        KEYS,
+        clip_norm=1.0,
+        noise_multiplier=1.5,
+        rule="centered_clip",
+        centered_clip_tau=0.5,
+        generator=torch.Generator().manual_seed(999),
+    )
+    for k in KEYS:
+        assert torch.allclose(s_out[k], dp_out[k], atol=1e-6)
+

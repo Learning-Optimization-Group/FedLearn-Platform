@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 
 RULES = ("mean", "weighted_mean", "trimmed_mean", "median", "krum", "multi_krum", "bulyan",
          "centered_clip")
-CENTRAL_DP_RULES = ("mean", "trimmed_mean")
+CENTRAL_DP_RULES = ("mean", "trimmed_mean", "centered_clip")
 _MAX_SAMPLES = 100_000  # same cap as FedAvgAggregator
 _RULE_DEFAULTS = {"trim_ratio": 0.2, "byzantine_fraction": 0.0, "tau": 1.0, "iterations": 1,
                   "multi_krum_m": None}
@@ -122,6 +122,8 @@ class ComposedStrategy(Strategy):
                 raise ValueError(f"central DP needs a rule with a replace-one bound {CENTRAL_DP_RULES}, got {rule!r}")
             if clip_norm is None:
                 raise ValueError("central DP needs a clip_norm")
+            if rule == "centered_clip" and int((rule_params or {}).get("iterations", 1)) != 1:
+                raise ValueError("central DP with centered_clip requires iterations=1 for valid sensitivity bound")
         if norm_band is not None and not (0.0 <= float(norm_band[0]) < float(norm_band[1])):
             raise ValueError(f"norm_band must be (low, high) with 0 <= low < high, got {norm_band}")
         if optimizer not in ("none", "adam", "yogi"):
@@ -163,8 +165,12 @@ class ComposedStrategy(Strategy):
         return reduce_deltas(deltas, weights, keys, self.rule, self.rule_params)
 
     def _sensitivity(self, n):
-        return (replace_one_sensitivity(self.rule, n, self.clip_norm, self.rule_params["trim_ratio"])
-                if self.rule in CENTRAL_DP_RULES and self.clip_norm is not None else None)
+        if self.rule not in CENTRAL_DP_RULES or self.clip_norm is None:
+            return None
+        centered_tau = self.rule_params.get("tau", self.clip_norm) if self.rule == "centered_clip" else None
+        return replace_one_sensitivity(
+            self.rule, n, self.clip_norm, self.rule_params["trim_ratio"], centered_clip_tau=centered_tau
+        )
 
     def _reduction_diagnostics(self, deltas, keys):
         return {}
