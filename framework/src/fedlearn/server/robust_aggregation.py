@@ -113,6 +113,8 @@ def _krum_scores(stacked: torch.Tensor, num_byzantine: int) -> torch.Tensor:
         )
 
     flat = stacked.float().reshape(n, -1)
+    if not torch.isfinite(flat).all():
+        raise ValueError("Non-finite values encountered in _krum_scores.")
     sq_dists = torch.cdist(flat, flat).pow(2)
     num_neighbours = n - f - 2
 
@@ -279,7 +281,7 @@ def centered_clip(
         raise ValueError(f"iterations must be >= 1, got {iterations}")
 
     flat = stacked.float().reshape(n, -1)
-    v = centre.float().reshape(-1).clone()
+    v = centre.to(device=flat.device, dtype=torch.float32).reshape(-1).clone()
 
     for _ in range(int(iterations)):
         deltas = flat - v                                             # [n, D]
@@ -324,7 +326,7 @@ def adaptive_centered_clip(
     if centre is None:
         v_centre = flat.median(dim=0).values
     else:
-        v_centre = centre.float().reshape(-1)
+        v_centre = centre.to(device=flat.device, dtype=torch.float32).reshape(-1)
 
     deltas = flat - v_centre
     distances = torch.linalg.vector_norm(deltas, dim=1)

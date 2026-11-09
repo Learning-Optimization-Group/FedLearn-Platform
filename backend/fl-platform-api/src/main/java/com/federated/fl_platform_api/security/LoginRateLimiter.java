@@ -27,6 +27,8 @@ public class LoginRateLimiter {
     static final int MAX_FAILURES = 5;
     static final Duration LOCKOUT = Duration.ofMinutes(15);
 
+    public static final int MAX_ENTRIES = 50_000;
+
     private final Clock clock;
     private final ConcurrentHashMap<String, Deque<Instant>> failures = new ConcurrentHashMap<>();
 
@@ -40,27 +42,24 @@ public class LoginRateLimiter {
 
     /** True if {@code key} has reached the failure threshold within the current window. */
     public boolean isLocked(String key) {
-        Deque<Instant> window = failures.get(key);
-        if (window == null) {
-            return false;
-        }
-        synchronized (window) {
-            prune(window);
-            if (window.isEmpty()) {
-                failures.remove(key, window);
-                return false;
-            }
-            return window.size() >= MAX_FAILURES;
-        }
+        Deque<Instant> window = failures.computeIfPresent(key, (k, w) -> {
+            prune(w);
+            return w.isEmpty() ? null : w;
+        });
+        return window != null && window.size() >= MAX_FAILURES;
     }
 
     /** Record a failed attempt for {@code key}. */
     public void recordFailure(String key) {
-        Deque<Instant> window = failures.computeIfAbsent(key, k -> new ArrayDeque<>());
-        synchronized (window) {
+        failures.compute(key, (k, w) -> {
+            if (w == null && failures.size() >= MAX_ENTRIES) {
+                return null;
+            }
+            Deque<Instant> window = (w == null) ? new ArrayDeque<>() : w;
             prune(window);
             window.addLast(clock.instant());
-        }
+            return window;
+        });
     }
 
     /** Clear {@code key} — called on a successful login so a good password ends the throttle. */
@@ -75,22 +74,15 @@ public class LoginRateLimiter {
      * delay instead of hammering {@code /api/auth/login}.
      */
     public Optional<Duration> retryAfter(String key) {
-        Deque<Instant> window = failures.get(key);
-        if (window == null) {
-            return Optional.empty();
-        }
-        synchronized (window) {
+        java.util.concurrent.atomic.AtomicReference<Duration> result = new java.util.concurrent.atomic.AtomicReference<>(null);
+        failures.computeIfPresent(key, (k, window) -> {
             prune(window);
             if (window.isEmpty()) {
-                failures.remove(key, window);
-                return Optional.empty();
+                return null;
             }
             if (window.size() < MAX_FAILURES) {
-                return Optional.empty();
+                return window;
             }
-            // The lock releases when enough of the OLDEST failures age out to drop the count below
-            // the threshold: that is when the failure at index (size - MAX_FAILURES) from the oldest
-            // expires (peekFirst for exactly MAX_FAILURES). The deque iterates oldest -> newest.
             int releaseIdx = window.size() - MAX_FAILURES;
             Instant releasing = window.peekFirst();
             int i = 0;
@@ -101,8 +93,10 @@ public class LoginRateLimiter {
                 }
             }
             Duration remaining = Duration.between(clock.instant(), releasing.plus(LOCKOUT));
-            return Optional.of(remaining.isNegative() ? Duration.ZERO : remaining);
-        }
+            result.set(remaining.isNegative() ? Duration.ZERO : remaining);
+            return window;
+        });
+        return Optional.ofNullable(result.get());
     }
 
     private void prune(Deque<Instant> window) {

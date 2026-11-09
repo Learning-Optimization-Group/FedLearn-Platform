@@ -152,8 +152,6 @@ class FedAvgAggregator:
                         out=aggregated_params[key],
                     )
 
-            # Aggressively free client memory buffer
-            params.clear()
 
         return aggregated_params
 
@@ -755,7 +753,7 @@ class FedOpt(Strategy):
             else:  # yogi
                 v = self._v[key] - (1.0 - self.beta2) * torch.sign(self._v[key] - g2) * g2
 
-            new = old - eta * m / (torch.sqrt(v) + self.tau)
+            new = old - eta * m / (torch.sqrt(torch.clamp(v, min=0.0)) + self.tau)
 
             self._m[key] = m
             self._v[key] = v

@@ -49,6 +49,12 @@ function getCrypto(): { getRandomValues: (arr: Uint32Array) => void } | undefine
   if (typeof globalThis !== 'undefined' && (globalThis as any).crypto?.getRandomValues) {
     return (globalThis as any).crypto;
   }
+  try {
+    const nodeCrypto = require('crypto');
+    if (nodeCrypto.webcrypto?.getRandomValues) {
+      return nodeCrypto.webcrypto;
+    }
+  } catch {}
   return undefined;
 }
 
@@ -56,19 +62,19 @@ function getSecureRandomFieldElement(p: bigint): bigint {
   const cryptoObj = getCrypto();
   if (cryptoObj) {
     const buf = new Uint32Array(1);
-    const limit = (0x100000000n / (p - 1n)) * (p - 1n);
+    const limit = (0x100000000n / p) * p;
     while (true) {
       cryptoObj.getRandomValues(buf);
       const raw = buf[0];
       if (raw !== undefined) {
         const val = BigInt(raw);
         if (val < limit) {
-          return (val % (p - 1n)) + 1n; // Uniform in [1, p-1]
+          return val % p; // Uniform in [0, p-1]
         }
       }
     }
   }
-  return BigInt(Math.floor(Math.random() * (Number(p) - 1))) + 1n;
+  throw new Error("CSPRNG unavailable: secure random field elements require a cryptographically secure random number generator.");
 }
 
 /**
@@ -187,7 +193,16 @@ export function reconstructSecret(
   if (!firstShare || xs.length < threshold || shares.length < threshold) {
     throw new Error(`Insufficient shares (${xs.length}) for threshold ${threshold}`);
   }
+  const uniqueXs = new Set(xs.slice(0, threshold));
+  if (uniqueXs.size < threshold) {
+    throw new Error("Evaluation points (xs) must be pairwise distinct.");
+  }
   const p = LIGHTSECAGG_PRIME;
+  for (const x of uniqueXs) {
+    if (x <= 0 || BigInt(x) >= p) {
+      throw new Error(`Evaluation point ${x} must be in [1, p - 1].`);
+    }
+  }
   const bigScale = BigInt(scale);
   const len = firstShare.length;
   const result: number[] = new Array(len);

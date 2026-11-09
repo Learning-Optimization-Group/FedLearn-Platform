@@ -654,25 +654,28 @@ public class RunService {
         return new ContractArtifact(file, sha256, size);
     }
 
-    /** Loads a run and enforces org-scope + owner-or-CLIENT participation. */
+    /** Loads a run and enforces org-scope + participation (masked to 404 for cross-tenant calls). */
     Run requireParticipantRun(UUID runId) {
         Run run = runRepository.findById(runId)
                 .orElseThrow(() -> ResourceNotFoundException.run(runId));
         Project project = projectRepository.findById(run.getProjectId())
-                .orElseThrow(() -> ResourceNotFoundException.project(run.getProjectId()));
-        authz.requireOrgScope(project.getOrgId());
+                .orElseThrow(() -> ResourceNotFoundException.run(runId));
+        if (!authz.isInOrgScope(project.getOrgId())) {
+            throw ResourceNotFoundException.run(runId);
+        }
         requireOwnerOrClient(project, authz.currentUser());
         return run;
     }
 
     void requireOwnerOrClient(Project project, User self) {
-        boolean isOwner = project.getUser() != null
-                && project.getUser().getId().equals(self.getId());
-        boolean isClient = membershipRepository
-                .findByIdProjectIdAndIdUserId(project.getId(), self.getId())
-                .map(m -> m.getRole() == MembershipRole.CLIENT).orElse(false);
-        if (!isOwner && !isClient) {
-            throw new AccessDeniedException("You are not a participant of this run's project");
+        if (authz.isPlatformAdmin() || authz.isOwner(project)) {
+            return;
         }
+        Optional<ProjectMembership> m = membershipRepository
+                .findByIdProjectIdAndIdUserId(project.getId(), self.getId());
+        if (m.isPresent() && (m.get().getRole() == MembershipRole.CLIENT || m.get().getRole() == MembershipRole.MEMBER)) {
+            return;
+        }
+        throw new AccessDeniedException("You are not a participant of this run's project");
     }
 }

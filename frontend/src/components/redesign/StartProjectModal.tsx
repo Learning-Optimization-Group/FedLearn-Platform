@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { Project, StartServerData, errorMessage, fetchModelRecipes, type ModelRecipe } from '../../services/apiServices';
 import { createLogger } from '../../lib/logger';
@@ -63,6 +63,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
   const [ownData, setOwnData] = useState(false);
   const [recipes, setRecipes] = useState<ModelRecipe[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [error, setError] = useState('');
 
   // The catalog says whether this project's recipe can train on each phone's own dataset. Without it the choice is
@@ -99,7 +100,8 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLoading) return;
+    if (isLoading || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setError('');
     try {
       setIsLoading(true);
@@ -154,6 +156,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
       setError(errorMessage(err, 'Could not start training. Please try again.'));
       log.error('startProject submit failed', err);
     } finally {
+      isSubmittingRef.current = false;
       setIsLoading(false);
     }
   };

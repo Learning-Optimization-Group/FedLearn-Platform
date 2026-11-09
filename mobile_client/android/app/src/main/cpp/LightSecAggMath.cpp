@@ -32,8 +32,8 @@ std::map<int, std::vector<int64_t>> compute_shamir_shares(
     int num_shares,
     int threshold,
     const std::vector<std::vector<int64_t>>& random_coefficients) {
-  if (num_shares < 1) {
-    throw std::invalid_argument("num_shares must be at least 1.");
+  if (num_shares < 1 || num_shares >= kPrime) {
+    throw std::invalid_argument("num_shares must be in [1, p - 1].");
   }
   if (threshold < 1 || threshold > num_shares) {
     throw std::invalid_argument("threshold must be in [1, num_shares].");
@@ -58,9 +58,9 @@ std::map<int, std::vector<int64_t>> compute_shamir_shares(
       // Horner's method from degree (threshold - 1) down to degree 0 (secret)
       int64_t acc = 0;
       if (threshold > 1) {
-        acc = normalize_mod(random_coefficients[threshold - 2][k]);
+        acc = normalize_mod(random_coefficients[static_cast<size_t>(threshold - 2)][k]);
         for (int d = threshold - 3; d >= 0; --d) {
-          acc = add_mod(mul_mod(acc, x), random_coefficients[d][k]);
+          acc = add_mod(mul_mod(acc, x), random_coefficients[static_cast<size_t>(d)][k]);
         }
         acc = add_mod(mul_mod(acc, x), secret[k]);
       } else {
@@ -87,7 +87,7 @@ std::map<int, std::vector<int64_t>> compute_shamir_shares_seeded(
 
   const size_t length = secret.size();
   std::vector<std::vector<int64_t>> random_coeffs;
-  random_coeffs.reserve(threshold - 1);
+  random_coeffs.reserve(static_cast<size_t>(threshold - 1));
 
   std::mt19937_64 rng(seed);
   std::uniform_int_distribution<int64_t> dist(0, kPrime - 1);
@@ -114,7 +114,7 @@ std::vector<int64_t> shamir_reconstruct(
   }
 
   std::vector<int> xs;
-  xs.reserve(threshold);
+  xs.reserve(static_cast<size_t>(threshold));
   for (const auto& kv : shares) {
     if (kv.first <= 0 || kv.first >= kPrime) {
       throw std::invalid_argument("Share evaluation points (x) must be in [1, p - 1].");
@@ -283,7 +283,7 @@ int32_t lightsecagg_compute_shamir_shares(
     int32_t threshold,
     const int64_t* flattened_coeffs,
     int64_t* out_shares) {
-  if (!secret || !out_shares || length <= 0 || num_shares < 1 || threshold < 1 || threshold > num_shares) {
+  if (!secret || !out_shares || length <= 0 || num_shares < 1 || num_shares >= fedlearn::secagg::kPrime || threshold < 1 || threshold > num_shares) {
     return -1;
   }
   if (threshold > 1 && !flattened_coeffs) {
@@ -294,7 +294,7 @@ int32_t lightsecagg_compute_shamir_shares(
     size_t len = static_cast<size_t>(length);
     std::vector<int64_t> secret_vec(secret, secret + len);
     std::vector<std::vector<int64_t>> coeffs;
-    coeffs.reserve(threshold - 1);
+    coeffs.reserve(static_cast<size_t>(threshold - 1));
     for (int d = 0; d < threshold - 1; ++d) {
       size_t offset_start = static_cast<size_t>(d) * len;
       size_t offset_end = static_cast<size_t>(d + 1) * len;
@@ -325,7 +325,7 @@ int32_t lightsecagg_aggregate_shares(
   try {
     size_t len = static_cast<size_t>(length);
     std::vector<std::vector<int64_t>> shares;
-    shares.reserve(num_vectors);
+    shares.reserve(static_cast<size_t>(num_vectors));
     for (int i = 0; i < num_vectors; ++i) {
       size_t offset_start = static_cast<size_t>(i) * len;
       size_t offset_end = static_cast<size_t>(i + 1) * len;
@@ -378,7 +378,7 @@ int32_t lightsecagg_reconstruct_secret(
     size_t len = static_cast<size_t>(length);
     std::map<int, std::vector<int64_t>> shares;
     for (int i = 0; i < num_shares; ++i) {
-      if (xs[i] <= 0 || xs[i] >= fedlearn::secagg::kPrime) {
+      if (xs[i] <= 0 || xs[i] >= fedlearn::secagg::kPrime || shares.find(xs[i]) != shares.end()) {
         return -1;
       }
       size_t offset_start = static_cast<size_t>(i) * len;

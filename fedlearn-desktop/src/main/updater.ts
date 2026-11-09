@@ -7,8 +7,16 @@ import { BrowserWindow } from 'electron';
 // closed), so guard registration to happen EXACTLY once — otherwise every
 // updater event listener stacks up and each IPC message fires N times.
 let updaterInitialized = false;
+let activeWindow: BrowserWindow | null = null;
+
+function sendToWindow(channel: string, ...args: any[]) {
+  if (activeWindow && !activeWindow.isDestroyed() && activeWindow.webContents && !activeWindow.webContents.isDestroyed()) {
+    activeWindow.webContents.send(channel, ...args);
+  }
+}
 
 export function initializeUpdater(mainWindow: BrowserWindow) {
+  activeWindow = mainWindow;
   if (updaterInitialized) {
     return;
   }
@@ -37,9 +45,7 @@ export function initializeUpdater(mainWindow: BrowserWindow) {
 
   autoUpdater.on('update-available', (info) => {
     log.info('Update available.');
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('updater:update-available', info);
-    }
+    sendToWindow('updater:update-available', info);
   });
 
   autoUpdater.on('update-not-available', () => {
@@ -55,16 +61,12 @@ export function initializeUpdater(mainWindow: BrowserWindow) {
     log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
     log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
     log.info(log_message);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('updater:download-progress', progressObj);
-    }
+    sendToWindow('updater:download-progress', progressObj);
   });
 
   autoUpdater.on('update-downloaded', (info) => {
     log.info('Update downloaded');
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('updater:update-downloaded', info);
-    }
+    sendToWindow('updater:update-downloaded', info);
   });
 
   // Check for updates immediately

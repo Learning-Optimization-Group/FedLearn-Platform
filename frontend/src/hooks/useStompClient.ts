@@ -89,6 +89,7 @@ export function useStompClient({
             if (isDisposed) return;
             liveSubs = subscriptionsRef.current.map(({ topic }, index) =>
                 client.subscribe(topic, (message) => {
+                    if (isDisposed) return;
                     const sub = subscriptionsRef.current[index];
                     if (sub && sub.topic === topic) {
                         sub.onMessage(message);
@@ -108,7 +109,13 @@ export function useStompClient({
 
         client.onWebSocketClose = () => {
             if (isDisposed || !client.active) return;
-            liveSubs.forEach((sub) => sub.unsubscribe());
+            liveSubs.forEach((sub) => {
+                try {
+                    sub.unsubscribe();
+                } catch {
+                    // Ignore failures on torn-down connection
+                }
+            });
             liveSubs = [];
             setIsConnected(false);
             // A drop AFTER having been live auto-retries (reconnectDelay > 0) —
@@ -135,7 +142,13 @@ export function useStompClient({
             client.onWebSocketClose = () => {};
             client.onStompError = () => {};
             client.onWebSocketError = () => {};
-            liveSubs.forEach((sub) => sub.unsubscribe());
+            liveSubs.forEach((sub) => {
+                try {
+                    sub.unsubscribe();
+                } catch {
+                    // Ignore failures on torn-down connection
+                }
+            });
             liveSubs = [];
             if (client.active) void client.deactivate();
             setIsConnected(false);

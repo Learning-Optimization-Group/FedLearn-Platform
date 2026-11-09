@@ -306,6 +306,14 @@ class DeComFL(Strategy):
         # Extract gradient scalars from all clients
         client_gradients = {}
         for client_id, grad_scalars, num_examples in results:
+            if not isinstance(grad_scalars, (list, tuple)) or len(grad_scalars) != self.K:
+                raise ValueError(f"Client {client_id} sent invalid grad_scalars: expected outer length {self.K}")
+            for k_idx, row in enumerate(grad_scalars):
+                if not isinstance(row, (list, tuple)) or len(row) != self.P:
+                    raise ValueError(f"Client {client_id} sent invalid grad_scalars row {k_idx}: expected length {self.P}")
+                for p_idx, s in enumerate(row):
+                    if not (isinstance(s, (int, float)) and math.isfinite(s)):
+                        raise ValueError(f"Client {client_id} sent non-finite grad_scalar at ({k_idx}, {p_idx}): {s}")
             client_gradients[client_id] = grad_scalars
             # Mark the client as synced THROUGH server_round - 1, not server_round (FR-2).
             # fit() reverts all K local steps, so after participating in round r the client's
@@ -350,7 +358,7 @@ class DeComFL(Strategy):
                 delta += g_sums[k][p] * z
 
             # Average across clients and perturbations.
-            delta = delta / (num_clients * self.P)
+            delta = delta / max(num_clients * self.P, 1)
 
             # Update model parameters. The 1/P averaging above IS the paper's update; the v1 code
             # cancelled it with an extra * self.P, stepping the global model P x too far and off the
@@ -427,7 +435,7 @@ class DeComFL(Strategy):
         # rejoining client num_clients times too far. Nothing individual is exposed -- the average
         # is the aggregate the round already published.
         self.gradient_history[server_round] = [
-            [g / num_clients for g in row] for row in g_sums
+            [g / max(num_clients, 1) for g in row] for row in g_sums
         ]
 
         log.debug("Secure aggregation recovered %d scalars for round %d", expected, server_round)

@@ -53,8 +53,8 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
   const hasResults = results.length > 0;
   const chartData = results.map((r) => ({
     round: r.serverRound,
-    loss: r.loss,
-    accuracy: r.accuracy,
+    loss: typeof r.loss === 'number' && Number.isFinite(r.loss) ? r.loss : null,
+    accuracy: typeof r.accuracy === 'number' && Number.isFinite(r.accuracy) ? r.accuracy : null,
   }));
 
   const bestAccuracy = hasResults ? results.reduce((max, r) => Math.max(max, Number.isFinite(r.accuracy) ? r.accuracy : 0), 0) : 0;
@@ -168,13 +168,13 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
                     <LineChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="4 4" stroke="var(--color-hairline)" vertical={false} />
                       <XAxis dataKey="round" stroke="var(--color-hairline)" tick={AXIS_TICK} tickLine={false} axisLine={false} dy={8} />
-                      <YAxis stroke="var(--color-hairline)" tick={AXIS_TICK} tickLine={false} axisLine={false} width={44} tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`} />
+                      <YAxis stroke="var(--color-hairline)" tick={AXIS_TICK} tickLine={false} axisLine={false} width={44} tickFormatter={(v: number) => Number.isFinite(v) ? `${(v * 100).toFixed(0)}%` : '—'} />
                       <Tooltip
                         contentStyle={TOOLTIP_CONTENT_STYLE}
                         itemStyle={TOOLTIP_ITEM_STYLE}
                         labelStyle={TOOLTIP_LABEL_STYLE}
                         formatter={(value: number) => [Number.isFinite(value) ? `${(value * 100).toFixed(2)}%` : '—', 'Accuracy']}
-                        labelFormatter={(label) => `Round ${label}`}
+                        labelFormatter={(label) => label != null ? `Round ${label}` : ''}
                       />
                       <Line type="monotone" dataKey="accuracy" stroke="var(--color-series-1)" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: 'var(--color-series-1)' }} />
                     </LineChart>
@@ -194,7 +194,7 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
                         itemStyle={TOOLTIP_ITEM_STYLE}
                         labelStyle={TOOLTIP_LABEL_STYLE}
                         formatter={(value: number) => [Number.isFinite(value) ? value.toFixed(4) : '—', 'Loss']}
-                        labelFormatter={(label) => `Round ${label}`}
+                        labelFormatter={(label) => label != null ? `Round ${label}` : ''}
                       />
                       <Line type="monotone" dataKey="loss" stroke="var(--color-series-1)" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: 'var(--color-series-1)' }} />
                     </LineChart>

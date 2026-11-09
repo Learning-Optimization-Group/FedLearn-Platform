@@ -18,7 +18,12 @@ extern "C" JNIEXPORT void JNICALL Java_com_fedlearn_mobile_DeviceState_nativeSet
     if (thermalState) {
       const char* t = env->GetStringUTFChars(thermalState, nullptr);
       if (t) {
-        thermal = t;
+        try {
+          thermal = t;
+        } catch (...) {
+          env->ReleaseStringUTFChars(thermalState, t);
+          throw;
+        }
         env->ReleaseStringUTFChars(thermalState, t);
       }
     }

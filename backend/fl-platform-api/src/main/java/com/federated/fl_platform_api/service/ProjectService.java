@@ -585,7 +585,7 @@ public class ProjectService {
             Project lockedProject = projectRepository.findById(projectId)
                     .orElseThrow(() -> ResourceNotFoundException.project(projectId));
 
-            if (flServerManager.isServerRunning(projectId)) {
+            if (flServerManager.isServerRunning(projectId) || flServerManager.hasReservedPort(projectId)) {
                 // Was previously a silent fall-through that double-spawned the server.
                 throw new ProjectStateException(
                         "FL server is already running for project " + projectId
@@ -924,6 +924,7 @@ public class ProjectService {
                         projectId, e);
             }
             projectRepository.deleteById(projectId);
+            projectRepository.flush();
         } finally {
             startLock.unlock();
         }

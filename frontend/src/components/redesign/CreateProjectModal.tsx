@@ -68,6 +68,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
   // 'form' shows the inputs; 'preparing' shows the spinner while init is polled (BA-1).
   const [phase, setPhase] = useState<'form' | 'preparing'>('form');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   // Flipped true when the modal closes so an in-flight poll stops touching state.
   const cancelledRef = useRef(false);
 
@@ -118,8 +119,10 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
   useEffect(() => {
     if (isOpen) {
       cancelledRef.current = false;
+      isSubmittingRef.current = false;
     } else {
       cancelledRef.current = true;
+      isSubmittingRef.current = false;
       setName('');
       setModelType('');
       setPretrainEpochs(0);
@@ -147,7 +150,8 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phase !== 'form' || isSubmitting) return;
+    if (phase !== 'form' || isSubmitting || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     setError('');
     try {
@@ -183,6 +187,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
       setPhase('form');
       setError(errorMessage(err, 'Could not create project. Please try again.'));
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -195,13 +200,13 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
       footer={
         phase === 'form' ? (
           <>
-            <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading}>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading || isSubmitting}>
               Cancel
             </Button>
             <Button
               type="submit"
               form="create-project-form"
-              disabled={isLoading || !name.trim() || !selectedRecipe}
+              disabled={isLoading || isSubmitting || !name.trim() || !selectedRecipe}
             >
               {isLoading ? (
                 <>

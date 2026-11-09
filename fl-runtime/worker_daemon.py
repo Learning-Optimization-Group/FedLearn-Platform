@@ -147,8 +147,15 @@ class DaemonState:
                         f"project '{self.active_project_id}', run '{self.active_run_id}'. "
                         f"Cannot initialize project '{project_id}', run '{run_id}' without force_reset."
                     )
-                # If already initialized for the exact same project and run, reuse cached model
-                if self.model is not None:
+                # If already initialized for the exact same project, run, model, and partition, reuse cached model
+                mt_check = model_type.upper()
+                if (
+                    self.model is not None
+                    and self.model_type == mt_check
+                    and self.partition_id == partition_id
+                    and self.training_arm == training_arm
+                    and self.dataset_name == dataset_name
+                ):
                     self.worker_reuse_count += 1
                     self.status = "READY"
                     self.last_error = None
@@ -308,6 +315,9 @@ class DaemonState:
                 self.last_error = str(e)
                 raise
             finally:
+                # Clear gradients to prevent stale tensor retention across rounds
+                if self.model is not None:
+                    self.model.zero_grad(set_to_none=True)
                 # Clear accelerator cache to avoid memory fragmentation over 100+ rounds
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
@@ -587,7 +597,10 @@ def main():
     finally:
         if args.pid_file and os.path.exists(args.pid_file):
             try:
-                os.remove(args.pid_file)
+                with open(args.pid_file, "r") as f:
+                    content = f.read().strip()
+                if content == str(os.getpid()):
+                    os.remove(args.pid_file)
             except OSError:
                 pass
 

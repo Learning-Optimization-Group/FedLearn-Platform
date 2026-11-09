@@ -202,7 +202,7 @@ class ComposedStrategy(Strategy):
             return None, stats
         t = time.perf_counter()
         raw = [OrderedDict((k, p[k].detach().float().cpu() - self._global[k]) for k in keys) for _, p, _ in ok]
-        norms = [math.sqrt(sum(float((d[k] * d[k]).sum()) for k in keys)) for d in raw]
+        norms = [math.sqrt(sum(float((d[k].double() * d[k].double()).sum()) for k in keys)) for d in raw]
         if self.clip_norm is not None:
             _, deltas = clipped_deltas(ok, self._global, keys, self.clip_norm)
             shrink = [min(1.0, self.clip_norm / (x + 1e-12)) for x in norms]
@@ -227,7 +227,12 @@ class ComposedStrategy(Strategy):
                 noise.normal_(mean=0.0, std=std, generator=self._generator)
                 reduced[k] = reduced[k] + noise
         stats["timings"]["noise"] = time.perf_counter() - t
-        out = OrderedDict((k, self._global[k] + reduced[k]) for k in keys)
+        out = OrderedDict()
+        for k in keys:
+            val = self._global[k] + reduced[k]
+            if "running_var" in k or k.endswith(".var"):
+                val = torch.clamp(val, min=1e-6)
+            out[k] = val
         stats.update(
             orig_norms={str(c): x for (c, _, _), x in zip(ok, norms)},
             clip_rate=sum(1 for s in shrink if s < 1.0) / len(shrink),
