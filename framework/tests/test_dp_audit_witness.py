@@ -65,6 +65,13 @@ def test_analytic_privacy_witness_shows_massive_delta_breach():
     assert delta_z648 == pytest.approx(0.05317, abs=1e-3)
     assert delta_z648 > 5000 * declared_delta
 
+    # Case C: Conservative clamp calibration z = 0.5 with assumed sensitivity 0.20 -> sigma = 0.100
+    sigma_clamp = 0.5 * 0.20  # 0.100
+    delta_clamp = gaussian_privacy_profile(shift, sigma_clamp, target_eps)
+    # True delta is ~0.98348, which is >98,000x larger than declared delta 1e-5!
+    assert delta_clamp == pytest.approx(0.98348, abs=1e-3)
+    assert delta_clamp > 90000 * declared_delta
+
 
 def test_empirical_distinguisher_achieves_perfect_accuracy_on_unnoised_adaptive_query():
     """Empirical distinguisher: 100 trials distinguishing D vs D' from observable noisy aggregates."""
