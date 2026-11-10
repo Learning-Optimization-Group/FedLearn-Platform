@@ -159,6 +159,8 @@ id_rsa*
 
 # Local scratch / crash-recovery workspace (never commit)
 .temp/
+scratch/
+.scratch/
 
 # Playwright MCP browser session artifacts (local tooling output)
 .playwright-mcp/

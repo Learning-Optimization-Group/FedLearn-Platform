@@ -562,6 +562,8 @@ def select_strategy(args, initial_parameters, evaluate_fn):
                 dp_rounds=dp_rounds,
                 dp_adjacency=dp_adjacency_arg(args),
                 dp_accountant=getattr(args, "dp_accountant", None) or "rdp",
+                subspace_dim=getattr(args, "subspace_dim", None),
+                subspace_seed=getattr(args, "subspace_seed", 42) or 42,
             )
         except ValueError as e:
             # A bad DP config must fail loudly AT SPAWN — the backend's 3-second exit window
@@ -682,6 +684,8 @@ def select_strategy(args, initial_parameters, evaluate_fn):
                 dp_rounds=getattr(args, "dp_rounds", None),
                 dp_adjacency=dp_adjacency_arg(args),
                 dp_accountant=getattr(args, "dp_accountant", None) or "rdp",
+                subspace_dim=getattr(args, "subspace_dim", None),
+                subspace_seed=getattr(args, "subspace_seed", 42) or 42,
             )
             logging.info("Using FedAvg strategy with CENTRAL DIFFERENTIAL PRIVACY (clip_norm=%s, z=%.4f, "
                          "accounted_epsilon=%s, delta=%s, rounds=%s)", strategy.dp_clip_norm,
@@ -788,6 +792,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dp-accountant", choices=["rdp", "gdp"], default="rdp",
                         help="How the noise multiplier and ε relate: rdp (Rényi DP, an upper bound) or gdp (exact "
                              "Gaussian-DP composition; needs q=1, which live runs always have, and less noise)")
+    parser.add_argument("--subspace-dim", type=int, default=None,
+                        help="Intrinsic subspace dimension k for Subspace Differential Privacy (k << d)")
+    parser.add_argument("--subspace-seed", type=int, default=42,
+                        help="Base seed for deterministic round-synchronized subspace orthonormal basis generation")
     parser.add_argument("--task-type", type=str, default="SEQ_CLASSIFICATION", choices=["SEQ_CLASSIFICATION", "CAUSAL_LM"], help="LLM_LORA task type (generative vs classification)")
     parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2", "ecg"], help="Dataset")
     return parser

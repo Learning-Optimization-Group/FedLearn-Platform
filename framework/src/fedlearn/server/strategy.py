@@ -176,12 +176,15 @@ class FedLoRA(Strategy):
                  clients_per_round=None, aggregation="FFA_LORA",
                  dp_enabled=False, dp_clip_norm=None, dp_noise_multiplier=None, dp_seed=None,
                  dp_target_epsilon=None, dp_delta=None, dp_num_clients=None, dp_rounds=None,
-                 dp_adjacency="add_remove", dp_accountant="rdp"):
+                 dp_adjacency="add_remove", dp_accountant="rdp",
+                 subspace_dim=None, subspace_seed=42):
         self.initial_parameters = initial_parameters
         self.evaluate_fn = evaluate_fn
         self.min_fit_clients = min_fit_clients
         self.clients_per_round = clients_per_round if clients_per_round is not None else min_fit_clients
         self.aggregation = aggregation
+        self.subspace_dim = None if subspace_dim is None else int(subspace_dim)
+        self.subspace_seed = int(subspace_seed)
         self.aggregator = FedAvgAggregator()
         self._frozen_a = (
             OrderedDict((k, v.clone()) for k, v in initial_parameters.items() if "lora_A" in k)
@@ -213,7 +216,7 @@ class FedLoRA(Strategy):
         self._assert_client_keys_allowed(results)
         self._assert_homogeneous(results)
         if self.dp_enabled:
-            aggregated = self._aggregate_fit_dp(results)
+            aggregated = self._aggregate_fit_dp(results, server_round=server_round)
         else:
             # --- Non-DP path: byte-for-byte the original weighted-average + frozen-A re-attach. ---
             aggregated = self.aggregator.aggregate(results)
@@ -228,24 +231,39 @@ class FedLoRA(Strategy):
         )
         return aggregated
 
-    def _aggregate_fit_dp(self, results):
+    def _aggregate_fit_dp(self, results, server_round=0):
         """Central-DP aggregation path (FR-13). Clip each client's adapter delta to S, uniform-
         average, add Gaussian noise z*S/N on the aggregatable keys ONLY (every client key that is
         NOT a frozen lora_A key), then re-attach the frozen A bit-identical (zero noise on A keeps
         the FFA invariant avg(B)@A == avg(B@A) exact)."""
-        from fedlearn.privacy.dp_mechanism import dp_aggregate  # lazy import avoids an import cycle
-
-        aggregatable_keys = [k for k in self._client_keys(results) if k not in self._frozen_a]
-        aggregated = dp_aggregate(
-            results,
-            global_params=self._global,
-            aggregatable_keys=aggregatable_keys,
-            clip_norm=self.dp_clip_norm,
-            noise_multiplier=self.dp_noise_multiplier,
-            generator=self._dp_generator,
-            adjacency=self.dp_adjacency,
-            public_cohort=self.clients_per_round,
-        )
+        aggregatable_keys = sorted([k for k in self._client_keys(results) if k not in self._frozen_a])
+        if self.subspace_dim is not None:
+            from fedlearn.privacy.subspace_dp import subspace_dp_aggregate
+            aggregated = subspace_dp_aggregate(
+                results,
+                global_params=self._global,
+                aggregatable_keys=aggregatable_keys,
+                clip_norm=self.dp_clip_norm,
+                noise_multiplier=self.dp_noise_multiplier,
+                subspace_dim=self.subspace_dim,
+                server_round=server_round,
+                subspace_seed=self.subspace_seed,
+                generator=self._dp_generator,
+                adjacency=self.dp_adjacency,
+                public_cohort=self.clients_per_round,
+            )
+        else:
+            from fedlearn.privacy.dp_mechanism import dp_aggregate
+            aggregated = dp_aggregate(
+                results,
+                global_params=self._global,
+                aggregatable_keys=aggregatable_keys,
+                clip_norm=self.dp_clip_norm,
+                noise_multiplier=self.dp_noise_multiplier,
+                generator=self._dp_generator,
+                adjacency=self.dp_adjacency,
+                public_cohort=self.clients_per_round,
+            )
         # Re-attach the frozen A exactly as the non-DP FFA path does (bit-identical, never noised).
         if self.aggregation == "FFA_LORA":
             for k, v in self._frozen_a.items():
@@ -455,9 +473,11 @@ class DPFedAvg(FedAvg):
     def __init__(self, initial_parameters, evaluate_fn=None, min_fit_clients=1, clients_per_round=None,
                  dp_clip_norm=None, dp_noise_multiplier=None, dp_seed=None, dp_target_epsilon=None,
                  dp_delta=None, dp_num_clients=None, dp_rounds=None, dp_adjacency="add_remove",
-                 dp_accountant="rdp"):
+                 dp_accountant="rdp", subspace_dim=None, subspace_seed=42):
         super().__init__(initial_parameters, evaluate_fn=evaluate_fn, min_fit_clients=min_fit_clients,
                          clients_per_round=clients_per_round)
+        self.subspace_dim = None if subspace_dim is None else int(subspace_dim)
+        self.subspace_seed = int(subspace_seed)
         _configure_central_dp(
             self, "DPFedAvg", initial_parameters, dp_enabled=True, dp_clip_norm=dp_clip_norm,
             dp_noise_multiplier=dp_noise_multiplier, dp_seed=dp_seed, dp_target_epsilon=dp_target_epsilon,
@@ -467,13 +487,34 @@ class DPFedAvg(FedAvg):
     def aggregate_fit(self, server_round, results):
         if not results:
             return None
-        from fedlearn.privacy.dp_mechanism import dp_aggregate  # lazy import avoids an import cycle
-
-        keys = list(FedLoRA._client_keys(results))
-        aggregated = dp_aggregate(results, global_params=self._global, aggregatable_keys=keys,
-                                  clip_norm=self.dp_clip_norm, noise_multiplier=self.dp_noise_multiplier,
-                                  generator=self._dp_generator, adjacency=self.dp_adjacency,
-                                  public_cohort=self.clients_per_round)
+        keys = sorted(FedLoRA._client_keys(results))
+        if self.subspace_dim is not None:
+            from fedlearn.privacy.subspace_dp import subspace_dp_aggregate
+            aggregated = subspace_dp_aggregate(
+                results,
+                global_params=self._global,
+                aggregatable_keys=keys,
+                clip_norm=self.dp_clip_norm,
+                noise_multiplier=self.dp_noise_multiplier,
+                subspace_dim=self.subspace_dim,
+                server_round=server_round,
+                subspace_seed=self.subspace_seed,
+                generator=self._dp_generator,
+                adjacency=self.dp_adjacency,
+                public_cohort=self.clients_per_round,
+            )
+        else:
+            from fedlearn.privacy.dp_mechanism import dp_aggregate
+            aggregated = dp_aggregate(
+                results,
+                global_params=self._global,
+                aggregatable_keys=keys,
+                clip_norm=self.dp_clip_norm,
+                noise_multiplier=self.dp_noise_multiplier,
+                generator=self._dp_generator,
+                adjacency=self.dp_adjacency,
+                public_cohort=self.clients_per_round,
+            )
         for k, v in aggregated.items():
             self._global[k] = v.detach().clone().to(torch.float32)
         return aggregated

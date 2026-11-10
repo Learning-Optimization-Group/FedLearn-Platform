@@ -275,8 +275,8 @@ def centered_clip(
     n = int(stacked.shape[0])
     if n == 0:
         raise ValueError("centered_clip requires at least one client.")
-    if tau <= 0:
-        raise ValueError(f"tau (clipping radius) must be positive, got {tau}")
+    if tau is None or not math.isfinite(tau) or tau <= 0:
+        raise ValueError(f"tau (clipping radius) must be a positive finite float, got {tau}")
     if int(iterations) < 1:
         raise ValueError(f"iterations must be >= 1, got {iterations}")
 

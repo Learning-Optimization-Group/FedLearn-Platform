@@ -340,3 +340,32 @@ def test_select_strategy_passes_the_exact_gdp_accountant_to_dp_fedavg():
     card = json.loads(fl_server.build_eval_card(Namespace(model_type="MLP", strategy="FedAvg", num_rounds=20,
                                                           seed=1, training_arm=None), [], strategy))
     assert card["dp"]["accountant"] == "gdp"
+
+
+def test_select_strategy_passes_subspace_dim_to_dp_strategies():
+    args_fedlora = _args("FedLoRA")
+    args_fedlora.dp_enabled = True
+    args_fedlora.dp_clip_norm = 0.05
+    args_fedlora.dp_target_epsilon = 4.0
+    args_fedlora.dp_delta = 1e-5
+    args_fedlora.dp_rounds = 20
+    args_fedlora.num_rounds = 20
+    args_fedlora.min_clients = 8
+    args_fedlora.subspace_dim = 32
+    args_fedlora.subspace_seed = 999
+    strategy_lora = fl_server.select_strategy(
+        args_fedlora,
+        _initial_parameters(),
+        None,
+    )
+    assert strategy_lora.subspace_dim == 32
+    assert strategy_lora.subspace_seed == 999
+
+    args_dp_fedavg = _dp_fedavg_args(subspace_dim=16, subspace_seed=123)
+    strategy_fedavg = fl_server.select_strategy(
+        args_dp_fedavg,
+        OrderedDict(head=torch.zeros(4)),
+        None,
+    )
+    assert strategy_fedavg.subspace_dim == 16
+    assert strategy_fedavg.subspace_seed == 123

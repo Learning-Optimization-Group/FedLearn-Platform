@@ -18,15 +18,20 @@ from fedlearn.privacy.gdp_accountant import (
     gdp_epsilon,
     gdp_required_noise_multiplier,
 )
+from fedlearn.privacy.subspace import SubspaceProjector, build_orthonormal_basis
+from fedlearn.privacy.subspace_dp import subspace_dp_aggregate
 
 __all__ = [
     "DEFAULT_ORDERS",
     "DPAdaptiveClipping",
     "RDPAccountant",
+    "SubspaceProjector",
+    "build_orthonormal_basis",
     "compute_rdp",
     "get_epsilon",
     "gdp_delta",
     "gdp_epsilon",
     "gdp_required_noise_multiplier",
     "required_noise_multiplier",
+    "subspace_dp_aggregate",
 ]

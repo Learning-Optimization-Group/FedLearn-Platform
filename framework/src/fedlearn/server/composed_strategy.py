@@ -110,7 +110,8 @@ class ComposedStrategy(Strategy):
                  evaluate_fn: Optional[Callable] = None, min_fit_clients: int = 1,
                  clients_per_round: Optional[int] = None,
                  norm_band: Optional[Tuple[float, float]] = None,
-                 ks_reference_std: Optional[float] = None, ks_alpha: float = 1e-4):
+                 ks_reference_std: Optional[float] = None, ks_alpha: float = 1e-4,
+                 subspace_dim: Optional[int] = None, subspace_seed: int = 42):
         if rule not in RULES:
             raise ValueError(f"rule must be one of {RULES}, got {rule!r}")
         if clip_norm is not None and clip_norm <= 0:
@@ -135,6 +136,13 @@ class ComposedStrategy(Strategy):
         if self.rule_params["byzantine_fraction"] is None:
             self.rule_params["byzantine_fraction"] = 0.0
         self.z = float(central_noise_multiplier)
+        self.dp_enabled = (self.z > 0.0)
+        if self.rule == "centered_clip":
+            tau = self.rule_params.get("tau", 1.0)
+            if tau is None or not math.isfinite(tau) or tau <= 0:
+                raise ValueError(f"tau (clipping radius) must be a positive finite float, got {tau}")
+        self.subspace_dim = None if subspace_dim is None else int(subspace_dim)
+        self.subspace_seed = int(subspace_seed)
         # Noise-aware filtering (Xiang et al., SIGMOD'23): an upload whose delta norm falls outside the band
         # an honest privatized update occupies is dropped before clipping. It reads only privatized uploads,
         # so it is post-processing and costs no privacy.
@@ -231,7 +239,24 @@ class ComposedStrategy(Strategy):
         sens = self._sensitivity(len(ok))
         std = self.z * sens if (sens is not None and self.z > 0) else 0.0
         t = time.perf_counter()
-        if apply_noise and std > 0.0:
+        d_ambient = sum(reduced[k].numel() for k in keys)
+        if self.subspace_dim is not None and self.subspace_dim < d_ambient:
+            from fedlearn.privacy.subspace import SubspaceProjector
+            canonical_keys = sorted(keys)
+            projector = SubspaceProjector(
+                in_dim=d_ambient,
+                subspace_dim=self.subspace_dim,
+                base_seed=self.subspace_seed,
+            )
+            z = projector.project_dict(reduced, canonical_keys, server_round=server_round)
+            if apply_noise and std > 0.0:
+                noise_k = torch.empty_like(z)
+                noise_k.normal_(mean=0.0, std=std, generator=self._generator)
+                noisy_z = z + noise_k
+            else:
+                noisy_z = z
+            reduced = projector.reconstruct_dict(noisy_z, reduced, canonical_keys, server_round=server_round)
+        elif apply_noise and std > 0.0:
             for k in keys:
                 noise = torch.empty_like(reduced[k])
                 noise.normal_(mean=0.0, std=std, generator=self._generator)
@@ -248,6 +273,17 @@ class ComposedStrategy(Strategy):
             clip_rate=sum(1 for s in shrink if s < 1.0) / len(shrink),
             mean_shrink=sum(shrink) / len(shrink),
             sensitivity=sens, noise_std=std,
+            subspace_dim=self.subspace_dim,
+            snr_amplification=(
+                math.sqrt(d_ambient / self.subspace_dim)
+                if (self.subspace_dim is not None and self.subspace_dim < d_ambient)
+                else 1.0
+            ),
+            noise_reduction_factor=(
+                float(self.subspace_dim) / float(d_ambient)
+                if (self.subspace_dim is not None and self.subspace_dim < d_ambient)
+                else 1.0
+            ),
             kept_share=({str(c): s for (c, _, _), s in zip(ok, kept)} if kept is not None else None),
         )
         return out, stats
@@ -269,10 +305,10 @@ class ComposedStrategy(Strategy):
         self.last_round_stats = stats
         return out
 
-    def preview(self, results):
+    def preview(self, results, server_round: int = 0):
         """Noise-free aggregate of ``results`` with this strategy's rule and clip, without changing
         any state (used to measure an attack's deviation from the honest-only aggregate)."""
-        out, _ = self._pipeline(-1, results, apply_noise=False)
+        out, _ = self._pipeline(server_round, results, apply_noise=False)
         return out
 
     def evaluate(self, server_round, parameters):
