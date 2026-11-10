@@ -53,7 +53,13 @@ from fedlearn.security.key_agreement import (
     encrypt_share,
     generate_keypair,
 )
-from fedlearn.security.lightsecagg import PRIME, aggregate_shares, mask_values, shamir_share
+from fedlearn.security.lightsecagg import (
+    PRIME,
+    aggregate_shares,
+    csprng_uniform_mod_prime,
+    mask_values,
+    shamir_share,
+)
 
 log = logging.getLogger(__name__)
 
@@ -169,12 +175,8 @@ class SecureAggregationClient:
         self._cohort_closed = bool(response.cohort_closed)
         self.partition = self._locate_self(self._cohort)
 
-        # Real entropy, not a function of (client_id, round) -- see the module docstring.
-        seed = int.from_bytes(os.urandom(8), "big") >> 1
-        generator = torch.Generator().manual_seed(seed)
-        self._mask = torch.randint(
-            0, PRIME, (self._num_scalars,), generator=generator, dtype=torch.int64
-        )
+        # Real entropy via CSPRNG (os.urandom), avoiding 32-bit PRNG seed truncation inherent to torch.Generator
+        self._mask = csprng_uniform_mod_prime(self._num_scalars)
         self._held = {}
         return dict(self._cohort)
 
@@ -223,7 +225,6 @@ class SecureAggregationClient:
             secret=self._mask,
             num_shares=num_shares,
             threshold=self._threshold,
-            seed=int.from_bytes(os.urandom(8), "big") >> 1,
         )
 
         sealed: List[fedlearn_pb2.SealedShare] = []

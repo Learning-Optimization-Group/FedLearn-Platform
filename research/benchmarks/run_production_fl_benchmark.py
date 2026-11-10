@@ -136,6 +136,7 @@ def train_client_local(
     momentum: float = 0.9,
     batch_size: int = 32,
     clip_c: float = 2.0,
+    seed: int = 42,
 ) -> torch.Tensor:
     """Trains client locally with SGD momentum and returns clipped parameter update vector."""
     initial_flat = model.get_flat_params().clone()
@@ -143,7 +144,8 @@ def train_client_local(
     criterion = nn.CrossEntropyLoss()
 
     ds = TensorDataset(features, labels)
-    loader = DataLoader(ds, batch_size=batch_size, shuffle=True)
+    loader_rng = torch.Generator().manual_seed(seed)
+    loader = DataLoader(ds, batch_size=batch_size, shuffle=True, generator=loader_rng)
 
     model.train()
     for _ in range(epochs):
@@ -189,7 +191,10 @@ def run_production_experiment(
     proj_matrix: Optional[torch.Tensor] = None,
     num_rounds: int = 25,
     clip_c: float = 2.0,
-    z_noise: float = 0.5,
+    target_epsilon: Optional[float] = 4.0,
+    target_delta: float = 1e-5,
+    z_noise: Optional[float] = None,
+    center_mode: Optional[str] = None,
     seed: int = 42,
 ) -> Dict[str, Any]:
     """Runs one full production FL training trajectory for a specific policy configuration."""
@@ -212,19 +217,44 @@ def run_production_experiment(
     param_dim = model.get_flat_params().numel()
 
     # 2. DP Sensitivity & Noise Standard Deviation
+    tau = clip_c / 4.0
+    effective_center_mode = "none"
     if policy in ("Mean512", "Projected128"):
         sensitivity = (2.0 * clip_c) / num_clients
     elif policy == "Trim16":
         k_trim = int(0.2 * num_clients)
         surviving = num_clients - 2 * k_trim
         sensitivity = (2.0 * clip_c) / max(surviving, 1)
-    elif policy == "CenterQuarter":
-        tau = clip_c / 4.0
+    elif policy in ("CenterQuarter", "CenterQuarter_Origin"):
+        effective_center_mode = center_mode or "origin"
+        sensitivity = (2.0 * tau) / num_clients
+    elif policy == "CenterQuarter_History":
+        effective_center_mode = "history"
+        sensitivity = (2.0 * tau) / num_clients
+    elif policy == "EqualRadiusMean":
+        # Equal-radius control: algebraically identical to origin-centered clipping at tau
+        effective_center_mode = "origin"
         sensitivity = (2.0 * tau) / num_clients
     else:
         raise ValueError(f"Unknown policy: {policy}")
 
-    sigma = z_noise * sensitivity if private else 0.0
+    accounted_eps = None
+    best_order = None
+    if private:
+        from fedlearn.privacy.dp_accountant import compute_rdp, get_epsilon, required_noise_multiplier
+        if z_noise is None:
+            assert target_epsilon is not None
+            z_eff = float(required_noise_multiplier(target_epsilon, 1.0, num_rounds, target_delta))
+        else:
+            z_eff = float(z_noise)
+        rdp_vals = compute_rdp(1.0, z_eff, num_rounds)
+        accounted_eps, best_order = get_epsilon(rdp_vals, target_delta)
+        accounted_eps = float(accounted_eps)
+        best_order = float(best_order)
+        sigma = float(z_eff * sensitivity)
+    else:
+        z_eff = 0.0
+        sigma = 0.0
 
     # 3. Byzantine Adversaries (20% = 4 clients)
     num_byzantine = int(0.2 * num_clients) if attacked else 0
@@ -237,6 +267,7 @@ def run_production_experiment(
 
     previous_aggregate = torch.zeros(param_dim)
     round_history: List[Dict[str, Any]] = []
+    center_norms: List[float] = []
 
     for r in range(1, num_rounds + 1):
         r_start = time.perf_counter()
@@ -253,7 +284,7 @@ def run_production_experiment(
             else:
                 client_model = LinearClassifier(in_dim=dim, num_classes=num_classes)
                 client_model.set_flat_params(current_global)
-                delta = train_client_local(
+                client_delta = train_client_local(
                     client_model,
                     client_feats[cid],
                     train_labels[partitions[cid]],
@@ -261,20 +292,38 @@ def run_production_experiment(
                     lr=0.1,
                     momentum=0.9,
                     clip_c=clip_c,
+                    seed=seed + (cid + 1) * 1000 + r * 17,
                 )
-                updates.append(delta)
+                updates.append(client_delta)
 
         stacked = torch.stack(updates, dim=0)
+
+        # Finite value safety check
+        if not torch.isfinite(stacked).all():
+            raise ValueError(f"Round {r}: Non-finite client updates encountered in {policy}")
 
         # Policy Aggregation
         if policy in ("Mean512", "Projected128"):
             agg = stacked.mean(dim=0)
         elif policy == "Trim16":
             agg = trimmed_mean(stacked, trim_ratio=0.2)
-        elif policy == "CenterQuarter":
-            agg, _ = adaptive_centered_clip(
-                stacked, centre=previous_aggregate, quantile=0.5, min_tau=0.2, max_tau=clip_c
-            )
+        elif policy in ("CenterQuarter", "CenterQuarter_Origin"):
+            if effective_center_mode == "origin":
+                centre = torch.zeros(param_dim)
+            else:
+                centre = previous_aggregate
+            center_norms.append(float(torch.norm(centre).item()))
+            agg = centered_clip(stacked, centre=centre, tau=tau, iterations=1)
+        elif policy == "CenterQuarter_History":
+            centre = previous_aggregate
+            center_norms.append(float(torch.norm(centre).item()))
+            agg = centered_clip(stacked, centre=centre, tau=tau, iterations=1)
+        elif policy == "EqualRadiusMean":
+            # Direct norm-clipped average to radius tau
+            norms = torch.clamp(torch.norm(stacked, dim=1, keepdim=True), min=1e-12)
+            scales = torch.clamp(tau / norms, max=1.0)
+            agg = (stacked * scales).mean(dim=0)
+            center_norms.append(0.0)
 
         # DP Gaussian Noise injection
         if private and sigma > 0:
@@ -308,7 +357,13 @@ def run_production_experiment(
         "policy": policy,
         "private": private,
         "attacked": attacked,
+        "center_mode": effective_center_mode,
+        "center_norms_per_round": center_norms,
         "sensitivity": sensitivity,
+        "noise_multiplier_z": z_eff if private else None,
+        "accounted_epsilon": accounted_eps if private else None,
+        "best_order": best_order if private else None,
+        "delta": target_delta if private else None,
         "noise_sigma": sigma,
         "param_dimension": param_dim,
         "final_loss": final_loss,
@@ -317,9 +372,29 @@ def run_production_experiment(
     }
 
 
+def get_git_provenance() -> Dict[str, Any]:
+    """Captures git commit hash and working tree status."""
+    import subprocess
+    try:
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True, cwd=REPO_ROOT).strip()
+        status = subprocess.check_output(["git", "status", "--porcelain"], text=True, cwd=REPO_ROOT).strip()
+        return {"commit": commit, "dirty": len(status) > 0}
+    except Exception as e:
+        return {"commit": "unknown", "dirty": True, "error": str(e)}
+
+
+def compute_partitions_hash(partitions: List[np.ndarray]) -> str:
+    """Computes a SHA-256 fingerprint over client partition arrays."""
+    import hashlib
+    h = hashlib.sha256()
+    for p in partitions:
+        h.update(p.tobytes())
+    return h.hexdigest()
+
+
 def run_full_production_benchmark() -> Dict[str, Any]:
     print(f"\n{'='*75}")
-    print("PRODUCTION FEDERATED LEARNING BENCHMARK: CIFAR-10 (ResNet-18 Backbone)")
+    print("PRODUCTION FEDERATED LEARNING DUAL-REGIME BENCHMARK (ResNet-18 Backbone)")
     print(f"{'='*75}")
 
     num_clients = 20
@@ -338,15 +413,29 @@ def run_full_production_benchmark() -> Dict[str, Any]:
 
     proj_matrix = build_orthonormal_projection(in_dim=512, out_dim=128, seed=PROJECTION_SEED)
 
-    policies = ["Mean512", "Projected128", "Trim16", "CenterQuarter"]
+    policies = [
+        "Mean512",
+        "Projected128",
+        "Trim16",
+        "CenterQuarter_Origin",
+        "CenterQuarter_History",
+        "EqualRadiusMean",
+    ]
+
     settings = [
-        {"private": False, "attacked": False, "label": "clean_no_noise"},
-        {"private": True,  "attacked": False, "label": "clean_private"},
-        {"private": False, "attacked": True,  "label": "attacked_no_noise"},
-        {"private": True,  "attacked": True,  "label": "attacked_private"},
+        {"private": False, "attacked": False, "label": "clean_no_noise",       "regime": "control",        "z_noise": 0.0},
+        {"private": False, "attacked": True,  "label": "attacked_no_noise",    "regime": "control",        "z_noise": 0.0},
+        {"private": True,  "attacked": False, "label": "clean_private_z05",    "regime": "exploratory",    "z_noise": 0.5},
+        {"private": True,  "attacked": True,  "label": "attacked_private_z05", "regime": "exploratory",    "z_noise": 0.5},
+        {"private": True,  "attacked": False, "label": "clean_private_eps4",   "regime": "certified_dp",   "z_noise": None, "target_epsilon": 4.0},
+        {"private": True,  "attacked": True,  "label": "attacked_private_eps4",  "regime": "certified_dp",   "z_noise": None, "target_epsilon": 4.0},
     ]
 
     all_results: List[Dict[str, Any]] = []
+    out_file = REPO_ROOT / "research" / "results" / "production_fl" / "production_cifar_dual_regime_benchmark.json"
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+
+    git_meta = get_git_provenance()
 
     for seed in seeds:
         print(f"\n>>> Running Seed {seed} <<<")
@@ -357,6 +446,7 @@ def run_full_production_benchmark() -> Dict[str, Any]:
             seed=seed,
             min_partition_size=10,
         )
+        part_hash = compute_partitions_hash(partitions)
 
         for setting in settings:
             for pol in policies:
@@ -373,17 +463,38 @@ def run_full_production_benchmark() -> Dict[str, Any]:
                     proj_matrix=proj_matrix,
                     num_rounds=num_rounds,
                     clip_c=clip_c,
+                    target_epsilon=setting.get("target_epsilon", 4.0),
+                    target_delta=1e-5,
+                    z_noise=setting["z_noise"],
                     seed=seed,
                 )
                 res["seed"] = seed
                 res["setting_label"] = setting["label"]
+                res["regime"] = setting["regime"]
+                res["partition_hash"] = part_hash
                 elapsed = time.perf_counter() - t0
                 all_results.append(res)
                 print(
-                    f"  [{setting['label']:<18}] {pol:<14} -> "
-                    f"Test Acc: {res['final_accuracy']*100:.2f}% | "
+                    f"  [{setting['label']:<20}] {pol:<22} -> "
+                    f"Acc: {res['final_accuracy']*100:.2f}% | "
                     f"Loss: {res['final_loss']:.4f} ({elapsed:.2f}s)"
                 )
+
+                # Incremental checkpointing
+                partial_report = {
+                    "meta": {
+                        "benchmark": "Production Federated Learning (ResNet-18 ImageNet Backbone)",
+                        "dataset": "CIFAR-10 real images (112x112, ImageNet normalized)",
+                        "num_clients": num_clients,
+                        "dirichlet_alpha": alpha,
+                        "num_rounds": num_rounds,
+                        "clip_norm_C": clip_c,
+                        "git_provenance": git_meta,
+                        "num_results_so_far": len(all_results),
+                    },
+                    "results": all_results,
+                }
+                out_file.write_text(json.dumps(partial_report, indent=2, allow_nan=False) + "\n")
 
     # Compute comparative summary table across seeds
     summary_by_policy: Dict[str, Dict[str, float]] = {}
@@ -397,30 +508,39 @@ def run_full_production_benchmark() -> Dict[str, Any]:
             ]
             summary_by_policy[pol][lbl] = float(np.mean(accs))
 
-    print(f"\n{'='*75}")
-    print(f"PRODUCTION FL SUMMARY MATRIX (Mean Test Accuracy across 3 seeds)")
-    print(f"{'='*75}")
-    print(f"{'Policy':<16} | {'Clean':<10} | {'Clean+DP':<10} | {'Attacked':<10} | {'Attacked+DP':<10}")
-    print("-" * 75)
+    print(f"\n{'='*95}")
+    print("PRODUCTION FL SUMMARY MATRIX (Mean Test Accuracy across 3 seeds)")
+    print(f"{'='*95}")
+    print(f"{'Policy':<22} | {'Clean':<8} | {'Attacked':<8} | {'Clean(z=0.5)':<12} | {'Att(z=0.5)':<12} | {'Clean(eps=4)':<12} | {'Att(eps=4)':<12}")
+    print("-" * 95)
     for pol in policies:
         s = summary_by_policy[pol]
         print(
-            f"{pol:<16} | {s['clean_no_noise']*100:6.2f}%   | {s['clean_private']*100:6.2f}%   | "
-            f"{s['attacked_no_noise']*100:6.2f}%   | {s['attacked_private']*100:6.2f}%"
+            f"{pol:<22} | "
+            f"{s['clean_no_noise']*100:6.2f}% | "
+            f"{s['attacked_no_noise']*100:6.2f}% | "
+            f"{s['clean_private_z05']*100:10.2f}% | "
+            f"{s['attacked_private_z05']*100:10.2f}% | "
+            f"{s['clean_private_eps4']*100:10.2f}% | "
+            f"{s['attacked_private_eps4']*100:10.2f}%"
         )
-    print(f"{'='*75}\n")
+    print(f"{'='*95}\n")
 
     report: Dict[str, Any] = {
         "meta": {
             "benchmark": "Production Federated Learning (ResNet-18 ImageNet Backbone)",
-            "dataset": "CIFAR-10 real images (112x112, ImageNet normalized)",
+            "dataset": "CIFAR-10 real images (112x112, ImageNet normalized, first 4000 train / 1000 test)",
             "num_clients": num_clients,
             "dirichlet_alpha": alpha,
             "num_rounds": num_rounds,
             "clip_norm_C": clip_c,
             "server_optimizer": "FedAdam (beta1=0.9, beta2=0.99, eta_g=0.1)",
-            "privacy_target": {"z": 0.5, "adaptive_clipping": True},
+            "regimes": {
+                "exploratory": {"z_noise": 0.5, "accountant_nominal_eps": 98.02585, "delta": 1e-5},
+                "certified_dp": {"target_epsilon": 4.0, "delta": 1e-5, "accountant_z": 6.48041},
+            },
             "seeds": seeds,
+            "git_provenance": git_meta,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "platform": {
                 "system": platform.system(),
@@ -433,10 +553,8 @@ def run_full_production_benchmark() -> Dict[str, Any]:
         "results": all_results,
     }
 
-    out_file = REPO_ROOT / "research" / "results" / "production_fl" / "production_cifar_benchmark.json"
-    out_file.parent.mkdir(parents=True, exist_ok=True)
-    out_file.write_text(json.dumps(report, indent=2) + "\n")
-    print(f"Saved complete production benchmark results to: {out_file}")
+    out_file.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+    print(f"Saved complete production dual-regime benchmark results to: {out_file}")
 
     return report
 

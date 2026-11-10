@@ -27,6 +27,7 @@ from fedlearn.security.lightsecagg import (
     PRIME,
     aggregate_shares,
     client_mask,
+    csprng_uniform_mod_prime,
     mask_values,
     recover_aggregate,
     shamir_reconstruct,
@@ -146,3 +147,27 @@ def test_recovery_refuses_below_threshold():
             summed_shares={1: torch.tensor([0], dtype=torch.int64)},
             threshold=3,
         )
+
+
+def test_csprng_uniform_mod_prime_bounds_and_entropy():
+    """Verify csprng_uniform_mod_prime generates strictly bounded, non-truncated CSPRNG entropy."""
+    n = 1000
+    t1 = csprng_uniform_mod_prime(n)
+    t2 = csprng_uniform_mod_prime(n)
+
+    assert t1.shape == (n,)
+    assert t1.dtype == torch.int64
+    assert (t1 >= 0).all()
+    assert (t1 < PRIME).all()
+    # Consecutive CSPRNG samples must not collide across 1000 coordinates
+    assert not torch.equal(t1, t2)
+
+
+def test_shamir_share_without_seed_uses_csprng():
+    """Verify shamir_share without an explicit seed successfully shares and reconstructs using CSPRNG."""
+    secret = torch.tensor([42, 999999, 1024], dtype=torch.int64)
+    shares = shamir_share(secret, num_shares=4, threshold=3)
+    assert len(shares) == 4
+    recovered = shamir_reconstruct({1: shares[1], 2: shares[2], 4: shares[4]}, threshold=3)
+    assert torch.equal(recovered, secret)
+

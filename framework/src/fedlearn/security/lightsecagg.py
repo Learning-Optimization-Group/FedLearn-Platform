@@ -42,24 +42,51 @@ STILL NOT IMPLEMENTED (slice 3)
 from __future__ import annotations
 
 import hashlib
-from typing import Dict, Sequence
+import os
+from typing import Dict, Optional, Sequence
 
+import numpy as np
 import torch
 
 # 2**31 - 1 is prime (a Mersenne prime), which Shamir requires and slice 1's 2**32 is not.
 PRIME = 2 ** 31 - 1
 
 
+def csprng_uniform_mod_prime(num_scalars: int, prime: int = PRIME) -> torch.Tensor:
+    """Generate uniform random int64 integers in [0, prime - 1] using cryptographic OS entropy.
+
+    Draws bytes directly from ``os.urandom`` with unbiased rejection sampling.
+    Avoids 32-bit PRNG seed truncation inherent to ``torch.Generator`` on CPU.
+    """
+    if prime <= 0:
+        raise ValueError(f"prime must be positive, got {prime}")
+    if prime > 2 ** 31 - 1:
+        raise ValueError(f"csprng_uniform_mod_prime currently requires prime <= 2**31 - 1, got {prime}")
+
+    raw = os.urandom(num_scalars * 4)
+    arr = np.frombuffer(raw, dtype=np.uint32).copy()
+    limit = 2 * prime
+    mask = arr >= limit
+    while np.any(mask):
+        n_needed = int(np.sum(mask))
+        arr[mask] = np.frombuffer(os.urandom(n_needed * 4), dtype=np.uint32)
+        mask = arr >= limit
+    return torch.from_numpy((arr % prime).astype(np.int64))
+
+
 def _inv(a: int, p: int = PRIME) -> int:
     """Modular inverse via Fermat's little theorem (valid because ``p`` is prime)."""
-    return pow(int(a) % p, p - 2, p)
+    val = int(a) % p
+    if val == 0:
+        raise ZeroDivisionError(f"Cannot invert zero modulo {p}")
+    return pow(val, p - 2, p)
 
 
 def shamir_share(
         secret: torch.Tensor,
         num_shares: int,
         threshold: int,
-        seed: int,
+        seed: Optional[int] = None,
 ) -> Dict[int, torch.Tensor]:
     """Split ``secret`` (an int64 vector) into ``num_shares`` Shamir shares over ``PRIME``.
 
@@ -83,11 +110,15 @@ def shamir_share(
     secret = secret.to(torch.int64) % PRIME
     length = secret.numel()
 
-    gen = torch.Generator().manual_seed(int(seed))
     # coeffs[0] is the secret; the rest are uniform in the field.
     coeffs = [secret]
-    for _ in range(threshold - 1):
-        coeffs.append(torch.randint(0, PRIME, (length,), generator=gen, dtype=torch.int64))
+    if seed is not None:
+        gen = torch.Generator().manual_seed(int(seed))
+        for _ in range(threshold - 1):
+            coeffs.append(torch.randint(0, PRIME, (length,), generator=gen, dtype=torch.int64))
+    else:
+        for _ in range(threshold - 1):
+            coeffs.append(csprng_uniform_mod_prime(length, PRIME))
 
     shares: Dict[int, torch.Tensor] = {}
     for x in range(1, num_shares + 1):

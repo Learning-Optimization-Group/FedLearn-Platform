@@ -795,6 +795,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
     def _secure_session(self, round_index: int):
         """The session for ``round_index``, created on first use."""
         from fedlearn.server.secure_agg_session import SecureAggregationSession
+        if round_index < 0:
+            raise ValueError(f"Invalid negative round_index: {round_index}")
+        curr = getattr(self.coordinator, "current_round", 0)
+        if round_index > curr + 2:
+            raise ValueError(f"Cannot allocate future session for round {round_index} (current: {curr})")
         if round_index not in self._secure_sessions:
             strategy = self.coordinator.strategy
             num_scalars = (strategy.K * strategy.P) if isinstance(strategy, DeComFL) else 1
@@ -942,6 +947,19 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         """v2 telemetry (§6.4): accept a client's per-round loss/accuracy/compute and record it on the
         coordinator for the dashboard. Best-effort — a telemetry failure never fails the round."""
         try:
+            if request.round < 0:
+                logging.warning(f"Rejected telemetry with negative round: {request.round}")
+                return fedlearn_pb2.ReportClientMetricsResponse(acknowledged=False)
+
+            partition = self._verified_partition(context)
+            if partition is not None:
+                expected_cid = f"client-{partition}"
+                if request.client_id and request.client_id != expected_cid and request.client_id != str(partition):
+                    logging.warning(
+                        f"Telemetry client_id mismatch: claimed {request.client_id}, verified partition {partition}"
+                    )
+                    return fedlearn_pb2.ReportClientMetricsResponse(acknowledged=False)
+
             self.coordinator.record_client_metrics({
                 "client_id": request.client_id,
                 "run_id": request.run_id,

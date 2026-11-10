@@ -188,3 +188,52 @@ def test_missing_key_raises_key_error():
     short = FIVE[:4] + [("c4", OrderedDict([(W, GLOBAL[W])]), 100)]  # client lacks B
     with pytest.raises(KeyError):
         _agg(short, "mean")
+
+
+def test_codex_counterexample_demonstrates_adaptive_clip_sensitivity_leak():
+    """Codex Counterexample: unprivatized quantile selection breaches declared sensitivity by 12x.
+
+    D  = 9 clients at 0.0, 11 clients at 2.0 (N=20, C=2.0)
+    D' = 10 clients at 0.0, 10 clients at 2.0 (differ by 1 client)
+    Declared sensitivity if assuming static tau = C/4 = 0.5: Delta = 2*0.5/20 = 0.05.
+    """
+    from fedlearn.server.robust_aggregation import adaptive_centered_clip
+
+    # D has 9 zeros and 11 twos
+    D = torch.cat([torch.zeros(9, 1), torch.full((11, 1), 2.0)], dim=0)
+    # D' has 10 zeros and 10 twos (differs by 1 client replacement)
+    D_prime = torch.cat([torch.zeros(10, 1), torch.full((10, 1), 2.0)], dim=0)
+
+    centre = torch.zeros(1)
+    # If tau is chosen as empirical median distance without DP noise:
+    agg_D, tau_D = adaptive_centered_clip(D, centre=centre, quantile=0.5, min_tau=0.2, max_tau=2.0)
+    agg_D_prime, tau_D_prime = adaptive_centered_clip(D_prime, centre=centre, quantile=0.5, min_tau=0.2, max_tau=2.0)
+
+    shift = float(torch.abs(agg_D - agg_D_prime).item())
+    declared_sensitivity = (2.0 * 0.5) / 20.0  # 0.05
+
+    # Empirical median distance was 2.0 in D and 1.0 in D', resulting in shift 0.6 vs 0.05
+    assert shift > 5.0 * declared_sensitivity, f"Counterexample shift {shift} should exceed declared {declared_sensitivity}"
+    assert shift == pytest.approx(0.6, abs=1e-5)
+
+
+def test_certified_centered_clip_strictly_satisfies_sensitivity_bound():
+    """Certified Centered Clip: fixed radius tau = C/4 strictly guarantees shift <= 2*tau/N."""
+    from fedlearn.server.robust_aggregation import centered_clip
+
+    D = torch.cat([torch.zeros(9, 1), torch.full((11, 1), 2.0)], dim=0)
+    D_prime = torch.cat([torch.zeros(10, 1), torch.full((10, 1), 2.0)], dim=0)
+
+    centre = torch.zeros(1)
+    tau = 0.5  # Certified fixed tau = C/4
+    certified_sensitivity = (2.0 * tau) / 20.0  # 0.05
+
+    agg_D = centered_clip(D, centre=centre, tau=tau, iterations=1)
+    agg_D_prime = centered_clip(D_prime, centre=centre, tau=tau, iterations=1)
+
+    shift = float(torch.abs(agg_D - agg_D_prime).item())
+    assert shift <= certified_sensitivity + 1e-7, (
+        f"Certified shift {shift} must be <= sensitivity bound {certified_sensitivity}"
+    )
+    assert shift == pytest.approx(0.025, abs=1e-5)
+

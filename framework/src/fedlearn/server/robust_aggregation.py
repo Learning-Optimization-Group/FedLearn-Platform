@@ -250,10 +250,12 @@ def centered_clip(
     Iterate ``v <- v + (1/n) * sum_i clip(x_i - v, tau)``, where
     ``clip(z, tau) = z * min(1, tau / ||z||)``.
 
-    The robustness is structural rather than statistical: every clipped term has norm at most
-    ``tau``, so their mean does too, so ONE iteration moves the centre by at most ``tau`` no matter
-    what an attacker sends. That is what gives it a 0.5 breakdown point without needing to sort,
-    select or discard anyone — every client contributes, but none can contribute more than ``tau``.
+    The robustness is structural: every clipped term has norm at most ``tau``, so their mean does
+    too, so ONE iteration moves the centre by at most ``tau`` no matter what an attacker sends.
+    This guarantees bounded influence under arbitrary adversarial inputs. Note that bounded movement
+    alone does not guarantee convergence or majority recovery if honest gradients are small (a << tau);
+    for formal differential privacy, tau must be fixed or conditioned on prior public releases to certify
+    sensitivity Delta = 2*min(C, tau)/n.
 
     Unlike the selection rules this needs a ``centre`` to clip around. The natural choice on the
     server is the CURRENT GLOBAL MODEL: honest clients sit near it and pass through unclipped, while
@@ -305,8 +307,12 @@ def adaptive_centered_clip(
     of client update distances from the centre. This prevents artificial throttling of
     honest gradients during early learning while strictly bounding Byzantine outliers.
 
-    Args:
-        stacked: [n_clients, D] flattened client updates.
+    .. warning::
+        Using empirical quantiles from private client updates directly creates a data-dependent
+        clipping radius that alters the sensitivity of the release. For formal differential privacy
+        guarantees, either use :func:`centered_clip` with a fixed/public radius (yielding certified
+        sensitivity 2*min(C, tau)/n), or use :class:`fedlearn.privacy.adaptive_clipping.DPAdaptiveClipping`
+        to privately noise the threshold estimator with composed privacy accounting.
         centre: [D] point to clip around. If None, uses coordinate-wise median.
         quantile: quantile of distance distribution (0.0 to 1.0, default 0.5 for median).
         min_tau: lower bound clamp for tau.

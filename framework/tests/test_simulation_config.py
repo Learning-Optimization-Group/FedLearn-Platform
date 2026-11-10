@@ -22,11 +22,15 @@ def test_unknown_key_is_rejected_with_its_path():
     assert e.value.field == "server.clip_nrom"
 
 
-@pytest.mark.parametrize("rule", ["median", "krum", "multi_krum", "bulyan", "centered_clip", "weighted_mean"])
+@pytest.mark.parametrize("rule", ["median", "krum", "multi_krum", "bulyan", "weighted_mean"])
 def test_central_dp_rejects_rules_without_a_replace_one_bound(rule):
     with pytest.raises(ConfigError) as e:
         resolve({**BASE, "server": {"rule": rule}, "privacy": {"mode": "central"}})
     assert e.value.field == "server.rule"
+
+
+def test_central_dp_accepts_centered_clip():
+    assert resolve({**BASE, "server": {"rule": "centered_clip"}, "privacy": {"mode": "central"}})["server"]["rule"] == "centered_clip"
 
 
 def test_local_dp_accepts_any_rule():
