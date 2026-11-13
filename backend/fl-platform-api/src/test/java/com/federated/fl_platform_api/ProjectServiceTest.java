@@ -236,6 +236,7 @@ class ProjectServiceTest {
         Run run = mock(Run.class);
         lenient().when(run.getId()).thenReturn(UUID.randomUUID());
         lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any())).thenReturn(run);
+        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any(), any(), any())).thenReturn(run);
 
         // Model the FlServerManager runningServers map: a spawn flips it "running" and briefly
         // holds — widening the check-then-act window the race would otherwise exploit.
@@ -291,6 +292,7 @@ class ProjectServiceTest {
         Run run = mock(Run.class);
         lenient().when(run.getId()).thenReturn(UUID.randomUUID());
         lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any())).thenReturn(run);
+        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any(), any(), any())).thenReturn(run);
         lenient().when(flServerManager.isServerRunning(projectId)).thenReturn(false);
         lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any()))
                 .thenReturn(Optional.of(50000));
@@ -496,6 +498,7 @@ class ProjectServiceTest {
         Run run = mock(Run.class);
         lenient().when(run.getId()).thenReturn(UUID.randomUUID());
         lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any())).thenReturn(run);
+        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any(), any(), any())).thenReturn(run);
         lenient().when(flServerManager.isServerRunning(projectId)).thenReturn(false);
         lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any()))
                 .thenReturn(Optional.of(50000));
@@ -591,6 +594,29 @@ class ProjectServiceTest {
         verify(flServerManager).startServerForProject(eq(testProject), eq("Robust"), anyInt(), eq(2), isNull(), isNull(), eq(2));
     }
 
+    @Test
+    void adFedAdamStart_withTau_passesTauToRunService() throws Exception {
+        arrangeRobustStart();
+        StartProject req = new StartProject();
+        req.setStrategy("ADFedAdam");
+        req.setMinClients(2);
+        req.setCenteredClipTau(0.5);
+        projectService.startServerForProject(testProject.getId(), req);
+        verify(runService).createForStart(eq(testProject), eq("ADFedAdam"), anyInt(), eq(2), anyInt(), isNull(), isNull(), any(), isNull(), eq(0.5));
+    }
+
+    @Test
+    void adFedAdamStart_withRobustMethod_isRefused() {
+        arrangeRobustStart();
+        StartProject req = new StartProject();
+        req.setStrategy("ADFedAdam");
+        req.setRobustMethod("KRUM");
+        req.setMinClients(2);
+        assertThrows(IllegalArgumentException.class, () ->
+                projectService.startServerForProject(testProject.getId(), req));
+        assertNothingCreatedOrSpawned();
+    }
+
     // ─── Secure aggregation at /start ──────────────────────────────────────────────────────────
     // Offered only where it does something (DeComFL), only where it can work (client auth on), and only with a
     // threshold a round can meet (<= minClients, which is exactly what every DeComFL round aggregates). The one
@@ -604,6 +630,7 @@ class ProjectServiceTest {
         Run run = mock(Run.class);
         lenient().when(run.getId()).thenReturn(UUID.randomUUID());
         lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any())).thenReturn(run);
+        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any(), any(), any(), any())).thenReturn(run);
         lenient().when(flServerManager.isServerRunning(projectId)).thenReturn(false);
         lenient().when(flServerManager.isClientAuthRequired()).thenReturn(clientAuthRequired);
         lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any()))

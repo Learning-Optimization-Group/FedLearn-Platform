@@ -305,7 +305,7 @@ class FlServerManagerCommandTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"FedProx", "FedOpt", "Robust", "DeComFL"})
+    @ValueSource(strings = {"FedProx", "FedOpt", "Robust", "DeComFL", "ADFedAdam"})
     void dpEnabledRunOnAStrategyWithoutDp_isRejected(String strategy) {
         // fl_server.py implements central DP only in FedLoRA and FedAvg (DPFedAvg). Any other strategy used to
         // accept --dp-enabled, train in the clear and register an artifact the upload gate accepts as non-DP.

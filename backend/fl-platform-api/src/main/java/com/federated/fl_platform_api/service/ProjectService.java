@@ -176,11 +176,18 @@ public class ProjectService {
         if (method == null && fraction == null && trim == null && tau == null) {
             return null;
         }
-        if (!"Robust".equals(strategy)) {
+        if (!"Robust".equals(strategy) && !"ADFedAdam".equals(strategy)) {
             throw new IllegalArgumentException(String.format(
                     "robustMethod, byzantineFraction, trimRatio and centeredClipTau apply only to the Robust "
                             + "strategy, but this run's strategy is %s. They would be ignored, so they are refused.",
                     strategy));
+        }
+        if ("ADFedAdam".equals(strategy)) {
+            if (method != null || fraction != null || trim != null) {
+                throw new IllegalArgumentException(
+                        "robustMethod, byzantineFraction, and trimRatio apply only to Robust, not ADFedAdam; only centeredClipTau applies to ADFedAdam.");
+            }
+            return null;
         }
         if (method == null) {
             throw new IllegalArgumentException(
@@ -598,6 +605,10 @@ public class ProjectService {
                     run = runService.createForStart(lockedProject, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
                             robustSettings, secureAggThreshold, dataSource,
                             request != null ? request.getFedOpt() : null);
+                } else if ("ADFedAdam".equals(strategyToUse)) {
+                    Double tau = request != null ? request.getCenteredClipTau() : null;
+                    run = runService.createForStart(lockedProject, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
+                            robustSettings, secureAggThreshold, dataSource, null, tau);
                 } else {
                     run = runService.createForStart(lockedProject, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
                             robustSettings, secureAggThreshold, dataSource);

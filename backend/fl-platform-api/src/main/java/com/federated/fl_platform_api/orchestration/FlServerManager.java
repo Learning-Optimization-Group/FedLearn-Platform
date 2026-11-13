@@ -273,7 +273,8 @@ public class FlServerManager {
                     project, intent, run.getStrategy(), run.getNumRounds(), run.getMinClients(), freePort,
                     absoluteScriptPath, isWindows, initModelPath, null, null,
                     run.getClientsPerRound() > run.getMinClients() ? run.getClientsPerRound() : null,
-                    "FedOpt".equals(run.getStrategy()) ? run.getFedOpt() : null);
+                    "FedOpt".equals(run.getStrategy()) ? run.getFedOpt() : null,
+                    "ADFedAdam".equals(run.getStrategy()) ? run.getCenteredClipTau() : null);
 
             command.add("--resume-from-checkpoint");
             command.add("--checkpoint-directory");
@@ -438,11 +439,14 @@ public class FlServerManager {
             // BA-11: warm-start a continued run from the registry head (FULL_CHECKPOINT) when one exists;
             // null on a first run / LoRA → fl_server.py reads the .npz (--model-path) as before.
             String initModelPath = registryModelResolver.resolveModelPath(project).orElse(null);
+            Run activeRun = project.getActiveRunId() != null
+                    ? runRepository.findById(project.getActiveRunId()).orElse(null) : null;
+            FedOptSettings fedOpt = "FedOpt".equals(strategy) && activeRun != null ? activeRun.getFedOpt() : null;
+            Double adFedAdamTau = "ADFedAdam".equals(strategy) && activeRun != null ? activeRun.getCenteredClipTau() : null;
             List<String> command = buildServerCommand(
                     project, intent, strategy, numRounds, minClients, freePort, absoluteScriptPath, isWindows,
                     initModelPath, robust, secureAggThreshold, clientsPerRound,
-                    "FedOpt".equals(strategy) && project.getActiveRunId() != null
-                            ? runRepository.findById(project.getActiveRunId()).orElseThrow().getFedOpt() : null);
+                    fedOpt, adFedAdamTau);
 
             if (isEligibleForRecovery(strategy, secureAggThreshold, intent) && project.getActiveRunId() != null) {
                 Path cpDir = getCheckpointDirectory(project.getActiveRunId());
@@ -832,8 +836,21 @@ public class FlServerManager {
                                            boolean isWindows, String initModelPath,
                                            RobustAggregationSettings robust, Integer secureAggThreshold,
                                            Integer clientsPerRound, FedOptSettings fedOpt) {
+        return buildServerCommand(project, intent, strategy, numRounds, minClients, freePort, absoluteScriptPath,
+                isWindows, initModelPath, robust, secureAggThreshold, clientsPerRound, fedOpt, null);
+    }
+
+    static List<String> buildServerCommand(Project project, RunIntent intent, String strategy, Integer numRounds,
+                                           Integer minClients, int freePort, String absoluteScriptPath,
+                                           boolean isWindows, String initModelPath,
+                                           RobustAggregationSettings robust, Integer secureAggThreshold,
+                                           Integer clientsPerRound, FedOptSettings fedOpt,
+                                           Double adFedAdamTau) {
         if (fedOpt != null && !"FedOpt".equals(strategy)) {
             throw new IllegalArgumentException("FedOpt settings apply only to FedOpt");
+        }
+        if (adFedAdamTau != null && !"ADFedAdam".equals(strategy)) {
+            throw new IllegalArgumentException("adFedAdamTau applies only to ADFedAdam, not " + strategy);
         }
         // Robust settings mean something only to the Robust strategy. Anywhere else fl_server.py would ignore
         // them, and the run record would name a rule that never ran.
@@ -1011,6 +1028,10 @@ public class FlServerManager {
                     command.add("--centered-clip-tau");
                     command.add(String.valueOf(robust.centeredClipTau().doubleValue()));
                 }
+            }
+            if (adFedAdamTau != null) {
+                command.add("--centered-clip-tau");
+                command.add(String.valueOf(adFedAdamTau.doubleValue()));
             }
             // Secure aggregation, a pinned flag contract with fl_server.py's argparse. The threshold is always
             // passed, so the argv carries the value the run was stored with rather than relying on the default.

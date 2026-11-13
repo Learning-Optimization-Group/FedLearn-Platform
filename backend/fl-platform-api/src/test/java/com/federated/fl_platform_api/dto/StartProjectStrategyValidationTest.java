@@ -34,6 +34,8 @@ class StartProjectStrategyValidationTest {
     @Test void robustAccepted()  { assertFalse(strategyRejected("Robust")); }
     // FR-32: the production client now honors the proximal term, so FedProx is a working option.
     @Test void fedProxAccepted() { assertFalse(strategyRejected("FedProx")); }
+    // FR-25 / Track C: Anchor-Decoupled FedAdam eliminates causal optimizer drag
+    @Test void adFedAdamAccepted() { assertFalse(strategyRejected("ADFedAdam")); }
 
     // Deliberately still rejected.
     @Test void unknownRejected() { assertTrue(strategyRejected("Nonsense")); }

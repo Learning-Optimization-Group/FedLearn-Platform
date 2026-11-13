@@ -159,8 +159,18 @@ public class RunService {
     public Run createForStart(Project project, String strategy, int numRounds, int minClients,
                               int clientsPerRound, RobustAggregationSettings robust, Integer secureAggThreshold,
                               TrainingDataSource dataSource, FedOptSettings fedOpt) {
+        return createForStart(project, strategy, numRounds, minClients, clientsPerRound, robust,
+                secureAggThreshold, dataSource, fedOpt, null);
+    }
+
+    public Run createForStart(Project project, String strategy, int numRounds, int minClients,
+                              int clientsPerRound, RobustAggregationSettings robust, Integer secureAggThreshold,
+                              TrainingDataSource dataSource, FedOptSettings fedOpt, Double adFedAdamTau) {
         if (fedOpt != null && !"FedOpt".equals(strategy)) {
             throw new IllegalArgumentException("FedOpt settings apply only to FedOpt");
+        }
+        if (adFedAdamTau != null && !"ADFedAdam".equals(strategy)) {
+            throw new IllegalArgumentException("adFedAdamTau applies only to ADFedAdam");
         }
         Run run = new Run();
         run.setFedOpt("FedOpt".equals(strategy) ? (fedOpt == null ? FedOptSettings.defaults() : fedOpt) : null);
@@ -176,6 +186,9 @@ public class RunService {
         run.setCreatedBy(project.getUser() != null ? project.getUser().getId() : null);
         run.setCreatedAt(Instant.now());
         applyRobustSettings(run, strategy, robust);
+        if ("ADFedAdam".equals(strategy) && adFedAdamTau != null) {
+            run.setCenteredClipTau(adFedAdamTau);
+        }
         run.setSecureAggregation(secureAggThreshold != null);
         run.setSecureAggThreshold(secureAggThreshold);
         run.setIntent(RunIntent.capture(project, serverCert.tlsRequired(), clientAuthRequired,
@@ -673,7 +686,7 @@ public class RunService {
         }
         Optional<ProjectMembership> m = membershipRepository
                 .findByIdProjectIdAndIdUserId(project.getId(), self.getId());
-        if (m.isPresent() && (m.get().getRole() == MembershipRole.CLIENT || m.get().getRole() == MembershipRole.MEMBER)) {
+        if (m.isPresent() && m.get().getRole() == MembershipRole.CLIENT) {
             return;
         }
         throw new AccessDeniedException("You are not a participant of this run's project");

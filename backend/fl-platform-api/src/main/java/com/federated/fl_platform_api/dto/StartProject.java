@@ -37,8 +37,8 @@ public class StartProject {
      * so it produces a real FedProx run rather than a mislabeled FedAvg.
      */
     @Pattern(
-            regexp = "FedAvg|DeComFL|FedProx|FedOpt|Robust|FoT|XgbBagging",
-            message = "strategy must be one of: FedAvg, DeComFL, FedProx, FedOpt, Robust, FoT, XgbBagging"
+            regexp = "FedAvg|DeComFL|FedProx|FedOpt|Robust|FoT|XgbBagging|ADFedAdam",
+            message = "strategy must be one of: FedAvg, DeComFL, FedProx, FedOpt, Robust, FoT, XgbBagging, ADFedAdam"
     )
     private String strategy;
 

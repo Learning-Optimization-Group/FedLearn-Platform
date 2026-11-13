@@ -44,6 +44,7 @@ class RunServiceTest {
     @BeforeEach
     void injectValues() {
         ReflectionTestUtils.setField(runService, "grpcHost", "localhost");
+        lenient().when(authz.isInOrgScope(any())).thenReturn(true);
         lenient().when(contractStore.read(any())).thenReturn(contractView(
                 com.federated.fl_platform_api.contract.ContractState.LEGACY_ONLY));
     }
@@ -617,6 +618,17 @@ class RunServiceTest {
         assertEquals(settings, runService.legacyManifest(custom).getFedOpt());
         assertThrows(IllegalArgumentException.class, () -> runService.createForStart(p, "FedAvg", 2, 2, 2,
                 null, null, TrainingDataSource.FIXTURE, settings));
+    }
+
+    @Test
+    void createForStart_adFedAdam_persistsCenteredClipTau() {
+        when(runRepository.save(any(Run.class))).thenAnswer(inv -> inv.getArgument(0));
+        var p = project(UUID.randomUUID());
+        var run = runService.createForStart(p, "ADFedAdam", 5, 2, 2, null, null,
+                TrainingDataSource.FIXTURE, null, 0.5);
+        assertEquals(0.5, run.getCenteredClipTau());
+        assertThrows(IllegalArgumentException.class, () -> runService.createForStart(p, "FedAvg", 5, 2, 2,
+                null, null, TrainingDataSource.FIXTURE, null, 0.5));
     }
 
     private Run savedRun(String strategy, RobustAggregationSettings robust) {
