@@ -9,7 +9,7 @@ import { BrowserWindow } from 'electron';
 let updaterInitialized = false;
 let activeWindow: BrowserWindow | null = null;
 
-function sendToWindow(channel: string, ...args: any[]) {
+function sendToWindow(channel: string, ...args: unknown[]) {
   if (activeWindow && !activeWindow.isDestroyed() && activeWindow.webContents && !activeWindow.webContents.isDestroyed()) {
     activeWindow.webContents.send(channel, ...args);
   }
