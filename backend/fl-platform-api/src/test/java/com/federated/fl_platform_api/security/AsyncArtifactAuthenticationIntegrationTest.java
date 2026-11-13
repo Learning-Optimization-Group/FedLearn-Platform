@@ -191,7 +191,7 @@ class AsyncArtifactAuthenticationIntegrationTest {
     void clientMembershipCannotCrossTheCallersTenantBoundary() throws Exception {
         Fixture fixture = fixture();
         organizations.saveAndFlush(new OrganizationMembership(UUID.randomUUID(), fixture.client().getId(), OrgRole.MEMBER));
-        denied(fixture, authenticated(token(fixture.client()), true), HttpStatus.FORBIDDEN);
+        denied(fixture, authenticated(token(fixture.client()), true), HttpStatus.NOT_FOUND);
     }
 
     /** Observe the dispatch after streaming; HTTP headers may already have reached the client. */

@@ -56,6 +56,7 @@ class RunServiceModelBundleTest {
         ReflectionTestUtils.setField(runService, "modelBundleDir", modelsDir.toString());
         ReflectionTestUtils.setField(runService, "bundleDeliveryEnabled", true);
         ReflectionTestUtils.setField(runService, "grpcHost", "localhost");
+        org.mockito.Mockito.lenient().when(authz.isInOrgScope(org.mockito.ArgumentMatchers.any())).thenReturn(true);
         org.mockito.Mockito.lenient().when(contractStore.read(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(new com.federated.fl_platform_api.contract.ContractView(
                         com.federated.fl_platform_api.contract.ContractState.LEGACY_ONLY, null, null, null, null,

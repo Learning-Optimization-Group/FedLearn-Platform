@@ -75,6 +75,7 @@ class RunServiceContractArtifactTest {
         org.mockito.Mockito.lenient().when(runRepository.findById(runId)).thenReturn(Optional.of(run));
         org.mockito.Mockito.lenient().when(projectRepository.findById(projectId)).thenReturn(Optional.of(p));
         org.mockito.Mockito.lenient().when(authz.currentUser()).thenReturn(caller);
+        org.mockito.Mockito.lenient().when(authz.isInOrgScope(any())).thenReturn(true);
         org.mockito.Mockito.lenient().when(membershipRepository.findByIdProjectIdAndIdUserId(projectId, 7L)).thenReturn(Optional.of(m));
     }
 
