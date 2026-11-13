@@ -586,7 +586,26 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             learning_rate=strategy_client_settings.client_learning_rate('FedProx', getattr(args, 'model_type', None)),
             local_epochs=strategy_client_settings.FEDPROX_CLIENT_LOCAL_EPOCHS,
         )
+    elif args.strategy.lower() in ('adfedadam', 'ad_fedadam'):
+        from fedlearn.server.ad_fedadam import ADFedAdam
+        tau = getattr(args, "centered_clip_tau", 0.5) or 0.5
+        server_lr = getattr(args, "server_learning_rate", None) or getattr(args, "fedopt_server_learning_rate", None) or 0.1
+        logging.info(f"Using ADFedAdam strategy (tau={tau}, server_lr={server_lr})")
+        strategy = ADFedAdam(
+            initial_parameters=initial_parameters,
+            evaluate_fn=evaluate_fn,
+            min_fit_clients=args.min_clients,
+            clients_per_round=clients_per_round,
+            server_learning_rate=server_lr,
+            tau=tau,
+        )
     elif args.strategy.lower() == 'fedopt':
+        # FR-25: Centered clipping directly fed into Adam collapses under non-IID drift.
+        if (getattr(args, "robust_method", None) or "").lower() == "centered_clip":
+            raise ValueError(
+                "Dangerous composition detected: Centered clipping with naive FedOpt induces "
+                "catastrophic optimizer drag (FR-25). Use strategy 'ADFedAdam' instead."
+            )
         # FR-11: server-side adaptive optimisation (FedAdam by default). Standard FedAdam
         # hyperparameters (Reddi et al. 2021); moments persist across rounds inside the strategy.
         settings = resolve_fedopt_settings(args)

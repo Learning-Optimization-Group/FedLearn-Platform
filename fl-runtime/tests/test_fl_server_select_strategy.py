@@ -369,3 +369,55 @@ def test_select_strategy_passes_subspace_dim_to_dp_strategies():
     )
     assert strategy_fedavg.subspace_dim == 16
     assert strategy_fedavg.subspace_seed == 123
+
+
+def test_select_strategy_adfedadam_constructs_successfully():
+    from fedlearn.server.ad_fedadam import ADFedAdam
+    args = _args("ADFedAdam")
+    args.centered_clip_tau = 0.5
+    args.server_learning_rate = 0.05
+    strategy = fl_server.select_strategy(
+        args,
+        OrderedDict(weight=torch.zeros(4)),
+        None,
+    )
+    assert isinstance(strategy, ADFedAdam)
+    assert strategy.tau == 0.5
+    assert strategy.eta_g == 0.05
+
+
+def test_select_strategy_rejects_dangerous_fedopt_centered_clip():
+    args = _args("FedOpt")
+    args.robust_method = "centered_clip"
+    with pytest.raises(ValueError, match="Dangerous composition detected"):
+        fl_server.select_strategy(
+            args,
+            OrderedDict(weight=torch.zeros(4)),
+            None,
+        )
+
+
+def test_select_strategy_adfedadam_reads_fedopt_server_learning_rate():
+    from fedlearn.server.ad_fedadam import ADFedAdam
+    args = _args("ADFedAdam")
+    args.fedopt_server_learning_rate = 0.02
+    strategy = fl_server.select_strategy(
+        args,
+        OrderedDict(weight=torch.zeros(4)),
+        None,
+    )
+    assert isinstance(strategy, ADFedAdam)
+    assert strategy.eta_g == 0.02
+
+
+def test_select_strategy_adfedadam_rejects_dp_enabled():
+    args = _args("ADFedAdam")
+    args.dp_enabled = True
+    with pytest.raises(ValueError, match="central differential privacy is implemented only by the FedLoRA and FedAvg strategies"):
+        fl_server.select_strategy(
+            args,
+            OrderedDict(weight=torch.zeros(4)),
+            None,
+        )
+
+

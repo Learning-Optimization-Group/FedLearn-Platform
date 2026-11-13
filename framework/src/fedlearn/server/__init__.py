@@ -1,4 +1,4 @@
-﻿# src/fedlearn/server/__init__.py
+# src/fedlearn/server/__init__.py
 
 from .server import start_server, ServerConfig
 
@@ -7,6 +7,7 @@ from .decomfl_strategy import DeComFL
 
 # Strategy classes
 from .strategy import DPFedAvg, FedAvg, FedLoRA, FedProx, FedOpt
+from .ad_fedadam import ADFedAdam
 
 # Robust aggregation (FR-12): coordinate-wise median / trimmed-mean + norm clipping
 from .robust_aggregation import RobustAggregator
@@ -14,7 +15,7 @@ from .robust_aggregation import RobustAggregator
 # Factory construction imports the composed privacy pipeline. Load its public
 # exports on demand so importing a privacy helper does not recurse into itself.
 __all__ = ["start_server", "ServerConfig", "DeComFL", "DPFedAvg", "FedAvg", "FedLoRA", "FedProx", "FedOpt",
-           "RobustAggregator", "create_strategy", "STRATEGY_REGISTRY"]
+           "ADFedAdam", "RobustAggregator", "create_strategy", "STRATEGY_REGISTRY"]
 
 
 def __getattr__(name):

@@ -20,6 +20,7 @@ from .strategy import Strategy, FedAvg, FedLoRA, FedProx, FedOpt
 from .decomfl_strategy import DeComFL
 from .robust_aggregation import RobustAggregator
 from .composed_strategy import ComposedStrategy
+from .ad_fedadam import ADFedAdam
 
 # Registry of canonical strategy name -> constructor. Extend here to register a new strategy.
 STRATEGY_REGISTRY: Dict[str, Callable[..., Strategy]] = {
@@ -30,6 +31,7 @@ STRATEGY_REGISTRY: Dict[str, Callable[..., Strategy]] = {
     "decomfl": DeComFL,
     "robust": RobustAggregator,
     "composed": ComposedStrategy,
+    "adfedadam": ADFedAdam,
 }
 
 

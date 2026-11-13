@@ -47,11 +47,13 @@ def build_orthonormal_projection(in_dim: int = 512, out_dim: int = 128, seed: in
 def extract_real_cifar10_resnet_features(
     n_train: int = 4000,
     n_test: int = 1000,
+    n_aux: int = 0,
     data_root: Optional[str] = None,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> Any:
     """Extracts 512-dim ImageNet ResNet-18 features from real CIFAR-10 images.
     
     Uses standard ImageNet normalization and 112x112 resizing matching `fl-runtime/recipes.py`.
+    If n_aux > 0, extracts a disjoint public auxiliary set from ds_train[n_train : n_train + n_aux].
     """
     import torchvision
     from torchvision import datasets, transforms
@@ -104,6 +106,11 @@ def extract_real_cifar10_resnet_features(
 
     train_f, train_y = _extract(train_loader)
     test_f, test_y = _extract(test_loader)
+    if n_aux > 0:
+        sub_aux = Subset(ds_train, range(n_train, min(n_train + n_aux, len(ds_train))))
+        aux_loader = DataLoader(sub_aux, batch_size=128, shuffle=False)
+        aux_f, _ = _extract(aux_loader)
+        return train_f, train_y, test_f, test_y, aux_f
     return train_f, train_y, test_f, test_y
 
 

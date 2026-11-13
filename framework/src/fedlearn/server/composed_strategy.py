@@ -114,10 +114,10 @@ class ComposedStrategy(Strategy):
                  subspace_dim: Optional[int] = None, subspace_seed: int = 42):
         if rule not in RULES:
             raise ValueError(f"rule must be one of {RULES}, got {rule!r}")
-        if clip_norm is not None and clip_norm <= 0:
-            raise ValueError(f"clip_norm must be positive or None, got {clip_norm}")
-        if central_noise_multiplier < 0:
-            raise ValueError("central_noise_multiplier must be >= 0")
+        if clip_norm is not None and (not math.isfinite(clip_norm) or clip_norm <= 0):
+            raise ValueError(f"clip_norm must be positive and finite or None, got {clip_norm}")
+        if not math.isfinite(central_noise_multiplier) or central_noise_multiplier < 0:
+            raise ValueError(f"central_noise_multiplier must be finite and >= 0, got {central_noise_multiplier}")
         if central_noise_multiplier > 0:
             if rule not in CENTRAL_DP_RULES:
                 raise ValueError(f"central DP needs a rule with a replace-one bound {CENTRAL_DP_RULES}, got {rule!r}")
