@@ -106,10 +106,12 @@ describe('StartProjectModal — strategy options', () => {
       .getAllByRole('option')
       .map((o) => (o as HTMLOptionElement).value);
     expect(values).toEqual(
-      expect.arrayContaining(['FedAvg', 'FedProx', 'DeComFL', 'FedOpt', 'Robust', 'FoT']),
+      expect.arrayContaining(['FedAvg', 'FedProx', 'DeComFL', 'FedOpt', 'ADFedAdam', 'Robust', 'FoT']),
     );
     // FR-32: FedProx is now exposed — the production client honors its proximal term.
     expect(values).toContain('FedProx');
+    // FR-25: ADFedAdam is now exposed to eliminate causal optimizer drag.
+    expect(values).toContain('ADFedAdam');
   });
 });
 
@@ -411,4 +413,16 @@ it('submits adaptive server settings and drops them after switching methods', as
   fireEvent.click(screen.getByRole('button', {name:/start training/i}));
   await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
   expect(onSubmit.mock.calls[1][1]).not.toHaveProperty('fedOpt');
+});
+
+it('submits ADFedAdam with centered clipping tau', async () => {
+  const onSubmit = vi.fn().mockResolvedValue(undefined);
+  render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={onSubmit} />);
+  fireEvent.change(screen.getByRole('combobox'), {target:{value:'ADFedAdam'}});
+  fireEvent.change(screen.getByLabelText('Clipping radius (τ)'), {target:{value:'0.5'}});
+  fireEvent.click(screen.getByRole('button', {name:/start training/i}));
+  await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('p1', expect.objectContaining({
+    strategy: 'ADFedAdam',
+    centeredClipTau: 0.5,
+  })));
 });

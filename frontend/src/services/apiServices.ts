@@ -82,6 +82,10 @@ export interface Project {
     optimizer: string;
     /** Which parameters this project federates. Always present from the backend (defaults FULL). */
     trainingArm?: 'FULL' | 'FROZEN_HEAD';
+    dpEnabled?: boolean;
+    dpTargetEpsilon?: number;
+    dpDelta?: number;
+    dpClipNorm?: number;
     // INITIALIZING: the one-time model-init worker is still preparing the weights (BA-1); CREATED: no
     // active run yet. Both were previously absent here though the backend always sent CREATED.
     status: 'INITIALIZING' | 'CREATED' | 'RUNNING' | 'STOPPED' | 'COMPLETED' | 'FAILED';

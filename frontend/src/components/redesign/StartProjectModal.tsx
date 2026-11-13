@@ -19,6 +19,7 @@ const STRATEGIES: { value: string; label: string }[] = [
   { value: 'FedProx', label: 'Stable — keeps clients close to the shared model on uneven data' },
   { value: 'DeComFL', label: 'Low-bandwidth — sends tiny updates' },
   { value: 'FedOpt', label: 'Adaptive — adjusts how the server combines updates' },
+  { value: 'ADFedAdam', label: 'Anchor-Decoupled FedAdam — resolves optimizer drag under clipping' },
   { value: 'Robust', label: 'Robust — resists a few bad or noisy clients' },
   { value: 'FoT', label: 'For text models' },
 ];
@@ -115,6 +116,9 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
       // looked at and then switched away from must never ride along.
       if (!isLlmLora && effectiveStrategy === 'FedOpt') {
         config.fedOpt = {variant: fedOptVariant, serverLearningRate: Number(serverLearningRate)};
+      }
+      if (!isLlmLora && effectiveStrategy === 'ADFedAdam') {
+        config.centeredClipTau = Number(centeredClipTau);
       }
       if (showRobust && selectedRule) {
         config.robustMethod = selectedRule.value;
@@ -218,6 +222,21 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
               <Input type="number" min="0.00000001" max="10" step="any" required value={serverLearningRate} onChange={(e) => setServerLearningRate(Number(e.target.value))} />
             </FormField>
           </>
+        )}
+        {!isLlmLora && effectiveStrategy === 'ADFedAdam' && (
+          <FormField
+            label="Clipping radius (τ)"
+            help="Anchor-Decoupled FedAdam decouples center momentum from the adaptive denominator, maintaining high accuracy even under tight clipping (τ ≤ 0.5)."
+          >
+            <Input
+              type="number"
+              min="0.0001"
+              step="any"
+              value={centeredClipTau}
+              onChange={(e) => setCenteredClipTau(Number(e.target.value))}
+              required
+            />
+          </FormField>
         )}
         {showRobust && (
           <>
@@ -377,6 +396,14 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
                 required
               />
             </FormField>
+          )}
+          {project?.dpEnabled && minClients < 3 && (
+            <div className="col-span-2">
+              <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2.5 text-label text-fg">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-warning" strokeWidth={1.5} />
+                Small cohort size ({minClients} devices) under Differential Privacy may suffer heavy noise injection. A cohort of at least 3 devices is recommended.
+              </p>
+            </div>
           )}
         </div>
       </form>
