@@ -5,7 +5,7 @@ from collections import OrderedDict
 import pytest
 import torch
 
-from fedlearn.privacy.subspace import SubspaceProjector, build_orthonormal_basis
+from fedlearn.privacy.subspace import SubspaceProjector, build_orthonormal_basis, build_pca_aligned_basis
 from fedlearn.privacy.subspace_dp import subspace_dp_aggregate
 from fedlearn.server.composed_strategy import ComposedStrategy
 from fedlearn.server.strategy import DPFedAvg, FedLoRA
@@ -250,3 +250,68 @@ def test_centered_clip_rejects_nan_and_inf_tau():
 
     with pytest.raises(ValueError, match="positive finite float"):
         centered_clip(stacked, centre, tau=-1.0)
+
+
+def test_build_pca_aligned_basis_properties():
+    torch.manual_seed(42)
+    m, d, k = 100, 32, 6
+    features = torch.randn(m, d)
+    basis = build_pca_aligned_basis(features, k)
+
+    assert basis.shape == (d, k)
+    # Check orthonormality: P^T P == I_k
+    ptp = basis.T @ basis
+    eye = torch.eye(k)
+    assert torch.norm(ptp - eye).item() < 1e-4
+
+    # Check input validation
+    with pytest.raises(ValueError, match="subspace dimension k .* cannot exceed"):
+        build_pca_aligned_basis(features, d + 1)
+    with pytest.raises(ValueError, match="must be a 2D tensor"):
+        build_pca_aligned_basis(torch.randn(32), 4)
+    with pytest.raises(ValueError, match="Sample size M .* is smaller than"):
+        build_pca_aligned_basis(torch.randn(3, 10), 5)
+
+
+def test_subspace_projector_and_aggregate_with_pca_basis():
+    torch.manual_seed(42)
+    d, k = 20, 4
+    features = torch.randn(50, d)
+    pca_basis = build_pca_aligned_basis(features, k)
+
+    projector = SubspaceProjector(in_dim=d, subspace_dim=k, basis=pca_basis)
+    assert torch.equal(projector.get_basis(server_round=1), pca_basis)
+    assert torch.equal(projector.get_basis(server_round=5), pca_basis)
+
+    # Use in subspace_dp_aggregate
+    glob = OrderedDict(w=torch.zeros(d))
+    results = [
+        ("c1", OrderedDict(w=torch.randn(d)), 10),
+        ("c2", OrderedDict(w=torch.randn(d)), 10),
+    ]
+
+    agg = subspace_dp_aggregate(
+        results=results,
+        global_params=glob,
+        aggregatable_keys=["w"],
+        clip_norm=1.0,
+        noise_multiplier=0.5,
+        subspace_dim=k,
+        subspace_basis=pca_basis,
+    )
+    assert "w" in agg
+    assert agg["w"].shape == (d,)
+    assert torch.isfinite(agg["w"]).all()
+
+    # Verify that NaN noise_multiplier raises ValueError rather than failing open
+    with pytest.raises(ValueError, match="noise_multiplier must be non-negative and finite"):
+        subspace_dp_aggregate(
+            results=results,
+            global_params=glob,
+            aggregatable_keys=["w"],
+            clip_norm=1.0,
+            noise_multiplier=float("nan"),
+            subspace_dim=k,
+            subspace_basis=pca_basis,
+        )
+

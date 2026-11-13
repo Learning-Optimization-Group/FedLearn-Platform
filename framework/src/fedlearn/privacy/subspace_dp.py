@@ -30,6 +30,7 @@ def subspace_dp_aggregate(
     adjacency: str = "add_remove",
     generator: Optional[torch.Generator] = None,
     public_cohort: Optional[int] = None,
+    subspace_basis: Optional[torch.Tensor] = None,
 ) -> "OrderedDict[str, torch.Tensor]":
     """Central Differential Privacy in an intrinsic subspace R^k (Yu et al. 2021).
 
@@ -93,6 +94,7 @@ def subspace_dp_aggregate(
         subspace_dim=subspace_dim,
         base_seed=subspace_seed,
         rotating=rotating_subspace,
+        basis=subspace_basis,
     )
 
     # Reference parameters in CPU float32
@@ -126,7 +128,14 @@ def subspace_dp_aggregate(
     mean_z = sum_z / float(n)
 
     # Add calibrated Gaussian DP noise in R^k: sensitivity is c * C / n
+    if noise_multiplier is None or not math.isfinite(noise_multiplier) or noise_multiplier < 0.0:
+        raise ValueError(f"noise_multiplier must be non-negative and finite, got {noise_multiplier}")
+    if clip_norm is None or not math.isfinite(clip_norm) or clip_norm <= 0.0:
+        raise ValueError(f"clip_norm must be positive and finite, got {clip_norm}")
+
     std = ADJACENCY_SENSITIVITY_FACTOR[adjacency] * float(noise_multiplier) * float(clip_norm) / float(n)
+    if not math.isfinite(std) or std < 0.0:
+        raise ValueError(f"std must be non-negative and finite, got {std}")
     if std > 0.0:
         if generator is None:
             generator = torch.Generator()

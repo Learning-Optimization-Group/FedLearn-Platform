@@ -51,8 +51,31 @@ def build_orthonormal_basis(d: int, k: int, seed: int, device: str = "cpu") -> t
     return q_mat
 
 
+def build_pca_aligned_basis(features: torch.Tensor, k: int) -> torch.Tensor:
+    """Construct an orthonormal basis P in R^{d x k} (P^T P = I_k) from principal components.
+
+    Given public auxiliary representation or feature embeddings X in R^{M x d}, computes the top-k
+    right singular vectors using SVD. Unlike random isotropic projections, data-aligned subspaces
+    concentrate the empirical task gradient energy in R^k while suppressing orthogonal noise by d / k.
+    """
+    if k < 1:
+        raise ValueError(f"subspace dimension k must be >= 1, got {k}")
+    if features.ndim != 2:
+        raise ValueError(f"features must be a 2D tensor of shape [M, d], got shape {tuple(features.shape)}")
+    m, d = features.shape
+    if k > d:
+        raise ValueError(f"subspace dimension k ({k}) cannot exceed ambient dimension d ({d})")
+
+    centered = features.float() - features.float().mean(dim=0, keepdim=True)
+    _u, _s, vh = torch.linalg.svd(centered, full_matrices=False)
+    if vh.shape[0] < k:
+        raise ValueError(f"Sample size M ({m}) is smaller than requested subspace dimension k ({k})")
+    basis = vh[:k, :].T.contiguous().float()
+    return basis
+
+
 class SubspaceProjector:
-    """Manages seed-synchronized orthonormal subspace projection and reconstruction across rounds.
+    """Manages seed-synchronized or data-aligned orthonormal subspace projection and reconstruction across rounds.
 
     Args:
         in_dim: Ambient parameter dimension d.
@@ -60,9 +83,18 @@ class SubspaceProjector:
         base_seed: Base PRG seed.
         rotating: If True, round t uses seed = (base_seed + t * 10007), exploring different subspaces
             across rounds while preserving per-round DP noise compression. If False, uses a fixed seed.
+        basis: Optional precomputed orthonormal basis P in R^{d x k} (e.g. from PCA alignment).
+            If provided, overrides random basis generation.
     """
 
-    def __init__(self, in_dim: int, subspace_dim: int, base_seed: int = 42, rotating: bool = True):
+    def __init__(
+        self,
+        in_dim: int,
+        subspace_dim: int,
+        base_seed: int = 42,
+        rotating: bool = True,
+        basis: Optional[torch.Tensor] = None,
+    ):
         if in_dim < 1:
             raise ValueError(f"in_dim must be >= 1, got {in_dim}")
         if subspace_dim < 1:
@@ -74,6 +106,15 @@ class SubspaceProjector:
         self.subspace_dim = int(subspace_dim)
         self.base_seed = int(base_seed)
         self.rotating = bool(rotating)
+
+        if basis is not None:
+            if basis.shape != (in_dim, subspace_dim):
+                raise ValueError(
+                    f"Provided basis shape {tuple(basis.shape)} must match (in_dim={in_dim}, subspace_dim={subspace_dim})"
+                )
+            self._custom_basis: Optional[torch.Tensor] = basis.detach().float().cpu()
+        else:
+            self._custom_basis = None
 
         self._cached_round: Optional[int] = None
         self._cached_basis: Optional[torch.Tensor] = None
@@ -95,6 +136,9 @@ class SubspaceProjector:
 
     def get_basis(self, server_round: int = 0) -> torch.Tensor:
         """Get or compute the orthonormal basis P_t in R^{d x k} for the given round."""
+        if self._custom_basis is not None:
+            return self._custom_basis
+
         round_key = server_round if self.rotating else 0
         if self._cached_round == round_key and self._cached_basis is not None:
             return self._cached_basis
@@ -103,6 +147,7 @@ class SubspaceProjector:
         basis = build_orthonormal_basis(self.in_dim, self.subspace_dim, seed=seed)
         self._cached_round = round_key
         self._cached_basis = basis
+        return basis
         return basis
 
     def project_vector(self, flat_vector: torch.Tensor, server_round: int = 0) -> torch.Tensor:

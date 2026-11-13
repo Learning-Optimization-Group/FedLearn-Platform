@@ -33,6 +33,7 @@ All arithmetic is done in float32 on CPU: this is a small, server-side reduction
 deltas, and a CPU generator keeps the noise reproducible regardless of the aggregator's device.
 """
 
+import math
 from collections import OrderedDict
 from typing import Iterable, Optional, Sequence
 
@@ -81,16 +82,16 @@ def replace_one_sensitivity(
         raise ValueError(f"rule must be one of {_REPLACE_ONE_RULES}, got {rule!r}")
     if num_clients is None or num_clients < 1:
         raise ValueError(f"num_clients must be >= 1, got {num_clients}")
-    if clip_norm is None or clip_norm <= 0:
-        raise ValueError(f"clip_norm (S) must be positive, got {clip_norm}")
+    if clip_norm is None or not math.isfinite(clip_norm) or clip_norm <= 0:
+        raise ValueError(f"clip_norm (S) must be positive and finite, got {clip_norm}")
     if rule == "mean":
         return 2.0 * float(clip_norm) / num_clients
     if rule == "centered_clip":
         tau = float(centered_clip_tau) if (centered_clip_tau is not None and centered_clip_tau > 0) else float(clip_norm)
         eff_tau = min(float(clip_norm), tau)
         return 2.0 * eff_tau / num_clients
-    if trim_ratio is None or trim_ratio < 0:
-        raise ValueError(f"trim_ratio must be >= 0, got {trim_ratio}")
+    if trim_ratio is None or not math.isfinite(trim_ratio) or trim_ratio < 0:
+        raise ValueError(f"trim_ratio must be finite and >= 0, got {trim_ratio}")
     k = int(trim_ratio * num_clients)  # floor, matching robust_aggregation.trimmed_mean
     kept = num_clients - 2 * k
     if kept <= 0:
@@ -190,10 +191,10 @@ def dp_aggregate(
         raise ValueError(f"adjacency must be one of {sorted(ADJACENCY_SENSITIVITY_FACTOR)}, got {adjacency!r}")
     if not results:
         raise ValueError("dp_aggregate requires at least one client update.")
-    if clip_norm is None or clip_norm <= 0:
-        raise ValueError(f"clip_norm (S) must be positive, got {clip_norm}")
-    if noise_multiplier is None or noise_multiplier < 0:
-        raise ValueError(f"noise_multiplier (z) must be >= 0, got {noise_multiplier}")
+    if clip_norm is None or not math.isfinite(clip_norm) or clip_norm <= 0:
+        raise ValueError(f"clip_norm (S) must be positive and finite, got {clip_norm}")
+    if noise_multiplier is None or not math.isfinite(noise_multiplier) or noise_multiplier < 0:
+        raise ValueError(f"noise_multiplier (z) must be finite and >= 0, got {noise_multiplier}")
 
     keys = list(aggregatable_keys)
     if not keys:
@@ -266,8 +267,8 @@ def dp_robust_aggregate(
     """
     if not results:
         raise ValueError("dp_robust_aggregate requires at least one client update.")
-    if noise_multiplier is None or noise_multiplier < 0:
-        raise ValueError(f"noise_multiplier (z) must be >= 0, got {noise_multiplier}")
+    if noise_multiplier is None or not math.isfinite(noise_multiplier) or noise_multiplier < 0:
+        raise ValueError(f"noise_multiplier (z) must be finite and >= 0, got {noise_multiplier}")
     keys = list(aggregatable_keys)
     if not keys:
         raise ValueError("dp_robust_aggregate requires at least one aggregatable key.")
