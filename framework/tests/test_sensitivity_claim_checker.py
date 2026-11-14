@@ -12,13 +12,11 @@ Validates that:
 from __future__ import annotations
 
 import math
-from typing import List
 import pytest
 import torch
 
 from fedlearn.privacy.sensitivity import (
     GLOBAL_SENSITIVITY_REGISTRY,
-    SensitivityClaim,
     clip_tensor_rows,
     find_sensitivity_witness,
 )
@@ -197,6 +195,7 @@ def test_planted_defect_4_realised_cohort_sensitivity():
 
     claimed_sens = 2.0 * clip_c / n_expected  # 0.04
     actual_sens = 2.0 * clip_c / n_realised   # 0.10
+    assert actual_sens > claimed_sens
 
     def agg_realised(x: torch.Tensor) -> torch.Tensor:
         clipped = clip_tensor_rows(x, max_norm=clip_c)
@@ -233,3 +232,28 @@ def test_planted_defect_5_coordinate_median_order_n_sensitivity():
     )
     assert res.falsified, "Checker failed to falsify coordinate median 1/N claim!"
     assert res.breach_factor >= 2.0, f"Expected breach >= 2x, got {res.breach_factor:.3f}"
+
+
+def test_planted_defect_6_krum_order_n_sensitivity():
+    """Defect: Claiming distance-based selection rule (Krum) has 2C/N global sensitivity."""
+    from fedlearn.server.robust_aggregation import krum_select
+
+    n, dim, clip_c, f = 10, 5, 2.0, 1
+    # Flawed claim: 2C/N instead of order-C sensitivity
+    flawed_claimed_sens = 2.0 * clip_c / n  # claims 2*2/10 = 0.40
+
+    def agg_krum(x: torch.Tensor) -> torch.Tensor:
+        clipped = clip_tensor_rows(x, max_norm=clip_c)
+        idx = krum_select(clipped, num_byzantine=f)
+        return clipped[idx]
+
+    res = find_sensitivity_witness(
+        aggregator_fn=agg_krum,
+        claimed_sensitivity=flawed_claimed_sens,
+        num_clients=n,
+        dim=dim,
+        clip_norm=clip_c,
+        num_random_trials=50,
+    )
+    assert res.falsified, "Checker failed to falsify Krum 2C/N claim!"
+    assert res.breach_factor >= 4.0, f"Expected order-N breach factor >= 4x, got {res.breach_factor:.3f}"

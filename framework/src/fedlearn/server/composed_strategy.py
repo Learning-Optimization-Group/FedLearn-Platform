@@ -114,7 +114,8 @@ class ComposedStrategy(Strategy):
                  subspace_dim: Optional[int] = None, subspace_seed: int = 42,
                  adjacency: str = "replace_one",
                  public_cohort: Optional[int] = None,
-                 fixed_denominator: Optional[float] = None):
+                 fixed_denominator: Optional[float] = None,
+                 strict_dp_ledger: bool = True):
         if rule not in RULES:
             raise ValueError(f"rule must be one of {RULES}, got {rule!r}")
         if clip_norm is not None and (not math.isfinite(clip_norm) or clip_norm <= 0):
@@ -172,6 +173,16 @@ class ComposedStrategy(Strategy):
         self.adjacency = adjacency
         self.public_cohort = None if public_cohort is None else int(public_cohort)
         self.fixed_denominator = None if fixed_denominator is None else float(fixed_denominator)
+        self.strict_dp_ledger = bool(strict_dp_ledger)
+        if not self.strict_dp_ledger and self.z > 0.0:
+            import warnings
+            warnings.warn(
+                "strict_dp_ledger is False while central_noise_multiplier > 0; "
+                "un-noised client statistics (clip_rate, mean_shrink, aggregate_delta_norm) "
+                "will leak in round stats.",
+                UserWarning,
+                stacklevel=2,
+            )
         if noise_seed is None:
             self._generator = torch.Generator()
             self._generator.seed()
@@ -270,7 +281,7 @@ class ComposedStrategy(Strategy):
             stats.update(failed=True, message=f"round {server_round}: rule {self.rule!r} refused: {exc}")
             return None, stats
         stats["timings"]["rule"] = time.perf_counter() - t
-        stats["aggregate_delta_norm"] = math.sqrt(sum(float((reduced[k] ** 2).sum()) for k in keys))
+        raw_reduced_norm = math.sqrt(sum(float((reduced[k] ** 2).sum()) for k in keys))
         sens = self._sensitivity(len(ok))
         std = self.z * sens if (sens is not None and self.z > 0) else 0.0
         t = time.perf_counter()
@@ -303,11 +314,39 @@ class ComposedStrategy(Strategy):
             if "running_var" in k or k.endswith(".var"):
                 val = torch.clamp(val, min=1e-6)
             out[k] = val
+
+        # --- Release Ledger Enforcement (WS2) ---
+        # When central DP noise is active, un-noised statistics derived from client inputs
+        # (aggregate_delta_norm, clip_rate, mean_shrink, orig_norms, kept_share) leak private
+        # information across the release boundary. Under strict_dp_ledger, these are censored (None).
+        # The norm of the post-perturbation release (noisy_aggregate_delta_norm) is safe by post-processing.
+        is_dp_active = apply_noise and std > 0.0
+        noisy_norm = (
+            math.sqrt(sum(float((reduced[k] ** 2).sum()) for k in keys))
+            if is_dp_active
+            else None
+        )
+        if is_dp_active and self.strict_dp_ledger:
+            agg_norm = None
+            c_rate = None
+            m_shrink = None
+            o_norms = None
+            k_share = None
+        else:
+            agg_norm = raw_reduced_norm
+            c_rate = sum(1 for s in shrink if s < 1.0) / len(shrink)
+            m_shrink = sum(shrink) / len(shrink)
+            o_norms = ({str(c): x for (c, _, _), x in zip(ok, norms)} if self.z == 0.0 else None)
+            k_share = ({str(c): s for (c, _, _), s in zip(ok, kept)} if kept is not None else None)
+
         stats.update(
-            orig_norms=({str(c): x for (c, _, _), x in zip(ok, norms)} if self.z == 0.0 else None),
-            clip_rate=sum(1 for s in shrink if s < 1.0) / len(shrink),
-            mean_shrink=sum(shrink) / len(shrink),
-            sensitivity=sens, noise_std=std,
+            aggregate_delta_norm=agg_norm,
+            noisy_aggregate_delta_norm=noisy_norm,
+            orig_norms=o_norms,
+            clip_rate=c_rate,
+            mean_shrink=m_shrink,
+            sensitivity=sens,
+            noise_std=std,
             subspace_dim=self.subspace_dim,
             snr_amplification=(
                 math.sqrt(d_ambient / self.subspace_dim)
@@ -319,7 +358,7 @@ class ComposedStrategy(Strategy):
                 if (self.subspace_dim is not None and self.subspace_dim < d_ambient)
                 else 1.0
             ),
-            kept_share=({str(c): s for (c, _, _), s in zip(ok, kept)} if kept is not None else None),
+            kept_share=k_share,
         )
         return out, stats
 

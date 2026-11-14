@@ -98,18 +98,48 @@ def test_central_noise_requires_a_clip_norm():
         ComposedStrategy(_global(), rule="mean", central_noise_multiplier=1.0)
 
 
-def test_stats_report_clipping_noise_and_kept_share():
+def test_stats_report_clipping_and_kept_share_without_noise():
     s = ComposedStrategy(_global(), rule="trimmed_mean", clip_norm=0.1, rule_params={"trim_ratio": 0.2},
-                         central_noise_multiplier=2.0, noise_seed=1)
+                         central_noise_multiplier=0.0)
     s.aggregate_fit(0, _results(5))
     st = s.last_round_stats
     assert st["aggregated"] == 10 and st["clip_rate"] == 1.0          # every update exceeds 0.1
     assert 0.0 < st["mean_shrink"] < 1.0
-    assert st["sensitivity"] == pytest.approx(2 * 0.1 / 6)
-    assert st["noise_std"] == pytest.approx(2.0 * 2 * 0.1 / 6)
+    assert st["aggregate_delta_norm"] is not None and st["aggregate_delta_norm"] > 0
+    assert st["noisy_aggregate_delta_norm"] is None
     assert set(st["kept_share"]) == {f"c{i}" for i in range(10)}
     assert sum(st["kept_share"].values()) == pytest.approx(6.0)        # 6 of 10 kept per coordinate
     assert set(st["timings"]) == {"clip", "rule", "noise", "optimizer"}
+
+
+def test_release_ledger_censors_unnoised_stats_under_central_dp():
+    s = ComposedStrategy(_global(), rule="trimmed_mean", clip_norm=0.1, rule_params={"trim_ratio": 0.2},
+                         central_noise_multiplier=2.0, noise_seed=1)
+    s.aggregate_fit(0, _results(5))
+    st = s.last_round_stats
+    assert st["aggregated"] == 10
+    # Strict Release Ledger censors un-noised client-derived statistics
+    assert st["clip_rate"] is None
+    assert st["mean_shrink"] is None
+    assert st["orig_norms"] is None
+    assert st["kept_share"] is None
+    assert st["aggregate_delta_norm"] is None
+    # Noisy aggregate norm is post-processing of the DP release, safe to report
+    assert st["noisy_aggregate_delta_norm"] is not None and st["noisy_aggregate_delta_norm"] > 0
+    assert st["sensitivity"] == pytest.approx(2 * 0.1 / 6)
+    assert st["noise_std"] == pytest.approx(2.0 * 2 * 0.1 / 6)
+    assert set(st["timings"]) == {"clip", "rule", "noise", "optimizer"}
+
+
+def test_release_ledger_explicit_opt_out():
+    with pytest.warns(UserWarning, match="strict_dp_ledger is False while central_noise_multiplier > 0"):
+        s = ComposedStrategy(_global(), rule="trimmed_mean", clip_norm=0.1, rule_params={"trim_ratio": 0.2},
+                             central_noise_multiplier=2.0, noise_seed=1, strict_dp_ledger=False)
+    s.aggregate_fit(0, _results(5))
+    st = s.last_round_stats
+    assert st["clip_rate"] == 1.0
+    assert 0.0 < st["mean_shrink"] < 1.0
+    assert st["aggregate_delta_norm"] is not None
 
 
 def test_a_non_finite_client_is_dropped_and_recorded():

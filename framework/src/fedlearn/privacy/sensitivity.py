@@ -240,7 +240,42 @@ def find_sensitivity_witness(
             max_dist = dist_trim
             worst_note = f"structured trimming boundary k={k}"
 
-    # --- 3. Randomized witness search ---
+    # --- 4. Structured witness check: Median split pivot ---
+    # Tests order-N sensitivity collapse on median-like rules by splitting cohort
+    # evenly across opposite poles. Replacing client 0 pivots the median across the gap.
+    half = num_clients // 2
+    d1_med = torch.zeros(num_clients, dim, dtype=torch.float32)
+    d2_med = torch.zeros(num_clients, dim, dtype=torch.float32)
+    # half clients at -C, other clients at +C
+    d1_med[:half, 0] = -clip_norm
+    d1_med[half:, 0] = clip_norm
+    d2_med = d1_med.clone()
+    d2_med[0, 0] = clip_norm  # replace one -C with +C
+    out1_med = aggregator_fn(d1_med)
+    out2_med = aggregator_fn(d2_med)
+    dist_med = float(torch.linalg.vector_norm(out1_med - out2_med))
+    if dist_med > max_dist:
+        max_dist = dist_med
+        worst_note = "structured median split pivot"
+
+    # --- 5. Structured witness check: Selection cluster pivot (Krum / Bulyan) ---
+    # Two tight clusters at -C * e_0 and +C * e_0.
+    # Replaced client 0 moves from cluster A to cluster B, shifting the selection minimum.
+    if num_clients >= 4:
+        d1_sel = torch.zeros(num_clients, dim, dtype=torch.float32)
+        d1_sel[1:half, 0] = -clip_norm
+        d1_sel[half:, 0] = clip_norm
+        d1_sel[0, 0] = -clip_norm  # makes cluster A size half
+        d2_sel = d1_sel.clone()
+        d2_sel[0, 0] = clip_norm   # makes cluster B size (num_clients - half + 1)
+        out1_sel = aggregator_fn(d1_sel)
+        out2_sel = aggregator_fn(d2_sel)
+        dist_sel = float(torch.linalg.vector_norm(out1_sel - out2_sel))
+        if dist_sel > max_dist:
+            max_dist = dist_sel
+            worst_note = "structured selection cluster pivot"
+
+    # --- 6. Randomized witness search ---
     for trial in range(num_random_trials):
         # Random honest cohort of size num_clients - 1
         honest = torch.randn(num_clients - 1, dim, generator=gen)
