@@ -6,8 +6,10 @@ by projecting client update deltas into a shared, seed-synchronized pseudo-rando
 where P_t in R^{d x k} is generated deterministically from the round seed.
 
 DP clipping and calibrated Gaussian noise are injected strictly in R^k, reducing total injected noise
-energy by a factor of d / k (e.g. 204x less noise variance for d=26,112, k=128), boosting SNR by
-sqrt(d / k) ~= 14.3x. Reconstructing Delta_global = P_t * z_global in R^d is a linear post-processing
+variance by a factor of d / k. For random isotropic bases, signal energy is also attenuated by k / d,
+bounding alignment at sqrt(k / d); true SNR amplification requires a data-aligned auxiliary basis
+(e.g., via build_pca_aligned_basis) that concentrates empirical gradient energy in R^k.
+Reconstructing Delta_global = P_t * z_global in R^d is a linear post-processing
 step that incurs ZERO additional privacy loss by the Post-Processing Theorem of Differential Privacy.
 
 References:

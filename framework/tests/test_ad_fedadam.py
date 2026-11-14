@@ -410,3 +410,49 @@ def test_ad_fedadam_strategy_rejects_client_shape_mismatch():
     with pytest.raises(ValueError, match="Client update shape mismatch"):
         strat.aggregate_fit(1, bad_results)
 
+
+def test_ad_fedadam_quadratic_convergence():
+    """Verify that ADFedAdam does not stall at distance ~27 on a strongly convex quadratic."""
+    d, n = 10, 20
+    tau, eta = 0.5, 0.1
+    gen = torch.Generator().manual_seed(42)
+    spread = torch.randn(n, d, generator=gen)
+    spread = spread - spread.mean(dim=0, keepdim=True)
+    w_star = torch.full((d,), 10.0)
+    optima = w_star + spread
+
+    w = torch.zeros(d)
+    strat = ADFedAdam(OrderedDict(w=w.clone()), server_learning_rate=eta, tau=tau)
+    client_lr = 0.1
+
+    initial_dist = float(torch.linalg.vector_norm(w - w_star))
+    assert initial_dist > 30.0
+
+    for t in range(1, 301):
+        curv = torch.full((d,), client_lr)
+        deltas = -curv * (w.unsqueeze(0) - optima)
+        res = [(f"c{i}", OrderedDict(w=w + deltas[i]), 1) for i in range(n)]
+        out = strat.aggregate_fit(t, res)
+        assert out is not None
+        w = out["w"]
+
+    final_dist = float(torch.linalg.vector_norm(w - w_star))
+    # Must converge close to optimum, not stall at 27.2
+    assert final_dist < 0.01, f"ADFedAdam stalled at distance {final_dist}"
+
+
+def test_ad_fedadam_bn_buffers_linear_averaging_and_clamping():
+    """Verify that BatchNorm buffers are linearly averaged and running_var never turns negative."""
+    init = OrderedDict([("layer.weight", torch.zeros(10)), ("bn.running_var", torch.full((4,), 0.05))])
+    strat = ADFedAdam(init, server_learning_rate=0.1, tau=0.5, buffer_names=["bn.running_var"])
+
+    # Clients send small weight delta and running_var of 0.04
+    results = [
+        (f"c{i}", OrderedDict([("layer.weight", torch.randn(10) * 0.01), ("bn.running_var", torch.full((4,), 0.04))]), 1)
+        for i in range(5)
+    ]
+    out = strat.aggregate_fit(1, results)
+    assert out is not None
+    assert (out["bn.running_var"] >= 0).all()
+    assert torch.allclose(out["bn.running_var"], torch.full((4,), 0.04))
+

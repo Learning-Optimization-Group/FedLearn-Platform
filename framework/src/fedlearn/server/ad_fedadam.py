@@ -31,20 +31,19 @@ Dynamical Scope & Convergence Characteristics:
 ---------------------------------------------
 1. Empirical Scope: AD-FedAdam is an unnoised empirical optimization and Byzantine robustness
    heuristic (it does not claim Differential Privacy guarantees; DP noise must be accounted separately).
-2. Trajectory Immunity: In finite-horizon non-IID regimes (e.g. 25 rounds on CIFAR-10), client representation
-   drift ensures persistent innovation dynamics (r_t != 0), preventing second-moment blowup and achieving
-   79.90% accuracy under tight clipping (tau=0.5) and 77.10% under 20% Byzantine sign-flip attack.
-3. Asymptotic Limit on Constant Gradients: If client updates remain strictly stationary and constant
-   (Delta_t == g), the anchor center converges (c_t -> g), driving instantaneous innovation r_t -> 0.
-   Consequently, under purely constant descent directions on 1D convex objectives without trajectory turns,
-   stepping solely on innovations can induce asymptotic stalling unless paired with anchor forgetting
-   or velocity blending.
+2. Trajectory Dynamics: In finite-horizon non-IID regimes (e.g. 25 rounds on CIFAR-10), client representation
+   drift ensures persistent innovation dynamics, preventing second-moment blowup and achieving
+   79.70% accuracy under tight clipping (tau=0.5) and 77.60% under 20% Byzantine sign-flip attack.
+3. Stationary Point Convergence: Stepping on the anchor (m_t tracking c_{t+1}) ensures the iterate
+   converges to true stationary points where gradients vanish, avoiding the asymptotic stall of stepping
+   solely on residual innovations. Non-parameter buffers (e.g. BatchNorm running statistics) are linearly
+   averaged rather than adapted through moment states.
 """
 
 from collections import OrderedDict
 import logging
 import math
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import torch
 
@@ -112,22 +111,22 @@ def ad_fedadam_step(
         raise ValueError("server_v contains NaN or Inf values.")
 
     # 1. Compute instantaneous clipped residual innovation
-    # Widen to float64 BEFORE subtraction to prevent overflow when
-    # extreme float32 values (e.g. 3e38 - (-3e38)) are involved.
-    # Keep in float64 through the clipping step (which brings magnitude
-    # down to tau), then downcast the mean back to the original dtype.
     orig_dtype = stacked_deltas.dtype
-    residuals_f64 = stacked_deltas.to(torch.float64) - centre.to(torch.float64)
-    res_norms = torch.linalg.vector_norm(residuals_f64, dim=1, keepdim=True)
+    comp_dtype = torch.float64 if stacked_deltas.device.type not in ("mps",) else torch.float32
+    residuals_comp = stacked_deltas.to(comp_dtype) - centre.to(comp_dtype)
+    res_norms = torch.linalg.vector_norm(residuals_comp, dim=1, keepdim=True)
     factors = torch.clamp(tau / torch.clamp(res_norms, min=_NORM_EPS), max=1.0)
     # After clipping, each row has norm <= tau, safe to downcast
-    residual_mean = (residuals_f64 * factors).mean(dim=0).to(orig_dtype)
+    residual_mean = (residuals_comp * factors).mean(dim=0).to(orig_dtype)
 
     # 2. Update anchor center
     next_centre = centre + residual_mean
 
-    # 3. Update decoupled moments on residual innovation r_t
-    next_m = beta1 * server_m + (1.0 - beta1) * residual_mean
+    # 3. Update decoupled moments:
+    # m tracks the anchor (next_centre) so that the iterate steps on the anchor
+    # and has true stationary points where gradients vanish.
+    # v tracks the decoupled residual variance (residual_mean ** 2).
+    next_m = beta1 * server_m + (1.0 - beta1) * next_centre
     next_v = torch.clamp(beta2 * server_v + (1.0 - beta2) * (residual_mean ** 2), min=0.0)
 
     # Bias correction
@@ -166,6 +165,7 @@ class ADFedAdam(Strategy):
         beta2: float = 0.99,
         tau: float = 0.5,
         eps: float = 1e-4,
+        buffer_names: Optional[Sequence[str]] = None,
     ):
         if not isinstance(initial_parameters, OrderedDict) or len(initial_parameters) == 0:
             raise ValueError("initial_parameters must be a non-empty OrderedDict")
@@ -194,15 +194,24 @@ class ADFedAdam(Strategy):
         self.beta2 = float(beta2)
         self.tau = float(tau)
         self.eps = float(eps)
+        self.buffer_names = frozenset(buffer_names) if buffer_names else frozenset()
 
         self._global = OrderedDict(
             (k, v.detach().clone().to(torch.float32)) for k, v in initial_parameters.items()
         )
         self._keys = list(initial_parameters.keys())
+        self._param_keys = [
+            k for k in self._keys
+            if k not in self.buffer_names and not k.endswith((".running_mean", ".running_var", "num_batches_tracked"))
+        ]
+        self._buffer_keys = [k for k in self._keys if k not in self._param_keys]
 
-        # Flattened state representations
-        flat_initial = torch.cat([v.reshape(-1) for v in self._global.values()])
-        self._param_dim = flat_initial.numel()
+        # Flattened state representations for trainable parameters only
+        if self._param_keys:
+            flat_initial = torch.cat([self._global[k].reshape(-1) for k in self._param_keys])
+            self._param_dim = flat_initial.numel()
+        else:
+            self._param_dim = 0
 
         self._centre = torch.zeros(self._param_dim, dtype=torch.float32)
         self._server_m = torch.zeros(self._param_dim, dtype=torch.float32)
@@ -219,7 +228,7 @@ class ADFedAdam(Strategy):
 
         # Validate and normalize updates to deltas from global
         expected_keys = set(self._keys)
-        client_deltas: List[torch.Tensor] = []
+        normalized_results = []
         for res in results:
             _cid, params, _n = normalize_updates([res])[0]
             if set(params.keys()) != expected_keys:
@@ -231,48 +240,66 @@ class ADFedAdam(Strategy):
                     raise ValueError(
                         f"Client update shape mismatch for key {k!r}: expected {self._global[k].shape}, got {params[k].shape}"
                     )
-            # Form delta from current global
-            delta_flat = torch.cat([(params[k].to(torch.float32) - self._global[k]).reshape(-1) for k in self._keys])
-            client_deltas.append(delta_flat)
+            normalized_results.append(params)
 
-        stacked = torch.stack(client_deltas, dim=0)
-
-        # Adopt device of incoming updates if necessary
-        if stacked.device != self._centre.device:
-            self._centre = self._centre.to(stacked.device)
-            self._server_m = self._server_m.to(stacked.device)
-            self._server_v = self._server_v.to(stacked.device)
-
-        # Execute AD-FedAdam step
-        step, self._centre, self._server_m, self._server_v = ad_fedadam_step(
-            stacked_deltas=stacked,
-            centre=self._centre,
-            server_m=self._server_m,
-            server_v=self._server_v,
-            round_idx=server_round,
-            tau=self.tau,
-            eta_g=self.eta_g,
-            beta1=self.beta1,
-            beta2=self.beta2,
-            eps=self.eps,
-        )
-
-        # Apply step to global parameters with fail-closed overflow validation
         new_global = OrderedDict()
-        offset = 0
-        for k in self._keys:
-            numel = self._global[k].numel()
-            k_step = step[offset : offset + numel].reshape(self._global[k].shape)
-            updated = self._global[k] + k_step
-            if not torch.isfinite(updated).all():
-                raise ValueError(
-                    f"ADFedAdam produced non-finite global parameter {k!r} after applying step."
-                )
-            new_global[k] = updated.clone()
-            offset += numel
+
+        # 1. Update non-parameter buffers via linear client averaging (preventing sign-normalised blowup / negative variance)
+        for k in self._buffer_keys:
+            buf_tensors = [p[k].to(device=self._global[k].device, dtype=self._global[k].dtype) for p in normalized_results]
+            mean_buf = torch.stack(buf_tensors, dim=0).mean(dim=0)
+            if k.endswith(".running_var"):
+                mean_buf = torch.clamp(mean_buf, min=0.0)
+            new_global[k] = mean_buf
+
+        # 2. Update parameters via ADFedAdam if param keys exist
+        if self._param_keys:
+            client_deltas: List[torch.Tensor] = []
+            for params in normalized_results:
+                # Co-locate to server parameter device before subtraction
+                delta_flat = torch.cat([
+                    (params[k].to(device=self._global[k].device, dtype=torch.float32) - self._global[k]).reshape(-1)
+                    for k in self._param_keys
+                ])
+                client_deltas.append(delta_flat)
+
+            stacked = torch.stack(client_deltas, dim=0)
+
+            # Adopt device of incoming updates if necessary
+            if stacked.device != self._centre.device:
+                self._centre = self._centre.to(stacked.device)
+                self._server_m = self._server_m.to(stacked.device)
+                self._server_v = self._server_v.to(stacked.device)
+
+            # Execute AD-FedAdam step
+            step, self._centre, self._server_m, self._server_v = ad_fedadam_step(
+                stacked_deltas=stacked,
+                centre=self._centre,
+                server_m=self._server_m,
+                server_v=self._server_v,
+                round_idx=server_round,
+                tau=self.tau,
+                eta_g=self.eta_g,
+                beta1=self.beta1,
+                beta2=self.beta2,
+                eps=self.eps,
+            )
+
+            # Apply step to global parameters with fail-closed overflow validation
+            offset = 0
+            for k in self._param_keys:
+                numel = self._global[k].numel()
+                k_step = step[offset : offset + numel].reshape(self._global[k].shape)
+                updated = self._global[k] + k_step.to(device=self._global[k].device, dtype=self._global[k].dtype)
+                if not torch.isfinite(updated).all():
+                    raise ValueError(
+                        f"ADFedAdam produced non-finite global parameter {k!r} after applying step."
+                    )
+                new_global[k] = updated.clone()
+                offset += numel
 
         self._global = new_global
-        return self._global
+        return OrderedDict((k, v.clone()) for k, v in self._global.items())
 
     def evaluate(self, server_round: int, parameters: OrderedDict[str, torch.Tensor]) -> Optional[Tuple[float, Dict]]:
         if self.evaluate_fn is None:

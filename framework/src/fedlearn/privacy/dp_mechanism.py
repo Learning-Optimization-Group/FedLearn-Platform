@@ -68,8 +68,10 @@ def replace_one_sensitivity(
     :func:`fedlearn.server.robust_aggregation.trimmed_mean`) moves by at most ``2S/(n - 2k)``:
     every coordinate of the trimmed SUM moves by at most the change in the replaced client's value
     at that coordinate, so the joint L2 change is at most ``||x - x'||_2 / (n - 2k)``.
-    For centered clipping around a fixed or previous release with radius ``tau`` (at 1 iteration),
-    every clipped term has norm at most ``min(S, tau)``, yielding sensitivity ``2 * min(S, tau) / n``.
+    For centered clipping around a fixed or already-released centre c with radius ``tau`` (at 1 iteration),
+    radial projection onto the ball B(c, tau) is non-expansive: ||clip(x - c, tau) - clip(x' - c, tau)||_2 <=
+    min(||x - x'||_2, 2 * tau). Because ||x - x'||_2 <= 2 * S, the difference per replaced client is at most
+    2 * min(S, tau), yielding sensitivity 2 * min(S, tau) / n. The centre c must be public or a prior DP release.
 
     This is replace-one adjacency, which is NOT the default add/remove convention of :func:`dp_aggregate`
     (sensitivity ``S/n``); the two must not be mixed within one comparison.

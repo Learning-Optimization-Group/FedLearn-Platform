@@ -590,7 +590,11 @@ def select_strategy(args, initial_parameters, evaluate_fn):
         from fedlearn.server.ad_fedadam import ADFedAdam
         tau = getattr(args, "centered_clip_tau", 0.5) or 0.5
         server_lr = getattr(args, "server_learning_rate", None) or getattr(args, "fedopt_server_learning_rate", None) or 0.1
-        logging.info(f"Using ADFedAdam strategy (tau={tau}, server_lr={server_lr})")
+        buffer_names = (
+            tuple(k for k in initial_parameters if k.endswith(('.running_mean', '.running_var', 'num_batches_tracked')))
+            if getattr(args, 'model_type', '').upper() == 'CIFAR_RESNET18' else ()
+        )
+        logging.info(f"Using ADFedAdam strategy (tau={tau}, server_lr={server_lr}, buffers={len(buffer_names)})")
         strategy = ADFedAdam(
             initial_parameters=initial_parameters,
             evaluate_fn=evaluate_fn,
@@ -598,6 +602,7 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             clients_per_round=clients_per_round,
             server_learning_rate=server_lr,
             tau=tau,
+            buffer_names=buffer_names,
         )
     elif args.strategy.lower() == 'fedopt':
         # FR-25: Centered clipping directly fed into Adam collapses under non-IID drift.
