@@ -243,3 +243,60 @@ def test_centered_clip_dp_robust_aggregate_bit_exact():
     for k in KEYS:
         assert torch.allclose(s_out[k], dp_out[k], atol=1e-6)
 
+
+def test_fixed_denominator_estimator_and_add_remove():
+    """Fixed-denominator estimator divides sum of deltas by fixed_denominator and sizes noise to C/fixed_denominator."""
+    glob = _global()
+    res = _results(42, n=10)
+    # clip_norm = 1.0, fixed_denominator = 50.0, z = 2.0, adjacency = "add_remove"
+    s = ComposedStrategy(
+        glob,
+        rule="mean",
+        clip_norm=1.0,
+        central_noise_multiplier=2.0,
+        adjacency="add_remove",
+        fixed_denominator=50.0,
+        noise_seed=77,
+    )
+    assert s.adjacency == "add_remove"
+    assert s.fixed_denominator == 50.0
+    s.aggregate_fit(0, _copy(res))
+    st = s.last_round_stats
+    # sensitivity should be C / fixed_denominator = 1.0 / 50.0 = 0.02
+    assert st["sensitivity"] == pytest.approx(1.0 / 50.0)
+    # noise_std should be z * sensitivity = 2.0 * 0.02 = 0.04
+    assert st["noise_std"] == pytest.approx(2.0 * (1.0 / 50.0))
+
+
+def test_public_cohort_sensitivity_used():
+    """public_cohort overrides realised cohort size for sensitivity sizing."""
+    glob = _global()
+    res = _results(42, n=8)
+    s = ComposedStrategy(
+        glob,
+        rule="mean",
+        clip_norm=0.5,
+        central_noise_multiplier=1.0,
+        adjacency="replace_one",
+        public_cohort=100,
+        noise_seed=12,
+    )
+    s.aggregate_fit(0, _copy(res))
+    st = s.last_round_stats
+    # sensitivity should be 2 * C / public_cohort = 2 * 0.5 / 100 = 0.01
+    assert st["sensitivity"] == pytest.approx(2.0 * 0.5 / 100.0)
+
+
+def test_unregistered_dp_rule_rejected():
+    """Central DP composition refuses any rule or adjacency not registered in SensitivityRegistry."""
+    glob = _global()
+    with pytest.raises(ValueError, match="SensitivityRegistry|registered"):
+        ComposedStrategy(
+            glob,
+            rule="median",
+            clip_norm=0.5,
+            central_noise_multiplier=1.0,
+            adjacency="replace_one",
+        )
+
+

@@ -18,7 +18,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import torch
 
-from fedlearn.privacy.dp_mechanism import clipped_deltas, replace_one_sensitivity
+from fedlearn.privacy.dp_mechanism import clipped_deltas
 from fedlearn.server._update_normalize import normalize_updates
 from fedlearn.server.robust_aggregation import (
     bulyan_aggregate, centered_clip, coordinate_wise_median, krum_select, multi_krum_select, trimmed_mean,
@@ -111,16 +111,29 @@ class ComposedStrategy(Strategy):
                  clients_per_round: Optional[int] = None,
                  norm_band: Optional[Tuple[float, float]] = None,
                  ks_reference_std: Optional[float] = None, ks_alpha: float = 1e-4,
-                 subspace_dim: Optional[int] = None, subspace_seed: int = 42):
+                 subspace_dim: Optional[int] = None, subspace_seed: int = 42,
+                 adjacency: str = "replace_one",
+                 public_cohort: Optional[int] = None,
+                 fixed_denominator: Optional[float] = None):
         if rule not in RULES:
             raise ValueError(f"rule must be one of {RULES}, got {rule!r}")
         if clip_norm is not None and (not math.isfinite(clip_norm) or clip_norm <= 0):
             raise ValueError(f"clip_norm must be positive and finite or None, got {clip_norm}")
         if not math.isfinite(central_noise_multiplier) or central_noise_multiplier < 0:
             raise ValueError(f"central_noise_multiplier must be finite and >= 0, got {central_noise_multiplier}")
+        if adjacency not in ("replace_one", "add_remove"):
+            raise ValueError(f"adjacency must be 'replace_one' or 'add_remove', got {adjacency!r}")
+        if public_cohort is not None and (not math.isfinite(public_cohort) or public_cohort < 1):
+            raise ValueError(f"public_cohort must be >= 1, got {public_cohort}")
+        if fixed_denominator is not None and (not math.isfinite(fixed_denominator) or fixed_denominator <= 0):
+            raise ValueError(f"fixed_denominator must be positive and finite, got {fixed_denominator}")
         if central_noise_multiplier > 0:
-            if rule not in CENTRAL_DP_RULES:
-                raise ValueError(f"central DP needs a rule with a replace-one bound {CENTRAL_DP_RULES}, got {rule!r}")
+            from fedlearn.privacy.sensitivity import GLOBAL_SENSITIVITY_REGISTRY
+            if not GLOBAL_SENSITIVITY_REGISTRY.is_registered(rule, adjacency) or rule not in CENTRAL_DP_RULES:
+                raise ValueError(
+                    f"central DP needs a registered sensitivity claim: ({rule!r}, {adjacency!r}) "
+                    f"is not in GLOBAL_SENSITIVITY_REGISTRY (admitted: {CENTRAL_DP_RULES})"
+                )
             if clip_norm is None:
                 raise ValueError("central DP needs a clip_norm")
             if rule == "centered_clip" and int((rule_params or {}).get("iterations", 1)) != 1:
@@ -156,6 +169,9 @@ class ComposedStrategy(Strategy):
         self.evaluate_fn = evaluate_fn
         self.min_fit_clients = min_fit_clients
         self.clients_per_round = clients_per_round if clients_per_round is not None else min_fit_clients
+        self.adjacency = adjacency
+        self.public_cohort = None if public_cohort is None else int(public_cohort)
+        self.fixed_denominator = None if fixed_denominator is None else float(fixed_denominator)
         if noise_seed is None:
             self._generator = torch.Generator()
             self._generator.seed()
@@ -176,8 +192,20 @@ class ComposedStrategy(Strategy):
         if self.rule not in CENTRAL_DP_RULES or self.clip_norm is None:
             return None
         centered_tau = self.rule_params.get("tau", self.clip_norm) if self.rule == "centered_clip" else None
-        return replace_one_sensitivity(
-            self.rule, n, self.clip_norm, self.rule_params["trim_ratio"], centered_clip_tau=centered_tau
+        eff_n = self.public_cohort if self.public_cohort is not None else n
+
+        if self.fixed_denominator is not None:
+            factor = 1.0 if self.adjacency == "add_remove" else 2.0
+            eff_tau = min(float(self.clip_norm), float(centered_tau)) if self.rule == "centered_clip" else float(self.clip_norm)
+            return factor * eff_tau / float(self.fixed_denominator)
+
+        from fedlearn.privacy.sensitivity import GLOBAL_SENSITIVITY_REGISTRY
+        claim = GLOBAL_SENSITIVITY_REGISTRY.get_claim(self.rule, self.adjacency)
+        return claim.compute(
+            num_clients=eff_n,
+            clip_norm=self.clip_norm,
+            trim_ratio=self.rule_params.get("trim_ratio", 0.0),
+            tau=centered_tau,
         )
 
     def _reduction_diagnostics(self, deltas, keys):
@@ -229,7 +257,14 @@ class ComposedStrategy(Strategy):
         stats["timings"]["clip"] = time.perf_counter() - t
         t = time.perf_counter()
         try:
-            reduced, kept = self._reduce_deltas(deltas, [n for _, _, n in ok], keys)
+            if self.fixed_denominator is not None and self.rule == "mean":
+                reduced = OrderedDict()
+                for key in keys:
+                    stacked = torch.stack([d[key] for d in deltas], dim=0)
+                    reduced[key] = stacked.sum(dim=0) / float(self.fixed_denominator)
+                kept = None
+            else:
+                reduced, kept = self._reduce_deltas(deltas, [n for _, _, n in ok], keys)
             stats.update(self._reduction_diagnostics(deltas, keys))
         except ValueError as exc:  # the rule's own precondition, e.g. Krum's n >= 2f + 3
             stats.update(failed=True, message=f"round {server_round}: rule {self.rule!r} refused: {exc}")

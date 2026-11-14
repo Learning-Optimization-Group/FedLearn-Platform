@@ -6,9 +6,8 @@ aggregation functions to structured and randomized adversarial witness search.
 """
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 import torch
 
@@ -64,12 +63,28 @@ def _calc_trimmed_mean_replace_one(num_clients: int, clip_norm: float, trim_rati
     return 2.0 * float(clip_norm) / float(kept)
 
 
+def _calc_trimmed_mean_add_remove(num_clients: int, clip_norm: float, trim_ratio: float = 0.0, **kwargs) -> float:
+    k = int(trim_ratio * num_clients)
+    kept = num_clients - 2 * k
+    if kept <= 0:
+        raise ValueError(f"Trim ratio {trim_ratio} removes all {num_clients} clients (2k={2*k})")
+    return float(clip_norm) / float(kept)
+
+
 def _calc_centered_clip_replace_one(
     num_clients: int, clip_norm: float, tau: Optional[float] = None, **kwargs
 ) -> float:
     tau_val = float(tau) if (tau is not None and tau > 0) else float(clip_norm)
     eff_tau = min(float(clip_norm), tau_val)
     return 2.0 * eff_tau / float(num_clients)
+
+
+def _calc_centered_clip_add_remove(
+    num_clients: int, clip_norm: float, tau: Optional[float] = None, **kwargs
+) -> float:
+    tau_val = float(tau) if (tau is not None and tau > 0) else float(clip_norm)
+    eff_tau = min(float(clip_norm), tau_val)
+    return eff_tau / float(num_clients)
 
 
 _BUILTIN_CLAIMS: Dict[Tuple[str, str], SensitivityClaim] = {
@@ -97,6 +112,14 @@ _BUILTIN_CLAIMS: Dict[Tuple[str, str], SensitivityClaim] = {
         cohort_semantics="public_constant",
         calculator=_calc_trimmed_mean_replace_one,
     ),
+    ("trimmed_mean", "add_remove"): SensitivityClaim(
+        rule_name="trimmed_mean",
+        adjacency="add_remove",
+        formula_latex=r"\frac{C}{N - 2\lfloor\beta N\rfloor}",
+        centre_provenance="none",
+        cohort_semantics="public_constant",
+        calculator=_calc_trimmed_mean_add_remove,
+    ),
     ("centered_clip", "replace_one"): SensitivityClaim(
         rule_name="centered_clip",
         adjacency="replace_one",
@@ -104,6 +127,14 @@ _BUILTIN_CLAIMS: Dict[Tuple[str, str], SensitivityClaim] = {
         centre_provenance="prior_release",
         cohort_semantics="public_constant",
         calculator=_calc_centered_clip_replace_one,
+    ),
+    ("centered_clip", "add_remove"): SensitivityClaim(
+        rule_name="centered_clip",
+        adjacency="add_remove",
+        formula_latex=r"\frac{\min(C, \tau)}{N}",
+        centre_provenance="prior_release",
+        cohort_semantics="public_constant",
+        calculator=_calc_centered_clip_add_remove,
     ),
 }
 

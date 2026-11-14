@@ -407,6 +407,55 @@ class TestValidation:
         with pytest.raises(ValueError):
             _federation(dropout_rate=bad)
 
+    def test_bad_sampling_mode_rejected(self):
+        with pytest.raises(ValueError, match="sampling_mode"):
+            _federation(sampling_mode="invalid")
+
+    @pytest.mark.parametrize("bad_q", [0.0, -0.5, 1.5])
+    def test_bad_sampling_rate_rejected(self, bad_q):
+        with pytest.raises(ValueError, match="sampling_rate"):
+            _federation(sampling_mode="poisson", sampling_rate=bad_q)
+
+
+# --------------------------------------------------------------------------------------
+# Poisson Sampling
+# --------------------------------------------------------------------------------------
+
+class TestPoissonSampling:
+    def test_poisson_cohort_sizes_and_normal_completion(self):
+        """Under Poisson sampling, cohort size fluctuates by Bernoulli trial and rounds complete cleanly."""
+        fed = _federation(
+            num_clients=100,
+            clients_per_round=20,
+            sampling_mode="poisson",
+            sampling_rate=0.2,
+            seed=42,
+        )
+        assert fed.sampling_mode == "poisson"
+        assert fed.sampling_rate == 0.2
+        result = fed.run(num_rounds=5)
+        assert len(result.rounds) == 5
+        cohort_sizes = [len(r.selected) for r in result.rounds]
+        # Fluctuates around expected size 20
+        assert all(5 <= s <= 40 for s in cohort_sizes)
+        # Not all cohorts should be identical (unlike fixed sampling)
+        assert len(set(cohort_sizes)) > 1
+        # No dropout => no forced round incomplete resolution
+        assert all(not r.forced for r in result.rounds)
+        assert all(len(r.reported) == len(r.selected) for r in result.rounds)
+        assert result.meta["sampling_mode"] == "poisson"
+        assert result.meta["sampling_rate"] == 0.2
+
+    def test_poisson_determinism(self):
+        """Under the same seed, Poisson cohort selection is bit-for-bit identical."""
+        res1 = _federation(num_clients=80, clients_per_round=10, sampling_mode="poisson", sampling_rate=0.15, seed=123).run(num_rounds=4)
+        res2 = _federation(num_clients=80, clients_per_round=10, sampling_mode="poisson", sampling_rate=0.15, seed=123).run(num_rounds=4)
+        res3 = _federation(num_clients=80, clients_per_round=10, sampling_mode="poisson", sampling_rate=0.15, seed=456).run(num_rounds=4)
+        for r1, r2 in zip(res1.rounds, res2.rounds):
+            assert r1.selected == r2.selected
+        # Different seed draws different cohorts
+        assert any(r1.selected != r3.selected for r1, r3 in zip(res1.rounds, res3.rounds))
+
 
 # --------------------------------------------------------------------------------------
 # P0-1e — scale

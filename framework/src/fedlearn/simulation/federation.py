@@ -172,6 +172,8 @@ class SimulatedFederation:
         round_timeout_s: Optional[float] = None,
         device: str = "cpu",
         round_hook: Optional[Callable] = None,
+        sampling_mode: str = "fixed",
+        sampling_rate: Optional[float] = None,
     ):
         if num_clients < 1:
             raise ValueError(f"num_clients must be >= 1, got {num_clients}")
@@ -181,6 +183,19 @@ class SimulatedFederation:
             raise ValueError(
                 f"clients_per_round={clients_per_round} exceeds num_clients={num_clients}"
             )
+        if sampling_mode not in ("fixed", "poisson"):
+            raise ValueError(f"sampling_mode must be 'fixed' or 'poisson', got {sampling_mode!r}")
+        if sampling_mode == "poisson":
+            if sampling_rate is None:
+                sampling_rate = float(clients_per_round) / float(num_clients)
+            if not 0.0 < float(sampling_rate) <= 1.0:
+                raise ValueError(f"sampling_rate must be in (0, 1], got {sampling_rate}")
+            self.sampling_rate = float(sampling_rate)
+        else:
+            self.sampling_rate = (
+                float(sampling_rate) if sampling_rate is not None else float(clients_per_round) / float(num_clients)
+            )
+        self.sampling_mode = sampling_mode
         if not 0.0 <= wire_in_the_loop <= 1.0:
             raise ValueError(f"wire_in_the_loop must be in [0, 1], got {wire_in_the_loop}")
         if not 0.0 <= dropout_rate <= 1.0:
@@ -221,6 +236,13 @@ class SimulatedFederation:
         return self.run_rng.server_rng(round_num)
 
     def _select_cohort(self, rng: np.random.Generator) -> List[int]:
+        if self.sampling_mode == "poisson":
+            draws = rng.random(self.num_clients) < self.sampling_rate
+            selected = sorted(int(c) for c in np.flatnonzero(draws))
+            if not selected:
+                # Rare edge case: empty cohort; sample at least 1 client to keep round finishable
+                selected = [int(rng.integers(0, self.num_clients))]
+            return selected
         return sorted(
             int(c)
             for c in rng.choice(self.num_clients, size=self.clients_per_round, replace=False)
@@ -360,6 +382,8 @@ class SimulatedFederation:
             "seed": self.seed,
             "num_clients": self.num_clients,
             "clients_per_round": self.clients_per_round,
+            "sampling_mode": self.sampling_mode,
+            "sampling_rate": self.sampling_rate,
             "num_rounds": len(records),
             "requested_rounds": num_rounds,
             "strategy": type(self.strategy).__name__,
@@ -406,11 +430,14 @@ class SimulatedFederation:
     def _run_one_round(self) -> RoundRecord:
         t0 = time.monotonic()
         coord = self.coordinator
-        coord.start_round()
         round_num = coord.current_round
 
         selected, dropped, wire = self._plan_round(round_num)
         dropped_set = set(dropped)
+        target_cohort = len(selected) if self.sampling_mode == "poisson" else self.clients_per_round
+        if self.sampling_mode == "poisson":
+            coord.clients_per_round = target_cohort
+        coord.start_round()
 
         global_params, _rnd, strategy_cfg = coord.get_global_model_for_client()
         # The strategy is authoritative for its own knobs (FedProx's mu), so it wins the merge.
@@ -465,7 +492,7 @@ class SimulatedFederation:
         # incomplete cohort needs resolving, and it is resolved immediately rather than by
         # waiting out the wall-clock deadline (P0-1c).
         forced = False
-        if len(reported) < self.clients_per_round:
+        if len(reported) < target_cohort:
             forced = True
             if self.round_hook is None and len(reported) == len(selected) - len(dropped):
                 reason = f"simulated dropout ({len(dropped)} of {len(selected)} clients)"
