@@ -54,6 +54,26 @@ def test_ad_fedadam_step_mathematical_properties():
     expected_step = eta_g * m_hat / (torch.sqrt(v_hat) + eps)
     assert torch.allclose(step, expected_step, atol=1e-6)
 
+    # Round 2: non-zero centre to verify that m tracks residual innovation r_t, NOT anchor c_t
+    step2, next_c2, next_m2, next_v2 = ad_fedadam_step(
+        stacked_deltas=deltas,
+        centre=next_c,
+        server_m=next_m,
+        server_v=next_v,
+        round_idx=2,
+        tau=tau,
+        eta_g=eta_g,
+        beta1=beta1,
+        beta2=beta2,
+        eps=eps,
+    )
+    expected_r2 = torch.zeros(dim, dtype=torch.float32)
+    assert torch.allclose(next_c2, next_c, atol=1e-6)
+    expected_m2 = beta1 * next_m + (1.0 - beta1) * expected_r2
+    expected_v2 = beta2 * next_v + (1.0 - beta2) * (expected_r2 ** 2)
+    assert torch.allclose(next_m2, expected_m2, atol=1e-6)
+    assert torch.allclose(next_v2, expected_v2, atol=1e-6)
+
 
 def test_ad_fedadam_step_clipping():
     dim = 2
@@ -411,8 +431,13 @@ def test_ad_fedadam_strategy_rejects_client_shape_mismatch():
         strat.aggregate_fit(1, bad_results)
 
 
-def test_ad_fedadam_quadratic_convergence():
-    """Verify that ADFedAdam does not stall at distance ~27 on a strongly convex quadratic."""
+def test_ad_fedadam_quadratic_stall_characterization():
+    """Verify that ADFedAdam demonstrates its documented bounded-travel stall on a strongly convex quadratic.
+
+    When client gradients remain stationary, the anchor catches up (c_t -> g) and residual
+    innovations vanish (r_t -> 0). Stepping solely on residual innovations induces an asymptotic
+    stall at distance ~27 on this quadratic (initial distance > 30).
+    """
     d, n = 10, 20
     tau, eta = 0.5, 0.1
     gen = torch.Generator().manual_seed(42)
@@ -437,8 +462,77 @@ def test_ad_fedadam_quadratic_convergence():
         w = out["w"]
 
     final_dist = float(torch.linalg.vector_norm(w - w_star))
-    # Must converge close to optimum, not stall at 27.2
-    assert final_dist < 0.01, f"ADFedAdam stalled at distance {final_dist}"
+    # Confirms the documented bounded-travel stall (distance ~26.5 to 27.5)
+    assert 26.0 <= final_dist <= 28.0, f"Expected bounded-travel stall around 27.2, got {final_dist}"
+
+
+@pytest.mark.slow
+def test_ad_fedadam_cifar_probe_25_rounds_regression():
+    """Verify that ADFedAdam does not diverge on the 25-round CIFAR-10 linear probe task.
+
+    Commit 52c765f stepped on the anchor, causing divergence (train loss ~88, test acc 48.1%).
+    Restoring innovation-only moments achieves ~79.7% test accuracy and ~0.53 train loss.
+    """
+    from pathlib import Path
+    import sys
+    import torch.nn as nn
+
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    bench_dir = repo_root / "research" / "benchmarks"
+    if not (bench_dir / "run_production_fl_benchmark.py").exists():
+        pytest.skip("Research benchmarks not present")
+
+    sys.path.insert(0, str(bench_dir))
+    from run_production_fl_benchmark import (
+        extract_real_cifar10_resnet_features,
+        LinearClassifier,
+        evaluate_model,
+        train_client_local,
+    )
+    from fedlearn.simulation.partition import dirichlet_partition
+
+    try:
+        train_x, train_y, test_x, test_y = extract_real_cifar10_resnet_features(4000, 1000)
+    except Exception as exc:
+        pytest.skip(f"CIFAR-10 data not available: {exc}")
+
+    n, dim = 20, train_x.shape[1]
+    seed = 42
+    parts = dirichlet_partition(train_y.numpy(), num_clients=n, alpha=0.5, seed=seed, min_partition_size=10)
+    model = LinearClassifier(in_dim=dim, num_classes=10)
+    strat = ADFedAdam(OrderedDict(flat=model.get_flat_params()), server_learning_rate=0.1, tau=0.5)
+
+    for r in range(1, 26):
+        cur = model.get_flat_params()
+        client_results = []
+        for cid in range(n):
+            cm = LinearClassifier(in_dim=dim, num_classes=10)
+            cm.set_flat_params(cur)
+            up = train_client_local(
+                cm,
+                train_x[parts[cid]],
+                train_y[parts[cid]],
+                epochs=2,
+                lr=0.1,
+                momentum=0.9,
+                clip_c=2.0,
+                seed=seed + (cid + 1) * 1000 + r * 17,
+            )
+            client_results.append((f"c{cid}", OrderedDict(flat=cur + up), 1))
+
+        out = strat.aggregate_fit(r, client_results)
+        assert out is not None
+        model.set_flat_params(out["flat"])
+
+    test_loss, test_acc = evaluate_model(model, test_x, test_y)
+    with torch.no_grad():
+        train_loss = float(nn.functional.cross_entropy(model(train_x), train_y))
+    weight_norm = float(torch.linalg.vector_norm(model.get_flat_params()))
+
+    # Assert convergence: pre-52c765f gets ~79.7% acc and 0.53 loss; post-52c765f collapsed to ~48% acc and ~88 loss
+    assert test_acc >= 0.70, f"ADFedAdam test accuracy degraded to {test_acc:.4f} (expected >= 0.70)"
+    assert train_loss < 1.0, f"ADFedAdam train loss diverged to {train_loss:.4f} (expected < 1.0)"
+    assert weight_norm < 30.0, f"ADFedAdam weight norm exploded to {weight_norm:.2f} (expected < 30)"
 
 
 def test_ad_fedadam_bn_buffers_linear_averaging_and_clamping():

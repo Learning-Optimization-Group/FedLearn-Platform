@@ -29,15 +29,23 @@ AD-FedAdam decouples the anchor history from the adaptive variance estimation:
 
 Dynamical Scope & Convergence Characteristics:
 ---------------------------------------------
-1. Empirical Scope: AD-FedAdam is an unnoised empirical optimization and Byzantine robustness
+1. Empirical Scope: AD-FedAdam is an experimental unnoised optimization and Byzantine robustness
    heuristic (it does not claim Differential Privacy guarantees; DP noise must be accounted separately).
-2. Trajectory Dynamics: In finite-horizon non-IID regimes (e.g. 25 rounds on CIFAR-10), client representation
-   drift ensures persistent innovation dynamics, preventing second-moment blowup and achieving
-   79.70% accuracy under tight clipping (tau=0.5) and 77.60% under 20% Byzantine sign-flip attack.
-3. Stationary Point Convergence: Stepping on the anchor (m_t tracking c_{t+1}) ensures the iterate
-   converges to true stationary points where gradients vanish, avoiding the asymptotic stall of stepping
-   solely on residual innovations. Non-parameter buffers (e.g. BatchNorm running statistics) are linearly
-   averaged rather than adapted through moment states.
+2. Trajectory Dynamics: On tasks like CIFAR-10 linear probe, the bounded-travel stall occurs early
+   (the weight norm plateaus around 16 by round 5 and remains there through round 200), functioning
+   similarly to early stopping and achieving 79.70% accuracy under tight clipping (tau=0.5) and
+   77.60% under 20% Byzantine sign-flip attack.
+3. Bounded-Travel Property & Stationary Stall on Constant Gradients:
+   Because moments adapt solely to residual innovations r_t, if client updates remain strictly
+   stationary and constant (Delta_t == g), the anchor center converges (c_t -> g), driving
+   instantaneous innovations r_t -> 0. Consequently, under purely constant descent directions on
+   convex quadratics without trajectory turns, stepping solely on innovations induces an asymptotic stall
+   (distance to optimum plateaus around ~27). Stepping on the anchor (c_{t+1}) resolves the quadratic stall
+   but collapses scale normalization and causes divergence on real tasks such as the CIFAR-10 linear probe
+   (accuracy collapses to 45–58%, weight norm explodes >500). AD-FedAdam is therefore designated as an
+   experimental bounded-travel strategy.
+   Non-parameter buffers (e.g. BatchNorm running statistics) are linearly averaged rather than adapted
+   through moment states.
 """
 
 from collections import OrderedDict
@@ -122,11 +130,8 @@ def ad_fedadam_step(
     # 2. Update anchor center
     next_centre = centre + residual_mean
 
-    # 3. Update decoupled moments:
-    # m tracks the anchor (next_centre) so that the iterate steps on the anchor
-    # and has true stationary points where gradients vanish.
-    # v tracks the decoupled residual variance (residual_mean ** 2).
-    next_m = beta1 * server_m + (1.0 - beta1) * next_centre
+    # 3. Update decoupled moments on residual innovation r_t
+    next_m = beta1 * server_m + (1.0 - beta1) * residual_mean
     next_v = torch.clamp(beta2 * server_v + (1.0 - beta2) * (residual_mean ** 2), min=0.0)
 
     # Bias correction
