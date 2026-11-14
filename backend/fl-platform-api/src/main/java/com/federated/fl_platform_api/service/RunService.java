@@ -441,13 +441,18 @@ public class RunService {
      */
     @Transactional
     public EnrollmentDto enroll(UUID runId, com.federated.fl_platform_api.dto.CapabilityReport report) {
-        Run run = runRepository.lockById(runId)
-                .orElseThrow(() -> new ResourceNotFoundException("Run not found: " + runId));
+        Run run = runRepository.findById(runId)
+                .orElseThrow(() -> ResourceNotFoundException.run(runId));
         Project project = projectRepository.findById(run.getProjectId())
-                .orElseThrow(() -> ResourceNotFoundException.project(run.getProjectId()));
-        authz.requireOrgScope(project.getOrgId());
+                .orElseThrow(() -> ResourceNotFoundException.run(runId));
+        if (!authz.isInOrgScope(project.getOrgId())) {
+            throw ResourceNotFoundException.run(runId);
+        }
         User self = authz.currentUser();
         requireOwnerOrClient(project, self);
+
+        run = runRepository.lockById(runId)
+                .orElseThrow(() -> ResourceNotFoundException.run(runId));
 
         if (run.getStatus() != RunStatus.RUNNING || run.getServerPort() == null) {
             throw new ProjectStateException(

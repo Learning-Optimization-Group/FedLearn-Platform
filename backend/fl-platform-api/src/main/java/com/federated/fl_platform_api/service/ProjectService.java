@@ -674,7 +674,9 @@ public class ProjectService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
 
-        authz.requireOrgScope(project.getOrgId());
+        if (!authz.isInOrgScope(project.getOrgId())) {
+            throw ResourceNotFoundException.run(runId);
+        }
         authz.requireOwnerOrAdmin(project);
 
         ReentrantLock startLock = startLocks.computeIfAbsent(projectId, k -> new ReentrantLock());

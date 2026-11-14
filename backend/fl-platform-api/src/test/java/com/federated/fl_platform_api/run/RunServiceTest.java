@@ -398,6 +398,7 @@ class RunServiceTest {
         r.setStatus(RunStatus.RUNNING); r.setServerHost("localhost"); r.setServerPort(50005);
         r.setClientsPerRound(k); r.setPartitioningMode(mode);
         r.setStrategy("FedAvg"); r.setNumRounds(5); r.setRecipeKey("CNN");
+        lenient().when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
         return r;
     }
 
@@ -814,5 +815,18 @@ class RunServiceTest {
         runService.markRunning(rid, 50001);
 
         assertNull(r.getGrpcCaFingerprint());
+    }
+
+    @Test
+    void enroll_outOfOrgScope_returnsNotFoundMaskAndDoesNotAcquireLock() {
+        UUID rid = UUID.randomUUID(); UUID pid = UUID.randomUUID();
+        Project p = project(pid);
+        Run r = runningRun(rid, pid, 4, PartitioningMode.SHARDED);
+        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.isInOrgScope(p.getOrgId())).thenReturn(false);
+
+        assertThrows(ResourceNotFoundException.class, () -> runService.enroll(rid));
+        verify(runRepository, never()).lockById(rid);
     }
 }
