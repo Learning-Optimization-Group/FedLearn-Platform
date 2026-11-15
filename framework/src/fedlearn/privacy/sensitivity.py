@@ -63,14 +63,6 @@ def _calc_trimmed_mean_replace_one(num_clients: int, clip_norm: float, trim_rati
     return 2.0 * float(clip_norm) / float(kept)
 
 
-def _calc_trimmed_mean_add_remove(num_clients: int, clip_norm: float, trim_ratio: float = 0.0, **kwargs) -> float:
-    k = int(trim_ratio * num_clients)
-    kept = num_clients - 2 * k
-    if kept <= 0:
-        raise ValueError(f"Trim ratio {trim_ratio} removes all {num_clients} clients (2k={2*k})")
-    return float(clip_norm) / float(kept)
-
-
 def _calc_centered_clip_replace_one(
     num_clients: int, clip_norm: float, tau: Optional[float] = None, **kwargs
 ) -> float:
@@ -111,14 +103,6 @@ _BUILTIN_CLAIMS: Dict[Tuple[str, str], SensitivityClaim] = {
         centre_provenance="none",
         cohort_semantics="public_constant",
         calculator=_calc_trimmed_mean_replace_one,
-    ),
-    ("trimmed_mean", "add_remove"): SensitivityClaim(
-        rule_name="trimmed_mean",
-        adjacency="add_remove",
-        formula_latex=r"\frac{C}{D - 2\lfloor\beta D\rfloor}",
-        centre_provenance="none",
-        cohort_semantics="public_constant",
-        calculator=_calc_trimmed_mean_add_remove,
     ),
     ("centered_clip", "replace_one"): SensitivityClaim(
         rule_name="centered_clip",

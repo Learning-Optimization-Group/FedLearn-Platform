@@ -149,6 +149,11 @@ class ComposedStrategy(Strategy):
                 )
             if rule == "centered_clip" and int((rule_params or {}).get("iterations", 1)) != 1:
                 raise ValueError("central DP with centered_clip requires iterations=1 for valid sensitivity bound")
+            if fixed_denominator is not None and rule == "trimmed_mean":
+                raise ValueError(
+                    "central DP does not support fixed_denominator with rule='trimmed_mean': "
+                    "('trimmed_mean', 'add_remove') is not in GLOBAL_SENSITIVITY_REGISTRY"
+                )
         if norm_band is not None and not (0.0 <= float(norm_band[0]) < float(norm_band[1])):
             raise ValueError(f"norm_band must be (low, high) with 0 <= low < high, got {norm_band}")
         if optimizer not in ("none", "adam", "yogi"):

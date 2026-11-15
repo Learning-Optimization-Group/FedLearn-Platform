@@ -338,17 +338,18 @@ def test_add_remove_central_dp_is_refused_without_a_fixed_denominator():
                          central_noise_multiplier=1.0, adjacency="add_remove")
 
 
-@pytest.mark.parametrize("rule, params", [("krum", {"byzantine_fraction": 0.1}),
+@pytest.mark.parametrize("rule, params", [("trimmed_mean", {"trim_ratio": 0.2}),
+                                          ("krum", {"byzantine_fraction": 0.1}),
                                           ("bulyan", {"byzantine_fraction": 0.1})])
 def test_add_remove_unregistered_robust_rules_refused(rule, params):
-    """Krum and Bulyan have no registered add/remove claims."""
-    with pytest.raises(ValueError, match="only implemented for rules in"):
+    """Trimmed mean, Krum and Bulyan have no registered add/remove claims."""
+    with pytest.raises(ValueError, match="(only implemented for rules in|not in GLOBAL_SENSITIVITY_REGISTRY)"):
         ComposedStrategy(_global(), rule=rule, clip_norm=1.0, rule_params=params,
                          central_noise_multiplier=1.0, adjacency="add_remove", fixed_denominator=50.0)
 
 
 def test_fixed_denominator_robust_rules_admitted_under_add_remove():
-    """Trimmed mean and centered clipping with fixed_denominator are admitted under add/remove."""
+    """Centered clipping with fixed_denominator is admitted under add/remove; trimmed mean is refused."""
     glob = _global()
     res = _results(42, n=10)
     # Centered clip
@@ -367,21 +368,17 @@ def test_fixed_denominator_robust_rules_admitted_under_add_remove():
     assert out_cc is not None
     assert s_cc.last_round_stats["sensitivity"] == pytest.approx(0.5 / 50.0)
 
-    # Trimmed mean
-    s_tm = ComposedStrategy(
-        glob,
-        rule="trimmed_mean",
-        clip_norm=1.0,
-        rule_params={"trim_ratio": 0.1},
-        central_noise_multiplier=1.0,
-        adjacency="add_remove",
-        fixed_denominator=50.0,
-        noise_seed=42,
-    )
-    out_tm = s_tm.aggregate_fit(1, _copy(res))
-    assert out_tm is not None
-    # k = int(0.1 * 50) = 5, kept = 40
-    assert s_tm.last_round_stats["sensitivity"] == pytest.approx(1.0 / 40.0)
+    # Trimmed mean with noise on must be refused
+    with pytest.raises(ValueError, match="(not in GLOBAL_SENSITIVITY_REGISTRY|only implemented for rules in)"):
+        ComposedStrategy(
+            glob,
+            rule="trimmed_mean",
+            clip_norm=1.0,
+            rule_params={"trim_ratio": 0.1},
+            central_noise_multiplier=1.0,
+            adjacency="add_remove",
+            fixed_denominator=50.0,
+        )
 
 
 
