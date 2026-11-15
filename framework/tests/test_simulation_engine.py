@@ -55,8 +55,9 @@ def test_a_run_produces_rounds_costs_and_provenance(tmp_path):
     assert r0["comm"]["down_bytes"] == r0["comm"]["up_bytes"] > 0
     assert r0["compute"]["client_flops"] == r0["compute"]["client_flops_analytic"] > 0
     assert r0["privacy"]["noise_std"] > 0 and r0["privacy"]["noise_to_signal"] > 0
+    assert r0["privacy"]["clip_rate"] is not None and 0.0 <= r0["privacy"]["clip_rate"] <= 1.0
     assert r0["privacy"]["epsilon_spent"] < rec["rounds"][-1]["privacy"]["epsilon_spent"] <= 4.0 + 1e-6
-    assert set(r0["robustness"]["exclusion"]) == {"honest", "attacker"}
+    assert r0["robustness"]["exclusion"] is not None and set(r0["robustness"]["exclusion"]) == {"honest", "attacker"}
     assignment = rec["meta"]["behavior_assignment"]
     assert len(assignment) == 2 and all(v == ["ipm"] for v in assignment.values())
     assert rec["meta"]["flags"] == []                     # 0.2 does not exceed the trim ratio 0.2

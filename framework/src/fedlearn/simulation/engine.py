@@ -11,6 +11,7 @@ import json
 import math
 import platform
 import subprocess
+import warnings
 from collections import OrderedDict
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -199,13 +200,16 @@ def run(cfg: Dict, on_round: Optional[Callable[[Dict], None]] = None,
         strategy_type = ByzFLStrategy
         external_kwargs = {"bucket_size": sv["external_aggregation"]["bucket_size"],
                            "bucket_seed": int(seeds["partition"]) + 4_347_482}
-    strategy = strategy_type(
-        init_params, rule=sv["rule"], clip_norm=server_clip, rule_params=rule_params,
-        central_noise_multiplier=z if pv["mode"] == "central" else 0.0, noise_seed=int(seeds["noise"]),
-        optimizer=sv["optimizer"]["type"], optimizer_lr=float(sv["optimizer"]["lr"]),
-        evaluate_fn=timed_eval, clients_per_round=int(fed["clients_per_round"]), norm_band=norm_band,
-        ks_reference_std=(client_noise_std if norm_band is not None and "ks_alpha" in sv["norm_filter"] else None),
-        ks_alpha=float((sv.get("norm_filter") or {}).get("ks_alpha", 1e-4)), **external_kwargs)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="strict_dp_ledger is False", category=UserWarning)
+        strategy = strategy_type(
+            init_params, rule=sv["rule"], clip_norm=server_clip, rule_params=rule_params,
+            central_noise_multiplier=z if pv["mode"] == "central" else 0.0, noise_seed=int(seeds["noise"]),
+            optimizer=sv["optimizer"]["type"], optimizer_lr=float(sv["optimizer"]["lr"]),
+            evaluate_fn=timed_eval, clients_per_round=int(fed["clients_per_round"]), norm_band=norm_band,
+            ks_reference_std=(client_noise_std if norm_band is not None and "ks_alpha" in sv["norm_filter"] else None),
+            ks_alpha=float((sv.get("norm_filter") or {}).get("ks_alpha", 1e-4)),
+            strict_dp_ledger=False, **external_kwargs)
     flops: Dict[str, Dict[int, int]] = {"measured": {}, "analytic": {}}
     local_gen = torch.Generator().manual_seed(int(seeds["noise"]) + 1)
     per_transfer = costs.transfer_bytes(init_params)
