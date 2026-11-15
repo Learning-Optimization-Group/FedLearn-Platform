@@ -128,7 +128,7 @@ def test_release_ledger_censors_unnoised_stats_under_central_dp():
     assert st["noisy_aggregate_delta_norm"] is not None and st["noisy_aggregate_delta_norm"] > 0
     assert st["sensitivity"] == pytest.approx(2 * 0.1 / 6)
     assert st["noise_std"] == pytest.approx(2.0 * 2 * 0.1 / 6)
-    assert set(st["timings"]) == {"clip", "rule", "noise", "optimizer"}
+    assert st["timings"] is None
 
 
 def test_release_ledger_explicit_opt_out():

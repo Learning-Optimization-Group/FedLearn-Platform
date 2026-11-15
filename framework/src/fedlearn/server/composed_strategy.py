@@ -253,6 +253,8 @@ class ComposedStrategy(Strategy):
             if apply_noise and self.z > 0.0:
                 if self.fixed_denominator is None:
                     stats.update(failed=True, message=f"round {server_round}: empty cohort without fixed_denominator cannot size DP noise")
+                    if self.strict_dp_ledger:
+                        stats.update(aggregated=None, dropped=[], filtered=[], timings=None)
                     return None, stats
                 sens = self._sensitivity(0)
                 std = self.z * sens if (sens is not None and self.z > 0) else 0.0
@@ -274,6 +276,7 @@ class ComposedStrategy(Strategy):
                     aggregated=None if (self.strict_dp_ledger and self.adjacency == "add_remove") else 0,
                     dropped=[] if self.strict_dp_ledger else stats["dropped"],
                     filtered=[] if self.strict_dp_ledger else stats["filtered"],
+                    timings=None if self.strict_dp_ledger else stats["timings"],
                     expected_cohort=self.public_cohort or self.fixed_denominator,
                     aggregate_delta_norm=None if self.strict_dp_ledger else 0.0,
                     noisy_aggregate_delta_norm=noisy_norm,
@@ -328,12 +331,23 @@ class ComposedStrategy(Strategy):
                  "message": None, "timings": {"clip": 0.0, "rule": 0.0, "noise": 0.0, "optimizer": 0.0}}
         if not ok:
             stats.update(failed=True, message=f"round {server_round}: every client update was invalid or filtered")
+            if apply_noise and self.z > 0.0 and self.strict_dp_ledger:
+                stats.update(aggregated=None, dropped=[], filtered=[], timings=None)
             return None, stats
         if (apply_noise and self.z > 0.0 and self.public_cohort is not None
                 and self.fixed_denominator is None and len(ok) != self.public_cohort):
-            stats.update(failed=True, message=(
-                f"round {server_round}: {len(ok)} clients reported but public_cohort={self.public_cohort}; noise "
-                f"sized to the public cohort would not cover a {self.rule} over the clients that reported"))
+            if self.strict_dp_ledger:
+                msg = (
+                    f"round {server_round}: reporting cohort does not match public_cohort={self.public_cohort}; noise "
+                    f"sized to the public cohort would not cover a {self.rule} over the clients that reported"
+                )
+                stats.update(failed=True, message=msg, aggregated=None, dropped=[], filtered=[], timings=None)
+            else:
+                msg = (
+                    f"round {server_round}: {len(ok)} clients reported but public_cohort={self.public_cohort}; noise "
+                    f"sized to the public cohort would not cover a {self.rule} over the clients that reported"
+                )
+                stats.update(failed=True, message=msg)
             return None, stats
         t = time.perf_counter()
         raw = [OrderedDict((k, p[k].detach().float().cpu() - self._global[k]) for k in keys) for _, p, _ in ok]
@@ -381,6 +395,8 @@ class ComposedStrategy(Strategy):
             stats.update(self._reduction_diagnostics(deltas, keys))
         except ValueError as exc:  # the rule's own precondition, e.g. Krum's n >= 2f + 3
             stats.update(failed=True, message=f"round {server_round}: rule {self.rule!r} refused: {exc}")
+            if apply_noise and self.z > 0.0 and self.strict_dp_ledger:
+                stats.update(aggregated=None, dropped=[], filtered=[], timings=None)
             return None, stats
         stats["timings"]["rule"] = time.perf_counter() - t
         raw_reduced_norm = math.sqrt(sum(float((reduced[k] ** 2).sum()) for k in keys))
@@ -438,6 +454,11 @@ class ComposedStrategy(Strategy):
                 stats["aggregated"] = None
             stats["dropped"] = []
             stats["filtered"] = []
+            # Under central DP with strict_dp_ledger, per-stage execution timings (clip, rule, noise, optimizer)
+            # scale with the participant cohort size and leak composition/filtering details across the release
+            # boundary (Loophole L7). Therefore, timings is censored (None) under strict DP ledger.
+            # Consumers like simulation engine.py run with strict_dp_ledger=False when profiling timings.
+            stats["timings"] = None
         else:
             agg_norm = raw_reduced_norm
             c_rate = sum(1 for s in shrink if s < 1.0) / len(shrink)
@@ -478,7 +499,8 @@ class ComposedStrategy(Strategy):
         if results and self._fedopt is not None:
             t = time.perf_counter()
             out = self._fedopt.aggregate_fit(server_round, [(OrderedDict((k, v.clone()) for k, v in out.items()), 1)])
-            stats["timings"]["optimizer"] = time.perf_counter() - t
+            if stats.get("timings") is not None:
+                stats["timings"]["optimizer"] = time.perf_counter() - t
         self._global = OrderedDict((k, v.detach().float().cpu().clone()) for k, v in out.items())
         self.last_round_stats = stats
         return out
