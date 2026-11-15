@@ -331,11 +331,19 @@ def test_fixed_denominator_is_refused_for_rules_other_than_the_mean(rule, params
                          central_noise_multiplier=1.0, adjacency=adjacency, fixed_denominator=50.0)
 
 
-@pytest.mark.parametrize("rule, params", [("mean", {}), ("trimmed_mean", {"trim_ratio": 0.2})])
-def test_add_remove_central_dp_is_refused_without_a_fixed_denominator(rule, params):
+def test_add_remove_central_dp_is_refused_without_a_fixed_denominator():
     """A mean over the reporting cohort moves by 2C/(n+1) when one client is added, twice the C/n
     the add/remove claim sizes noise to."""
     with pytest.raises(ValueError, match="requires fixed_denominator"):
+        ComposedStrategy(_global(), rule="mean", clip_norm=1.0,
+                         central_noise_multiplier=1.0, adjacency="add_remove")
+
+
+@pytest.mark.parametrize("rule, params", [("trimmed_mean", {"trim_ratio": 0.2}),
+                                          ("centered_clip", {"tau": 0.5, "iterations": 1})])
+def test_add_remove_unregistered_robust_rules_refused(rule, params):
+    """Trimmed mean and centered clipping have no registered add/remove claims."""
+    with pytest.raises(ValueError, match="not in GLOBAL_SENSITIVITY_REGISTRY"):
         ComposedStrategy(_global(), rule=rule, clip_norm=1.0, rule_params=params,
                          central_noise_multiplier=1.0, adjacency="add_remove")
 

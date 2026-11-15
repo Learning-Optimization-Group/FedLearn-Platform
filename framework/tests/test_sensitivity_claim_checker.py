@@ -257,3 +257,57 @@ def test_planted_defect_6_krum_order_n_sensitivity():
     )
     assert res.falsified, "Checker failed to falsify Krum 2C/N claim!"
     assert res.breach_factor >= 4.0, f"Expected order-N breach factor >= 4x, got {res.breach_factor:.3f}"
+
+
+def test_sound_path_fixed_denominator_mean_add_remove():
+    """Sound path under add_remove: sum over a fixed denominator D claiming C/D must not be falsified."""
+    n, dim, clip_c, d_denom = 20, 10, 2.0, 50.0
+    claimed_sens = clip_c / d_denom
+
+    def agg(x: torch.Tensor) -> torch.Tensor:
+        clipped = clip_tensor_rows(x, max_norm=clip_c)
+        return clipped.sum(dim=0) / d_denom
+
+    res = find_sensitivity_witness(
+        aggregator_fn=agg,
+        claimed_sensitivity=claimed_sens,
+        num_clients=n,
+        dim=dim,
+        clip_norm=clip_c,
+        adjacency="add_remove",
+        num_random_trials=100,
+    )
+    assert not res.falsified, f"Sound fixed-denominator mean falsely falsified: {res}"
+    assert res.breach_factor <= 1.0001
+
+
+def test_planted_defect_reporting_cohort_mean_add_remove():
+    """Planted defect: a mean over the reporting cohort claiming C/n under add/remove must be falsified (ratio ~1.9)."""
+    n, dim, clip_c = 20, 10, 2.0
+    claimed_sens = clip_c / n  # Flawed claim: C/n
+
+    def agg(x: torch.Tensor) -> torch.Tensor:
+        clipped = clip_tensor_rows(x, max_norm=clip_c)
+        return clipped.mean(dim=0)
+
+    res = find_sensitivity_witness(
+        aggregator_fn=agg,
+        claimed_sensitivity=claimed_sens,
+        num_clients=n,
+        dim=dim,
+        clip_norm=clip_c,
+        adjacency="add_remove",
+        num_random_trials=100,
+    )
+    assert res.falsified, f"Reporting cohort mean was not falsified under add/remove: {res}"
+    assert pytest.approx(res.breach_factor, rel=0.05) == (2.0 * n) / (n + 1)
+
+
+def test_unregistered_add_remove_claims_for_trimmed_mean_and_centered_clip():
+    """Trimmed mean and centered clipping have no registered add/remove claims."""
+    assert not GLOBAL_SENSITIVITY_REGISTRY.is_registered("trimmed_mean", "add_remove")
+    assert not GLOBAL_SENSITIVITY_REGISTRY.is_registered("centered_clip", "add_remove")
+    with pytest.raises(ValueError, match="not registered"):
+        GLOBAL_SENSITIVITY_REGISTRY.get_claim("trimmed_mean", "add_remove")
+    with pytest.raises(ValueError, match="not registered"):
+        GLOBAL_SENSITIVITY_REGISTRY.get_claim("centered_clip", "add_remove")
