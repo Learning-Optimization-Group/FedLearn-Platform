@@ -128,6 +128,11 @@ class ComposedStrategy(Strategy):
             raise ValueError(f"public_cohort must be >= 1, got {public_cohort}")
         if fixed_denominator is not None and (not math.isfinite(fixed_denominator) or fixed_denominator <= 0):
             raise ValueError(f"fixed_denominator must be positive and finite, got {fixed_denominator}")
+        if fixed_denominator is not None and rule != "mean":
+            raise ValueError(
+                f"fixed_denominator is only implemented for rule='mean', got {rule!r}: every other rule divides "
+                f"by the clients that reported, so noise sized to the fixed denominator would not cover it"
+            )
         if central_noise_multiplier > 0:
             from fedlearn.privacy.sensitivity import GLOBAL_SENSITIVITY_REGISTRY
             if not GLOBAL_SENSITIVITY_REGISTRY.is_registered(rule, adjacency) or rule not in CENTRAL_DP_RULES:
@@ -137,6 +142,11 @@ class ComposedStrategy(Strategy):
                 )
             if clip_norm is None:
                 raise ValueError("central DP needs a clip_norm")
+            if adjacency == "add_remove" and fixed_denominator is None:
+                raise ValueError(
+                    "central DP under add_remove adjacency requires fixed_denominator: a mean over the clients "
+                    "that reported moves by 2C/(n+1) when one client is added, twice the C/n the claim assumes"
+                )
             if rule == "centered_clip" and int((rule_params or {}).get("iterations", 1)) != 1:
                 raise ValueError("central DP with centered_clip requires iterations=1 for valid sensitivity bound")
         if norm_band is not None and not (0.0 <= float(norm_band[0]) < float(norm_band[1])):
@@ -205,10 +215,9 @@ class ComposedStrategy(Strategy):
         centered_tau = self.rule_params.get("tau", self.clip_norm) if self.rule == "centered_clip" else None
         eff_n = self.public_cohort if self.public_cohort is not None else n
 
-        if self.fixed_denominator is not None:
+        if self.fixed_denominator is not None:  # the constructor admits this for the mean only
             factor = 1.0 if self.adjacency == "add_remove" else 2.0
-            eff_tau = min(float(self.clip_norm), float(centered_tau)) if self.rule == "centered_clip" else float(self.clip_norm)
-            return factor * eff_tau / float(self.fixed_denominator)
+            return factor * self.clip_norm / self.fixed_denominator
 
         from fedlearn.privacy.sensitivity import GLOBAL_SENSITIVITY_REGISTRY
         claim = GLOBAL_SENSITIVITY_REGISTRY.get_claim(self.rule, self.adjacency)
@@ -256,6 +265,12 @@ class ComposedStrategy(Strategy):
                  "message": None, "timings": {"clip": 0.0, "rule": 0.0, "noise": 0.0, "optimizer": 0.0}}
         if not ok:
             stats.update(failed=True, message=f"round {server_round}: every client update was invalid or filtered")
+            return None, stats
+        if (apply_noise and self.z > 0.0 and self.public_cohort is not None
+                and self.fixed_denominator is None and len(ok) != self.public_cohort):
+            stats.update(failed=True, message=(
+                f"round {server_round}: {len(ok)} clients reported but public_cohort={self.public_cohort}; noise "
+                f"sized to the public cohort would not cover a {self.rule} over the clients that reported"))
             return None, stats
         t = time.perf_counter()
         raw = [OrderedDict((k, p[k].detach().float().cpu() - self._global[k]) for k in keys) for _, p, _ in ok]

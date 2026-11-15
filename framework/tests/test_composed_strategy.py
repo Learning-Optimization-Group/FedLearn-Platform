@@ -298,23 +298,70 @@ def test_fixed_denominator_estimator_and_add_remove():
     assert st["noise_std"] == pytest.approx(2.0 * (1.0 / 50.0))
 
 
-def test_public_cohort_sensitivity_used():
-    """public_cohort overrides realised cohort size for sensitivity sizing."""
-    glob = _global()
-    res = _results(42, n=8)
-    s = ComposedStrategy(
-        glob,
-        rule="mean",
-        clip_norm=0.5,
-        central_noise_multiplier=1.0,
-        adjacency="replace_one",
-        public_cohort=100,
-        noise_seed=12,
-    )
-    s.aggregate_fit(0, _copy(res))
-    st = s.last_round_stats
-    # sensitivity should be 2 * C / public_cohort = 2 * 0.5 / 100 = 0.01
-    assert st["sensitivity"] == pytest.approx(2.0 * 0.5 / 100.0)
+def _axis_cohort(values):
+    """One client per value; each moves only the first weight coordinate, by that value."""
+    out = []
+    for i, x in enumerate(values):
+        p = OrderedDict((k, v.clone()) for k, v in _global().items())
+        p["w"][0, 0] += x
+        out.append((f"c{i}", p, 1))
+    return out
+
+
+@pytest.mark.parametrize("reporting", [35, 50, 66])
+def test_fixed_denominator_one_added_client_moves_the_aggregate_by_c_over_d(reporting):
+    """Noise is sized to C/D = 1/50. One more client at the clip bound must move the noise-free
+    aggregate by exactly that, however many clients reported."""
+    s = ComposedStrategy(_global(), rule="mean", clip_norm=1.0, central_noise_multiplier=2.0,
+                         adjacency="add_remove", fixed_denominator=50.0, noise_seed=3)
+    without = s.preview(_axis_cohort([-1.0] * reporting))
+    with_one_more = s.preview(_axis_cohort([-1.0] * reporting + [1.0]))
+    assert float(with_one_more["w"][0, 0] - without["w"][0, 0]) == pytest.approx(0.02, abs=1e-6)
+
+
+@pytest.mark.parametrize("adjacency", ["replace_one", "add_remove"])
+@pytest.mark.parametrize("rule, params", [("trimmed_mean", {"trim_ratio": 0.2}),
+                                          ("centered_clip", {"tau": 0.5, "iterations": 1})])
+def test_fixed_denominator_is_refused_for_rules_other_than_the_mean(rule, params, adjacency):
+    """Only the mean has a fixed-denominator estimator. The other rules still divide by the clients
+    that reported, so noise sized to C/D is too small: 3.2x to 4.6x for the trimmed mean at D = 50
+    with 50 to 35 clients reporting."""
+    with pytest.raises(ValueError, match="only implemented for"):
+        ComposedStrategy(_global(), rule=rule, clip_norm=1.0, rule_params=params,
+                         central_noise_multiplier=1.0, adjacency=adjacency, fixed_denominator=50.0)
+
+
+@pytest.mark.parametrize("rule, params", [("mean", {}), ("trimmed_mean", {"trim_ratio": 0.2})])
+def test_add_remove_central_dp_is_refused_without_a_fixed_denominator(rule, params):
+    """A mean over the reporting cohort moves by 2C/(n+1) when one client is added, twice the C/n
+    the add/remove claim sizes noise to."""
+    with pytest.raises(ValueError, match="requires fixed_denominator"):
+        ComposedStrategy(_global(), rule=rule, clip_norm=1.0, rule_params=params,
+                         central_noise_multiplier=1.0, adjacency="add_remove")
+
+
+def test_dp_round_is_refused_when_the_reporting_cohort_differs_from_public_cohort():
+    """Noise sized to 2C/public_cohort does not cover a mean over fewer clients: 8 reporting against
+    a public cohort of 100 is 12.5x short, so the round must release nothing."""
+    s = ComposedStrategy(_global(), rule="mean", clip_norm=0.5, central_noise_multiplier=1.0,
+                         adjacency="replace_one", public_cohort=100, noise_seed=12)
+    assert s.aggregate_fit(0, _results(42, n=8)) is None
+    assert s.last_round_stats["failed"] is True
+    assert "public_cohort" in s.last_round_stats["message"]
+
+
+def test_preview_of_a_subset_is_not_subject_to_the_public_cohort_check():
+    """preview() is noise-free and is called on honest-only subsets to measure an attack's deviation."""
+    s = ComposedStrategy(_global(), rule="mean", clip_norm=0.5, central_noise_multiplier=1.0,
+                         adjacency="replace_one", public_cohort=100, noise_seed=12)
+    assert s.preview(_results(42, n=8)) is not None
+
+
+def test_public_cohort_matching_the_reporting_cohort_sizes_noise_to_it():
+    s = ComposedStrategy(_global(), rule="mean", clip_norm=0.5, central_noise_multiplier=1.0,
+                         adjacency="replace_one", public_cohort=8, noise_seed=12)
+    assert s.aggregate_fit(0, _results(42, n=8)) is not None
+    assert s.last_round_stats["sensitivity"] == pytest.approx(0.125)  # 2 * 0.5 / 8
 
 
 def test_unregistered_dp_rule_rejected():
