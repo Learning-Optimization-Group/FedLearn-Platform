@@ -223,6 +223,8 @@ class ComposedStrategy(Strategy):
         )
 
         from fedlearn.privacy.sensitivity import GLOBAL_SENSITIVITY_REGISTRY
+        if not GLOBAL_SENSITIVITY_REGISTRY.is_registered(self.rule, self.adjacency):
+            return None
         claim = GLOBAL_SENSITIVITY_REGISTRY.get_claim(self.rule, self.adjacency)
         return claim.compute(
             num_clients=eff_n,

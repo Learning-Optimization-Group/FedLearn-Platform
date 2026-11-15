@@ -376,3 +376,107 @@ def test_unregistered_add_remove_claim_for_trimmed_mean():
     claim_cc = GLOBAL_SENSITIVITY_REGISTRY.get_claim("centered_clip", "add_remove")
     assert claim_cc.adjacency == "add_remove"
 
+
+def test_generic_search_falsifies_f2_trimmed_mean_add_remove_with_no_hint():
+    """F3 acceptance test: With no hint from the test, generic search falsifies the F2 claim."""
+    n, dim, clip_c, beta, d_denom = 20, 21, 2.0, 0.1, 50.0
+    k = int(beta * d_denom)
+    d_trim = d_denom - 2 * k
+    claimed_sens = clip_c / d_trim
+
+    def agg(x: torch.Tensor) -> torch.Tensor:
+        clipped = clip_tensor_rows(x, max_norm=clip_c)
+        n_cur = clipped.shape[0]
+        if n_cur <= 2 * k:
+            return torch.zeros(clipped.shape[1], dtype=clipped.dtype)
+        sX, _ = torch.sort(clipped, dim=0)
+        retained = sX[k : n_cur - k]
+        return retained.sum(dim=0) / d_trim
+
+    res = find_sensitivity_witness(
+        aggregator_fn=agg,
+        claimed_sensitivity=claimed_sens,
+        num_clients=n,
+        dim=dim,
+        clip_norm=clip_c,
+        adjacency="add_remove",
+        num_random_trials=50,
+    )
+    assert res.falsified, f"Checker failed to falsify F2 claim with no hint: {res}"
+    assert res.breach_factor >= 1.3, f"Expected breach factor >= 1.3x, got {res.breach_factor:.4f}"
+
+
+@pytest.mark.parametrize("dim", [21, 64])
+@pytest.mark.parametrize("adjacency", ["replace_one", "add_remove"])
+def test_generic_search_zero_false_alarms_sound_paths(dim, adjacency):
+    """F3 acceptance test: Zero false alarms on fixed-denominator mean and centered clipping at dims 21 and 64."""
+    from fedlearn.server.robust_aggregation import centered_clip
+    n, clip_c, d_denom = 20, 2.0, 50.0
+
+    # Fixed-denominator mean
+    claimed_m = (clip_c / d_denom) if adjacency == "add_remove" else (2.0 * clip_c / n)
+    def agg_mean(x: torch.Tensor) -> torch.Tensor:
+        clipped = clip_tensor_rows(x, max_norm=clip_c)
+        return (clipped.sum(dim=0) / d_denom) if adjacency == "add_remove" else clipped.mean(dim=0)
+
+    res_m = find_sensitivity_witness(
+        aggregator_fn=agg_mean,
+        claimed_sensitivity=claimed_m,
+        num_clients=n,
+        dim=dim,
+        clip_norm=clip_c,
+        adjacency=adjacency,
+        num_random_trials=20,
+    )
+    assert not res_m.falsified, f"False alarm on mean (dim={dim}, adj={adjacency}): {res_m}"
+    assert res_m.breach_factor <= 1.0001
+
+    # Centered clipping
+    tau = 0.5
+    claimed_cc = (min(clip_c, tau) / d_denom) if adjacency == "add_remove" else (2.0 * min(clip_c, tau) / n)
+    def agg_cc(x: torch.Tensor) -> torch.Tensor:
+        clipped = clip_tensor_rows(x, max_norm=clip_c)
+        flat = clipped.reshape(clipped.shape[0], -1)
+        if adjacency == "add_remove":
+            norms = torch.linalg.vector_norm(flat, dim=1, keepdim=True).clamp_min(1e-12)
+            shrink = torch.clamp(tau / norms, max=1.0)
+            return (flat * shrink).sum(dim=0) / d_denom
+        else:
+            return centered_clip(flat, torch.zeros_like(flat[0]), tau=tau, iterations=1)
+
+    res_cc = find_sensitivity_witness(
+        aggregator_fn=agg_cc,
+        claimed_sensitivity=claimed_cc,
+        num_clients=n,
+        dim=dim,
+        clip_norm=clip_c,
+        adjacency=adjacency,
+        num_random_trials=20,
+    )
+    assert not res_cc.falsified, f"False alarm on centered_clip (dim={dim}, adj={adjacency}): {res_cc}"
+    assert res_cc.breach_factor <= 1.0001
+
+
+def test_iterations_run_counts_what_ran():
+    """F3 acceptance test: iterations_run counts the actual number of candidate pairs evaluated."""
+    call_count = [0]
+
+    def counted_agg(x: torch.Tensor) -> torch.Tensor:
+        call_count[0] += 1
+        return x.mean(dim=0)
+
+    res = find_sensitivity_witness(
+        aggregator_fn=counted_agg,
+        claimed_sensitivity=0.2,
+        num_clients=10,
+        dim=5,
+        clip_norm=1.0,
+        num_random_trials=15,
+        adjacency="replace_one",
+    )
+    # Each pair evaluation calls aggregator_fn twice
+    assert res.iterations_run > 0
+    assert call_count[0] == res.iterations_run * 2
+
+
+

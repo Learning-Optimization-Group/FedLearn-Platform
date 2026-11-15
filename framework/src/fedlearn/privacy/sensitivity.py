@@ -7,6 +7,7 @@ aggregation functions to structured and randomized adversarial witness search.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Callable, Dict, Optional, Tuple
 
 import torch
@@ -167,8 +168,8 @@ def find_sensitivity_witness(
 ) -> FalsificationResult:
     """Search for a witness pair of neighbouring cohorts that falsifies claimed sensitivity.
 
-    Tests both structured extremal constructions (diametric vectors, coordinate extremes)
-    and random restarts with gradient-free perturbation.
+    Tests both structured extremal constructions (diametric vectors, coordinate extremes,
+    and mixed-owner boundary constructions) and random draws.
     Supports adjacency='replace_one' (n vs n clients) and adjacency='add_remove' (n vs n+1 clients).
     """
     if adjacency not in ("replace_one", "add_remove"):
@@ -176,6 +177,17 @@ def find_sensitivity_witness(
     gen = torch.Generator().manual_seed(seed)
     max_dist = 0.0
     worst_note = "none"
+    iterations_run = 0
+
+    def evaluate_pair(c1: torch.Tensor, c2: torch.Tensor, note: str) -> None:
+        nonlocal max_dist, worst_note, iterations_run
+        iterations_run += 1
+        out1 = aggregator_fn(c1)
+        out2 = aggregator_fn(c2)
+        dist = float(torch.linalg.vector_norm(out1 - out2))
+        if dist > max_dist:
+            max_dist = dist
+            worst_note = note
 
     if adjacency == "add_remove":
         # --- Structured witness checks for add/remove (n vs n+1 clients) ---
@@ -185,12 +197,7 @@ def find_sensitivity_witness(
         d2 = torch.zeros(num_clients + 1, dim, dtype=torch.float32)
         d2[:num_clients, 0] = -clip_norm
         d2[num_clients, 0] = clip_norm
-        out1 = aggregator_fn(d1)
-        out2 = aggregator_fn(d2)
-        dist = float(torch.linalg.vector_norm(out1 - out2))
-        if dist > max_dist:
-            max_dist = dist
-            worst_note = "structured opposite pole addition"
+        evaluate_pair(d1, d2, "structured opposite pole addition")
 
         # 2. Positive pole addition: n clients at +C*e_0, (n+1)-th client at -C*e_0
         d1_pos = torch.zeros(num_clients, dim, dtype=torch.float32)
@@ -198,23 +205,13 @@ def find_sensitivity_witness(
         d2_pos = torch.zeros(num_clients + 1, dim, dtype=torch.float32)
         d2_pos[:num_clients, 0] = clip_norm
         d2_pos[num_clients, 0] = -clip_norm
-        out1_pos = aggregator_fn(d1_pos)
-        out2_pos = aggregator_fn(d2_pos)
-        dist_pos = float(torch.linalg.vector_norm(out1_pos - out2_pos))
-        if dist_pos > max_dist:
-            max_dist = dist_pos
-            worst_note = "structured positive pole addition"
+        evaluate_pair(d1_pos, d2_pos, "structured positive pole addition")
 
         # 3. Addition to all-zeros base: n clients at 0, (n+1)-th client at +C*e_0
         d1_zero = torch.zeros(num_clients, dim, dtype=torch.float32)
         d2_zero = torch.zeros(num_clients + 1, dim, dtype=torch.float32)
         d2_zero[num_clients, 0] = clip_norm
-        out1_zero = aggregator_fn(d1_zero)
-        out2_zero = aggregator_fn(d2_zero)
-        dist_zero = float(torch.linalg.vector_norm(out1_zero - out2_zero))
-        if dist_zero > max_dist:
-            max_dist = dist_zero
-            worst_note = "structured zero base addition"
+        evaluate_pair(d1_zero, d2_zero, "structured zero base addition")
 
         # 4. Saturated coordinate spread: n clients spread, (n+1)-th client at +C*e_0
         d1_sat = torch.zeros(num_clients, dim, dtype=torch.float32)
@@ -224,12 +221,7 @@ def find_sensitivity_witness(
         d2_sat = torch.zeros(num_clients + 1, dim, dtype=torch.float32)
         d2_sat[:num_clients] = d1_sat
         d2_sat[num_clients, 0] = clip_norm
-        out1_sat = aggregator_fn(d1_sat)
-        out2_sat = aggregator_fn(d2_sat)
-        dist_sat = float(torch.linalg.vector_norm(out1_sat - out2_sat))
-        if dist_sat > max_dist:
-            max_dist = dist_sat
-            worst_note = "structured coordinate spread addition"
+        evaluate_pair(d1_sat, d2_sat, "structured coordinate spread addition")
 
         # 5. Median split pivot under add/remove:
         half = num_clients // 2
@@ -239,14 +231,41 @@ def find_sensitivity_witness(
         d2_med = torch.zeros(num_clients + 1, dim, dtype=torch.float32)
         d2_med[:num_clients] = d1_med
         d2_med[num_clients, 0] = clip_norm
-        out1_med = aggregator_fn(d1_med)
-        out2_med = aggregator_fn(d2_med)
-        dist_med = float(torch.linalg.vector_norm(out1_med - out2_med))
-        if dist_med > max_dist:
-            max_dist = dist_med
-            worst_note = "structured median split addition"
+        evaluate_pair(d1_med, d2_med, "structured median split addition")
 
-        # 6. Randomized witness search for add/remove (n vs n+1 clients)
+        # 6. Mixed-owner boundary constructions (each coordinate's boundary entry held by a different client)
+        if dim >= 2:
+            dB = dim - 1
+            a = clip_norm / math.sqrt(dB)
+            for k_cand in range(1, max(2, min(num_clients, 10))):
+                d1_mo = torch.zeros(num_clients, dim, dtype=torch.float32)
+                for t in range(k_cand):
+                    m_t = sum(1 for j in range(dB) if j % k_cand == t)
+                    c1 = math.sqrt(max(0.0, clip_norm**2 - m_t * (a**2)))
+                    d1_mo[t, 0] = c1
+                    for j in range(dB):
+                        if j % k_cand == t:
+                            d1_mo[t, 1 + j] = -a
+                d1_mo[k_cand:, 1:] = -a
+                d2_mo = torch.zeros(num_clients + 1, dim, dtype=torch.float32)
+                d2_mo[:num_clients] = d1_mo
+                c_min = float(d1_mo[:k_cand, 0].min()) if k_cand > 0 else clip_norm
+                d2_mo[num_clients, 0] = c_min - 1e-4
+                evaluate_pair(d1_mo, d2_mo, f"structured mixed-owner boundary addition k={k_cand}")
+
+                # Zero-vector newcomer with cyclic base
+                if dim >= num_clients:
+                    b = clip_norm / math.sqrt(num_clients - k_cand + 1)
+                    d1_z = torch.zeros(num_clients, dim, dtype=torch.float32)
+                    for j in range(num_clients):
+                        for i in range(num_clients):
+                            if (i - j) % num_clients >= k_cand - 1:
+                                d1_z[i, j] = -b
+                    d2_z = torch.zeros(num_clients + 1, dim, dtype=torch.float32)
+                    d2_z[:num_clients] = d1_z
+                    evaluate_pair(d1_z, d2_z, f"structured zero newcomer cyclic addition k={k_cand}")
+
+        # 7. Randomized witness search for add/remove (n vs n+1 clients)
         for trial in range(num_random_trials):
             base = torch.randn(num_clients, dim, generator=gen)
             base = clip_tensor_rows(base, max_norm=clip_norm)
@@ -255,13 +274,7 @@ def find_sensitivity_witness(
 
             c1 = base
             c2 = torch.cat([base, cand], dim=0)
-
-            o1 = aggregator_fn(c1)
-            o2 = aggregator_fn(c2)
-            d = float(torch.linalg.vector_norm(o1 - o2))
-            if d > max_dist:
-                max_dist = d
-                worst_note = f"random add/remove trial {trial}"
+            evaluate_pair(c1, c2, f"random add/remove trial {trial}")
 
     else:
         # --- 1. Structured witness check: Diametric opposition on dimension 0 ---
@@ -270,12 +283,7 @@ def find_sensitivity_witness(
         d2 = torch.zeros(num_clients, dim, dtype=torch.float32)
         d1[0, 0] = clip_norm
         d2[0, 0] = -clip_norm
-        out1 = aggregator_fn(d1)
-        out2 = aggregator_fn(d2)
-        dist = float(torch.linalg.vector_norm(out1 - out2))
-        if dist > max_dist:
-            max_dist = dist
-            worst_note = "structured diametric opposition"
+        evaluate_pair(d1, d2, "structured diametric opposition")
 
         # --- 2. Structured witness check: Saturated coordinate spread ---
         d1_sat = torch.zeros(num_clients, dim, dtype=torch.float32)
@@ -287,12 +295,7 @@ def find_sensitivity_witness(
             d2_sat[i, 0] = val
         d1_sat[0, 0] = clip_norm
         d2_sat[0, 0] = -clip_norm
-        out1_sat = aggregator_fn(d1_sat)
-        out2_sat = aggregator_fn(d2_sat)
-        dist_sat = float(torch.linalg.vector_norm(out1_sat - out2_sat))
-        if dist_sat > max_dist:
-            max_dist = dist_sat
-            worst_note = "structured coordinate spread"
+        evaluate_pair(d1_sat, d2_sat, "structured coordinate spread")
 
         # --- 3. Structured witness check: Trimming & Order-Statistic Boundaries ---
         max_k = max(1, (num_clients - 1) // 2)
@@ -308,12 +311,7 @@ def find_sensitivity_witness(
                 d2_trim[i, 0] = -clip_norm
             d1_trim[0, 0] = clip_norm
             d2_trim[0, 0] = -clip_norm
-            out1_trim = aggregator_fn(d1_trim)
-            out2_trim = aggregator_fn(d2_trim)
-            dist_trim = float(torch.linalg.vector_norm(out1_trim - out2_trim))
-            if dist_trim > max_dist:
-                max_dist = dist_trim
-                worst_note = f"structured trimming boundary k={k}"
+            evaluate_pair(d1_trim, d2_trim, f"structured trimming boundary k={k}")
 
         # --- 4. Structured witness check: Median split pivot ---
         # Tests order-N sensitivity collapse on median-like rules by splitting cohort
@@ -326,12 +324,7 @@ def find_sensitivity_witness(
         d1_med[half:, 0] = clip_norm
         d2_med = d1_med.clone()
         d2_med[0, 0] = clip_norm  # replace one -C with +C
-        out1_med = aggregator_fn(d1_med)
-        out2_med = aggregator_fn(d2_med)
-        dist_med = float(torch.linalg.vector_norm(out1_med - out2_med))
-        if dist_med > max_dist:
-            max_dist = dist_med
-            worst_note = "structured median split pivot"
+        evaluate_pair(d1_med, d2_med, "structured median split pivot")
 
         # --- 5. Structured witness check: Selection cluster pivot (Krum / Bulyan) ---
         # Two tight clusters at -C * e_0 and +C * e_0.
@@ -343,14 +336,30 @@ def find_sensitivity_witness(
             d1_sel[0, 0] = -clip_norm  # makes cluster A size half
             d2_sel = d1_sel.clone()
             d2_sel[0, 0] = clip_norm   # makes cluster B size (num_clients - half + 1)
-            out1_sel = aggregator_fn(d1_sel)
-            out2_sel = aggregator_fn(d2_sel)
-            dist_sel = float(torch.linalg.vector_norm(out1_sel - out2_sel))
-            if dist_sel > max_dist:
-                max_dist = dist_sel
-                worst_note = "structured selection cluster pivot"
+            evaluate_pair(d1_sel, d2_sel, "structured selection cluster pivot")
 
-        # --- 6. Randomized witness search ---
+        # --- 6. Mixed-owner boundary constructions for replace-one ---
+        if dim >= 2 and num_clients >= 3:
+            dB = dim - 1
+            a = clip_norm / math.sqrt(dB)
+            for k_cand in range(1, max(2, min(num_clients - 1, 10))):
+                d1_mo = torch.zeros(num_clients, dim, dtype=torch.float32)
+                for t in range(k_cand):
+                    m_t = sum(1 for j in range(dB) if j % k_cand == t)
+                    c1 = math.sqrt(max(0.0, clip_norm**2 - m_t * (a**2)))
+                    d1_mo[t, 0] = c1
+                    for j in range(dB):
+                        if j % k_cand == t:
+                            d1_mo[t, 1 + j] = -a
+                d1_mo[k_cand:num_clients - 1, 1:] = -a
+                d1_mo[num_clients - 1, 0] = -clip_norm
+                d2_mo = d1_mo.clone()
+                c_min = float(d1_mo[:k_cand, 0].min()) if k_cand > 0 else clip_norm
+                d2_mo[num_clients - 1, 0] = c_min - 1e-4
+                d2_mo[num_clients - 1, 1:] = 0.0
+                evaluate_pair(d1_mo, d2_mo, f"structured mixed-owner boundary replacement k={k_cand}")
+
+        # --- 7. Randomized witness search ---
         for trial in range(num_random_trials):
             # Random honest cohort of size num_clients - 1
             honest = torch.randn(num_clients - 1, dim, generator=gen)
@@ -364,13 +373,7 @@ def find_sensitivity_witness(
 
             c1 = torch.cat([cand1, honest], dim=0)
             c2 = torch.cat([cand2, honest], dim=0)
-
-            o1 = aggregator_fn(c1)
-            o2 = aggregator_fn(c2)
-            d = float(torch.linalg.vector_norm(o1 - o2))
-            if d > max_dist:
-                max_dist = d
-                worst_note = f"random restart trial {trial}"
+            evaluate_pair(c1, c2, f"random restart trial {trial}")
 
     breach_factor = max_dist / claimed_sensitivity if claimed_sensitivity > 0 else float("inf")
     falsified = max_dist > claimed_sensitivity * (1.0 + tolerance)
@@ -380,6 +383,6 @@ def find_sensitivity_witness(
         claimed_sensitivity=claimed_sensitivity,
         max_observed_distance=max_dist,
         breach_factor=breach_factor,
-        iterations_run=num_random_trials + 2,
+        iterations_run=iterations_run,
         witness_notes=worst_note,
     )
