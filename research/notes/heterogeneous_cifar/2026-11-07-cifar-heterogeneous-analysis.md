@@ -2,8 +2,8 @@
 
 **Date:** 2026-11-07  
 **Benchmark Target:** Non-medical heterogeneous federated learning on CIFAR-10 with Dirichlet partitioning ($\alpha = 0.5$)  
-**Harness:** [`research/benchmarks/run_heterogeneous_cifar_benchmark.py`](file:///Users/anurag/code/FedLearn-Platform/research/benchmarks/run_heterogeneous_cifar_benchmark.py)  
-**Raw Results:** [`research/results/heterogeneous_cifar/cifar_heterogeneous_benchmark.json`](file:///Users/anurag/code/FedLearn-Platform/research/results/heterogeneous_cifar/cifar_heterogeneous_benchmark.json)  
+**Harness:** [`research/benchmarks/run_heterogeneous_cifar_benchmark.py`](../../benchmarks/run_heterogeneous_cifar_benchmark.py)  
+**Raw Results:** [`research/results/heterogeneous_cifar/cifar_heterogeneous_benchmark.json`](../../results/heterogeneous_cifar/cifar_heterogeneous_benchmark.json)  
 
 ---
 
