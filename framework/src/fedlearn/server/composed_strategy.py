@@ -242,6 +242,60 @@ class ComposedStrategy(Strategy):
 
     def _pipeline(self, server_round, results, *, apply_noise: bool):
         keys = list(self._global.keys())
+        stats = {"aggregated": 0, "dropped": [], "failed": False, "filtered": [],
+                 "message": None, "timings": {"clip": 0.0, "rule": 0.0, "noise": 0.0, "optimizer": 0.0}}
+        if not results:
+            if apply_noise and self.z > 0.0:
+                if self.fixed_denominator is None:
+                    stats.update(failed=True, message=f"round {server_round}: empty cohort without fixed_denominator cannot size DP noise")
+                    return None, stats
+                sens = self._sensitivity(0)
+                std = self.z * sens if (sens is not None and self.z > 0) else 0.0
+                t = time.perf_counter()
+                reduced = OrderedDict()
+                for k in keys:
+                    noise = torch.empty_like(self._global[k])
+                    noise.normal_(mean=0.0, std=std, generator=self._generator)
+                    reduced[k] = noise
+                stats["timings"]["noise"] = time.perf_counter() - t
+                out = OrderedDict()
+                for k in keys:
+                    val = self._global[k] + reduced[k]
+                    if "running_var" in k or k.endswith(".var"):
+                        val = torch.clamp(val, min=1e-6)
+                    out[k] = val
+                noisy_norm = math.sqrt(sum(float((reduced[k] ** 2).sum()) for k in keys))
+                stats.update(
+                    aggregate_delta_norm=None if self.strict_dp_ledger else 0.0,
+                    noisy_aggregate_delta_norm=noisy_norm,
+                    orig_norms=None,
+                    clip_rate=None if self.strict_dp_ledger else 0.0,
+                    mean_shrink=None if self.strict_dp_ledger else 1.0,
+                    sensitivity=sens,
+                    noise_std=std,
+                    subspace_dim=self.subspace_dim,
+                    snr_amplification=1.0,
+                    noise_reduction_factor=1.0,
+                    kept_share=None,
+                )
+                return out, stats
+            else:
+                out = OrderedDict((k, v.clone()) for k, v in self._global.items())
+                stats.update(
+                    aggregate_delta_norm=0.0,
+                    noisy_aggregate_delta_norm=None,
+                    orig_norms=None,
+                    clip_rate=0.0,
+                    mean_shrink=1.0,
+                    sensitivity=None,
+                    noise_std=0.0,
+                    subspace_dim=self.subspace_dim,
+                    snr_amplification=1.0,
+                    noise_reduction_factor=1.0,
+                    kept_share=None,
+                )
+                return out, stats
+
         normalized = normalize_updates(results)
         ok, dropped = [], []
         for cid, params, n in normalized:
@@ -378,15 +432,12 @@ class ComposedStrategy(Strategy):
         return out, stats
 
     def aggregate_fit(self, server_round, results):
-        if not results:
-            self.last_round_stats = {"aggregated": 0, "failed": True, "message": "no results"}
-            return None
         out, stats = self._pipeline(server_round, results, apply_noise=True)
         if out is None:
             self.last_round_stats = stats
             log.error(stats["message"])
             return None
-        if self._fedopt is not None:
+        if results and self._fedopt is not None:
             t = time.perf_counter()
             out = self._fedopt.aggregate_fit(server_round, [(OrderedDict((k, v.clone()) for k, v in out.items()), 1)])
             stats["timings"]["optimizer"] = time.perf_counter() - t

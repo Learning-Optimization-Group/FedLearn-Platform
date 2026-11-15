@@ -184,6 +184,8 @@ class FLCoordinator:
             self._round_started_wall = time.time()
             self._round_started_number = self.current_round
             self._round_complete_event.clear()
+            if self.clients_per_round == 0:
+                self._trigger_round_completion()
 
     def wait_for_round_to_complete(self):
         """Called by the main loop. Blocks until the current round finishes.
@@ -712,13 +714,14 @@ class FLCoordinator:
         agg_duration_s = time.perf_counter() - t_agg_start
 
         eval_duration_s = 0.0
-        if aggregated_parameters is not None:
+        if aggregated_parameters is not None or self.clients_per_round == 0:
+            params_to_eval = aggregated_parameters if aggregated_parameters is not None else self._global_model_params
             # FR-22: Strategy.evaluate is Optional[Tuple[float, dict]] — it returns None when no
             # evaluate_fn is configured (the constructor default for FedAvg/FedProx/FedOpt/FedLoRA/
             # Robust). Unpacking None as a 2-tuple raised a TypeError inside the lock, after updates
             # were cleared, wedging the round. Guard it exactly as the DeComFL trigger already does.
             t_eval_start = time.perf_counter()
-            eval_result = self.strategy.evaluate(self.current_round, aggregated_parameters)
+            eval_result = self.strategy.evaluate(self.current_round, params_to_eval)
             eval_duration_s = time.perf_counter() - t_eval_start
             if eval_result is not None:
                 loss, metrics = eval_result
@@ -735,7 +738,7 @@ class FLCoordinator:
             if self.checkpoint_store is not None:
                 try:
                     self.checkpoint_store.save(self._capture_checkpoint(
-                        self.current_round, aggregated_parameters, round_metrics))
+                        self.current_round, params_to_eval, round_metrics))
                 except Exception:
                     log.exception("Checkpoint commit failed for round %d", self.current_round)
                     self.last_round_failed = True

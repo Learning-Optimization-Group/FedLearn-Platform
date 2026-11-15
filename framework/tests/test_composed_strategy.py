@@ -364,6 +364,48 @@ def test_public_cohort_matching_the_reporting_cohort_sizes_noise_to_it():
     assert s.last_round_stats["sensitivity"] == pytest.approx(0.125)  # 2 * 0.5 / 8
 
 
+def test_empty_cohort_under_fixed_denominator_dp_moves_by_noise_only():
+    """An empty cohort under fixed-denominator DP moves the model by calibrated noise only."""
+    glob = _global()
+    strat = ComposedStrategy(
+        glob,
+        rule="mean",
+        clip_norm=1.0,
+        central_noise_multiplier=1.0,
+        adjacency="add_remove",
+        fixed_denominator=50.0,
+        noise_seed=123,
+    )
+    out = strat.aggregate_fit(1, [])
+    assert out is not None
+    diff_norm = math.sqrt(sum(float(((out[k] - glob[k]) ** 2).sum()) for k in glob))
+    assert diff_norm > 0.0
+    st = strat.last_round_stats
+    assert st["aggregated"] == 0
+    assert st["failed"] is False
+    assert st["sensitivity"] == pytest.approx(1.0 / 50.0)
+    assert st["noise_std"] == pytest.approx(1.0 * (1.0 / 50.0))
+
+
+def test_empty_cohort_without_dp_leaves_model_unchanged():
+    """An empty cohort with DP off leaves the model unchanged."""
+    glob = _global()
+    strat = ComposedStrategy(
+        glob,
+        rule="mean",
+        clip_norm=1.0,
+        central_noise_multiplier=0.0,
+        adjacency="replace_one",
+    )
+    out = strat.aggregate_fit(1, [])
+    assert out is not None
+    for k in glob:
+        assert torch.equal(out[k], glob[k])
+    st = strat.last_round_stats
+    assert st["aggregated"] == 0
+    assert st["failed"] is False
+
+
 def test_unregistered_dp_rule_rejected():
     """Central DP composition refuses any rule or adjacency not registered in SensitivityRegistry."""
     glob = _global()

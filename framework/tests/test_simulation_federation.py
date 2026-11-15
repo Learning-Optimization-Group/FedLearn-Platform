@@ -456,6 +456,84 @@ class TestPoissonSampling:
         # Different seed draws different cohorts
         assert any(r1.selected != r3.selected for r1, r3 in zip(res1.rounds, res3.rounds))
 
+    def test_poisson_cohort_distribution_at_small_qn(self):
+        """At N = 20, q = 0.05 the mean cohort over 20,000 draws is 1.00 ± 0.02 and about 36% are empty."""
+        import numpy as np
+        fed = _federation(
+            num_clients=20,
+            clients_per_round=1,
+            sampling_mode="poisson",
+            sampling_rate=0.05,
+            seed=0,
+        )
+        rng = np.random.default_rng(0)
+        sizes = np.array([len(fed._select_cohort(rng)) for _ in range(20000)])
+        assert 0.98 <= float(sizes.mean()) <= 1.02
+        empty_frac = float((sizes == 0).mean())
+        assert 0.34 <= empty_frac <= 0.38
+
+    def test_empty_poisson_cohort_simulation_round_dp_and_non_dp(self):
+        """An empty Poisson round changes model by noise only under DP, and leaves it unchanged under DP off."""
+        import math
+        from fedlearn.server.composed_strategy import ComposedStrategy
+        glob = _initial_params()
+
+        # DP on with fixed_denominator
+        dp_strat = ComposedStrategy(
+            glob,
+            rule="mean",
+            clip_norm=1.0,
+            central_noise_multiplier=1.0,
+            adjacency="add_remove",
+            fixed_denominator=20.0,
+            noise_seed=42,
+        )
+        fed_dp = SimulatedFederation(
+            strategy=dp_strat,
+            client_factory=_make_factory(20),
+            initial_parameters=glob,
+            num_clients=20,
+            clients_per_round=1,
+            sampling_mode="poisson",
+            sampling_rate=0.0001,  # draws empty cohort
+            seed=42,
+        )
+        res_dp = fed_dp.run(num_rounds=1)
+        assert len(res_dp.rounds) == 1
+        assert res_dp.rounds[0].selected == []
+        assert res_dp.rounds[0].reported == []
+        assert not res_dp.rounds[0].forced
+        # Model should move by noise only
+        diff_norm = math.sqrt(sum(float(((res_dp.final_params[k] - glob[k]) ** 2).sum()) for k in glob))
+        assert diff_norm > 0.0
+
+        # DP off
+        nodp_strat = ComposedStrategy(
+            glob,
+            rule="mean",
+            clip_norm=1.0,
+            central_noise_multiplier=0.0,
+            adjacency="replace_one",
+        )
+        fed_nodp = SimulatedFederation(
+            strategy=nodp_strat,
+            client_factory=_make_factory(20),
+            initial_parameters=glob,
+            num_clients=20,
+            clients_per_round=1,
+            sampling_mode="poisson",
+            sampling_rate=0.0001,
+            seed=42,
+        )
+        res_nodp = fed_nodp.run(num_rounds=1)
+        assert len(res_nodp.rounds) == 1
+        assert res_nodp.rounds[0].selected == []
+        assert res_nodp.rounds[0].reported == []
+        assert not res_nodp.rounds[0].forced
+        # Model should remain bit-identical
+        for k in glob:
+            assert torch.equal(res_nodp.final_params[k], glob[k])
+
 
 # --------------------------------------------------------------------------------------
 # P0-1e — scale

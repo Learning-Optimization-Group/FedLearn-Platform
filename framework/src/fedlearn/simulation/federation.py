@@ -238,11 +238,7 @@ class SimulatedFederation:
     def _select_cohort(self, rng: np.random.Generator) -> List[int]:
         if self.sampling_mode == "poisson":
             draws = rng.random(self.num_clients) < self.sampling_rate
-            selected = sorted(int(c) for c in np.flatnonzero(draws))
-            if not selected:
-                # Rare edge case: empty cohort; sample at least 1 client to keep round finishable
-                selected = [int(rng.integers(0, self.num_clients))]
-            return selected
+            return sorted(int(c) for c in np.flatnonzero(draws))
         return sorted(
             int(c)
             for c in rng.choice(self.num_clients, size=self.clients_per_round, replace=False)
