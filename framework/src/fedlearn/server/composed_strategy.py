@@ -338,34 +338,25 @@ class ComposedStrategy(Strategy):
         t = time.perf_counter()
         raw = [OrderedDict((k, p[k].detach().float().cpu() - self._global[k]) for k in keys) for _, p, _ in ok]
         norms = [math.sqrt(sum(float((d[k].double() * d[k].double()).sum()) for k in keys)) for d in raw]
-        if self.clip_norm is not None:
-            _, deltas = clipped_deltas(ok, self._global, keys, self.clip_norm)
-            shrink = [min(1.0, self.clip_norm / (x + 1e-12)) for x in norms]
+        effective_clip = self.clip_norm
+        if self.clip_norm is not None and self.rule == "centered_clip" and self.fixed_denominator is not None:
+            tau = float(self.rule_params.get("tau", self.clip_norm))
+            effective_clip = min(self.clip_norm, tau)
+
+        if effective_clip is not None:
+            _, deltas = clipped_deltas(ok, self._global, keys, effective_clip)
+            shrink = [min(1.0, effective_clip / (x + 1e-12)) for x in norms]
         else:
             deltas, shrink = raw, [1.0] * len(raw)
         stats["timings"]["clip"] = time.perf_counter() - t
         t = time.perf_counter()
         try:
             if self.fixed_denominator is not None:
-                if self.rule == "mean":
+                if self.rule in ("mean", "centered_clip"):
                     reduced = OrderedDict()
                     for key in keys:
                         stacked = torch.stack([d[key] for d in deltas], dim=0)
                         reduced[key] = stacked.sum(dim=0) / float(self.fixed_denominator)
-                    kept = None
-                elif self.rule == "centered_clip":
-                    flat = torch.stack([torch.cat([d[key].reshape(-1) for key in keys]) for d in deltas], dim=0)
-                    tau = float(self.rule_params.get("tau", self.clip_norm))
-                    norms = torch.linalg.vector_norm(flat, dim=1, keepdim=True).clamp_min(1e-12)
-                    shrink_cclip = torch.clamp(tau / norms, max=1.0)
-                    cclipped = flat * shrink_cclip
-                    reduced_flat = cclipped.sum(dim=0) / float(self.fixed_denominator)
-                    offset = 0
-                    reduced = OrderedDict()
-                    for key in keys:
-                        numel = deltas[0][key].numel()
-                        reduced[key] = reduced_flat[offset:offset + numel].reshape(deltas[0][key].shape).clone()
-                        offset += numel
                     kept = None
                 elif self.rule == "trimmed_mean":
                     beta = float(self.rule_params.get("trim_ratio", 0.0))

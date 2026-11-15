@@ -381,6 +381,37 @@ def test_fixed_denominator_robust_rules_admitted_under_add_remove():
         )
 
 
+def test_fixed_denominator_centered_clip_equals_mean_at_min_clip_and_tau():
+    """Fixed-denominator centered_clip equals fixed-denominator mean at clip min(C, tau) bit for bit."""
+    glob = _global()
+    res = _results(42, n=15)
+    c, tau, d_denom = 2.0, 0.5, 50.0
+    eff_clip = min(c, tau)
+
+    s_cc = ComposedStrategy(
+        glob,
+        rule="centered_clip",
+        clip_norm=c,
+        rule_params={"tau": tau, "iterations": 1},
+        adjacency="add_remove",
+        fixed_denominator=d_denom,
+        central_noise_multiplier=0.0,
+    )
+    s_mean = ComposedStrategy(
+        glob,
+        rule="mean",
+        clip_norm=eff_clip,
+        adjacency="add_remove",
+        fixed_denominator=d_denom,
+        central_noise_multiplier=0.0,
+    )
+
+    out_cc = s_cc.aggregate_fit(1, _copy(res))
+    out_mean = s_mean.aggregate_fit(1, _copy(res))
+    assert all(torch.equal(out_cc[k], out_mean[k]) for k in glob)
+
+
+
 
 def test_dp_round_is_refused_when_the_reporting_cohort_differs_from_public_cohort():
     """Noise sized to 2C/public_cohort does not cover a mean over fewer clients: 8 reporting against
