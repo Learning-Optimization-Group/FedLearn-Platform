@@ -1,4 +1,9 @@
-"""Production Federated Learning Benchmark on CIFAR-10 with Pre-trained ResNet-18 Backbone.
+"""DEPRECATED: retired as evidence (PLAN.md WS3). Not cited by the paper.
+
+It runs its own aggregation instead of the production coordinator and strategy, so its
+records cannot back a claim (PLAN.md section 2). Kept only so earlier records can be traced.
+
+Production Federated Learning Benchmark on CIFAR-10 with Pre-trained ResNet-18 Backbone.
 
 Demonstrates high-accuracy, production-grade federated learning on real vision data:
   1. Pre-trained ImageNet-1k ResNet-18 frozen feature representation (512-dim).
