@@ -299,3 +299,36 @@ def canary_direction(attack_seed: int, direction_id: int, like: Dict[str, torch.
     raw = OrderedDict((k, torch.randn(tuple(v.shape), generator=g)) for k, v in like.items())
     norm = torch.sqrt(sum((v.double() ** 2).sum() for v in raw.values())).item()
     return OrderedDict((k, (v / norm).float()) for k, v in raw.items())
+
+
+def orthogonal_canary_direction(
+    attack_seed: int,
+    direction_id: int,
+    like: Dict[str, torch.Tensor],
+    basis: Optional[torch.Tensor] = None,
+) -> "OrderedDict[str, torch.Tensor]":
+    """A seeded unit direction orthogonal to a given subspace basis (e.g. data feature/gradient subspace).
+
+    When ``basis`` (shape [d, k], with orthonormal columns) is provided, projects the random vector
+    onto the orthogonal complement (I - basis @ basis.T) before normalizing, isolating the canary
+    from honest gradient variance and eliminating saturation.
+    """
+    g = torch.Generator().manual_seed((int(attack_seed) * 1_000_003 + 7_777_777 + int(direction_id)) % (2 ** 63))
+    raw = OrderedDict((k, torch.randn(tuple(v.shape), generator=g)) for k, v in like.items())
+    if basis is not None and basis.numel() > 0:
+        flat = torch.cat([v.reshape(-1) for v in raw.values()]).double()
+        proj = basis.double() @ (basis.double().T @ flat)
+        orth = flat - proj
+        norm = torch.linalg.vector_norm(orth).item()
+        if norm > 1e-12:
+            orth = (orth / norm).float()
+            offset = 0
+            out = OrderedDict()
+            for k, v in like.items():
+                numel = v.numel()
+                out[k] = orth[offset:offset + numel].reshape(v.shape)
+                offset += numel
+            return out
+    norm = torch.sqrt(sum((v.double() ** 2).sum() for v in raw.values())).item()
+    return OrderedDict((k, (v / norm).float()) for k, v in raw.items())
+

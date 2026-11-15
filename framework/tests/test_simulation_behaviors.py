@@ -184,3 +184,20 @@ def test_canaries_do_not_train():
     p = _plan([{"type": "canary", "fraction": 0.5}], n=4)
     c = next(iter(p.malicious_ids()))
     assert p.training_data(c, torch.zeros(3, 2), torch.zeros(3, dtype=torch.long), None, 0)[2] is False
+
+
+def test_orthogonal_canary_direction_is_unit_norm_and_orthogonal_to_basis():
+    from fedlearn.simulation.behaviors import orthogonal_canary_direction
+    glob = OrderedDict(w=torch.zeros(10, 5), b=torch.zeros(10))
+    d = 60
+    # Create an orthonormal basis of 5 vectors
+    basis, _ = torch.linalg.qr(torch.randn(d, 5))
+    u_dict = orthogonal_canary_direction(42, 1, glob, basis=basis)
+    u_flat = torch.cat([v.reshape(-1) for v in u_dict.values()]).double()
+    # Must be unit norm
+    assert float(torch.linalg.vector_norm(u_flat)) == pytest.approx(1.0, rel=1e-5)
+    # Must have zero projection on basis
+    proj = float(torch.linalg.vector_norm(basis.double().T @ u_flat))
+    assert proj == pytest.approx(0.0, abs=1e-5)
+
+
