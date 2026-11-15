@@ -303,11 +303,70 @@ def test_planted_defect_reporting_cohort_mean_add_remove():
     assert pytest.approx(res.breach_factor, rel=0.05) == (2.0 * n) / (n + 1)
 
 
-def test_unregistered_add_remove_claims_for_trimmed_mean_and_centered_clip():
-    """Trimmed mean and centered clipping have no registered add/remove claims."""
-    assert not GLOBAL_SENSITIVITY_REGISTRY.is_registered("trimmed_mean", "add_remove")
-    assert not GLOBAL_SENSITIVITY_REGISTRY.is_registered("centered_clip", "add_remove")
-    with pytest.raises(ValueError, match="not registered"):
-        GLOBAL_SENSITIVITY_REGISTRY.get_claim("trimmed_mean", "add_remove")
-    with pytest.raises(ValueError, match="not registered"):
-        GLOBAL_SENSITIVITY_REGISTRY.get_claim("centered_clip", "add_remove")
+def test_sound_path_fixed_denominator_centered_clip_add_remove():
+    """Sound path under add_remove: centered clip over fixed denominator D claiming min(C, tau)/D."""
+    n, dim, clip_c, tau, d_denom = 20, 10, 2.0, 0.5, 50.0
+    claim = GLOBAL_SENSITIVITY_REGISTRY.get_claim("centered_clip", "add_remove")
+    claimed_sens = claim.compute(num_clients=int(d_denom), clip_norm=clip_c, tau=tau)
+    assert math.isclose(claimed_sens, tau / d_denom)
+
+    def agg(x: torch.Tensor) -> torch.Tensor:
+        clipped = clip_tensor_rows(x, max_norm=clip_c)
+        norms = torch.linalg.vector_norm(clipped, dim=1, keepdim=True).clamp_min(1e-12)
+        shrink = torch.clamp(tau / norms, max=1.0)
+        cclipped = clipped * shrink
+        return cclipped.sum(dim=0) / d_denom
+
+    res = find_sensitivity_witness(
+        aggregator_fn=agg,
+        claimed_sensitivity=claimed_sens,
+        num_clients=n,
+        dim=dim,
+        clip_norm=clip_c,
+        adjacency="add_remove",
+        num_random_trials=100,
+    )
+    assert not res.falsified, f"Sound fixed-denominator centered clip falsely falsified: {res}"
+    assert res.breach_factor <= 1.0001
+
+
+def test_sound_path_fixed_denominator_trimmed_mean_add_remove():
+    """Sound path under add_remove: coordinate-wise trimmed mean over fixed denominator D claiming C/(D - 2k)."""
+    n, dim, clip_c, beta, d_denom = 20, 10, 2.0, 0.1, 50.0
+    claim = GLOBAL_SENSITIVITY_REGISTRY.get_claim("trimmed_mean", "add_remove")
+    claimed_sens = claim.compute(num_clients=int(d_denom), clip_norm=clip_c, trim_ratio=beta)
+    k = int(beta * d_denom)
+    d_trim = d_denom - 2 * k
+    assert math.isclose(claimed_sens, clip_c / d_trim)
+
+    def agg(x: torch.Tensor) -> torch.Tensor:
+        clipped = clip_tensor_rows(x, max_norm=clip_c)
+        n_cur = clipped.shape[0]
+        if n_cur <= 2 * k:
+            return torch.zeros(clipped.shape[1], dtype=clipped.dtype)
+        sX, _ = torch.sort(clipped, dim=0)
+        retained = sX[k : n_cur - k]
+        return retained.sum(dim=0) / d_trim
+
+    res = find_sensitivity_witness(
+        aggregator_fn=agg,
+        claimed_sensitivity=claimed_sens,
+        num_clients=n,
+        dim=dim,
+        clip_norm=clip_c,
+        adjacency="add_remove",
+        num_random_trials=100,
+    )
+    assert not res.falsified, f"Sound fixed-denominator trimmed mean falsely falsified: {res}"
+    assert res.breach_factor <= 1.0001
+
+
+def test_registered_add_remove_claims_for_trimmed_mean_and_centered_clip():
+    """Trimmed mean and centered clipping have sound registered add/remove claims."""
+    assert GLOBAL_SENSITIVITY_REGISTRY.is_registered("trimmed_mean", "add_remove")
+    assert GLOBAL_SENSITIVITY_REGISTRY.is_registered("centered_clip", "add_remove")
+    claim_tm = GLOBAL_SENSITIVITY_REGISTRY.get_claim("trimmed_mean", "add_remove")
+    assert claim_tm.adjacency == "add_remove"
+    claim_cc = GLOBAL_SENSITIVITY_REGISTRY.get_claim("centered_clip", "add_remove")
+    assert claim_cc.adjacency == "add_remove"
+

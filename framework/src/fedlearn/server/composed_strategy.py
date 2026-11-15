@@ -128,9 +128,9 @@ class ComposedStrategy(Strategy):
             raise ValueError(f"public_cohort must be >= 1, got {public_cohort}")
         if fixed_denominator is not None and (not math.isfinite(fixed_denominator) or fixed_denominator <= 0):
             raise ValueError(f"fixed_denominator must be positive and finite, got {fixed_denominator}")
-        if fixed_denominator is not None and rule != "mean":
+        if fixed_denominator is not None and rule not in ("mean", "centered_clip", "trimmed_mean"):
             raise ValueError(
-                f"fixed_denominator is only implemented for rule='mean', got {rule!r}: every other rule divides "
+                f"fixed_denominator is only implemented for rules in ('mean', 'centered_clip', 'trimmed_mean'), got {rule!r}: every other rule divides "
                 f"by the clients that reported, so noise sized to the fixed denominator would not cover it"
             )
         if central_noise_multiplier > 0:
@@ -213,11 +213,9 @@ class ComposedStrategy(Strategy):
         if self.rule not in CENTRAL_DP_RULES or self.clip_norm is None:
             return None
         centered_tau = self.rule_params.get("tau", self.clip_norm) if self.rule == "centered_clip" else None
-        eff_n = self.public_cohort if self.public_cohort is not None else n
-
-        if self.fixed_denominator is not None:  # the constructor admits this for the mean only
-            factor = 1.0 if self.adjacency == "add_remove" else 2.0
-            return factor * self.clip_norm / self.fixed_denominator
+        eff_n = int(self.fixed_denominator) if self.fixed_denominator is not None else (
+            self.public_cohort if self.public_cohort is not None else n
+        )
 
         from fedlearn.privacy.sensitivity import GLOBAL_SENSITIVITY_REGISTRY
         claim = GLOBAL_SENSITIVITY_REGISTRY.get_claim(self.rule, self.adjacency)
@@ -341,12 +339,45 @@ class ComposedStrategy(Strategy):
         stats["timings"]["clip"] = time.perf_counter() - t
         t = time.perf_counter()
         try:
-            if self.fixed_denominator is not None and self.rule == "mean":
-                reduced = OrderedDict()
-                for key in keys:
-                    stacked = torch.stack([d[key] for d in deltas], dim=0)
-                    reduced[key] = stacked.sum(dim=0) / float(self.fixed_denominator)
-                kept = None
+            if self.fixed_denominator is not None:
+                if self.rule == "mean":
+                    reduced = OrderedDict()
+                    for key in keys:
+                        stacked = torch.stack([d[key] for d in deltas], dim=0)
+                        reduced[key] = stacked.sum(dim=0) / float(self.fixed_denominator)
+                    kept = None
+                elif self.rule == "centered_clip":
+                    flat = torch.stack([torch.cat([d[key].reshape(-1) for key in keys]) for d in deltas], dim=0)
+                    tau = float(self.rule_params.get("tau", self.clip_norm))
+                    norms = torch.linalg.vector_norm(flat, dim=1, keepdim=True).clamp_min(1e-12)
+                    shrink_cclip = torch.clamp(tau / norms, max=1.0)
+                    cclipped = flat * shrink_cclip
+                    reduced_flat = cclipped.sum(dim=0) / float(self.fixed_denominator)
+                    offset = 0
+                    reduced = OrderedDict()
+                    for key in keys:
+                        numel = deltas[0][key].numel()
+                        reduced[key] = reduced_flat[offset:offset + numel].reshape(deltas[0][key].shape).clone()
+                        offset += numel
+                    kept = None
+                elif self.rule == "trimmed_mean":
+                    beta = float(self.rule_params.get("trim_ratio", 0.0))
+                    D = float(self.fixed_denominator)
+                    k = int(beta * D)
+                    D_trim = max(1.0, D - 2 * k)
+                    n_curr = len(deltas)
+                    reduced = OrderedDict()
+                    for key in keys:
+                        if n_curr <= 2 * k:
+                            reduced[key] = torch.zeros_like(deltas[0][key])
+                        else:
+                            stacked = torch.stack([d[key] for d in deltas], dim=0)
+                            s_stacked, _ = torch.sort(stacked, dim=0)
+                            retained = s_stacked[k : n_curr - k]
+                            reduced[key] = retained.sum(dim=0) / float(D_trim)
+                    kept = None
+                else:
+                    reduced, kept = self._reduce_deltas(deltas, [n for _, _, n in ok], keys)
             else:
                 reduced, kept = self._reduce_deltas(deltas, [n for _, _, n in ok], keys)
             stats.update(self._reduction_diagnostics(deltas, keys))
