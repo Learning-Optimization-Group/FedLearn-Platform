@@ -218,7 +218,7 @@ class ComposedStrategy(Strategy):
         if self.rule not in CENTRAL_DP_RULES or self.clip_norm is None:
             return None
         centered_tau = self.rule_params.get("tau", self.clip_norm) if self.rule == "centered_clip" else None
-        eff_n = int(self.fixed_denominator) if self.fixed_denominator is not None else (
+        eff_n = float(self.fixed_denominator) if self.fixed_denominator is not None else (
             self.public_cohort if self.public_cohort is not None else n
         )
 

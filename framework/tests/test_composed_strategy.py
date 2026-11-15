@@ -411,6 +411,22 @@ def test_fixed_denominator_centered_clip_equals_mean_at_min_clip_and_tau():
     assert all(torch.equal(out_cc[k], out_mean[k]) for k in glob)
 
 
+def test_fixed_denominator_float_sensitivity_matches_exact_ratio():
+    """Fixed denominator as a non-integer float (e.g. 12.5) sizes sensitivity exactly to C / D."""
+    glob = _global()
+    c, d_denom = 1.0, 12.5
+    s = ComposedStrategy(
+        glob,
+        rule="mean",
+        clip_norm=c,
+        central_noise_multiplier=1.0,
+        adjacency="add_remove",
+        fixed_denominator=d_denom,
+    )
+    assert s._sensitivity(10) == pytest.approx(c / d_denom)
+
+
+
 
 
 def test_dp_round_is_refused_when_the_reporting_cohort_differs_from_public_cohort():
