@@ -1022,11 +1022,16 @@ class FLCoordinator:
     def get_server_status(self) -> dict:
         """Get current server status."""
         with self._lock:
+            received: Optional[int] = len(self._client_updates_received)
+            if (getattr(self.strategy, "strict_dp_ledger", False)
+                    and getattr(self.strategy, "adjacency", None) == "add_remove"
+                    and getattr(self.strategy, "z", 0.0) > 0.0):
+                received = None
             return {
                 "training_complete": self.training_complete or self._past_last_round(),
                 "current_round": self.current_round,
                 "required_clients_for_round": self.min_clients,
-                "received_updates_this_round": len(self._client_updates_received)
+                "received_updates_this_round": received
             }
 
     # Add to FLCoordinator class in coordinator.py

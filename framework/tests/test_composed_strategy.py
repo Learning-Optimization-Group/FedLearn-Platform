@@ -389,7 +389,7 @@ def test_empty_cohort_under_fixed_denominator_dp_moves_by_noise_only():
     diff_norm = math.sqrt(sum(float(((out[k] - glob[k]) ** 2).sum()) for k in glob))
     assert diff_norm > 0.0
     st = strat.last_round_stats
-    assert st["aggregated"] == 0
+    assert st["aggregated"] is None
     assert st["failed"] is False
     assert st["sensitivity"] == pytest.approx(1.0 / 50.0)
     assert st["noise_std"] == pytest.approx(1.0 * (1.0 / 50.0))
@@ -425,5 +425,60 @@ def test_unregistered_dp_rule_rejected():
             central_noise_multiplier=1.0,
             adjacency="replace_one",
         )
+
+
+def test_cohort_size_privacy_policy_under_add_remove_dp():
+    """Under strict_dp_ledger and add_remove adjacency, exact cohort counts are censored (None),
+    and dropped/filtered client lists are blanked to prevent participation leakage."""
+    glob = _global()
+    res = _results(42, n=5)
+    # 1. Strict DP ledger with add_remove censors aggregated count and clears dropped/filtered
+    s_strict = ComposedStrategy(
+        glob,
+        rule="mean",
+        clip_norm=1.0,
+        central_noise_multiplier=1.0,
+        adjacency="add_remove",
+        fixed_denominator=50.0,
+        strict_dp_ledger=True,
+    )
+    s_strict.aggregate_fit(1, _copy(res))
+    st = s_strict.last_round_stats
+    assert st["aggregated"] is None
+    assert st["dropped"] == []
+    assert st["filtered"] == []
+    assert st["expected_cohort"] == 50.0
+
+    # Empty round under strict add_remove also censors aggregated count
+    s_strict.aggregate_fit(2, [])
+    st_empty = s_strict.last_round_stats
+    assert st_empty["aggregated"] is None
+
+    # 2. Relaxed ledger (e.g. offline research harness) exposes actual cohort size
+    s_relaxed = ComposedStrategy(
+        glob,
+        rule="mean",
+        clip_norm=1.0,
+        central_noise_multiplier=1.0,
+        adjacency="add_remove",
+        fixed_denominator=50.0,
+        strict_dp_ledger=False,
+    )
+    s_relaxed.aggregate_fit(1, _copy(res))
+    assert s_relaxed.last_round_stats["aggregated"] == 5
+
+    # 3. Under replace_one, cohort size is public/fixed across neighbours and retained
+    s_replace = ComposedStrategy(
+        glob,
+        rule="mean",
+        clip_norm=1.0,
+        central_noise_multiplier=1.0,
+        adjacency="replace_one",
+        public_cohort=5,
+        strict_dp_ledger=True,
+    )
+    s_replace.aggregate_fit(1, _copy(res))
+    assert s_replace.last_round_stats["aggregated"] == 5
+
 
 

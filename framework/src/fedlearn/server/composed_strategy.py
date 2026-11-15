@@ -266,6 +266,10 @@ class ComposedStrategy(Strategy):
                     out[k] = val
                 noisy_norm = math.sqrt(sum(float((reduced[k] ** 2).sum()) for k in keys))
                 stats.update(
+                    aggregated=None if (self.strict_dp_ledger and self.adjacency == "add_remove") else 0,
+                    dropped=[] if self.strict_dp_ledger else stats["dropped"],
+                    filtered=[] if self.strict_dp_ledger else stats["filtered"],
+                    expected_cohort=self.public_cohort or self.fixed_denominator,
                     aggregate_delta_norm=None if self.strict_dp_ledger else 0.0,
                     noisy_aggregate_delta_norm=noisy_norm,
                     orig_norms=None,
@@ -401,6 +405,10 @@ class ComposedStrategy(Strategy):
             m_shrink = None
             o_norms = None
             k_share = None
+            if self.adjacency == "add_remove":
+                stats["aggregated"] = None
+            stats["dropped"] = []
+            stats["filtered"] = []
         else:
             agg_norm = raw_reduced_norm
             c_rate = sum(1 for s in shrink if s < 1.0) / len(shrink)
@@ -409,6 +417,7 @@ class ComposedStrategy(Strategy):
             k_share = ({str(c): s for (c, _, _), s in zip(ok, kept)} if kept is not None else None)
 
         stats.update(
+            expected_cohort=self.public_cohort or self.fixed_denominator,
             aggregate_delta_norm=agg_norm,
             noisy_aggregate_delta_norm=noisy_norm,
             orig_norms=o_norms,

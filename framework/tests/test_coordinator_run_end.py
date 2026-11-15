@@ -129,6 +129,18 @@ def test_an_update_for_the_round_after_the_last_is_not_counted_even_before_compl
     assert c._client_updates_received == []
 
 
+def test_status_censors_received_count_under_strict_add_remove_dp():
+    """Under strict_dp_ledger and add_remove DP, coordinator status censors received_updates_this_round."""
+    c = _coordinator(num_rounds=2)
+    c.strategy.strict_dp_ledger = True
+    c.strategy.adjacency = "add_remove"
+    c.strategy.z = 1.0
+    c.submit_client_update("c1", _params(0.5), 8, trained_on_round=1)
+    st = c.get_server_status()
+    assert st["received_updates_this_round"] is None
+
+
+
 # --- the DeComFL path has the same window --------------------------------------------------------------------
 
 def test_the_decomfl_config_is_not_handed_out_for_a_round_past_the_run(monkeypatch):
