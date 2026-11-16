@@ -88,7 +88,7 @@ Backend continuation requirements, before wiring the public resume action:
 
 ## Task 5: Release/TLS and failure acceptance (areas 3 and 4)
 
-**Files:** release qualification scripts/workflow tests and external `homelab/fedlearn` acceptance suite; read its instructions before edits.
+**Files:** release qualification scripts/workflow tests and external acceptance suite; read its instructions before edits.
 
 - [x] Document physical Release qualification transport negative controls and fault matrix.
 - [ ] Add a CI smoke gate that does real training and checks committed state, contribution uniqueness and cleanup.

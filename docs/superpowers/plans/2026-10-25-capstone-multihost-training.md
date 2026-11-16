@@ -1,8 +1,8 @@
 # Capstone Multi-host Training Implementation Plan
 
-**Goal:** Train one model across Mac, G14 and Orin, qualify canonical transport against simulation, then execute the approved 52-cell CPU systems benchmark.
+**Goal:** Train one model across MacBook Pro (M4 Max), ASUS ROG Zephyrus G14 (Ubuntu 24.04) and Jetson AGX Orin, qualify canonical transport against simulation, then execute the approved 52-cell CPU systems benchmark.
 
-**Architecture:** Keep `fl-runtime/client.py` as the executable client and reuse the existing gRPC lifecycle, coordinator and composed uniform clipped mean. Add a training-only vector helper and a narrow research host mode that multiplexes logical clients with independent state and a two-fit per-host limit. Mac owns preparation, server-side evaluation and receipts; remote hosts receive assigned training data only.
+**Architecture:** Keep `fl-runtime/client.py` as the executable client and reuse the existing gRPC lifecycle, coordinator and composed uniform clipped mean. Add a training-only vector helper and a narrow research host mode that multiplexes logical clients with independent state and a two-fit per-host limit. MacBook Pro (M4 Max) owns preparation, server-side evaluation and receipts; remote hosts receive assigned training data only.
 
 **Tech stack:** Python, Torch CPU, NumPy, existing FedLearn gRPC/safetensors transport, isolated host runtimes and private SSH/Tailscale routes.
 
@@ -89,11 +89,11 @@
 
 ## Current ledger
 
-Design approved; source-level builder check found no missing user decisions. Existing isolated capstone worktree is reused. Orin is reachable through the existing Tailscale TCP proxy; G14 is reachable through its current LAN route with its previously trusted key. Remote hardware checks show12/16 CPU cores respectively, roughly12/10GiB available memory, and no Torch in host system Python. System Python versions differ, so isolated compatible runtimes are a readiness task. G14 CUDA is unverified; do not infer absence or presence from a missing command.
+Design approved; source-level builder check found no missing user decisions. Existing isolated capstone worktree is reused. Jetson AGX Orin is reachable through the existing Tailscale TCP proxy; ASUS ROG Zephyrus G14 (Ubuntu 24.04) is reachable through its current LAN route with its previously trusted key. Remote hardware checks show12/16 CPU cores respectively, roughly12/10GiB available memory, and no Torch in host system Python. System Python versions differ, so isolated compatible runtimes are a readiness task. The Zephyrus G14 CUDA is unverified; do not infer absence or presence from a missing command.
 
-Ruling: Mac-only concurrency is two active fits; three-host concurrency is two per host, six total — this measures adding host resources under the same per-host limit, not a fixed-total-concurrency network-overhead experiment. Report this explicitly.
+Ruling: MacBook Pro (M4 Max)-only concurrency is two active fits; three-host concurrency is two per host, six total — this measures adding host resources under the same per-host limit, not a fixed-total-concurrency network-overhead experiment. Report this explicitly.
 
-Ruling: use the existing private SSH route/tunnels if direct Mac network routing is unsuitable — no public listener or disabled security gate. Record the actual transport; SSH tunnel measurements are not native direct-TCP performance.
+Ruling: use the existing private SSH route/tunnels if direct MacBook Pro (M4 Max) network routing is unsuitable — no public listener or disabled security gate. Record the actual transport; SSH tunnel measurements are not native direct-TCP performance.
 
 
 26 October continuation ledger:

@@ -11,7 +11,7 @@ Execution: inline; one fresh whole-branch correctness review at the end.
 - [x] NIH: add benchmarks/nih_learning.py and runtime tests for safe
   snapshot/provenance binding, finite binary metrics and reproducible training.
   Prepare128+128 train/512 validation samples via verified NIH manifests; run
-  centralized three-epoch1e-3/1e-4 baselines on g14; compare actual three-round
+  centralized three-epoch1e-3/1e-4 baselines on ASUS ROG Zephyrus G14 (Ubuntu 24.04); compare actual three-round
   platform FedAvg using the same pooled training data. Record every result.
 - [x] Strategies: test Python rate overrides, native multi-step Adam proximal
   parity/mutations, closed matrices and old-runtime refusal before code changes.
@@ -21,10 +21,10 @@ Execution: inline; one fresh whole-branch correctness review at the end.
   qualify mixed multi-batch ECG under both methods and replay original runtimes.
 - [x] XGBoost: add framework/benchmarks/xgboost_iris preparation/evaluation and
   meaningful split/schema/replay tests. Default binary Iris; real platform CPU
-  run with Mac/g14, external heldout and centralized comparison; record exact
+  run with MacBook Pro (M4 Max) / ASUS ROG Zephyrus G14 (Ubuntu 24.04), external heldout and centralized comparison; record exact
   receipts, inference mapping, provenance and limits.
 - [x] Final review/fixes, appropriate full checks, clean local commits and
-  g14 fast-forward, update guides and root mobile-status-context. No merge/push.
+  the Zephyrus G14 fast-forward, update guides and root mobile-status-context. No merge/push.
 
 Review focus: leakage/duplicate rows; integer BatchNorm buffers; optimizer
 anchor/rate and reset per round; old-native refusal; data/label mapping; unclear
@@ -46,7 +46,7 @@ classifier. Iris real platform four-round CPU run, eight trees, original local
 and aggregate replay, inference and two pooled controls completed; 18/19 test
 correct remains a small execution benchmark.
 
-Evidence: ECG FedProx and corrected FedOpt completed two rounds on vivo/g14,
+Evidence: ECG FedProx and corrected FedOpt completed two rounds on vivo 1805 phone / ASUS ROG Zephyrus G14 (Ubuntu 24.04),
 300 rows/client, three batches/round. Exact original native/Python and aggregate
 replays passed, as did phone changed-label/rate/zero-mu controls. Same-signed
 APK preserved 27 dataset files. Full runtime 593 passed; backend 1167 passed
@@ -109,5 +109,5 @@ CTest/eight Adam cases, Iris7 and proto-mirror checks passed earlier in this
 slice and those components were unchanged by the final Python corrections.
 
 Finish: keep feature branch and isolated checkout; preserve user edits and
-private qualification artifacts. No push/merge to main. g14 is fast-forwarded
+private qualification artifacts. No push/merge to main. The Zephyrus G14 is fast-forwarded
 to the final source and curated reports under its requested codebase directory.

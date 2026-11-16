@@ -2,12 +2,12 @@
 
 Complete the four requested deliverables inline on the isolated feature branch,
 starting from cc9a6c9. Preserve original checkout edits and imported phone data.
-Keep all g14 files inside codebase/FedLearn_Platform. No push or merge.
+Keep all ASUS ROG Zephyrus G14 (Ubuntu 24.04) files inside codebase/FedLearn_Platform. No push or merge.
 
 ## 1. ResNet mixed qualification
 
 Use CIFAR_RESNET18/FedAvg/FULL and separate32-image CIFAR training samples on
-vivo and g14. Retain the initial full checkpoint, contract, dataset identities,
+vivo 1805 phone and ASUS ROG Zephyrus G14 (Ubuntu 24.04). Retain the initial full checkpoint, contract, dataset identities,
 accepted updates, registry artifact and phone telemetry. Two rounds suffice for
 execution qualification. Replay each contribution on its original runtime,
 including BatchNorm running statistics, and reconstruct the registered model.
@@ -22,7 +22,7 @@ Use128 balanced patient-unique training images from each existing client split
 (256 pooled), with the same512-image proportional validation sample used in the
 NIH qualification. Verify rows against raw metadata/manifest ownership on the
 source host and bind prepared tensors to provenance. Official test patients stay
-unused. Run three epochs on g14, comparing centralized Adam at1e-3 and1e-4;
+unused. Run three epochs on ASUS ROG Zephyrus G14 (Ubuntu 24.04), comparing centralized Adam at1e-3 and1e-4;
 record optimizer persistence/reset, fixed seeds, train/validation loss, binary
 metrics, confusion counts, probabilities and checkpoint hashes every epoch.
 Compare the default-rate result with three real platform FedAvg rounds over the
@@ -39,7 +39,7 @@ and Python/Java/TypeScript matrices, corpus and client checks. Include NIH only
 when its closed backend/UI settings are updated consistently. Old native
 libraries must refuse Adam+proximal training before provisioning via an explicit
 runtime capability. Rebuild/install the same-signed APK in place, verifying all
-dataset hashes. Qualify multi-batch ECG/FedOpt and ECG/FedProx on vivo+g14 with
+dataset hashes. Qualify multi-batch ECG/FedOpt and ECG/FedProx on vivo 1805 phone + ASUS ROG Zephyrus G14 (Ubuntu 24.04) with
 original-runtime replay and wrong-rate/zero-mu controls. Leave unsupported arms,
 DeComFL image behavior, DP and secure aggregation outside this change.
 

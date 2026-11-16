@@ -2,12 +2,12 @@
 
 User continuation follows the completed four-slice plan at 1a966db. Keep the
 existing isolated feature checkout, preserve imported datasets and user edits,
-keep new g14 files inside its requested codebase, and do not push/merge.
+keep new ASUS ROG Zephyrus G14 (Ubuntu 24.04) files inside its requested codebase, and do not push/merge.
 
 Bounded design: use existing CNN FULL contracts/production phone functions for
 sequential FedProx then FedOpt runs, 320 disjoint CIFAR training images/client,
 two rounds and ten32-image batches/round. Record current sources, contract,
-parent/program hashes, all accepted updates and telemetry. Native/g14 replay
+parent/program hashes, all accepted updates and telemetry. Native / Zephyrus G14 replay
 must match float32 bits; wrong labels/rates/zero proximal coefficient must
 change phone updates. Aggregate replay must reproduce registered artifacts.
 Use the existing same-signed APK; verify all27 imported file hashes unchanged.
@@ -32,7 +32,7 @@ to published NIH platform contracts.
 - [x] Sequential CNN/FedProx and CNN/FedOpt mixed qualification and exact replays.
 - [x] NIH source-bound packages,10-epoch controls, checkpoint reload, reference.
 - [x] Curated reports/guides, final fresh whole-branch review, fixes/tests as
-  appropriate, local commits, g14 fast-forward and root status context.
+  appropriate, local commits, Zephyrus G14 fast-forward and root status context.
 
 Ruling: use enriched patient-unique validation because six proportional positives
 cannot robustly distinguish configurations. Cost: balanced-sample precision and
@@ -45,7 +45,7 @@ claim convergence or change the contract silently.
 
 Driver:9 new regressions failed first and then passed; focused15 passed,
 full runtime611 passed with30 slow deselected. Commit322c7e5 synchronized to
-clean g14. Defaults preserve the original three controls.
+clean Zephyrus G14. Defaults preserve the original three controls.
 
 CNN: all8 contributions and both aggregates replay bitwise. Original native
 changed-label/rate/zero-mu controls differ. Registry reload on10,000 official
@@ -84,6 +84,6 @@ for collapse avoidance rather than attribute causality to changed factors.
 No code changes needed after final review; no deferred minor findings.
 
 Final: Ruling: reviewer did not rerun physical hardware, full raw NIH inventory
-or model execution on g14; it checked code and retained receipts. These live
+or model execution on the Zephyrus G14; it checked code and retained receipts. These live
 checks were performed during execution. Clinical utility and general efficacy
 are outside proof. Cost: further independent/clinical experiments remain needed.

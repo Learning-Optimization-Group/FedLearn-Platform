@@ -12,7 +12,7 @@
 - New environments must not inherit another environment or user site packages. Reuse base Python interpreters and download caches only.
 - Only generated features/labels and their metadata may be used for fresh qualification. No holdout/test reads or medical fits.
 - CPU Torch2.12.0, NumPy2.1.2, SciPy1.17.1; respect current repository dependency floors for cryptography rather than copying an older research environment.
-- Mac coordinates; G14/Orin receive generated training packs only. Existing private SSH routes/configuration remain private; no shared service changes.
+- MacBook Pro (M4 Max) coordinates; ASUS ROG Zephyrus G14 (Ubuntu 24.04) / Jetson AGX Orin receive generated training packs only. Existing private SSH routes/configuration remain private; no shared service changes.
 - Keep endpoints and absolute workstation paths out of tracked artifacts. Preserve the branch/worktree locally; no push/merge.
 
 ## Review focus
@@ -47,10 +47,10 @@ Interfaces: `write_generated_bundle(output)->sha256`; `qualify(output, launch=No
 
 ## Ledger
 
-Starting source checkpoint21de32b. Previous recommendation accepted by continuation: prioritize independent reproduction and delivery over a new experiment matrix. Estimates are not completion evidence. The Mac overlay currently inherits a shared environment; clean reproduction has not yet been demonstrated.
+Starting source checkpoint21de32b. Previous recommendation accepted by continuation: prioritize independent reproduction and delivery over a new experiment matrix. Estimates are not completion evidence. The MacBook Pro (M4 Max) overlay currently inherits a shared environment; clean reproduction has not yet been demonstrated.
 
 
-Verified implementation ledger: freshMac lock installs25distributions with system/user-site inheritance disabled; fresh G14/Orin environments independently pass exact Linux CPU locks. Final generated v3 qualification completed4cells/20rounds/60fits; simulator errors0.0 on Mac-only and7.450580596923828e-9/1.862645149230957e-9 on three hosts. The full bounded profile passed164tests (101existing timestamp warnings) in26.18s. No production fitting source or medical artifacts changed.
+Verified implementation ledger: fresh MacBook Pro (M4 Max) lock installs25distributions with system/user-site inheritance disabled; fresh ASUS ROG Zephyrus G14 (Ubuntu 24.04) / Jetson AGX Orin environments independently pass exact Linux CPU locks. Final generated v3 qualification completed4cells/20rounds/60fits; simulator errors0.0 on MacBook Pro (M4 Max)-only and7.450580596923828e-9/1.862645149230957e-9 on three hosts. The full bounded profile passed164tests (101existing timestamp warnings) in26.18s. No production fitting source or medical artifacts changed.
 
 Review findings corrected with observed failing-then-passing regressions: externally loaded typing_extensions, remote-stdin working-directory/sitecustomize inheritance, and a preexisting external search root supplying lazy optimizer dependencies. Current checker verifies the complete package inventory, search roots and loaded dependency origins. Review fix inspection reported no remaining material finding within trusted-machine scope. This is an isolation/reproducibility check, not a malicious-code sandbox.
 

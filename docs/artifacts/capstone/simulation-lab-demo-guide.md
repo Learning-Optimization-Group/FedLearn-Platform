@@ -37,7 +37,7 @@ keyboard-operable and restored focus after Escape. The initial document-width-on
 check missed clipped controls; screenshot inspection found the fixed-sidebar defect,
 which was corrected and covered by stronger main/control-width assertions. A
 separate disabled-workload phase refused launches with 503 and retained all three
-jobs. None of these checks used the vivo, g14 or Jetson.
+jobs. None of these checks used the vivo 1805 phone, ASUS ROG Zephyrus G14 (Ubuntu 24.04) or Jetson AGX Orin.
 
 ## Dashboard captures
 
@@ -86,7 +86,7 @@ and observed-memory qualification remain applicable; a valid recipe may time out
 
 ## Run the external browser suite
 
-The suite is maintained in homelab's `fedlearn` directory, outside this repository.
+The suite is maintained outside this repository.
 Its dedicated `playwright.simulation.config.ts` requires explicit loopback origins
 and starts no servers. It does not reuse the default suite's sessions or attach
 implicitly to another checkout's API. Set these variables in the test terminal:

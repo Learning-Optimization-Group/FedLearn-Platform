@@ -25,9 +25,9 @@ and local branch. Spec: ../specs/2026-10-09-nih-training-integration.md.
   validation/test intent and bit-identical package preparation. Add user guide.
 - [x] Run full changed-area suites and protocol regeneration/mirror checks.
   Independent correctness review; reproduce and fix substantive findings.
-- [x] Align g14 within codebase/FedLearn_Platform, update validation backend and
+- [x] Align ASUS ROG Zephyrus G14 (Ubuntu 24.04) within codebase/FedLearn_Platform, update validation backend and
   phone JS, import a new NIH package without clearing datasets, then qualify
-  two-round phone/g14 training with retained parents and separate patient
+  two-round phone / Zephyrus G14 training with retained parents and separate patient
   partitions. Verify registry, metrics, original-runtime/aggregate replay and
   old dataset preservation. Record results and any live limitations.
 - [x] Final checks, status/guide update and local commits; preserve branch and
@@ -65,7 +65,7 @@ Final source suites: runtime569 passed (30 slow deselected); framework1345
 passed (13 deselected), coverage78.52%; backend1159 tests and required coverage;
 mobile647 tests, lint/typecheck; frontend137 tests, lint/build with explicit
 validation origin. Python/TS contract regeneration is a no-op and all five
-proto mirrors match. g14 NIH focused32 tests pass.
+proto mirrors match. ASUS ROG Zephyrus G14 (Ubuntu 24.04) NIH focused32 tests pass.
 
 Live run adf7860c-9566-4777-9fc3-fdacc851ca83 completed two rounds with
 32 balanced patient-unique images per participant. All four accepted updates

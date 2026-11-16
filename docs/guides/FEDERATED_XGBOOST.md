@@ -28,7 +28,7 @@ python -m pip install -e 'framework[xgboost]'
 
 Linux installs `xgboost-cpu` to avoid GPU/NCCL dependencies. Other systems install
 the matching `xgboost` package. Tree entry points select their workload before
-importing PyTorch: the Mac OpenMP runtimes cannot safely coexist in these builds.
+importing PyTorch: the MacBook Pro (M4 Max) OpenMP runtimes cannot safely coexist in these builds.
 Keep tree tests in their separate process:
 
 ```sh
@@ -87,7 +87,7 @@ four-feature binary recipe cannot directly train on those images.
 
 ## Real-data qualification — 9 October 2026
 
-A mixed Mac/g14 run trained collaboratively on binary Iris versicolor/virginica
+A mixed MacBook Pro (M4 Max) / ASUS ROG Zephyrus G14 (Ubuntu 24.04) run trained collaboratively on binary Iris versicolor/virginica
 rows: 30/31 training rows in separate clients, 20 validation and 19 test rows.
 Duplicate measurement groups were separated before the deterministic split.
 Four rounds produced eight trees through the normal enrollment, contribution,

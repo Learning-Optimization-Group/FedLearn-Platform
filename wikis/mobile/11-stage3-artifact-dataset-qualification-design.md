@@ -1,6 +1,6 @@
 # Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design
 
-**Status:** Approved (2026-09-27, Anurag), with the recommendation taken on every decision: (1) fixture data only for
+**Status:** Approved (2026-09-27, the developer), with the recommendation taken on every decision: (1) fixture data only for
 runs the contract marks as fixture runs, refused by release builds; (2) a new reproducible
 `BATCH_ORDER_SEEDED_PERMUTATION_V1`; (3) CSV and the dataset package; (4) an exporter-recorded `probeLoss`.
 Implementation follows the slices below.

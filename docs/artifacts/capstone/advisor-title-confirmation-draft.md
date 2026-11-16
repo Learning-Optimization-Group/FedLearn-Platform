@@ -30,4 +30,4 @@ Please let me know whether you approve this title and emphasis, or would prefer
 the title to emphasize the platform implementation more strongly.
 
 Best regards,
-Anurag
+the developer

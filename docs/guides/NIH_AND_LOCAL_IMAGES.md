@@ -130,7 +130,7 @@ grayscale pneumonia and resized RGB ResNet preparation. Later qualifications bel
 
 ## NIH qualification — 9 October 2026
 
-The new NIH recipe completed two FedAvg rounds on vivo Android and g14 CPU,
+The new NIH recipe completed two FedAvg rounds on vivo 1805 phone Android and ASUS ROG Zephyrus G14 (Ubuntu 24.04) CPU,
 with separate patient-unique 32-image samples (16 positives/16 negatives each).
 All four accepted updates replay bitwise on their original runtimes, and the
 aggregate matches the registered checkpoint bitwise. Existing phone datasets
@@ -151,7 +151,7 @@ record hashes, counts, provenance and limits.
 A second experiment used 128 balanced, patient-unique training images per
 client (256 pooled), keeping the same proportional 512-image validation
 sample and all official test patients held out. All six CPU contributions
-replayed bitwise on their original Mac/g14 runtimes. The aggregate and
+replayed bitwise on their original MacBook Pro (M4 Max) / ASUS ROG Zephyrus G14 (Ubuntu 24.04) runtimes. The aggregate and
 independently reloaded validation metrics match the registered checkpoint.
 
 The three-round FedAvg model reached 91.80% accuracy, below the 98.83%
@@ -170,7 +170,7 @@ The retained learning report (`results/nih/learning-controls-2026-10-09.json`)
 records each epoch, probabilities, metrics and checkpoint hashes. The
 control driver (`benchmarks/nih_learning.py`) verifies package
 receipts and disjoint patients/images before training. Raw inventory and
-ownership were checked on the source host at packaging; g14 verified the
+ownership were checked on the source host at packaging; the Zephyrus G14 verified the
 bounded packages. Only six validation positives make estimates uncertain.
 Larger samples and an appropriate training setup remain necessary.
 

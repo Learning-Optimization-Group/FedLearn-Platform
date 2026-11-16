@@ -13,7 +13,7 @@ one bounded subprocess. The React Lab consumes typed APIs and actual completed
 rounds; retained fixed-study results are a separate read-only entry.
 
 **Tech stack:** Python3.12/PyTorch/NumPy, Java21/Spring/Flyway/PostgreSQL, Node24/
-React/Vite/Recharts, existing cookie auth/Ember components, homelab Playwright suite.
+React/Vite/Recharts, existing cookie auth/Ember components, Playwright suite.
 
 **Spec:** `docs/superpowers/specs/2026-10-20-simulation-lab-design.md`.
 
@@ -200,7 +200,7 @@ form→resolve→start→actualprogress→terminal/reopen/export and 2–4run co
 
 ### Task 4: Actual browser evidence and final demonstration
 
-**Files:** create `~/code/homelab/fedlearn/tests/simulation-lab.spec.ts`; update its
+**Files:** create `~/code/fedlearn/tests/simulation-lab.spec.ts`; update its
 README for configured NIH source/pin; curated screenshots/demo instructions under
 `docs/artifacts/capstone/`, integration instructions in current capstone plan/TODO.
 
@@ -209,7 +209,7 @@ independently checked study aggregates. No intercepted canned API/training resul
 **Produces:** reproducible realbrowser run/reopen/export/stop/ownership evidence,
 source-bound diagnostic record and labelled replay fallback; final demo script.
 
-- [x] Read current homelab instructions. `~/code/homelab/AGENTS.md` was absent during
+- [x] Read current instructions. `~/code/fedlearn/AGENTS.md` was absent during
   this plan's preparation; search once for its replacement and follow the existing
   fedlearnREADME/config if stillabsent. Do not invent missing-file instructions.
 - [x] Add owner-authenticated tests tagged`@core @simulation-lab`, plus a second
@@ -221,7 +221,7 @@ source-bound diagnostic record and labelled replay fallback; final demo script.
   Stopanotheractualrun and assert noownedchild survives; verify unavailableworkload
   and visiblylabelledreplay, without rewriting frozenstudy/caches or publicdata.
 - [x] Run `FEDLEARN_REPO=<capstone-worktree> npx playwright test
-  --config playwright.simulation.config.ts tests/simulation-lab.spec.ts --project=core --grep @simulation-lab` inhomelab/fedlearn.
+  --config playwright.simulation.config.ts tests/simulation-lab.spec.ts --project=core --grep @simulation-lab` in fedlearn.
   Expected: pass onactualstack with matchingrecord/source; no trainingretries to hide
   failures. Use precise failures tofix relevant code with regression/fullgates.
 - [x] Render/inspect curatedscreenshots and reconcile all shownvalues withretained

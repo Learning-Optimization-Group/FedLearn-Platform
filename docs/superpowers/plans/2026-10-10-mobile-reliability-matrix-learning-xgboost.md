@@ -4,7 +4,7 @@ Goal: complete the four requested slices with measured evidence, regressions for
 substantive failures and explicit support limits.
 
 Base: fb9c2b7; existing isolated feat/xgboost-mobile-foundations worktree.
-Execution: inline, one fresh final review. Keep local commits and clean g14 sync;
+Execution: inline, one fresh final review. Keep local commits and clean ASUS ROG Zephyrus G14 (Ubuntu 24.04) sync;
 no push/main merge. Preserve root user edits, installed datasets, services and
 unrelated runs. New relay-host files stay inside its existing project checkout.
 
@@ -72,7 +72,7 @@ do not claim numerical equality across phone and Python runtimes.
 - [x] Write regressions before implementation for reordered/duplicate/missing
   features, wrong-width model/delta/inference, non-finite values, malformed trees
   and legacy compatibility.
-- [x] Qualify authenticated collaborative Mac/g14 training, original local/aggregate
+- [x] Qualify authenticated collaborative MacBook Pro (M4 Max) / ASUS ROG Zephyrus G14 (Ubuntu 24.04) training, original local/aggregate
   replay, external heldout metrics, fixed centralized tree-budget controls,
   registered artifact reload and normal inference. Android tree training remains
   explicitly refused.
@@ -80,12 +80,12 @@ do not claim numerical equality across phone and Python runtimes.
 ## Final verification
 
 - [x] Appropriate full checks for changed components, proto mirrors, one fresh
-  whole-slice review/fixes, curated receipts/docs, local commits and clean g14
+  whole-slice review/fixes, curated receipts/docs, local commits and clean Zephyrus G14
   synchronization. Update ignored status context with actual HEADs and next work.
 
 ## Ledger
 
-- g14 HEAD fb9c2b7 clean; vivo authorized, battery100% USB-powered. API8084 and
+- ASUS ROG Zephyrus G14 (Ubuntu 24.04) HEAD fb9c2b7 clean; vivo 1805 phone authorized, battery100% USB-powered. API8084 and
   Metro8088 healthy; existing same-signed APK retained.
 - Ruling: use the established worktree and inline execution; cost: upstream
   integration remains separate from qualification.
@@ -105,7 +105,7 @@ do not claim numerical equality across phone and Python runtimes.
   setTimeout1000 does not after3seconds; foregrounding releases the timer.
   React Native0.80 JavaTimerManager confirms activity-pause suppression.
 - Actual Stop resets provider to notJoined and removes foreground service. Stopped
-  only identity-checked isolated project; owned g14 gated participant terminated.
+  only identity-checked isolated project; owned Zephyrus G14 gated participant terminated.
 - New pacing-delay regressions failed first: JS8 cases (missing delay API), native4
   cases (missing scheduler class). Native scheduling/cancellation implementation
   passed full mobile666tests/lint/types and Android unit suite. Preflight refusal

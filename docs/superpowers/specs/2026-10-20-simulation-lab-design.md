@@ -19,7 +19,7 @@ a separately selected saved-result replay is clearly labelled.
 Use the existing React/Vite dashboard, Spring API, cookie authentication, role gates,
 Ember components/tokens, Recharts and Python simulation engine. Do not introduce a
 second frontend, an unauthenticated local service or a new training implementation.
-No phone, g14, Jetson training service or cloud account is needed for cached-feature
+No phone, ASUS ROG Zephyrus G14 (Ubuntu 24.04), Jetson AGX Orin training service or cloud account is needed for cached-feature
 simulation. Real data preparation remains a separate server-admin task.
 
 Success is an actual UI-to-API-to-worker run with validated configuration, a resolved
@@ -212,7 +212,7 @@ states, start/stop/refresh/reopen/compare/export behavior; no stale polling upda
 from an old selection/session; keyboard/labels and actual completed-round charts.
 Run frontend lint, coverage and production build; backend tests/coverage require Docker.
 
-Browser E2E lives in `~/code/homelab/fedlearn/`, following its own instructions. Drive
+Browser E2E lives in `~/code/fedlearn/`, following its own instructions. Drive
 actual login/dashboard/API/Python, not intercepted canned responses. Verify live
 start→rounds→completed→reopen→export, cancellation with no surviving child, a second
 user denied access, unavailable workload and a labelled replay fallback. Collect

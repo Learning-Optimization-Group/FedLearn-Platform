@@ -2,7 +2,7 @@
 
 Base: f95f8a6. Existing isolated feature branch; local commits only, no push or merge.
 
-Goal: qualify the corrected ResNet client rate under FedOpt on vivo and g14.
+Goal: qualify the corrected ResNet client rate under FedOpt on vivo 1805 phone and ASUS ROG Zephyrus G14 (Ubuntu 24.04).
 
 ## Fixed design
 
@@ -23,7 +23,7 @@ on the complete official test set, verify dataset preservation and retain hashes
 - [x] Replay both phone contributions against the installed original core and
   verify exit0/cleanup; independent official-test evaluation and preservation.
 - [x] Public receipt/guide/context updates and one fresh whole-slice review.
-- Local evidence commit and clean g14 synchronization: record actual completion
+- Local evidence commit and clean Zephyrus G14 synchronization: record actual completion
   and resulting HEAD in ignored docs/mobile-status-context.md after this commit.
 
 ## Limits
@@ -37,7 +37,7 @@ algorithm superiority. Cached qualification timings are not fresh probe timings.
 
 ## Ledger
 
-- g14 HEAD f95f8a6 clean; vivo authorized; API and Metro accessible through the
+- ASUS ROG Zephyrus G14 (Ubuntu 24.04) HEAD f95f8a6 clean; vivo 1805 phone authorized; API and Metro accessible through the
   existing reverse forwarding. Phone prior Prox run completed.
 - Ruling: the private launch helper inherited a Prox literal; derive its strategy
   from the requested qualification before staging. Production sources unchanged.
@@ -60,15 +60,15 @@ algorithm superiority. Cached qualification timings are not fresh probe timings.
   Temporary caffeinate guard started; user's lid-open/power-ready reply is pending
   because closed-lid sleep can override the guard. No fresh dependent run started.
 
-- Independent original g14 round1 replay is bitwise exact (64 examples); changed
+- Independent original Zephyrus G14 round1 replay is bitwise exact (64 examples); changed
   label control differs. Latest final artifact returns404 after stopping. Public
   incomplete-run receipt prepared at results/on-device/resnet-fedopt-host-sleep-interruption-2026-10-10.json.
-- Mac/private and g14 attempt folders renamed to resnet-rate-fedopt-interrupted-sleep;
+- MacBook Pro (M4 Max) / private and Zephyrus G14 attempt folders renamed to resnet-rate-fedopt-interrupted-sleep;
   fresh resnet_rate_awake_setup.py uses a distinct awake-host project name.
   Existing forwarding works after wake. Runtime sources unchanged; focused54 pass.
 - Remaining: receive lid-open/power-ready reply, start fresh fixed-setting run,
   then complete original native/Python replays, aggregate and official-test reload,
-  preservation, final review, local evidence commit and g14 sync.
+  preservation, final review, local evidence commit and Zephyrus G14 sync.
 
 - User confirmed ready/lid open; battery92%, temporary90-minute keep-awake guard
   asserts idle system/display sleep prevention. Fresh run97b09e5d-8492-4793-b7b0-9d372eb2231c
@@ -87,7 +87,7 @@ algorithm superiority. Cached qualification timings are not fresh probe timings.
 - Completed fresh run 97b09e5d-8492-4793-b7b0-9d372eb2231c, project
   79a757e2-3cc0-48f9-b764-e4a1ae721eb0. Actual API status is COMPLETED.
   Phone losses .783977/.835260, compute 392046/389329 ms; all four accepted
-  updates have 64 examples. Both original phone and g14 contributions replay
+  updates have 64 examples. Both original phone and Zephyrus G14 contributions replay
   bitwise, both aggregate parents and final checkpoint reconstruct exactly,
   float BN variances are finite/nonnegative and integer counters unchanged.
 - Independent official test reload: 3383/10000 (33.83%), mean CE 2.265242.
@@ -110,10 +110,10 @@ algorithm superiority. Cached qualification timings are not fresh probe timings.
   images with the same confusion matrix/mean CE, data/package/native identities,
   recorded completion, and fresh post-run preservation/cleanup. Separate selected
   review checks: 52 tests pass, proto mirrors match, staged diff check clean.
-  Original phone/g14 replay logs were inspected, not independently rerun in review.
+  Original phone / Zephyrus G14 replay logs were inspected, not independently rerun in review.
 - The task-specific temporary keep-awake guard expired; its PID is absent.
   Existing services/forwarding remain. Branch/worktree kept for further mobile
   work; no push or merge. Ruling: retain the established local branch workflow
   rather than request integration again; the cost is deferred upstream integration.
 - Remaining external bookkeeping: create the local evidence commit, fast-forward
-  the clean g14 checkout, and retain actual HEAD/clean checks in the status context.
+  the clean Zephyrus G14 checkout, and retain actual HEAD/clean checks in the status context.

@@ -116,8 +116,8 @@ Three details worth knowing before you touch the security package:
 
 ```json
 {
-  "username": "anurag",
-  "email": "anurag@example.com",
+  "username": "user",
+  "email": "user@example.com",
   "role": "PROJECT_OWNER"
 }
 ```

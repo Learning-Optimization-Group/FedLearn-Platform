@@ -52,7 +52,7 @@ zero issues, and carried digests matching the phone's golden state.
 
 ### Android is v1-dependent
 
-The design left open what Android should do for a run v1 does not cover. Decision (2026-09-22, Anurag):
+The design left open what Android should do for a run v1 does not cover. Decision (2026-09-22, the developer):
 **strict.** The phone refuses every run without a `READY` v1 contract it can execute exactly, and never
 approximates. Each refusal names its reason (`CONTRACT_MISSING`, `CONTRACT_LEGACY_ONLY`,
 `CONTRACT_UNAVAILABLE`, `CONTRACT_INVALID`, `UNSUPPORTED_STRATEGY`, `UNSUPPORTED_UPDATE_PROTOCOL`,
@@ -156,7 +156,7 @@ derive from the backend's own `server.port`.
 **Four platforms (2026-09-26).** A later DeComFL run put the phone, an Apple M4 Max client (MPS), an x86 Linux client
 (CPU) and a Jetson AGX Orin client (CUDA, torch 2.11) on one contract, the last three on separate hardware and
 two of them over Tailscale. It completed with four distinct clients in each of three rounds. A replay predicts the
-phone's losses exactly and the saved model to 7.45e-8, the same ~2.5 ULP residual as the all-on-one-Mac run. The
+phone's losses exactly and the saved model to 7.45e-8, the same ~2.5 ULP residual as the all-on-one MacBook Pro (M4 Max) run. The
 setup is in the [runbook](10-live-run-runbook.md).
 
 Not shown by the Stage 2I run: laptop clients on separate hardware, the phone on a real network rather than USB port

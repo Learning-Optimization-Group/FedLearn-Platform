@@ -360,7 +360,7 @@ No single schedule estimate is assigned to the umbrella design. Estimates are pr
 
 - Validate resumable downloads, restarts, reconnects, concurrent start attempts, background operation, low battery, thermal pause/resume, malformed imports, and long runs.
 - Wire consented fleet metrics and verify retention, redaction, and organization isolation.
-- Exercise mixed fleets using the vivo as the minimum Android device and Mac, g14, and Orin as heterogeneous peers.
+- Exercise mixed fleets using the vivo 1805 phone as the minimum Android device and MacBook Pro (M4 Max), ASUS ROG Zephyrus G14 (Ubuntu 24.04), and Jetson AGX Orin as heterogeneous peers.
 - Produce a release build with the same native/runtime versions used by qualification.
 
 Each stage receives its own implementation plan and test-first review. A later stage does not weaken an earlier stage's gates. Portable CPU parity is deliverable before acceleration, and first-order parity is deliverable before LightSecAgg.

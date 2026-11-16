@@ -82,7 +82,7 @@ See the strategy receipts (`results/on-device/ecg-adaptive-strategies-2026-10-09
 
 ## Adaptive CNN continuation
 
-CNN/FedProx and CNN/FedOpt each completed two mixed vivo/g14 rounds with
+CNN/FedProx and CNN/FedOpt each completed two mixed vivo 1805 phone / ASUS ROG Zephyrus G14 (Ubuntu 24.04) rounds with
 320 existing private CIFAR training images per client and ten local batches.
 All eight contributions replay bitwise on their original runtimes, and both
 aggregates reproduce their registered checkpoints bitwise. Changed labels and
@@ -93,7 +93,7 @@ Independent registry reload gives 15.09% official test accuracy for FedProx
 and 10% for default FedOpt. The latter's phone loss rose from 2.30 to 283.27;
 server rate 1.0 remains unsuitable here. Fresh projects use different seeds and
 weights, so this is execution qualification rather than an algorithm comparison.
-The original g14 clients pin OpenMP/MKL to one CPU thread; exact desktop replay
+The original Zephyrus G14 clients pin OpenMP/MKL to one CPU thread; exact desktop replay
 requires that setting. A default-thread comparison differed by 1.32e-6 and was
 retained as a numerical reproducibility check.
 
@@ -101,7 +101,7 @@ See the adaptive CNN receipts (`results/on-device/cnn-adaptive-2026-10-09.json`)
 
 ## Adaptive ResNet continuation
 
-FedOpt and FedProx each completed two mixed vivo/g14 rounds with 64 private
+FedOpt and FedProx each completed two mixed vivo 1805 phone / ASUS ROG Zephyrus G14 (Ubuntu 24.04) rounds with 64 private
 CIFAR training images per client and two local batches of 32. The native phone
 importer and Python preparation agree on the snapshot hash. All eight accepted
 contributions replay bitwise on their original runtimes, including floating-point
@@ -154,7 +154,7 @@ and benchmark driver (`benchmarks/resnet_client_rates.py`).
 
 ## ResNet FedProx at the corrected client rate
 
-A fresh mixed vivo/g14 run completed two rounds at client Adam 0.001 and mu
+A fresh mixed vivo 1805 phone / ASUS ROG Zephyrus G14 (Ubuntu 24.04) run completed two rounds at client Adam 0.001 and mu
 0.1, with the same prepared 64 images per client and two batches of 32. The
 phone reported losses 0.9980 and 0.7992, with approximately 400 and 408 seconds
 of training compute. The independently reloaded registered checkpoint scores
@@ -162,7 +162,7 @@ of training compute. The independently reloaded registered checkpoint scores
 is 1.77117. Official test data was unused in selecting the rate.
 
 All four accepted contributions reconstruct the registered checkpoint exactly,
-and both original g14 updates replay bitwise with OMP/MKL pinned to one thread.
+and both original Zephyrus G14 updates replay bitwise with OMP/MKL pinned to one thread.
 Both original phone updates also replay bitwise, including BatchNorm statistics.
 The native replay exits successfully; these comparisons cover model arrays,
 not full wire metadata or cross-runtime numerical equality.
@@ -177,7 +177,7 @@ See the corrected-rate FedProx receipt (`results/on-device/resnet-fedprox-client
 
 ## ResNet FedOpt at the corrected client rate
 
-A fresh mixed vivo/g14 run completed two rounds with client Adam 0.001 and
+A fresh mixed vivo 1805 phone / ASUS ROG Zephyrus G14 (Ubuntu 24.04) run completed two rounds with client Adam 0.001 and
 explicitly saved server Adam rate 0.01, betas 0.9/0.99 and tau 0.001. Each client
 used its preserved 64 CIFAR training images, with two batches of 32 per round.
 The phone reported losses 0.7840 and 0.8353, with approximately 392 and 389
