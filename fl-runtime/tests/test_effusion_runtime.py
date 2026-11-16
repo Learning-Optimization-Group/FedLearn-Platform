@@ -6,7 +6,6 @@ import hashlib
 import importlib
 import json
 from pathlib import Path
-import sys
 from threading import Lock
 
 import numpy as np
@@ -196,8 +195,19 @@ def test_untrusted_or_incompatible_host_pack_is_rejected(tmp_path, damage):
 
 def reference(data):
     # Exercise the real recipe without loading any clinical bundle/evaluation rows.
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "docs/artifacts/capstone/repro"))
-    from run_effusion_byzfl_qualification import ZeroBundleWorkload
+    from fedlearn.simulation.workloads import NihEffusionBundleWorkload
+
+    class ZeroBundleWorkload(NihEffusionBundleWorkload):
+        """The bundle workload with every initial parameter zeroed, as the qualification harness uses."""
+
+        def build_model(self, init_seed=None):
+            model = super().build_model(init_seed)
+            if init_seed is not None:
+                with torch.no_grad():
+                    for parameter in model.parameters():
+                        parameter.zero_()
+            return model
+
     from fedlearn.simulation.behaviors import BehaviorPlan
     from fedlearn.simulation.costs import StageClock
     from fedlearn.simulation.engine import HeadClient
