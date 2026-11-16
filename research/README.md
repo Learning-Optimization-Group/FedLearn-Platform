@@ -6,7 +6,7 @@ This directory houses the experimental harnesses, raw machine-readable results, 
 
 ## Directory Structure
 
-- **[`benchmarks/`](file:///Users/anurag/code/FedLearn-Platform/research/benchmarks/)**: Execution harnesses and benchmarking drivers.
+- **[`benchmarks/`](benchmarks/)**: Execution harnesses and benchmarking drivers.
   - `run_production_fl_benchmark.py`: Production FL benchmark on real CIFAR-10 data using ImageNet-pretrained ResNet-18 frozen features, FedAdam server optimization, and realistic 25-round convergence horizons (>77% accuracy).
   - `run_heterogeneous_cifar_benchmark.py`: Second non-medical benchmark comparing `Mean512`, `Projected128`, `Trim16`, and `CenterQuarter` under Dirichlet label skew ($\alpha = 0.5$).
   - `capstone_final.sh` & `analyze_capstone_final.py`: The confirmatory capstone study driver and analysis.
@@ -14,7 +14,7 @@ This directory houses the experimental harnesses, raw machine-readable results, 
   - `resnet_client_rates.py`: Client-side forward/backward compute and networking rate benchmarks.
   - `run_poisson_population_dp.py`: Client-level DP with Poisson client sampling at N = 1,000 to 10,000 on the CIFAR-10 probe (tuning, 300-run matrix, small-cohort reference, canary controls, production-path comparison).
   - `probe_composed_strategy_noise_sizing.py`, `diag_g3_clip_and_population.py`, `audit_gate_g3_sampled_regime.py`: Noise-sizing probe of `ComposedStrategy`, the G3 clip/population diagnostic, and the G3 canary audit with negative controls.
-- **[`results/`](file:///Users/anurag/code/FedLearn-Platform/research/results/)**: Machine-readable JSON outputs with full `meta` blocks and per-round trajectories.
+- **[`results/`](results/)**: Machine-readable JSON outputs with full `meta` blocks and per-round trajectories.
   - `production_fl/production_cifar_benchmark.json`: Raw results for the production FL benchmark with ResNet-18 backbone.
   - `heterogeneous_cifar/cifar_heterogeneous_benchmark.json`: Raw results for the 4-policy CIFAR-10 Dirichlet study.
   - `capstone/`: Results from the 360-cell study and pilot evaluations.
@@ -22,7 +22,7 @@ This directory houses the experimental harnesses, raw machine-readable results, 
   - `robust-aggregation/`: Fixed IPM and ByzFL adapter evaluation matrices.
   - `subsampled-dp/cifar10_probe_poisson_5b11648_dirty.json`: Raw record of the Poisson-sampled population study.
   - `audits/`: Noise-sizing probe records, G3 audit records and the G3 diagnostic.
-- **[`notes/`](file:///Users/anurag/code/FedLearn-Platform/research/notes/)**: Dated scientific interpretation notes.
+- **[`notes/`](notes/)**: Dated scientific interpretation notes.
   - `production_fl/2026-11-07-production-fl-analysis.md`: Empirical analysis and deployment guidelines for production FL.
   - `heterogeneous_cifar/2026-11-07-cifar-heterogeneous-analysis.md`: Empirical analysis of the second non-medical benchmark.
   - `capstone/2026-10-05-final-study-results.md`: Capstone final study results against pre-registration.
