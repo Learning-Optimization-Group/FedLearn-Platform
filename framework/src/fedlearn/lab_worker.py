@@ -83,7 +83,7 @@ def _checked_config(cfg, report_sha256):
                            if pair == (cfg["client"]["lr"], sv["clip_norm"])), "unrecognised")
             choices.update(workloadId="nih-effusion-r0", recipe=recipe)
             choices.pop("clipNorm")
-        resolved = resolve_choices(choices, cache_path=Path(wl["features_path"]),
+        resolved = resolve_choices(choices, cache_path=Path(wl["features_path"]).expanduser(),
                                    report_sha256=report_sha256)
         if json.dumps(cfg, sort_keys=True, allow_nan=False) != json.dumps(resolved["config"], sort_keys=True):
             raise ValueError("resolved recipe differs")
@@ -201,7 +201,7 @@ def run_worker(config_path: Path, output: Path, *, report_sha256: str,
             progress.update(config_hash=resolved["config_hash"], requested_rounds=cfg["federation"]["rounds"])
             persist()
         error_code = "invalid_cache"
-        features_path = Path(cfg["workload"]["features_path"])
+        features_path = Path(cfg["workload"]["features_path"]).expanduser()
         if is_effusion_bundle(features_path):
             bundle = load_effusion_bundle(features_path, expected_report_sha256=report_sha256)
             if bundle["report"]["pretrained"] is not True:

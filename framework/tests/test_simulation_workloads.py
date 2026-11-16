@@ -96,3 +96,11 @@ def test_triggered_rows_follow_the_same_balancing(tmp_path):
     assert wl.has_trigger
     x, y, idx = wl.client_data(0)
     assert torch.allclose(wl.trigger_rows(idx), x + 5.0)
+
+
+def test_features_path_expands_the_home_directory(tmp_path, monkeypatch):
+    """Configs may write the features path as ~/...; the workload must expand it."""
+    p, _ = _features(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    wl = FeatureHeadWorkload(_cfg("~/" + p.name))
+    assert wl is not None

@@ -6,6 +6,7 @@ partitioning), which is what lets the engine reproduce that harness bit for bit.
 from __future__ import annotations
 
 import hashlib
+import os
 from typing import Callable, List, Optional, Tuple
 
 import numpy as np
@@ -65,7 +66,7 @@ class FeatureHeadWorkload:
 
     def __init__(self, resolved: dict):
         wl, fed = resolved["workload"], resolved["federation"]
-        data = torch.load(wl["features_path"], weights_only=True)
+        data = torch.load(os.path.expanduser(wl["features_path"]), weights_only=True)
         tx, ty = data["train_x"].float(), data["train_y"].long()
         vx, vy = data["test_x"].float(), data["test_y"].long()
         trig_t, trig_v = data.get("trigger_train_x"), data.get("trigger_test_x")
