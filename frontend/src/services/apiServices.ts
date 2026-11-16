@@ -171,7 +171,7 @@ export interface ArmFacts {
 
 /**
  * The measured frozen-vs-full trade-off, attached by the catalog to recipes that offer a CHOICE
- * of arms. Generated from the campaign's verdict record by `scripts/build_arm_tradeoff.py`, so
+ * of arms. Generated from the campaign's verdict record, so
  * these numbers are a rendering of the measurement and never a hand-written claim.
  *
  * `caveats` is not decoration: the communication ratio is round-budget dependent and the accuracy

@@ -370,7 +370,7 @@ each <code>ModelRecipeDto</code>:</p>
 <ul>
 <li><strong><code>supportedArms</code></strong> — that recipe's own list, <code>null</code> for a recipe that declares none.</li>
 <li><strong><code>armTradeoff</code></strong> — attached <strong>only to recipes that offer a choice of arms</strong>, and generated from
-  the measurement campaign's verdict record by <code>scripts/build_arm_tradeoff.py</code> into
+  the measurement campaign's verdict record into
   <code>fl-runtime/arm_tradeoff.json</code>. It is never hand-written, so what the picker claims cannot drift
   from what was measured. The DTO deliberately carries the <code>caveats</code> list alongside the numbers,
   because a headline figure shown without them is a claim the measurement does not support (the

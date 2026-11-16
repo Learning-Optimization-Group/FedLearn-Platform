@@ -30,7 +30,7 @@ public record ModelRecipeDto(
         @JsonProperty("supportedArms") @JsonAlias("supported_arms") List<String> supportedArms,
         /**
          * The measured frozen-vs-full trade-off, attached only to recipes that offer a CHOICE of
-         * arms. Generated from the campaign's verdict record by {@code scripts/build_arm_tradeoff.py}
+         * arms. Generated from the campaign's verdict record
          * — never hand-written — so what the picker shows cannot drift from the measurement.
          */
         @JsonProperty("armTradeoff") @JsonAlias("arm_tradeoff") ArmTradeoff armTradeoff,

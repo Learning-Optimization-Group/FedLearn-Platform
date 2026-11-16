@@ -1,4 +1,4 @@
-"""Planted-defect tests targeting ComposedStrategy itself (rule 16).
+"""Planted-defect tests targeting ComposedStrategy itself.
 
 For each registered sensitivity claim in GLOBAL_SENSITIVITY_REGISTRY, two tests:
 1. A sound configuration passes the sensitivity checker (no false alarm).
@@ -10,8 +10,8 @@ _pipeline method as the aggregation target, and labels clearly which registered
 claim it drives.
 
 Also tests:
-- J2(a): Failure paths route through the release ledger under DP with strict_dp_ledger.
-- J2(b): timings censorship under DP with strict_dp_ledger.
+- Failure paths route through the release ledger under DP with strict_dp_ledger.
+- Timings censorship under DP with strict_dp_ledger.
 """
 from collections import OrderedDict
 import math
@@ -461,11 +461,11 @@ class TestCenteredClipAddRemove:
 
 
 # ===========================================================================
-# J2(a): Failure path ledger tests
+# Failure path ledger tests
 # ===========================================================================
 
 class TestFailurePathLedger:
-    """J2(a): failure paths go through the release ledger under DP with strict_dp_ledger."""
+    """Failure paths go through the release ledger under DP with strict_dp_ledger."""
 
     def test_all_invalid_failure_path_censors_stats_under_dp(self):
         """When every client update is invalid or filtered, the failure path must still
@@ -603,11 +603,11 @@ class TestFailurePathLedger:
 
 
 # ===========================================================================
-# J2(b): timings censorship under DP
+# Timings censorship under DP
 # ===========================================================================
 
 class TestTimingsCensorship:
-    """J2(b): under DP with strict_dp_ledger, stats['timings'] must not be released."""
+    """Under DP with strict_dp_ledger, stats['timings'] must not be released."""
 
     def test_timings_not_released_under_dp(self):
         """Under central DP with strict_dp_ledger, timings must be censored (None)."""

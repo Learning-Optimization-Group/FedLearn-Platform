@@ -400,7 +400,7 @@ FedLearn-Platform/
 ├── design/                     # Ledger design system: tokens.json + build-tokens.mjs + brand/
 ├── deploy/                     # nginx reverse-proxy config + TLS.md runbook
 ├── scripts/                    # deploy-to-aws, check_proto_mirror, check_no_skipped_tests,
-│                               #   export_model, stage_model_bundle, build_arm_tradeoff, …
+│                               #   export_model, stage_model_bundle, …
 ├── wikis/                      # Committed technical docs (the master wiki)
 │   ├── README.md              # Start here — current build status per unit
 │   ├── VERSIONS.md            # Per-unit release versions (single source of truth)

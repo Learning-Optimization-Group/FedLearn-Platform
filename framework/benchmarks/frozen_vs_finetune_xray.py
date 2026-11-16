@@ -828,9 +828,12 @@ def main():
     ap.add_argument("--patience", type=int, default=None,
                     help="early-stop patience in rounds; --rounds becomes a CAP. Omit for a fixed budget.")
     ap.add_argument("--min-delta", type=float, default=1e-3, help="AUC improvement that counts as progress")
-    ap.add_argument("--out", default=os.path.join(os.path.dirname(_ROOT), "research", "results",
-                                                  "frozen-backbone", "frozen_vs_finetune_xray.json"))
+    ap.add_argument("--out", default=os.path.join("results", "frozen_vs_finetune_xray.json"))
     args = ap.parse_args()
+
+    out_dir = os.path.dirname(args.out)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
 
     device = args.device
     if device == "auto":

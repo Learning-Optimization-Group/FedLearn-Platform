@@ -443,8 +443,7 @@ choice at all: the modal renders a read-only "FedLoRA (automatic for LoRA fine-t
 <p>The trade-off panel beside the control is a <em>rendering of a measurement</em>, and the chain is
 deliberate at every hop:</p>
 <div class="codehilite"><pre><span></span><code>results/…/&lt;run&gt;.json                   the raw measured record
-   └─ scripts/build_arm_tradeoff.py    generator (records source path + source_sha256 + date)
-        └─ fl-runtime/arm_tradeoff.json     keyed BY RECIPE under &quot;by_recipe&quot;
+   └─ fl-runtime/arm_tradeoff.json     keyed BY RECIPE under &quot;by_recipe&quot; (records source + source_sha256 + date)
              └─ recipes.py describe()       attaches arm_tradeoff only when len(supported_arms) &gt; 1
                   └─ GET /api/model-recipes (ModelRecipeDto.ArmTradeoff)
                        └─ CreateProjectModal  headline · per-arm summary · measuredOn · caveats

@@ -216,11 +216,10 @@ deliberate at every hop:
 
 ```
 results/…/<run>.json                   the raw measured record
-   └─ scripts/build_arm_tradeoff.py    generator (records source path + source_sha256 + date)
-        └─ fl-runtime/arm_tradeoff.json     keyed BY RECIPE under "by_recipe"
-             └─ recipes.py describe()       attaches arm_tradeoff only when len(supported_arms) > 1
-                  └─ GET /api/model-recipes (ModelRecipeDto.ArmTradeoff)
-                       └─ CreateProjectModal  headline · per-arm summary · measuredOn · caveats
+   └─ fl-runtime/arm_tradeoff.json     keyed BY RECIPE under "by_recipe" (records source + source_sha256 + date)
+        └─ recipes.py describe()       attaches arm_tradeoff only when len(supported_arms) > 1
+             └─ GET /api/model-recipes (ModelRecipeDto.ArmTradeoff)
+                  └─ CreateProjectModal  headline · per-arm summary · measuredOn · caveats
 ```
 
 `arm_tradeoff.json` currently carries entries for `PNEUMONIA_CNN`, `CNN` and `CIFAR_RESNET18`. The

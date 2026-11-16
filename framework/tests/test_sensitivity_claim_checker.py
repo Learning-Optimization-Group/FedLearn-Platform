@@ -1,4 +1,4 @@
-"""Gate G2 / CI Privacy Gate: Planted Defect Suite & Sensitivity Claim Checker.
+"""CI privacy gate: Planted Defect Suite & Sensitivity Claim Checker.
 
 Validates that:
 1. Four sound paths pass without false alarms (max observed distance <= claimed sensitivity).

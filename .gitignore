@@ -165,7 +165,7 @@ scratch/
 # Playwright MCP browser session artifacts (local tooling output)
 .playwright-mcp/
 
-# research/ is the paper's local-only working area (results, notes, experiment logs) — not tracked.
+# local working area (not tracked)
 research/
 
 # --- Build outputs and machine-local config (added 2026-07-29) ---
