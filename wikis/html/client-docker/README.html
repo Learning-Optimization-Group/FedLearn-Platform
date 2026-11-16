@@ -77,6 +77,22 @@
 <details class="nav-group">
 <summary>Mobile</summary><ul>
 <li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="../mobile/02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a href="../mobile/03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a href="../mobile/04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="../mobile/05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a href="../mobile/06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a href="../mobile/07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a href="../mobile/08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="../mobile/09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a href="../mobile/10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a href="../mobile/11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a href="../mobile/12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="../mobile/13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a href="../mobile/14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="../mobile/15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a href="../mobile/16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="../mobile/17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
 </ul></details>
 <details class="nav-group" open>
 <summary>Client (Docker)</summary><ul>
@@ -229,7 +245,7 @@ docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </
 </tr>
 </tbody>
 </table>
-<p>Recorded in <code>research/results/decomfl/device_ab_cpu_vs_gpu.json</code> (<code>orin_cuda_added_2026_07_28</code>) and used for the Orin CUDA rows of <code>research/results/benchmark/pytorch_crossdevice_matrix.json</code>. Two further JetPack 6 details:</p>
+<p>Recorded in the device A/B benchmark record (<code>orin_cuda_added_2026_07_28</code>) and used for the Orin CUDA rows of the PyTorch cross-device benchmark matrix. Two further JetPack 6 details:</p>
 <ul>
 <li>The device-node list itself is JetPack-5-era. Both <code>run-client.sh</code> (its <code>jetson</code> branch, line 133) and the desktop's <code>DockerService</code> (<code>JETSON_DEVICE_MOUNTS</code>) pass <code>/dev/nvhost-ctrl</code>, which is <strong>reported absent on L4T R36.5</strong> — Docker hard-errors with <code>no such file or directory</code> when a device node does not exist. That specific node's absence was not re-verified while writing this page; the measured fact is that the whole device-mount path failed on the JetPack 6.2 box above.</li>
 <li>The device-mount path stays the documented fallback and is still what the desktop app uses for its Jetson profile.</li>

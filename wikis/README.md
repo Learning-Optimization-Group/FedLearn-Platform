@@ -179,21 +179,15 @@ What it buys, and what it costs:
 - **Memory scales with `clients_per_round`, not `num_clients`** — clients are built per round and
   released. The corollary is that `client_factory` is called once per participation, so it must
   close over pre-partitioned indices rather than re-reading a dataset.
-- **Measured to 5,000 clients.** `research/results/simulation/scale_m4max.json` records the grid
+- **Measured to 5,000 clients.** The simulation scaling benchmark records the grid
   10 / 50 / 100 / 500 / 1,000 / 2,000 / 5,000 clients × seeds 0, 1, 2 — 21 cells, all run, none
   skipped — at 20 rounds, 10% participation, on macOS arm64 (14 CPUs, torch 2.9.1, CPU device).
   The run's own recorded caveat is the honest reading: it measures **simulator** scaling on a
   deliberately tiny model (linear 8 → 4, synthetic data), so a cell's wall-clock is a **floor**
   on what a real architecture would cost, never an estimate of it.
 
-This is an experiment/research path. It does not replace the deployed gRPC server, and no backend
+This is an experimental path. It does not replace the deployed gRPC server, and no backend
 orchestration path uses it.
-
-> **A note on the `research/` paths cited in this wiki.** `research/` is **gitignored and
-> untracked** (`.gitignore:166`), so it exists only in a working copy where those runs were
-> executed — a fresh clone will not have it. The citations are kept because they name the exact
-> file that backs a number and the harness that regenerates it; treat them as provenance, not as
-> paths you can expect to `ls` after cloning.
 
 ---
 
@@ -264,7 +258,7 @@ def _cnn_iid_shard(partition_id, num_shards=CNN_NUM_PARTITIONS, seed=CNN_SHUFFLE
     return train.shard(num_shards=num_shards, index=partition_id, contiguous=True)
 ```
 
-That is not a re-implementation by guesswork: `FederatedDataset` defaults to `shuffle=True, seed=42` and shuffles each split *before* partitioning, and `IidPartitioner.load_partition(i)` is precisely `shard(num_shards=N, index=i, contiguous=True)` — both read off the installed `flwr-datasets` 0.5.0 source, then verified empirically. The equivalence check ran the two partitioners side by side and compared **per partition**, verdict `EQUIVALENT`, recorded at `research/results/reproducibility/flwr_shard_equivalence.json` from the committed harness `research/benchmarks/verify_flwr_shard_equivalence.py`. Honest scope: the recorded run covers the *mechanism* level (synthetic 1,000-row dataset, 10 partitions, seed 42, all identical); the end-to-end CIFAR-10 level is marked **not run** in that file (`--full` was not requested; it needs the ~170MB download). So the shard logic is proven identical and the full-dataset instantiation of it is argued, not measured.
+That is not a re-implementation by guesswork: `FederatedDataset` defaults to `shuffle=True, seed=42` and shuffles each split *before* partitioning, and `IidPartitioner.load_partition(i)` is precisely `shard(num_shards=N, index=i, contiguous=True)` — both read off the installed `flwr-datasets` 0.5.0 source, then verified empirically. The equivalence check ran the two partitioners side by side and compared **per partition**, verdict `EQUIVALENT`, recorded in the shard equivalence verification harness. Honest scope: the recorded run covers the *mechanism* level (synthetic 1,000-row dataset, 10 partitions, seed 42, all identical); the end-to-end CIFAR-10 level is marked **not run** (`--full` was not requested; it needs the ~170MB download). So the shard logic is proven identical and the full-dataset instantiation of it is argued, not measured.
 
 **Registered aggregation strategies** (`framework/src/fedlearn/server/strategy_factory.py`; names matched case-insensitively with hyphens/underscores ignored, so `"fed_avg" == "FedAvg"`):
 

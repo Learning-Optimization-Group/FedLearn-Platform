@@ -16,7 +16,7 @@ CNN DeComFL accepts one sequential batch of 1–32 local images per client. Othe
 real-model DeComFL recipes, alternate arms, Android XGBoost, secure aggregation,
 iOS training, text/LoRA and accelerated training remain outside this scope.
 Mac/Linux collaborative XGBoost is a separate, working tabular path; see its
-[current result](../../research/notes/2026-10-10-breast-cancer-xgboost.md).
+qualification record.
 
 The qualified standalone package is an **internal Debug APK**. It launches without
 Metro but retains development security settings. Keep an old phone externally

@@ -77,6 +77,22 @@
 <details class="nav-group">
 <summary>Mobile</summary><ul>
 <li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="../mobile/02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a href="../mobile/03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a href="../mobile/04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="../mobile/05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a href="../mobile/06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a href="../mobile/07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a href="../mobile/08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="../mobile/09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a href="../mobile/10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a href="../mobile/11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a href="../mobile/12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="../mobile/13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a href="../mobile/14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="../mobile/15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a href="../mobile/16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="../mobile/17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Client (Docker)</summary><ul>
@@ -177,7 +193,7 @@ FedLoRA / DeComFL / robust strategies. The Java-side supervisor was renamed from
 from <code>framework/requirements.txt</code>. They survived only to build one CIFAR-10 IID shard; that shard
 is now produced natively in <code>fl-runtime/recipes.py</code> (<code>CNN_SHUFFLE_SEED = 42</code>, which is the
 <code>flwr</code> <code>FederatedDataset</code> default it replaced) straight from <code>datasets</code>, and the replacement was
-verified <strong>byte-identical per partition</strong> by <code>research/benchmarks/verify_flwr_shard_equivalence.py</code>.</p>
+verified <strong>byte-identical per partition</strong> by the equivalence verification harness.</p>
 <p>Two dependency caps fell with it, and both are now <strong>cleared</strong>, not residual:
 - <strong><code>cryptography</code></strong> — <code>flwr</code> 1.20.0 capped it at <code>&lt;45.0.0</code>, which made this framework's own
   <code>&gt;=46.0.6</code> security floor unreachable elsewhere in the platform (the SE-22 residual).
@@ -619,13 +635,12 @@ wall-clock, total wire bytes, and a <code>final_digest</code> — the sha256 <st
 encoding</strong> of the final parameters, deliberately the same function the wire uses so the digest is
 comparable against a C++/mobile encoding of the same state rather than a Python-only hash.</p>
 <h3 id="measured-scale">Measured scale<a class="headerlink" href="#measured-scale" title="Permanent link">&para;</a></h3>
-<p><code>research/benchmarks/simulation_scale.py</code> (seeded, re-runnable) sweeps <code>10 → 5000</code> clients at 10%
+<p>The simulation scaling benchmark (seeded, re-runnable) sweeps <code>10 → 5000</code> clients at 10%
 participation over 20 rounds × 3 seeds. All 21 cells ran; the record lives in
-<code>research/results/simulation/scale_m4max.json</code>. Read it with its own caveat, which the meta block
+the scaling benchmark results. Read it with its own caveat, which the meta block
 states: it measures <em>simulator</em> scaling (driver overhead, coordinator throughput, memory per client)
 on a deliberately tiny model, so a cell's wall-clock is a <strong>floor</strong> on what a real architecture would
-cost, never an estimate of it. (<code>research/</code> is gitignored — it is a local working area, not a
-backup.)</p>
+cost, never an estimate of it.</p>
 <hr />
 <h2 id="integration-with-the-rest-of-the-platform">Integration with the Rest of the Platform<a class="headerlink" href="#integration-with-the-rest-of-the-platform" title="Permanent link">&para;</a></h2>
 <p>The Python framework is invoked as a <strong>child process</strong> by several parts of the platform:</p>

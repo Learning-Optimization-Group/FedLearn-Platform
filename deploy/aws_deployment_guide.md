@@ -193,8 +193,8 @@ Or if you only changed Python scripts (no Java changes):
 
 The two scripts are at:
 
-- [`scripts/deploy-to-aws.sh`](file:///Users/anurag/codebase/personalProjects/FedLearn-Platform/scripts/deploy-to-aws.sh) — runs on your Mac
-- [`scripts/ec2-bootstrap.sh`](file:///Users/anurag/codebase/personalProjects/FedLearn-Platform/scripts/ec2-bootstrap.sh) — runs on EC2 (automatically via `--bootstrap`)
+- [`scripts/deploy-to-aws.sh`](../scripts/deploy-to-aws.sh) — runs on your Mac
+- [`scripts/ec2-bootstrap.sh`](../scripts/ec2-bootstrap.sh) — runs on EC2 (automatically via `--bootstrap`)
 
 ---
 

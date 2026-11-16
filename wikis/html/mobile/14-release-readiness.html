@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Android signing and TLS qualification · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Mobile</summary><ul>
+<li><a href="README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a href="03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a href="04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a href="06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a href="07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a href="08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a href="10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a href="11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a href="12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a class="active" href="14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a href="16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Mobile</b> &nbsp;·&nbsp; Android signing and TLS qualification</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="android-signing-and-tls-qualification">Android signing and TLS qualification<a class="headerlink" href="#android-signing-and-tls-qualification" title="Permanent link">&para;</a></h1>
+<p>For the next full Release training exercise, use the
+<a href="16-release-tls-qualification.html">Release/TLS qualification procedure</a>.
+The measurements below remain bound to their original builds and dates.</p>
+<p>Local preparation on 18 October adds a current run guide, a private TLS-material
+generator and release-workflow signing-secret import/cleanup with a header-only
+torch include shim. Ten host preparation/workflow checks, eight real Gradle signing
+cases, 32 targeted backend checks and a generated nginx configuration check pass.
+The local environment is a TLS/token-enforced dev setup; it does not provide gRPC
+network isolation. No new APK, physical Release training, same-key Release update,
+production signer or deployed HTTPS qualification is added by this preparation.</p>
+<p>Release builds now require an explicit signing identity. They refuse missing or
+partial credentials, missing stores, invalid passwords or aliases, expired
+certificates and the Android debug identity. Debug builds remain usable.
+The mandatory <code>preReleaseBuild</code> gate runs even when Gradle omits its optional
+<code>validateSigningRelease</code> task.</p>
+<p>Supply these environment variables from the build environment:</p>
+<ul>
+<li><code>FEDLEARN_RELEASE_STORE_FILE</code>: existing keystore path.</li>
+<li><code>FEDLEARN_RELEASE_STORE_PASSWORD</code>: store password.</li>
+<li><code>FEDLEARN_RELEASE_KEY_ALIAS</code>: private-key alias.</li>
+<li><code>FEDLEARN_RELEASE_KEY_PASSWORD</code>: key password.</li>
+<li><code>FEDLEARN_RELEASE_STORE_TYPE</code>: optional, defaults to <code>PKCS12</code>; use <code>JKS</code> for a JKS store.</li>
+</ul>
+<p>Keep the key and passwords outside version control. Build with Java21, Node24,
+the configured Android SDK and the pinned ExecuTorch/gRPC artifacts, then run
+<code>./gradlew :app:assembleRelease</code> from <code>mobile_client/android</code>. The
+<a href="../../mobile_client/scripts/check_release_signing.py">signing check</a> exercises
+actual Gradle validation with temporary stores and removes its keys afterwards.
+Run it with the same Java/SDK/native-artifact build configuration.</p>
+<p>Release enrollment refuses a plaintext transport, and the native gRPC client
+also enforces TLS. Only the Debug native configuration permits plaintext.
+Android's HTTP network-security XML does not enforce the separately linked C++
+gRPC channel; the native guard is required.</p>
+<p>The actual vivo TLS test initially crashed when BoringSSL's weak <code>sdallocx</code>
+function bound to the function-pointer variable exported by React Native's Folly.
+The Android build now copies the crypto archive into its build directory and
+renames only that optional reference. Folly's variable and the original cached
+archive retain their identities. The unresolved private weak hook falls back to
+BoringSSL's normal <code>free</code> path. The
+<a href="../../mobile_client/scripts/check_android_allocator_symbols.py">ELF check</a>
+verifies the isolated weak reference in <code>libappmodules.so</code>; pass the NDK's
+<code>llvm-readelf</code> with <code>--readelf</code>.</p>
+<p>The qualification receipt
+binds the signed APK, Debug APK, certificate fingerprints and native cases.
+A temporary local release key was used and discarded. The installed Debug app
+rejected the differently signed release update, then accepted a same-key Debug
+update. All33 existing dataset files retained their hashes. No uninstall or
+app-data reset was performed.</p>
+<p>The real phone's native gRPC transport accepted the trusted localhost certificate
+and completed a status RPC. Wrong root, wrong hostname, default untrusted roots
+and plaintext sent to the TLS listener were refused before registration reached
+the server. This used a fixed-response local server over USB/SSH routes, with a
+server key held only in memory. It qualifies native transport behavior, not
+HTTPS login/enrollment or a complete federated run over deployed TLS.</p>
+<p>The final native lifecycle check
+also cancels a deliberately blocked registration through the real phone's Stop
+method. Stop completion was observed after371ms; the cancelled registration
+started no heartbeat. A fresh accepted registration then produced a heartbeat
+observed by the server. This is a bounded native fixture measurement, not a
+worst-case Stop bound during model computation.</p>
+<p>Production release work still needs a persistent backed-up signing key, an
+HTTPS API endpoint and reachable TLS gRPC service, followed by full authenticated
+training and a same-release-key install/update check. The local qualification
+certificate cannot serve as the future update identity.</p>
+<p>The bounded CNN DeComFL qualification
+adds local-image training and short powered screen-off recovery with the existing
+Debug native APK and updated Metro JavaScript. It changes neither release signing
+nor the production TLS status above. CNN DeComFL requires fresh functional model
+exports and one sequential batch of at most 32 images per client.</p>
+<h2 id="internal-standalone-debug-build">Internal standalone Debug build<a class="headerlink" href="#internal-standalone-debug-build" title="Permanent link">&para;</a></h2>
+<p>Use <code>./gradlew :app:assembleDebug -PfedlearnStandalone=true</code> from
+<code>mobile_client/android</code>, with the same SDK and native-artifact arguments used for
+an ordinary Debug build. This embeds the Hermes JavaScript bundle and disables
+React Native developer support, so the installed app can launch without Metro.
+The property accepts only <code>true</code> or <code>false</code>; ordinary Debug builds continue to
+use Metro when the property is absent or explicitly <code>false</code>.</p>
+<p>This is an internal Debug package. Its embedded JavaScript retains <code>__DEV__=true</code>
+and the existing development transport policy. It uses the Debug signing identity
+and does not satisfy the production signing or deployed TLS requirements above.
+Release bundling and transport restrictions remain unchanged.</p>
+<p>Run <code>python ../scripts/check_standalone_build.py</code> from <code>mobile_client/android</code>
+with the normal build environment to check the configured Gradle tasks and flags.
+The check covers standalone Debug, ordinary Debug, explicit <code>false</code>, rejection of
+an invalid value, and Release's production JavaScript mode. It does not prove a
+physical training run. Qualification also needs a cold launch with Metro stopped,
+normal UI login/import/Start, and completed training with the packaged bundle.</p>
+<p>The 16 October standalone qualification
+completed two Metro-off, normal-UI runs on vivo and Linux: CNN FedAvg and CNN
+DeComFL, ten rounds each, with 32 local images per client. Each run's twenty
+accepted updates reconstructed its registered final model bit-for-bit. All 36
+saved dataset files remained unchanged. This qualifies the internal package and
+short foreground execution over development Wi-Fi routes; production signing,
+deployed TLS and process-death recovery remain open.</p>
+<p>The sign-out lifecycle correction
+is packaged in a new standalone internal Debug APK. It stops participation when
+authentication unmounts the training provider and prevents a new provider from
+racing unfinished cleanup. The powered-phone qualification covers sign-out and
+explicit same-process rejoin. Process-death recovery and production release
+requirements remain open.</p>
+<h2 id="process-death-recovery-boundary-16-october">Process-death recovery boundary — 16 October<a class="headerlink" href="#process-death-recovery-boundary-16-october" title="Permanent link">&para;</a></h2>
+<p>The forced-crash qualification
+adds bounded manual recovery evidence for CNN FedAvg after an accepted upload.
+The training service no longer restarts without its training loop; null and
+retry/redelivery requests stop safely. The corrected standalone Debug app completes
+the same run after explicit rejoin and dataset selection. The foreground-service
+fix is covered by seven JVM regressions and a powered-vivo crash test. Automatic
+resume, low-memory termination, interruption during compute/upload, DeComFL durable
+state, production signing and deployed TLS remain separate requirements.</p>
+<p>The lost-completion crash test
+also qualifies manual same-round CNN FedAvg rejoin when the server accepts an update
+but the app dies before receiving its completion. Existing server deduplication
+counts the repeated upload once; all three rounds finish with an exact reconstructed
+aggregate. No product changes or new checkpoint storage were required. The test
+does not inspect encrypted storage or qualify durability after saving, interruption
+during computation/partial upload, automatic resume or DeComFL process recovery.
+The same internal Debug package and development USB/loopback transport are used;
+production signing and deployed TLS requirements remain unchanged.</p>
+<p>The incomplete-transport crash qualification
+adds manual CNN FedAvg recovery before the first complete application upload chunk
+reaches the server. Zero updates are counted before death; explicit rejoin completes
+the run with six unique updates and an exact final aggregate. The old connection's
+tail is discarded permanently. This does not qualify cleanup of an application
+buffer containing chunks, interrupted computation, checkpoint-write durability,
+automatic resume or DeComFL process recovery. The unchanged internal Debug package
+and development routes add no production signing or deployed TLS evidence.</p>
+<p>The native backward forced-exit test
+adds bounded manual CNN FedAvg recovery after actual process disappearance during
+a debugger-paused first-round backward kernel, before any upload. Explicit rejoin
+completes all three rounds with six unique accepted updates and an exact final
+aggregate. No product change or new checkpoint storage was needed. This does not
+qualify natural Android low-memory kills, SIGKILL, arbitrary instruction interruption,
+automatic resume, storage durability or DeComFL recovery. The internal Debug package
+and development transport add no production signing or deployed TLS evidence.</p>
+<p>The DeComFL cold-restart qualification
+is negative: an app crash loses the in-memory trajectory, and rejoin after round one
+refuses to train despite an available current server model and rebuild history.
+No stale round-two scalars are observed in the bounded test. The UI retries this
+permanent state refusal as a transient error. Recovery requires a validated model
+bootstrap/replay position and explicit error handling; it is not solved by storing
+only a submitted-round number. No successful cold recovery, automatic resume or
+checkpoint durability is qualified. Final cleanup was verified on 18 October after
+an interrupted continuation; product source and the installed APK remain unchanged.</p>
+<p>The current-snapshot recovery fix and qualification
+supersede the preceding DeComFL first-round-only gap for the tested manual rejoin
+path. A rebuilt standalone internal Debug app completes all three rounds after
+verified process death and explicit round-two rejoin. Snapshot integrity, exact
+native scalar replay, six unique contributions and the registered final model are
+checked. Permanent state errors now stop clearly; snapshot/config round races retry.
+The original account/settings and all saved data are preserved, and temporary test
+processes, routes and helper are removed. This does not qualify automatic resume,
+natural Android eviction, interrupted DeComFL compute/upload, durable local state,
+other model contracts, production signing or deployed TLS. No checkpoint storage
+was needed for this bounded recovery case.</p>
+<p>The DeComFL lost-acknowledgement test
+qualifies manual same-round rejoin when the server counts a scalar update but the
+app dies before receiving success. A fresh deadline-margin check and shared-host
+cancellation timing establish the pending-RPC crash boundary. Two identical round-one
+requests produce one counted contribution; all six unique updates reconstruct the
+completed three-round model exactly. No product or APK change was needed. Account,
+settings and data are preserved and temporary test resources removed. This adds no
+automatic resume, natural Android kill, interrupted computation/request transport,
+checkpoint durability, production signing or deployed TLS qualification.</p>
+<p>The DeComFL native-computation test
+adds manual cold recovery after a controlled exit inside the initial base-loss
+forward path, before any scalar request is accepted. Verified native stack/round,
+exit registers and independent Android disappearance bind the boundary. Rejoin
+finishes all three rounds; six unique updates reconstruct the final model exactly.
+Product source and the installed internal Debug APK are unchanged. Both debugger
+files/processes and all temporary routes/helpers are removed, and account/settings
+and saved data are preserved. This adds no natural-kill, arbitrary instruction or
+completed-step guarantee, automatic resume, storage durability, production signing
+or deployed TLS evidence.</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

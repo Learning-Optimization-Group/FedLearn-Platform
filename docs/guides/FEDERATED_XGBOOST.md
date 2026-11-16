@@ -103,7 +103,7 @@ comparison. The small test set does not establish broad model quality.
 
 The [benchmark instructions](../../framework/benchmarks/xgboost_iris/README.md)
 explain feature mapping, provenance and reproduction. The
-[qualification receipt](../../research/results/xgboost/iris-mixed-cpu-2026-10-09.json)
+qualification receipt (`results/xgboost/iris-mixed-cpu-2026-10-09.json`)
 records metrics, hashes, exact replays and platform inference. Android tree
 training, multiclass tasks, clinical features and arbitrary schemas remain
 unsupported by this qualification.

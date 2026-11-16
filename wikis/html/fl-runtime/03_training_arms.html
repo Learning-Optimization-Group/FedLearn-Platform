@@ -77,6 +77,22 @@
 <details class="nav-group">
 <summary>Mobile</summary><ul>
 <li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="../mobile/02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a href="../mobile/03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a href="../mobile/04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="../mobile/05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a href="../mobile/06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a href="../mobile/07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a href="../mobile/08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="../mobile/09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a href="../mobile/10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a href="../mobile/11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a href="../mobile/12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="../mobile/13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a href="../mobile/14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="../mobile/15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a href="../mobile/16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="../mobile/17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Client (Docker)</summary><ul>
@@ -383,9 +399,6 @@ fl-runtime/fl_server.py  --training-arm      fl-runtime/client.py  --training-ar
 </tbody>
 </table>
 <p>Every entry records its <code>source</code> result file, that file's <code>source_sha256</code>, the protocol (rounds, clients, α, seed, resolution) and its own caveats. <code>tests/test_arm_tradeoff.py</code> guards two distinct risks: <strong>drift</strong> (the committed numbers are regenerated from the record and compared where the record is present) and <strong>unsupported claims</strong> (a number shown without its caveat is a claim the record does not make — the comm ratio in particular is round-budget dependent).</p>
-<blockquote>
-<p>The <code>research/</code> tree those source files live in is <strong>gitignored</strong>, so the committed JSON is the only copy of these numbers inside the repository.</p>
-</blockquote>
 <hr />
 <h2 id="provenance-the-arm-rides-on-every-result">Provenance: the Arm Rides on Every Result<a class="headerlink" href="#provenance-the-arm-rides-on-every-result" title="Permanent link">&para;</a></h2>
 <p><code>build_eval_card</code> (<code>fl_server.py:147</code>) writes the arm onto the eval card attached to the registered model artifact:</p>
@@ -468,7 +481,7 @@ fl-runtime/fl_server.py  --training-arm      fl-runtime/client.py  --training-ar
 </tbody>
 </table>
 <blockquote>
-<p>The two probe figures are the <strong>committed</strong> harness's (<code>research/benchmarks/frozen_feature_linear_probe.py</code>, seed 1234 / head seed 0). They supersede an earlier inline-script pair — 80.35 % / 25.10 % — which <code>recipes.py</code>'s <code>freeze_untrained_modules</code> docstring still quotes; the record keeps both (<code>research/results/pretrained-backbone/pretrained_frozen_arm_2026-08-13.json</code>) and notes that probe and federation agree to within about a point, not the 0.02 once claimed.</p>
+<p>The two probe figures are from the linear probe benchmark (seed 1234 / head seed 0). They supersede an earlier inline-script pair — 80.35 % / 25.10 % — which <code>recipes.py</code>'s <code>freeze_untrained_modules</code> docstring still quotes; the benchmark record keeps both and notes that probe and federation agree to within about a point, not the 0.02 once claimed.</p>
 </blockquote>
 <p>So BN adaptation <strong>degrades</strong> good features by roughly 7.5 points — it re-estimates, from one client's shard, statistics that ImageNet training had already fitted well.</p>
 <blockquote>

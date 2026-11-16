@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TinyNet First-Order Optimizer Parity Implementation Plan · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Mobile</summary><ul>
+<li><a href="README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a href="03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a class="active" href="04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a href="06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a href="07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a href="08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a href="10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a href="11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a href="12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a href="14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a href="16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Mobile</b> &nbsp;·&nbsp; TinyNet First-Order Optimizer Parity Implementation Plan</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="tinynet-first-order-optimizer-parity-implementation-plan">TinyNet First-Order Optimizer Parity Implementation Plan<a class="headerlink" href="#tinynet-first-order-optimizer-parity-implementation-plan" title="Permanent link">&para;</a></h1>
+<p><strong>Goal:</strong> Make the existing TinyNet desktop first-order training step use the same SGD rule as Android, without changing other recipes, and prove the endpoint against a one-step reference.</p>
+<p><strong>Architecture:</strong> The recipe already declares SGD and Android's <code>TrainableExecutorchModel::trainStep</code> performs SGD. Resolve the desktop optimizer from the TinyNet recipe before training; leave other recipe branches unchanged. This is the first executable prerequisite for <a href="03-android-execution-contract-v1-design.html">execution contract v1</a>, not full mobile recipe or strategy parity.</p>
+<p><strong>Tech stack:</strong> Python 3.12, PyTorch, pytest; existing React Native/C++ TinyNet golden fixtures remain unchanged.</p>
+<h2 id="constraints">Constraints<a class="headerlink" href="#constraints" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Work on <code>mobSupp</code>; commit locally and do not push.</li>
+<li>Write and run a failing regression test before changing the training path.</li>
+<li>Preserve Adam/AdamW behavior for every non-TinyNet recipe.</li>
+<li>Do not mark contract v1 ready or claim FedProx/text/image/GPU support in this slice.</li>
+</ul>
+<h2 id="task-1-align-the-effective-tinynet-desktop-optimizer">Task 1: Align the effective TinyNet desktop optimizer<a class="headerlink" href="#task-1-align-the-effective-tinynet-desktop-optimizer" title="Permanent link">&para;</a></h2>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Modify: <code>fl-runtime/client.py</code> in <code>train()</code>'s optimizer-selection block.</li>
+<li>Test: <code>fl-runtime/tests/test_client_tinynet_golden_fedavg_wire.py</code>.</li>
+</ul>
+<p><strong>Interface:</strong> <code>train(net, trainloader, epochs, dataset_name, ...)</code> keeps its signature. For <code>MODEL_TYPE == "TINYNET_GOLDEN"</code>, it constructs <code>torch.optim.SGD</code> on trainable parameters with learning rate <code>CNN_LEARNING_RATE</code> (<code>0.001</code>), zero momentum and weight decay; all other branches retain their present optimizer.</p>
+<ul>
+<li>[x] Add a deterministic test in <code>test_client_tinynet_golden_fedavg_wire.py</code>: build two identical TinyNets; train one through <code>client.train()</code> on the fixed 8-row golden batch for one epoch, and one through an explicit single PyTorch <code>SGD(lr=0.001)</code> cross-entropy step. Assert all parameters match within <code>1e-6</code>, including unchanged frozen <code>fc2</code>. Configure the client's module flags through the existing <code>_as_fedavg_tinynet_client</code> helper.</li>
+<li>[x] Run <code>cd fl-runtime &amp;&amp; ../.venv/bin/python -m pytest -q tests/test_client_tinynet_golden_fedavg_wire.py -k optimizer</code> and verify the endpoint test fails because the present code constructs Adam.</li>
+<li>[x] Add a TinyNet-only SGD branch ahead of the current <code>USE_LLM</code>/default optimizer choices. Use <code>p for p in net.parameters() if p.requires_grad</code>; do not alter the other branches.</li>
+<li>[x] Re-run the targeted test and the complete <code>fl-runtime</code> suite. The full run had one unrelated Hugging Face DNS failure; the offline run with only that test excluded passed (296 passed, 29 deselected).</li>
+<li>[x] Run <code>git diff --check</code>, review the diff, and commit with <code>fix(mobile): align TinyNet desktop optimizer with native SGD</code>.</li>
+</ul>
+<h2 id="follow-on-gates">Follow-on gates<a class="headerlink" href="#follow-on-gates" title="Permanent link">&para;</a></h2>
+<p>After this task, separately pin the live round's learning rate and local step budget in the versioned execution contract, and replace Android's hardcoded <code>roundConfigFor</code> values with validated contract values. Then test FedAvg, FedOpt, and Robust as first-order strategies; implement FedProx's proximal term before enabling that strategy. DeComFL LightSecAgg, file-picked datasets, non-TinyNet artifacts, text, and GPU qualification remain separate approved stages. Passing Task 1 alone does not satisfy those gates.</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

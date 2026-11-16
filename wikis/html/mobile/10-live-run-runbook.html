@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Mixed-Device Run — Runbook · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Mobile</summary><ul>
+<li><a href="README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a href="03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a href="04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a href="06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a href="07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a href="08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a class="active" href="10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a href="11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a href="12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a href="14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a href="16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Mobile</b> &nbsp;·&nbsp; Live Mixed-Device Run — Runbook</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="live-mixed-device-run-runbook">Live Mixed-Device Run — Runbook<a class="headerlink" href="#live-mixed-device-run-runbook" title="Permanent link">&para;</a></h1>
+<p>How to run one TinyNet federation with the Android phone and three laptop CLI clients on one published execution
+contract, then check the phone's training against the contract. This is the procedure behind the live results in
+<a href="06-execution-contract-v1-implementation-plan.html">06</a> (Stage 2I), <a href="07-fedopt-robust-contract-plan.html">07</a>,
+<a href="08-decomfl-contract-design.html">08</a> and <a href="09-fedprox-contract-plan.html">09</a>. Every step here has failed at least once
+when skipped; the <a href="#troubleshooting">troubleshooting table</a> lists how.</p>
+<h2 id="topology">Topology<a class="headerlink" href="#topology" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>phone ──USB── relay host ──SSH reverse tunnels── workstation (backend :8084, Metro :8088, FL servers :50000-50010,
+      adb reverse                                                laptop clients on 127.0.0.1)
+</code></pre></div>
+
+<p>The phone reaches everything through <code>127.0.0.1</code> on its own side:</p>
+<table>
+<thead>
+<tr>
+<th>Phone port</th>
+<th>Relay port</th>
+<th>Workstation</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>8081</td>
+<td>8081</td>
+<td>8088</td>
+<td>Metro (a debug APK loads its JS from <code>localhost:8081</code>)</td>
+</tr>
+<tr>
+<td>8082</td>
+<td>8082</td>
+<td>8084</td>
+<td>Backend REST</td>
+</tr>
+<tr>
+<td>50000–50010</td>
+<td>same</td>
+<td>same</td>
+<td>FL servers (one per running project)</td>
+</tr>
+</tbody>
+</table>
+<p>Metro is moved off 8081 because the debug APK and a default backend both want that port.</p>
+<p>The phone can also be USB-attached to the workstation directly. Then skip the SSH tunnels and point <code>adb reverse</code>
+at the workstation ports.</p>
+<p>Set these for the commands below:</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">REPO</span><span class="o">=</span>~/code/FedLearn-Platform
+<span class="nv">RELAY</span><span class="o">=</span>relay-host<span class="w">                         </span><span class="c1"># ssh alias of the host the phone is plugged into</span>
+<span class="nv">ADB</span><span class="o">=</span>adb<span class="w">                                  </span><span class="c1"># path to adb on that host; it may not be on PATH there</span>
+<span class="nv">WORK</span><span class="o">=</span><span class="k">$(</span>mktemp<span class="w"> </span>-d<span class="k">)</span><span class="w">                        </span><span class="c1"># run artifacts: logs, cookies, contracts</span>
+</code></pre></div>
+
+<h2 id="1-build-and-install-the-apk">1. Build and install the APK<a class="headerlink" href="#1-build-and-install-the-apk" title="Permanent link">&para;</a></h2>
+<p>The native build needs the cross-compiled artifacts under <code>mobile_client/.artifacts/</code> (gitignored):</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">A</span><span class="o">=</span><span class="nv">$REPO</span>/mobile_client/.artifacts
+<span class="nb">cd</span><span class="w"> </span><span class="nv">$REPO</span>/mobile_client/android<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>./gradlew<span class="w"> </span>assembleDebug<span class="w"> </span>-PreactNativeArchitectures<span class="o">=</span>arm64-v8a<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-PET_SRC<span class="o">=</span><span class="nv">$A</span>/executorch-android-v1.3.1-arm64-v8a/executorch<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-PET_BUILD<span class="o">=</span><span class="nv">$A</span>/executorch-android-v1.3.1-arm64-v8a/executorch/cmake-out<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-PTORCH_INCLUDE<span class="o">=</span><span class="nv">$A</span>/torch-headeronly-shim-2.12.0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-PGRPC_DIR<span class="o">=</span><span class="nv">$A</span>/grpc-android-v1.67.1-arm64-v8a<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-PGENERATED_PROTO_DIR<span class="o">=</span><span class="nv">$REPO</span>/proto/gen/cpp
+</code></pre></div>
+
+<p>A build with no <code>-P</code> flags fails at CMake configure (<code>Could not find ET_LIB_executorch</code>). Record the APK's SHA-256
+and the commit it was built from. When the run exercises new native code, also check that the change made it in:
+<code>unzip</code> <code>lib/arm64-v8a/libappmodules.so</code> from the APK and grep it for a string the change added. Then install:</p>
+<div class="codehilite"><pre><span></span><code>scp<span class="w"> </span>app/build/outputs/apk/debug/app-debug.apk<span class="w"> </span><span class="nv">$RELAY</span>:/tmp/app-debug.apk
+ssh<span class="w"> </span><span class="nv">$RELAY</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$ADB</span><span class="s2"> devices -l; </span><span class="nv">$ADB</span><span class="s2"> install -r /tmp/app-debug.apk&quot;</span>
+</code></pre></div>
+
+<p><code>adb devices</code> must list the phone as <code>device</code>. <code>unauthorized</code> means the phone is waiting on its "Allow USB
+debugging?" prompt. An empty list means the host sees no USB data device at all: check the cable, the phone's USB
+mode ("File transfer", not "Charging only") and, on a Mac, the "Allow accessory to connect?" prompt.</p>
+<h2 id="2-metro">2. Metro<a class="headerlink" href="#2-metro" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span><span class="nv">$REPO</span>/mobile_client<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npx<span class="w"> </span>react-native<span class="w"> </span>start<span class="w"> </span>--port<span class="w"> </span><span class="m">8088</span>
+curl<span class="w"> </span>-s<span class="w"> </span>localhost:8088/status<span class="w">      </span><span class="c1"># packager-status:running</span>
+</code></pre></div>
+
+<h2 id="3-backend">3. Backend<a class="headerlink" href="#3-backend" title="Permanent link">&para;</a></h2>
+<p>A throwaway PostgreSQL, then the backend on :8084:</p>
+<div class="codehilite"><pre><span></span><code>docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>--name<span class="w"> </span>fedlearn-live-pg<span class="w"> </span>-e<span class="w"> </span><span class="nv">POSTGRES_USER</span><span class="o">=</span>federance<span class="w"> </span>-e<span class="w"> </span><span class="nv">POSTGRES_PASSWORD</span><span class="o">=</span>federance<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-e<span class="w"> </span><span class="nv">POSTGRES_DB</span><span class="o">=</span>federance<span class="w"> </span>-p<span class="w"> </span><span class="m">127</span>.0.0.1:5438:5432<span class="w"> </span>postgres:16.6-alpine
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$WORK</span>/models
+<span class="nb">cd</span><span class="w"> </span><span class="nv">$REPO</span>/backend/fl-platform-api<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<span class="nv">SPRING_APPLICATION_JSON</span><span class="o">=</span><span class="s2">&quot;{\&quot;app.model-bundle.autostage.python\&quot;:\&quot;</span><span class="nv">$REPO</span><span class="s2">/.venv/bin/python\&quot;}&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="nv">SPRING_PROFILES_ACTIVE</span><span class="o">=</span>dev<span class="w"> </span><span class="nv">SERVER_PORT</span><span class="o">=</span><span class="m">8084</span><span class="w"> </span><span class="se">\</span>
+<span class="nv">SPRING_DATASOURCE_URL</span><span class="o">=</span>jdbc:postgresql://localhost:5438/federance<span class="w"> </span><span class="se">\</span>
+<span class="nv">SPRING_DATASOURCE_USERNAME</span><span class="o">=</span>federance<span class="w"> </span><span class="nv">SPRING_DATASOURCE_PASSWORD</span><span class="o">=</span>federance<span class="w"> </span><span class="se">\</span>
+<span class="nv">FEDLEARN_PYTHON</span><span class="o">=</span><span class="nv">$REPO</span>/.venv/bin/python<span class="w"> </span><span class="se">\</span>
+<span class="nv">FEDLEARN_ROUND_TIMEOUT_S</span><span class="o">=</span><span class="m">900</span><span class="w"> </span><span class="se">\</span>
+<span class="nv">APP_MODEL_BUNDLE_DIR</span><span class="o">=</span><span class="nv">$WORK</span>/models<span class="w"> </span><span class="se">\</span>
+<span class="nv">FL_SERVER_GRPC_HOST</span><span class="o">=</span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
+nohup<span class="w"> </span>./gradlew<span class="w"> </span>bootRun<span class="w"> </span>&gt;<span class="w"> </span><span class="nv">$WORK</span>/backend.log<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">&amp;</span>
+</code></pre></div>
+
+<p>Every variable is load-bearing:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FEDLEARN_PYTHON</code></td>
+<td>the spawned FL server and scripts otherwise use the global <code>python3</code></td>
+</tr>
+<tr>
+<td><code>app.model-bundle.autostage.python</code></td>
+<td>the interpreter that stages a run's model bundle. It is separate from <code>FEDLEARN_PYTHON</code> and defaults to <code>python3</code>. TinyNet stages from committed files, but every other recipe is exported with ExecuTorch, which fails with <code>No module named 'executorch'</code> (contract <code>STAGING_FAILED</code>) unless this names the venv</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_ROUND_TIMEOUT_S=900</code></td>
+<td>the default 120 s is too short to join a phone by hand</td>
+</tr>
+<tr>
+<td><code>APP_MODEL_BUNDLE_DIR</code></td>
+<td>the default <code>/var/models</code> is not writable on macOS; staging fails and the run gets no contract</td>
+</tr>
+<tr>
+<td><code>FL_SERVER_GRPC_HOST=127.0.0.1</code></td>
+<td>on the dev profile the backend auto-advertises a Tailscale or LAN IP instead of <code>localhost</code>, and the phone then bypasses the USB tunnel</td>
+</tr>
+</tbody>
+</table>
+<p>Ready when <code>curl -s -o /dev/null -w "%{http_code}" localhost:8084/api/auth/me</code> prints <code>401</code>.</p>
+<h2 id="4-tunnels">4. Tunnels<a class="headerlink" href="#4-tunnels" title="Permanent link">&para;</a></h2>
+<p>Run the SSH tunnel under <strong>bash</strong>. In zsh, <code>"$p:localhost"</code> applies the <code>:l</code> modifier and silently mangles the
+FL-port forwards, while 8081/8082 still work:</p>
+<div class="codehilite"><pre><span></span><code>bash<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;args=(-N -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -R 8081:localhost:8088 -R 8082:localhost:8084)</span>
+<span class="s1">for p in $(seq 50000 50010); do args+=(-R &quot;${p}:localhost:${p}&quot;); done</span>
+<span class="s1">exec ssh &quot;${args[@]}&quot; &#39;</span><span class="s2">&quot;</span><span class="nv">$RELAY</span><span class="s2">&quot;</span><span class="w"> </span><span class="p">&amp;</span>
+ssh<span class="w"> </span><span class="nv">$RELAY</span><span class="w"> </span><span class="s2">&quot;for p in 8081 8082 \$(seq 50000 50010); do </span><span class="nv">$ADB</span><span class="s2"> reverse tcp:\$p tcp:\$p; done&quot;</span>
+</code></pre></div>
+
+<p>Check every hop from the relay before touching the phone. An FL port only answers once a project is running, so
+repeat the last check after step 5:</p>
+<div class="codehilite"><pre><span></span><code>ssh<span class="w"> </span><span class="nv">$RELAY</span><span class="w"> </span><span class="s1">&#39;curl -s -o /dev/null -w &quot;%{http_code}\n&quot; localhost:8082/api/auth/me; curl -s localhost:8081/status&#39;</span>
+<span class="c1"># with a run started: the FL server must answer an HTTP/2 preface with a SETTINGS frame (00 00 .. 04 ..)</span>
+ssh<span class="w"> </span><span class="nv">$RELAY</span><span class="w"> </span><span class="s2">&quot;printf &#39;PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n\x00\x00\x00\x04\x00\x00\x00\x00\x00&#39; | nc -w 3 127.0.0.1 50000 | head -c 12 | od -An -tx1&quot;</span>
+</code></pre></div>
+
+<p>An empty reply on the last check means the FL forward is broken even when the REST forward works.</p>
+<h2 id="5-create-the-run-and-start-the-laptops">5. Create the run and start the laptops<a class="headerlink" href="#5-create-the-run-and-start-the-laptops" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="nv">B</span><span class="o">=</span>localhost:8084<span class="p">;</span><span class="w"> </span><span class="nv">C</span><span class="o">=</span><span class="nv">$WORK</span>/cookies.txt<span class="p">;</span><span class="w"> </span><span class="nv">STRAT</span><span class="o">=</span>FedProx<span class="w">   </span><span class="c1"># FedAvg | FedOpt | Robust | FedProx | DeComFL</span>
+curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="nv">$B</span>/api/auth/register<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;username&quot;:&quot;mobiledemo&quot;,&quot;email&quot;:&quot;mobiledemo@example.com&quot;,&quot;password&quot;:&quot;demopass123&quot;}&#39;</span>
+docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>fedlearn-live-pg<span class="w"> </span>psql<span class="w"> </span>-U<span class="w"> </span>federance<span class="w"> </span>-d<span class="w"> </span>federance<span class="w"> </span>-tAc<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;UPDATE users SET platform_role=&#39;PLATFORM_ADMIN&#39; WHERE username=&#39;mobiledemo&#39;;&quot;</span>
+curl<span class="w"> </span>-s<span class="w"> </span>-c<span class="w"> </span><span class="nv">$C</span><span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="nv">$B</span>/api/auth/login<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;username&quot;:&quot;mobiledemo&quot;,&quot;password&quot;:&quot;demopass123&quot;}&#39;</span>
+<span class="nv">P</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-s<span class="w"> </span>-b<span class="w"> </span><span class="nv">$C</span><span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="nv">$B</span>/api/projects<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s2">&quot;{\&quot;name\&quot;:\&quot;</span><span class="nv">$STRAT</span><span class="s2"> live run\&quot;,\&quot;modelType\&quot;:\&quot;TINYNET_GOLDEN\&quot;,\&quot;modelName\&quot;:\&quot;tinynet-golden\&quot;,\&quot;optimizer\&quot;:\&quot;sgd\&quot;,\&quot;pretrainEpochs\&quot;:0}&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="p">|</span><span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import json,sys;print(json.load(sys.stdin)[&#39;id&#39;])&quot;</span><span class="k">)</span>
+<span class="c1"># wait until the project leaves INITIALIZING (GET $B/api/projects/$P -&gt; status), then:</span>
+curl<span class="w"> </span>-s<span class="w"> </span>-b<span class="w"> </span><span class="nv">$C</span><span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="nv">$B</span>/api/projects/<span class="nv">$P</span>/start<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Content-Type: application/json&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s2">&quot;{\&quot;strategy\&quot;:\&quot;</span><span class="nv">$STRAT</span><span class="s2">\&quot;,\&quot;numRounds\&quot;:3,\&quot;minClients\&quot;:4,\&quot;clientsPerRound\&quot;:4,\&quot;secureAggregation\&quot;:false}&quot;</span>
+<span class="nv">RUN</span><span class="o">=</span><span class="k">$(</span>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>fedlearn-live-pg<span class="w"> </span>psql<span class="w"> </span>-U<span class="w"> </span>federance<span class="w"> </span>-d<span class="w"> </span>federance<span class="w"> </span>-tAc<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;select id from runs where project_id=&#39;</span><span class="nv">$P</span><span class="s2">&#39; order by created_at desc limit 1;&quot;</span><span class="k">)</span>
+docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>fedlearn-live-pg<span class="w"> </span>psql<span class="w"> </span>-U<span class="w"> </span>federance<span class="w"> </span>-d<span class="w"> </span>federance<span class="w"> </span>-tAc<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;select state, contract_id, unavailable_reason from run_execution_contracts where run_id=&#39;</span><span class="nv">$RUN</span><span class="s2">&#39;;&quot;</span>
+</code></pre></div>
+
+<p>The contract must be <code>READY</code>. <code>UNAVAILABLE</code> carries its reason, and the backend log has the script output. Fetch it
+the way a client does, check it, and start the laptops:</p>
+<div class="codehilite"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>-b<span class="w"> </span><span class="nv">$C</span><span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="nv">$B</span>/api/runs/<span class="nv">$RUN</span>/enroll<span class="w"> </span>&gt;<span class="w"> </span><span class="nv">$WORK</span>/enroll.json
+python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import json;json.dump(json.load(open(&#39;</span><span class="nv">$WORK</span><span class="s2">/enroll.json&#39;))[&#39;manifest&#39;][&#39;executionContract&#39;],open(&#39;</span><span class="nv">$WORK</span><span class="s2">/contract.json&#39;,&#39;w&#39;))&quot;</span>
+<span class="nb">cd</span><span class="w"> </span><span class="nv">$REPO</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">PYTHONPATH</span><span class="o">=</span>framework/src:fl-runtime<span class="w"> </span>.venv/bin/python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;</span>
+<span class="s2">import json, execution_plan</span>
+<span class="s2">from google.protobuf import json_format</span>
+<span class="s2">from fedlearn.communication.generated import execution_contract_pb2 as pb</span>
+<span class="s2">c = json_format.ParseDict(json.load(open(&#39;</span><span class="nv">$WORK</span><span class="s2">/contract.json&#39;)), pb.ExecutionContract())</span>
+<span class="s2">print(execution_plan.check_contract(c, &#39;TINYNET_GOLDEN&#39;, &#39;</span><span class="nv">$STRAT</span><span class="s2">&#39;, &#39;FULL&#39;, project_id=&#39;</span><span class="nv">$P</span><span class="s2">&#39;, run_id=&#39;</span><span class="nv">$RUN</span><span class="s2">&#39;))&quot;</span><span class="w">  </span><span class="c1"># expect []</span>
+<span class="nb">cd</span><span class="w"> </span><span class="nv">$REPO</span>/fl-runtime<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="k">for</span><span class="w"> </span>part<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="m">3</span><span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span><span class="nv">PYTHONUNBUFFERED</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>nohup<span class="w"> </span>../.venv/bin/python<span class="w"> </span>client.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--project-id<span class="w"> </span><span class="nv">$P</span><span class="w"> </span>--server-address<span class="w"> </span><span class="m">127</span>.0.0.1:50000<span class="w"> </span>--partition-id<span class="w"> </span><span class="nv">$part</span><span class="w"> </span>--model-type<span class="w"> </span>TINYNET_GOLDEN<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--strategy<span class="w"> </span><span class="nv">$STRAT</span><span class="w"> </span>--execution-contract<span class="w"> </span><span class="nv">$WORK</span>/contract.json<span class="w"> </span>--run-id<span class="w"> </span><span class="nv">$RUN</span><span class="w"> </span>&gt;<span class="w"> </span><span class="nv">$WORK</span>/laptop_<span class="nv">$part</span>.log<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">&amp;</span><span class="w"> </span><span class="k">done</span>
+grep<span class="w"> </span>-h<span class="w"> </span><span class="s2">&quot;\[contract\]\|Refusing&quot;</span><span class="w"> </span><span class="nv">$WORK</span>/laptop_*.log<span class="w">     </span><span class="c1"># three &quot;execution contract accepted&quot; lines</span>
+</code></pre></div>
+
+<p>The round-deadline clock is already running. Join the phone within <code>FEDLEARN_ROUND_TIMEOUT_S</code>.</p>
+<h3 id="clients-on-other-machines">Clients on other machines<a class="headerlink" href="#clients-on-other-machines" title="Permanent link">&para;</a></h3>
+<p>To put laptop clients on separate hardware, as in the four-platform run (Apple MPS, x86 CPU, Jetson CUDA and the
+phone), run each one on its own host against the server's reachable address (e.g. its Tailscale IP):</p>
+<ul>
+<li><strong>Ship the exact commit.</strong> Use <code>git archive HEAD framework fl-runtime proto | ssh $HOST "mkdir -p ~/fl/$SHA &amp;&amp; tar -x -C ~/fl/$SHA"</code>,
+  not whatever the host has checked out. The client's <code>check_contract</code> compares against its own resolver.</li>
+<li><strong>Match protobuf.</strong> The generated code needs protobuf ≥ 5.29; a system Python with 4.x fails at import. A venv
+  with <code>--system-site-packages</code> plus <code>pip install protobuf==5.29.6 grpcio==1.83.0</code> reuses the host's torch.
+  Put <code>framework/src</code> first on <code>PYTHONPATH</code>, because an older installed <code>fedlearn</code> package would otherwise win.</li>
+<li><strong>Jetson (JetPack 6):</strong> run the client in a CUDA image with <code>--runtime nvidia --network host</code>, the commit
+  mounted at <code>/app</code>, and <code>PYTHONPATH=/app/framework/src:/app/fl-runtime</code>.</li>
+<li><strong>Detach remote launches</strong> with <code>setsid -f … &lt; /dev/null</code>. <code>ssh host "nohup … &amp;"</code> can keep the SSH session open.</li>
+<li><strong>Probe gRPC from each host before starting its client.</strong> A plain TCP check is not enough (see the
+  troubleshooting table):</li>
+</ul>
+<p><code>bash
+  python -c "import grpc,sys;grpc.channel_ready_future(grpc.insecure_channel(sys.argv[1])).result(timeout=10);print('READY')" &lt;server-ip&gt;:50000</code></p>
+<ul>
+<li><code>--device auto</code> picks cuda, then mps, then cpu per host. Record what each client printed (<code>[device] resolved …</code>).</li>
+</ul>
+<h2 id="6-join-from-the-phone">6. Join from the phone<a class="headerlink" href="#6-join-from-the-phone" title="Permanent link">&para;</a></h2>
+<p>In the app: sign in against server <code>http://127.0.0.1:8082</code> → <strong>Projects</strong> → the running project → <strong>Join training
+run</strong> → <strong>Home</strong> → <strong>Start training</strong>. Joining only registers the phone. Nothing trains until Start training.</p>
+<p>The phone can be driven remotely:</p>
+<ul>
+<li>Screenshots are reliable: <code>ssh $RELAY "$ADB exec-out screencap -p &gt; /tmp/s.png"</code>. <code>uiautomator dump</code> returns
+  stale trees on some devices.</li>
+<li>Scale taps from a screenshot by the ratio of <code>adb shell wm size</code> to the screenshot width.</li>
+<li><code>adb shell input text</code> drops characters in React Native inputs; type one character at a time.</li>
+<li>A debug build shows an "Open debugger to view warnings" toast that can cover buttons. Dismiss it first.</li>
+<li>JS logs go to Metro, not logcat. Errors surface as the red banner on Home and in the Activity log.</li>
+</ul>
+<h2 id="7-verify">7. Verify<a class="headerlink" href="#7-verify" title="Permanent link">&para;</a></h2>
+<p>The backend relays the FL server's output into its own log:</p>
+<div class="codehilite"><pre><span></span><code>sed<span class="w"> </span><span class="s1">&#39;s/\x1b\[[0-9;]*m//g&#39;</span><span class="w"> </span><span class="nv">$WORK</span>/backend.log<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;FL_SERVER </span><span class="nv">$P</span><span class="s2">&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sed<span class="w"> </span><span class="s1">&#39;s/.*\[FL_SERVER [^]]*\] //&#39;</span><span class="w"> </span>&gt;<span class="w"> </span><span class="nv">$WORK</span>/flserver.log
+grep<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;Coordinator accepted update&quot;</span><span class="w"> </span><span class="nv">$WORK</span>/flserver.log<span class="w">          </span><span class="c1"># laptop (unary) updates</span>
+grep<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;Receiving streamed model update&quot;</span><span class="w"> </span><span class="nv">$WORK</span>/flserver.log<span class="w">      </span><span class="c1"># phone (streamed) updates</span>
+grep<span class="w"> </span>-o<span class="w"> </span><span class="s2">&quot;All [0-9]* clients reported for round [0-9]*&quot;</span><span class="w"> </span><span class="nv">$WORK</span>/flserver.log
+</code></pre></div>
+
+<p>Acceptance for a three-round, four-client run:</p>
+<ul>
+<li>the run reaches <code>COMPLETED</code>;</li>
+<li><code>All 4 clients reported</code> for rounds 1–3, with 9 laptop and 3 phone updates;</li>
+<li>the phone's Activity log shows <code>Execution contract &lt;id prefix&gt;… accepted.</code>, matching the published <code>contract_id</code>;</li>
+<li>replaying the run under the contract predicts the phone's per-round losses and the saved final model
+  (<code>backend/fl-platform-api/models/$P.npz</code>).</li>
+</ul>
+<p>To compare clients one by one rather than only through the aggregate, start the backend with
+<code>FEDLEARN_RECORD_CLIENT_UPDATES=$WORK/client_updates.jsonl</code>. The FL server it spawns inherits the variable and appends
+every DeComFL update it accepts (round, client ID, examples, scalars as aggregated) to that file. It is research-only:
+the server refuses to start with it on a secure-aggregation or central-DP run.</p>
+<p>For the replay, vary only the phone's hypothesis, because the laptops were checked separately. Include at least
+one wrong hypothesis that the run should reject. Otherwise a replay that "matches" proves nothing. The saved model
+is the stronger evidence: the phone's 4-dp losses can miss a small deviation that the aggregate reveals (see
+<a href="09-fedprox-contract-plan.html">09</a>).</p>
+<h2 id="8-tear-down">8. Tear down<a class="headerlink" href="#8-tear-down" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>pkill<span class="w"> </span>-f<span class="w"> </span><span class="s2">&quot;client.py --project-id&quot;</span><span class="p">;</span><span class="w"> </span>pkill<span class="w"> </span>-f<span class="w"> </span>fl_server.py<span class="p">;</span><span class="w"> </span>pkill<span class="w"> </span>-f<span class="w"> </span>bootRun
+pkill<span class="w"> </span>-f<span class="w"> </span><span class="s2">&quot;ssh -N -o ExitOnForwardFailure=yes&quot;</span>
+docker<span class="w"> </span>rm<span class="w"> </span>-f<span class="w"> </span>fedlearn-live-pg
+ssh<span class="w"> </span><span class="nv">$RELAY</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$ADB</span><span class="s2"> reverse --remove-all&quot;</span>
+</code></pre></div>
+
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gradle: <code>Could not find ET_LIB_executorch</code></td>
+<td>the native <code>-P</code> paths are missing</td>
+<td>step 1</td>
+</tr>
+<tr>
+<td><code>adb devices</code> empty</td>
+<td>no USB data connection</td>
+<td>cable, USB mode, the host's accessory prompt</td>
+</tr>
+<tr>
+<td>Contract <code>UNAVAILABLE</code>, <code>STAGING_FAILED</code>; laptops refuse with "contract ProtoJSON does not parse"</td>
+<td>bundle staging could not write <code>/var/models</code></td>
+<td><code>APP_MODEL_BUNDLE_DIR</code></td>
+</tr>
+<tr>
+<td>Phone banner: <code>RegisterClient failed … &lt;tailnet IP&gt;:50000 … timed out before receiving SETTINGS frame</code></td>
+<td>the backend advertised a Tailscale IP and the phone dialled it; gRPC over the tailnet failed transiently (below)</td>
+<td><code>FL_SERVER_GRPC_HOST=127.0.0.1</code> for the phone's USB path</td>
+</tr>
+<tr>
+<td>A remote client: <code>failed to connect to all addresses … tcp handshaker shutdown</code>, while <code>nc</code> connects</td>
+<td>a transient on the tailnet path, seen from x86, Jetson and phone clients; it cleared within minutes; not diagnosed</td>
+<td>rerun the gRPC probe until READY, then launch</td>
+</tr>
+<tr>
+<td>Phone project list: <code>Request failed with status code 403</code></td>
+<td>its saved session belongs to a previous backend database</td>
+<td>Settings → Sign out, then sign in</td>
+</tr>
+<tr>
+<td>After <code>/stop</code>, the next project cannot get port 50000</td>
+<td>before <code>a3b887e</code>, <code>/stop</code> killed only the wrapper script and left <code>fl_server.py</code> running</td>
+<td>update the backend; on an older one, <code>pkill -f fl_server.py</code> after stopping</td>
+</tr>
+<tr>
+<td>FL server exits at startup: <code>OSError: [Errno 48] Address already in use</code>, although nothing is listening</td>
+<td>50000–50010 is inside the OS ephemeral port range, and an unrelated outgoing connection holds that local port. Before the fix, the backend's probe (Java, <code>SO_REUSEADDR</code>) still reported it free</td>
+<td>the probe now also binds with <code>SO_REUSEADDR</code> off and skips such a port; on an older backend, wait for the connection to close</td>
+</tr>
+<tr>
+<td>Phone banner: <code>UNAVAILABLE ipv4:127.0.0.1:50000: Socket closed</code></td>
+<td>the FL-port tunnel is broken (e.g. started from zsh)</td>
+<td>step 4 under bash; rerun the SETTINGS check</td>
+</tr>
+<tr>
+<td>Round never closes; <code>Clients reported 3/4</code></td>
+<td>the phone joined but never started training</td>
+<td>Home → Start training</td>
+</tr>
+<tr>
+<td>Run marked FAILED after training</td>
+<td>FL-server callbacks went to another backend</td>
+<td>fixed in <code>ca18c08</code>; with an older backend set <code>app.backend.internal-url</code></td>
+</tr>
+<tr>
+<td>Transient errors, then "Reconnecting to the run" on the phone</td>
+<td>seen once before round 1 in the FedProx run; cause unknown</td>
+<td>the resilient loop recovers; record it</td>
+</tr>
+</tbody>
+</table></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

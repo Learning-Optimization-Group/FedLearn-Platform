@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Mobile</summary><ul>
+<li><a href="README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a href="03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a href="04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a href="06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a href="07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a href="08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a href="10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a class="active" href="11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a href="12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a href="14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a href="16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Mobile</b> &nbsp;·&nbsp; Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="stage-3-artifact-delivery-on-device-datasets-and-portable-cpu-qualification-focused-design">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design<a class="headerlink" href="#stage-3-artifact-delivery-on-device-datasets-and-portable-cpu-qualification-focused-design" title="Permanent link">&para;</a></h1>
+<p><strong>Status:</strong> Approved (2026-09-27, Anurag), with the recommendation taken on every decision: (1) fixture data only for
+runs the contract marks as fixture runs, refused by release builds; (2) a new reproducible
+<code>BATCH_ORDER_SEEDED_PERMUTATION_V1</code>; (3) CSV and the dataset package; (4) an exporter-recorded <code>probeLoss</code>.
+Implementation follows the slices below.</p>
+<p><strong>Goal:</strong> make the phone train on data the user owns, delivered and verified the way a real model needs, and only on
+hardware that has proven it can. At the end of Stage 3, a TinyNet run still passes the Stage 2 conformance checks,
+but the phone's training data comes from an imported on-device dataset instead of the server. Model files arrive as
+streamed, hash-verified files instead of base64 through the JavaScript bridge. The phone has qualified its CPU
+backend for the run's artifact before training. New recipes are Stage 4 and are out of scope here.</p>
+<h2 id="current-state-measured-in-the-code-2026-09-27">Current state (measured in the code, 2026-09-27)<a class="headerlink" href="#current-state-measured-in-the-code-2026-09-27" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Today</th>
+<th>Why it blocks Stage 4</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Training data</td>
+<td>The <strong>server</strong> serves it. <code>GET /api/runs/{id}/model-bundle</code> returns URLs for <code>inputs.f32</code> and <code>targets.i64</code> (the committed TinyNet batch), and <code>modelProvisioning.ts</code> downloads and stages them.</td>
+<td>Real federated learning trains on the device's own data, and none exists on the phone. Every live run so far trained on the same 8 server-supplied rows.</td>
+</tr>
+<tr>
+<td>Artifact transfer</td>
+<td><code>fetchAndStage</code> downloads each file into JS memory, base64-encodes it (<code>arrayBufferToBase64</code>), and passes it across JSI to <code>stageBundleFile</code>, which hashes and writes it. The comment at <code>modelProvisioning.ts:130</code> already flags this as MVP-only.</td>
+<td>A 45 MB ResNet-18 <code>.pte</code> becomes ~60 MB of base64 on the JS heap, plus copies. No resumption, no size cap before download, no streaming hash.</td>
+</tr>
+<tr>
+<td>File serving</td>
+<td><code>RunController#bundleFile</code> returns a plain <code>ResponseEntity&lt;Resource&gt;</code> from a whitelist.</td>
+<td>Range/resume and validator (ETag) behaviour are unspecified and untested.</td>
+</tr>
+<tr>
+<td>Local training shape</td>
+<td>The native trainer takes <strong>one whole-dataset step per epoch</strong>. <code>projectContract</code> accepts <code>dropLast=false</code> with no <code>maxLocalSteps</code>. Its comment says the dataset size is checked against <code>batchSize</code> when data is staged, but <strong>no such check exists</strong>: <code>projection.batchSize</code> is never read after the gate. That is harmless today only because the server always supplies exactly 8 rows at batch 8.</td>
+<td>With imported data, a dataset larger than one batch would silently train whole-dataset steps that differ from the contract. Stage 3 must add the check (slice C0) and a real minibatch loop.</td>
+</tr>
+<tr>
+<td>Capability / qualification</td>
+<td><code>DeviceState.kt</code> samples thermal and battery state. There is no qualification probe, and "tier" is a static label from <code>loadModel</code>.</td>
+<td>02 requires a bounded probe per (device, build, runtime, artifact, backend) before training.</td>
+</tr>
+<tr>
+<td>Kotlin layer</td>
+<td><code>FlForegroundService</code>, <code>FlServiceModule</code> (start/stop), <code>DeviceState</code>, <code>FedLearnNative.setDataDir</code>. No Storage Access Framework or download code.</td>
+<td>Both SAF import and the download service belong in Kotlin (02).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
+<p>In scope: <strong>(A)</strong> streamed artifact delivery, <strong>(B)</strong> on-device dataset import and immutable snapshots, <strong>(C)</strong>
+native minibatching with a specified batch order, <strong>(D)</strong> portable-CPU qualification and a capability report, and
+<strong>(E)</strong> a TinyNet end-to-end proof of all four.</p>
+<p>Not in scope: new recipes, image/text modalities beyond what TinyNet needs (vector), accelerator backends, and
+tokenizers. These are Stage 4–7. The design keeps every interface modality-agnostic, so Stage 4 adds producers and
+transforms, not new plumbing.</p>
+<h2 id="a-streamed-artifact-delivery">A. Streamed artifact delivery<a class="headerlink" href="#a-streamed-artifact-delivery" title="Permanent link">&para;</a></h2>
+<p><strong>Flow.</strong> TypeScript asks Kotlin to fetch one artifact descriptor: URL path, expected size and expected SHA-256 from
+the contract's <code>ArtifactVariant.files</code>, which are already hash- and size-bound. The Kotlin <code>ArtifactDownloader</code>:</p>
+<ol>
+<li>refuses a declared size above the device's free-storage budget before opening a connection;</li>
+<li>streams to <code>files/artifacts/tmp/&lt;sha256&gt;.part</code>, hashing incrementally and aborting as soon as the byte count passes the declared size;</li>
+<li>resumes with <code>Range: bytes=&lt;n&gt;-</code> plus <code>If-Range: &lt;validator&gt;</code> only when a validator from the first response is held; otherwise it restarts from zero;</li>
+<li>on completion verifies size and hash, then promotes atomically (<code>rename</code>) to <code>files/artifacts/&lt;sha256&gt;</code> (content-addressed, so a re-run with the same artifact re-uses it);</li>
+<li>on mismatch moves the file to <code>quarantine/</code>, deleted after 24 h, and reports <code>ARTIFACT_HASH_MISMATCH</code>.</li>
+</ol>
+<p><strong>Auth.</strong> The session cookie must reach the download without appearing in a URL or log. The intended mechanism is
+React Native's OkHttp client (<code>OkHttpClientProvider</code>, present in <code>react-android-0.80.0</code>), with the app's cookie store
+attached explicitly: <code>JavaNetCookieJar(ForwardingCookieHandler(ctx))</code>, backed by the app-wide <code>CookieManager</code> where
+the REST session cookie lives. <strong>The provider's client alone carries no cookies.</strong> React Native's networking module
+attaches its jar to a client it builds for itself, so the first live A3 run got <code>ARTIFACT_HTTP_403</code> on every download,
+until the jar was attached. The app ships OkHttp 4.9.2.</p>
+<p><strong>Backend.</strong> <code>bundleFile</code> must answer <code>Range</code> with <code>206</code>, and send a strong <code>ETag</code> (the file's SHA-256) and
+<code>Content-Length</code>. Spring may already support byte ranges for <code>Resource</code> bodies; <em>slice A2 pins it with a test either
+way</em>. Stage 3 serves only the files the contract lists, by hash, not by name.</p>
+<p><strong>JS/native contract.</strong> <code>stageBundleFile(base64)</code> is removed once all callers move. The native side takes paths only
+(<code>loadModel(path, sha)</code> already verifies again).</p>
+<h2 id="b-on-device-dataset-import-and-snapshots">B. On-device dataset import and snapshots<a class="headerlink" href="#b-on-device-dataset-import-and-snapshots" title="Permanent link">&para;</a></h2>
+<p><strong>Import.</strong> The user picks a file through the Storage Access Framework (<code>ACTION_OPEN_DOCUMENT</code>, read-only, no
+persistable grant needed for a one-shot import). Kotlin copies it to <code>files/datasets/import-&lt;uuid&gt;/</code> and validates
+it there, never in place. Stage 3 accepts two vector formats:</p>
+<ul>
+<li><strong>CSV</strong>: header row; <code>label</code> column plus N numeric feature columns;</li>
+<li><strong>Package</strong>: 02's canonical <code>dataset.json</code> + <code>records.jsonl</code>, needed anyway for images and text in Stage 4.</li>
+</ul>
+<p>Both are normalised into the snapshot format below. Native C++ never parses a user file.</p>
+<p><strong>Snapshot format</strong> (immutable, <code>files/datasets/&lt;snapshot_id&gt;/</code>):</p>
+<div class="codehilite"><pre><span></span><code>snapshot.json   {schemaVersion, snapshotId, modality, inputShape, inputDtype, classNames[], labelSchemaId,
+                 recordCount, inputsSha256, targetsSha256, createdAt}
+inputs.f32      row-major float32, recordCount x prod(inputShape)
+targets.i64     int64 class indices
+</code></pre></div>
+
+<p><code>snapshotId</code> is the SHA-256 of the canonical JSON of the snapshot's content fields (everything but the id; no
+timestamp), encoded exactly as Python's <code>json.dumps(sort_keys=True, separators=(",", ":"))</code>, so a Python check can
+recompute it. Importing identical content therefore yields the same snapshot: import is idempotent, and still never
+mutates a snapshot. <code>labelSchemaId</code> uses <strong>the same definition as the
+contract</strong>: <code>"labels-sha256:" + sha256(JSON(classNames))</code> (<code>execution_plan.label_schema_id</code>), so compatibility is a
+string comparison. The native trainer already reads exactly <code>inputs.f32</code> + <code>targets.i64</code>, so it needs no change to
+consume a snapshot.</p>
+<p><strong>Validation</strong> (reject the whole import with a named reason): the 02 list, restricted to what vector data needs.
+That covers UTF-8, the header, a consistent column count, finite numbers, labels present in the declared class list,
+a record-count floor of 1 and a ceiling, a total-size ceiling, and free space for 2× the expanded size. Archive rules
+(entry count, compression ratio, path traversal) apply once packages carry files in Stage 4.</p>
+<p><strong>Binding to a run.</strong> At join, the phone checks the chosen snapshot against the contract's <code>DataRequirement</code>: same
+<code>input_shape</code>, <code>input_dtype</code>, <code>class_count</code> and <code>label_schema_id</code>. It pins that <code>snapshotId</code> for the participation
+attempt. A mismatch refuses with <code>DATASET_INCOMPATIBLE</code> and names the field. Nothing about the snapshot is sent to the
+server except <code>num_examples</code>, which the update already carries.</p>
+<p><strong>Lifecycle.</strong> Snapshots are listed in a new <em>Data</em> screen and can be deleted when not pinned. Deleting removes the
+directory. Re-importing identical content yields the same snapshot; a snapshot is never mutated.</p>
+<h2 id="c-native-minibatching-and-batch-order">C. Native minibatching and batch order<a class="headerlink" href="#c-native-minibatching-and-batch-order" title="Permanent link">&para;</a></h2>
+<p><strong>C0, first and independent of the rest:</strong> refuse to train when the staged dataset has more records than the
+contract's <code>batchSize</code>, until C1/C2 land. This is the missing check noted above, and a one-line guard with a test.</p>
+<p>Real snapshots exceed one batch, so the trainer must run <code>ceil(n / batchSize)</code> steps per epoch (<code>dropLast=false</code>).
+Which order? The schema already answers part of this. <code>BatchOrder</code> has <code>SEQUENTIAL</code> (reproducible) and
+<code>SHUFFLED_EACH_EPOCH</code>, documented as <em>"local to the participant and not reproducible across runtimes."</em> That was a
+deliberate Stage 2 choice. It costs one thing: with a multi-batch shuffled epoch, a replay cannot reproduce a client's
+update exactly, because the permutation is unknown. The laptop today uses
+<code>DataLoader(shuffle=True, generator=manual_seed(partition_id))</code>, torch's Mersenne-Twister <code>randperm</code>.</p>
+<p>Options (decision 2 below):</p>
+<ul>
+<li><strong>Keep <code>SHUFFLED_EACH_EPOCH</code> as specified.</strong> The phone shuffles with any good RNG. Verification of multi-batch
+  runs falls back to per-client statistical checks and the single-batch goldens. No proto change.</li>
+<li><strong>Add <code>BATCH_ORDER_SEEDED_PERMUTATION_V1</code>:</strong> a specified, language-neutral permutation (Fisher–Yates over a
+  SplitMix64 stream seeded with <code>(run seed, round, epoch)</code>), implemented in Python, C++ and TS and pinned by a
+  shared golden. Every client's update then stays exactly replayable. This is an additive enum value (allowed by
+  <code>buf breaking</code>) with corpus cases.</li>
+</ul>
+<p>Single-batch TinyNet is unaffected either way: every order of one batch visits the same rows.</p>
+<h2 id="d-portable-cpu-qualification-and-capability-report">D. Portable-CPU qualification and capability report<a class="headerlink" href="#d-portable-cpu-qualification-and-capability-report" title="Permanent link">&para;</a></h2>
+<p><strong>Capability report</strong>, sent with enrollment and shown in diagnostics: API level, ABI, total/available RAM, memory
+class, free storage, CPU core count, app/native/ExecuTorch versions and the thermal/battery state <code>DeviceState</code>
+already samples. It is informational: static facts never approve training (02).</p>
+<p><strong>Probe.</strong> Before the first round, run the contract's own trainable graph for <strong>two</strong> steps on a synthetic batch shaped
+by <code>DataRequirement</code> (zeros, then a fixed pattern), from the run's initial state. Check that:</p>
+<ol>
+<li>the artifact loads and every required operator resolves;</li>
+<li>step-1 loss is finite and matches a <code>probeLoss</code> the exporter records in the artifact manifest (portable-CPU reference, declared tolerance);</li>
+<li>step-2 parameters differ from step-1 (no stale weights);</li>
+<li>peak RSS stays under the artifact's <code>declared_peak_memory_bytes</code> and wall time is under <code>declared_probe_ms</code> (both already in <code>ArtifactVariant</code>);</li>
+<li>projected round time, <code>declared_train_ms × steps</code>, fits the round deadline with a margin.</li>
+</ol>
+<p>The result is cached under <code>(device fingerprint, app build, ExecuTorch version, artifact sha256, backend=cpu)</code> and
+invalidated when any part changes. A failure refuses with <code>QUALIFICATION_FAILED</code> and the failing check, and
+quarantines that key until the app or artifact changes.</p>
+<p><code>probeLoss</code> is new manifest metadata produced by the exporter. It is not a contract field, because the contract
+already binds the artifact by hash.</p>
+<h2 id="e-tinynet-end-to-end-proof">E. TinyNet end-to-end proof<a class="headerlink" href="#e-tinynet-end-to-end-proof" title="Permanent link">&para;</a></h2>
+<p>A TinyNet run in which the phone trains an <strong>imported</strong> snapshot, not server files:</p>
+<ul>
+<li>the backend stops serving <code>inputs.f32</code>/<code>targets.i64</code> for contract runs (see decision 1);</li>
+<li>the phone imports a CSV of TinyNet-shaped data, qualifies CPU, downloads the <code>.pte</code> files through A, and trains;</li>
+<li>the laptops train their own local data;</li>
+<li>the acceptance replay uses the recorder (<code>FEDLEARN_RECORD_CLIENT_UPDATES</code>) to compare each client's update with a
+  CPU reference computed on <strong>that client's</strong> snapshot. The phone's snapshot is exported for the test only, from a
+  debug build.</li>
+</ul>
+<h2 id="decisions-needed-before-implementation">Decisions needed before implementation<a class="headerlink" href="#decisions-needed-before-implementation" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Where do laptop and demo data come from once the server stops serving the TinyNet batch?</strong> Options:
+   (a) the server keeps serving it only for runs explicitly marked as fixture/demo runs, recorded in the contract,
+   so a real run can never receive server data; (b) every client, including the demo, imports its data (simplest
+   and most honest, but the demo needs a data file per device); (c) keep today's behaviour until Stage 4.
+   <em>Recommendation: (a)</em>. The contract would gain <code>DataRequirement.source = LOCAL_SNAPSHOT | FIXTURE</code>, and
+   the phone refuses <code>FIXTURE</code> in release builds.</li>
+<li><strong>Batch order (section C).</strong> Keep the documented non-reproducible <code>SHUFFLED_EACH_EPOCH</code>, or add a reproducible
+   <code>SEEDED_PERMUTATION_V1</code>. Replicating torch's <code>randperm</code> in C++ is not proposed: it would tie the protocol to one
+   library's internals. <em>Recommendation: add the seeded permutation.</em> The replay-against-contract checks were
+   the most useful verification in Stages 2 and 3 (they caught the zero-start DeComFL bug and the FedProx
+   vacuity), and a non-reproducible order would give them up for every real dataset.</li>
+<li><strong>Dataset formats for Stage 3.</strong> CSV + package (proposed), or package only.</li>
+<li><strong>Where the probe's reference comes from.</strong> An exporter-recorded <code>probeLoss</code> (proposed), or a probe that only
+   checks finiteness and change, which is weaker but needs no exporter change.</li>
+</ol>
+<h2 id="slices-each-test-first-each-its-own-commit">Slices (each test-first, each its own commit)<a class="headerlink" href="#slices-each-test-first-each-its-own-commit" title="Permanent link">&para;</a></h2>
+<p>Progress: A1 <code>4eff087</code>, A2 <code>fa77ef2</code>, A3 <code>b7f4d96</code>, B1 <code>0e361b4</code>. Decision 1: the schema is <code>bf55731</code>
+(<code>DataRequirement.source</code>, <code>DataSource</code> = <code>LOCAL_SNAPSHOT</code> | <code>FIXTURE</code>), and the reader rules and resolver come in the
+next commit. TinyNet states <code>FIXTURE</code>. The phone trains a fixture run only in a development build, and refuses a
+<code>LOCAL_SNAPSHOT</code> run until B2 binds a snapshot at join. A3 was checked live: a one-client TinyNet FedAvg run on
+the vivo completed, with the three contract programs stored as <code>files/artifacts/&lt;sha256&gt;</code> at the contract's exact sizes.</p>
+<p>Later progress:
+- B2: <code>74b5b0f</code> (import), <code>e40296e</code> (training on a snapshot), <code>30b5c69</code> (choosing a dataset before Start, and the
+  dataset list in Settings).
+- The run intent's data source: <code>6396750</code>, plus <code>218fb90</code> (the web start dialog, and recipes that declare it).
+- E: two live phone-only runs on 2026-09-28, each with a bit-exact replay of the saved model on the imported CSV.
+  The first run exposed static-shape programs: a 6-example snapshot failed with ExecuTorch <code>NotSupported</code>.
+  - Fixed by <code>8d9f933</code>: staged programs take 1..8 examples.
+  - <code>fe10d4e</code>: that error is no longer retried.
+  - <code>86fa1f8</code>: a contract whose <code>batch_size</code> exceeds the programs' <code>maxBatch</code> is not published.
+- C1: <code>84528a2</code> adds <code>BATCH_ORDER_SEEDED_PERMUTATION_V1</code>, in Python and C++ with a shared golden. Decision 2 took
+  the recommendation.
+- C2: <code>d6dae1d</code>. The native first-order round trains seeded minibatches, and first-order own-data plans state the
+  order. <code>70fda73</code> evaluates a multi-batch dataset in chunks: the first live minibatch run found whole-dataset
+  evaluation failing after every round. Live, a 20-example snapshot replays bit-exactly.
+- D2: the probe core is <code>ba51358</code>, wired end to end in <code>1edf80e</code> (stager, bundle DTO, bridge ABI 3, a per-device
+  cache, and <code>QUALIFICATION_FAILED</code>). Decision 4 took the exporter-recorded reference: <code>probeLoss</code> became two step
+  losses. It was checked live: "Model qualified on this device (probe 7 ms)".
+- Found along the way: <code>1ac1e89</code> (server status reports each round's real deadline) and <code>6fbbe50</code> (the privacy
+  label is true for own-data and DeComFL runs).
+- D1: <code>4559249</code>. A device sends a bounded capability report with enrollment (V31, <code>run_enrollments.capability_report</code>),
+  informational only, and the shared diagnostics end with it. Checked live, it exposed that thermal state was never
+  sampled before training ("NOMINAL" was a default): fixed in <code>afbc4fb</code>, where the holder defaults to UNKNOWN and the
+  app samples on resume.</p>
+<p>With D1 every slice of Stage 3 has landed and been checked on a device.</p>
+<ul>
+<li><strong>A1</strong> Kotlin <code>ArtifactDownloader</code> with size cap, streaming hash, atomic promote and quarantine; auth via the shared client. Unit tests use a local HTTP server (resume, mismatch, oversize).</li>
+<li><strong>A2</strong> Backend: range, strong ETag and hash-addressed file serving, with tests.</li>
+<li><strong>A3</strong> Move <code>modelProvisioning.ts</code> to A; remove base64 staging; jest tests plus a live TinyNet run.</li>
+<li><strong>B1</strong> Snapshot format and validators in Kotlin, with fixture tests for every rejection reason.</li>
+<li><strong>B2</strong> SAF import UI, <em>Data</em> screen, pin-at-join and <code>DATASET_INCOMPATIBLE</code>.</li>
+<li><strong>C0</strong> Refuse a staged dataset larger than one batch until C2 lands (the missing check); one test.</li>
+<li><strong>C1</strong> (if decision 2 picks it) Proto enum + Python/C++/TS permutation + shared golden + corpus cases.</li>
+<li><strong>C2</strong> Native minibatch loop, with endpoint parity against the Python trainer on a 3-batch snapshot.</li>
+<li><strong>D1</strong> Capability report; <strong>D2</strong> qualification probe and cache.</li>
+<li><strong>E</strong>  Live TinyNet run on an imported snapshot, with per-client replay.</li>
+</ul>
+<h2 id="verification-strategy">Verification strategy<a class="headerlink" href="#verification-strategy" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Unit:</strong> every validator and download failure mode has a test that fails without the check.</li>
+<li><strong>Cross-language:</strong> the batch permutation and <code>labelSchemaId</code> are pinned by goldens that the Python, C++ and TS tests all read.</li>
+<li><strong>Parity:</strong> C2's multi-batch endpoint gets its own tolerance, derived from the movement it must detect. That is the lesson of 06/09: never inherit a tolerance.</li>
+<li><strong>Live:</strong> slice E, plus the four-platform run repeated with imported data.</li>
+</ul>
+<h2 id="risks">Risks<a class="headerlink" href="#risks" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>SAF on vivo/Funtouch</strong> may add vendor quirks; B2 is tested on the vivo first.</li>
+<li><strong>Batch-order change</strong> touches the laptop client's training. It is gated by the contract, so Stage 2 contracts keep today's order.</li>
+<li><strong>Serving no data</strong> breaks today's demo path until decision 1 is implemented.</li>
+</ul></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

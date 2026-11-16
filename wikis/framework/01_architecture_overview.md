@@ -47,7 +47,7 @@ The library has **zero dependency on the Spring Boot backend**. Its only externa
 > from `framework/requirements.txt`. They survived only to build one CIFAR-10 IID shard; that shard
 > is now produced natively in `fl-runtime/recipes.py` (`CNN_SHUFFLE_SEED = 42`, which is the
 > `flwr` `FederatedDataset` default it replaced) straight from `datasets`, and the replacement was
-> verified **byte-identical per partition** by `research/benchmarks/verify_flwr_shard_equivalence.py`.
+> verified **byte-identical per partition** by the equivalence verification harness.
 >
 > Two dependency caps fell with it, and both are now **cleared**, not residual:
 > - **`cryptography`** — `flwr` 1.20.0 capped it at `<45.0.0`, which made this framework's own
@@ -436,13 +436,12 @@ comparable against a C++/mobile encoding of the same state rather than a Python-
 
 ### Measured scale
 
-`research/benchmarks/simulation_scale.py` (seeded, re-runnable) sweeps `10 → 5000` clients at 10%
+The simulation scaling benchmark (seeded, re-runnable) sweeps `10 → 5000` clients at 10%
 participation over 20 rounds × 3 seeds. All 21 cells ran; the record lives in
-`research/results/simulation/scale_m4max.json`. Read it with its own caveat, which the meta block
+the scaling benchmark results. Read it with its own caveat, which the meta block
 states: it measures *simulator* scaling (driver overhead, coordinator throughput, memory per client)
 on a deliberately tiny model, so a cell's wall-clock is a **floor** on what a real architecture would
-cost, never an estimate of it. (`research/` is gitignored — it is a local working area, not a
-backup.)
+cost, never an estimate of it.
 
 ---
 

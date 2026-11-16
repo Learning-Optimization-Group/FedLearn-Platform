@@ -33,7 +33,7 @@ Equal tree counts therefore do not make the algorithms equivalent.
 The actual platform qualification uses the normal project creation, enrollment,
 client training, tree aggregation, artifact registration and inference paths.
 Its retained report is
-`research/results/xgboost/iris-mixed-cpu-2026-10-09.json`. Both original CPU
+`results/xgboost/iris-mixed-cpu-2026-10-09.json`. Both original CPU
 runtimes reproduced their four contributed trees exactly, all aggregate parents
 matched, and changed-label controls differed. The final model has eight trees.
 Held-out test accuracy was 18/19 and AUROC 0.99444. Both centralized controls also

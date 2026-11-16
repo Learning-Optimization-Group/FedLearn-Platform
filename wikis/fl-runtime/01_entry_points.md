@@ -251,7 +251,7 @@ The backend emits only `--project-id`, `--port` and `--num-rounds` on the FoT br
 
 The file is a thin shim: it walks up to eight directory levels looking for `framework/src/fedlearn`, puts it on `sys.path` if `import fedlearn` fails, then calls `fedlearn.fot.fot_server.start_fot_server`. FoT is **additive and orthogonal to the gradient path** and torch-free by design.
 
-> **Do not present FoT as a validated capability.** `--backend` defaults to `stub`, and `fedlearn.fot.backend.get_backend` wires only `DeterministicStubBackend` — `local-http`, `vllm` and `ollama` all raise `BackendError`. No LLM has ever run through this path, and there is no FoT result in `research/results/`.
+> **Do not present FoT as a validated capability.** `--backend` defaults to `stub`, and `fedlearn.fot.backend.get_backend` wires only `DeterministicStubBackend` — `local-http`, `vllm` and `ollama` all raise `BackendError`. No LLM has ever run through this path.
 
 ---
 

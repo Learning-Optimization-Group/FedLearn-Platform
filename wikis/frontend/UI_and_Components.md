@@ -215,7 +215,7 @@ The trade-off panel beside the control is a *rendering of a measurement*, and th
 deliberate at every hop:
 
 ```
-research/results/…/<run>.json          the raw measured record
+results/…/<run>.json                   the raw measured record
    └─ scripts/build_arm_tradeoff.py    generator (records source path + source_sha256 + date)
         └─ fl-runtime/arm_tradeoff.json     keyed BY RECIPE under "by_recipe"
              └─ recipes.py describe()       attaches arm_tradeoff only when len(supported_arms) > 1

@@ -84,7 +84,7 @@ for key in initial:
 
 The capstone can still compare utility under fixed seeded research mechanisms.
 Those empirical curves and the production release guarantee are different outputs.
-The immediate project recommendation is to make the research/deployment boundary
+The immediate project recommendation is to make the research–deployment boundary
 visible, rather than equating the presence of an epsilon field with private logs.
 
 The separate [attack-knowledge audit](attack-knowledge-privacy-boundary-audit.md)

@@ -140,10 +140,10 @@ required to qualify its staged programs before training.
 
 The final model predicts pneumonia-present for every image in the recorded
 512-image validation sample: accuracy 1.17%, balanced accuracy 50%, AUROC 0.4384.
-Model quality is poor. The official test set remains unused. See the
-[qualification note](../../research/notes/on-device/2026-10-09-nih-pneumonia-mixed.md)
-and [machine-readable result](../../research/results/on-device/nih-pneumonia-mixed-2026-10-09.json)
-for hashes, counts, provenance and limits.
+Model quality is poor. The official test set remains unused. The
+qualification note (`notes/on-device/2026-10-09-nih-pneumonia-mixed.md`)
+and machine-readable result (`results/on-device/nih-pneumonia-mixed-2026-10-09.json`)
+record hashes, counts, provenance and limits.
 
 
 ## Larger NIH learning controls — 9 October 2026
@@ -166,9 +166,9 @@ AUROC 0.5277 and almost all-positive predictions. Neither control supplies a
 useful classifier. Centralized and federated batch orders differ; these are
 diagnostic controls, not a causal comparison of their algorithms.
 
-The [retained learning report](../../research/results/nih/learning-controls-2026-10-09.json)
+The retained learning report (`results/nih/learning-controls-2026-10-09.json`)
 records each epoch, probabilities, metrics and checkpoint hashes. The
-[control driver](../../research/benchmarks/nih_learning.py) verifies package
+control driver (`benchmarks/nih_learning.py`) verifies package
 receipts and disjoint patients/images before training. Raw inventory and
 ownership were checked on the source host at packaging; g14 verified the
 bounded packages. Only six validation positives make estimates uncertain.
@@ -182,7 +182,7 @@ default. For a predefined longer comparison, supply explicit rates and a fixed
 CPU thread count:
 
 ```sh
-python research/benchmarks/nih_learning.py --packages output/nih-diagnostics \
+python benchmarks/nih_learning.py --packages output/nih-diagnostics \
   --initial initial.npz --out output/nih-controls --seed 42 --epochs 10 \
   --persistent-rates 0.0001 0.00001 --reset-rates --threads 4
 ```
@@ -228,7 +228,7 @@ source images; they are not independent replications. Neither overlaps training.
 Both final checkpoint reloads reproduce their balanced validation metrics
 exactly with the recorded thread count. The official test set was unused.
 
-The [extended report](../../research/results/nih/extended-diagnostics-2026-10-09.json)
+The extended report (`results/nih/extended-diagnostics-2026-10-09.json`)
 retains all twenty epochs, initial-model controls, package/checkpoint hashes,
 thread timing and reference metrics. Research rates do not change the current
 platform NIH contract. The frozen pretrained baseline below and stronger validation are the next
@@ -250,8 +250,8 @@ the 0.5 threshold found three and produced 189 false positives. This remains
 weak evidence and does not establish a useful NIH classifier. The two validation
 samples overlap as described above; the official test set was unused.
 
-The [pretrained report](../../research/results/nih/pretrained-baseline-2026-10-09.json)
+The pretrained report (`results/nih/pretrained-baseline-2026-10-09.json`)
 retains all epochs, the full official weights hash, transform, package identities,
 unchanged-backbone check and exact head-checkpoint reload. The runnable driver
-is `research/benchmarks/nih_pretrained.py`; this research result does not add
+is `benchmarks/nih_pretrained.py`; this research result does not add
 pretrained NIH training to the Android contract.

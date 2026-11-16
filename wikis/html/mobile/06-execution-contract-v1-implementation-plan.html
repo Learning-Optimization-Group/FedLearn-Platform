@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Execution Contract v1 — Implementation Plan · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Mobile</summary><ul>
+<li><a href="README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a href="03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a href="04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a class="active" href="06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a href="07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a href="08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a href="10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a href="11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a href="12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a href="14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a href="16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Mobile</b> &nbsp;·&nbsp; Execution Contract v1 — Implementation Plan</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="execution-contract-v1-implementation-plan">Execution Contract v1 — Implementation Plan<a class="headerlink" href="#execution-contract-v1-implementation-plan" title="Permanent link">&para;</a></h1>
+<p><strong>Goal:</strong> Implement <a href="03-android-execution-contract-v1-design.html">Execution Contract v1</a> as a sequence of independently tested commits, ending with a mixed-device TinyNet FedAvg run in which the laptop and Android clients both execute the same published contract.</p>
+<p><strong>Status:</strong> Stage 2 is complete (2A–2I, 2026-09-24). A vivo 1805 and three laptop clients trained one published contract to COMPLETED, and the phone's training was checked numerically against the contract. Android depends on execution contract v1 — see "Android is v1-dependent" below for what that costs.</p>
+<h2 id="rules-for-every-slice">Rules for every slice<a class="headerlink" href="#rules-for-every-slice" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Work on <code>mobSupp</code>, commit locally, do not push.</li>
+<li>Write the failing test first and confirm that it fails for the expected reason.</li>
+<li>The canonical schema is <code>proto/fedlearn/contract/v1/execution_contract.proto</code>. The validation rules and limits are in <code>framework/tests/fixtures/execution_contract_v1/README.md</code>, and <code>conformance.json</code> beside it is the shared executable specification. A rule change updates the README, the generator, and all three readers in the same commit.</li>
+<li>Android runtime behavior does not depend on the contract until slice 2H.</li>
+</ul>
+<h2 id="stage-2a-schema-and-readers-complete">Stage 2A — schema and readers (complete)<a class="headerlink" href="#stage-2a-schema-and-readers-complete" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Slice</th>
+<th>Commit</th>
+<th>Verified by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Canonical proto, framework mirror, committed Python stubs, golden fixtures</td>
+<td><code>855f19d</code></td>
+<td><code>buf lint</code>, <code>buf breaking</code> against <code>main</code>, <code>buf generate</code> for all pinned plugins, <code>check_proto_mirror.sh</code>, <code>test_execution_contract_v1_fixtures.py</code> (binary/ProtoJSON agreement, byte-stable round trip, explicit-presence zeros, generator drift)</td>
+</tr>
+<tr>
+<td>Python reference validator and 157-case conformance corpus</td>
+<td><code>26833a9</code></td>
+<td><code>test_execution_contract_v1_validation.py</code>; 100% line coverage of <code>fedlearn.contract</code>; framework suite 1107 passed</td>
+</tr>
+<tr>
+<td>Java reader (Gradle protobuf codegen from the canonical proto)</td>
+<td><code>cb77a56</code></td>
+<td><code>ExecutionContractConformanceTest</code> (157 cases), <code>ExecutionContractGoldenTest</code>; backend suite 908 passed, line coverage 79.8%</td>
+</tr>
+<tr>
+<td>TypeScript reader (committed protobuf-es output with a CI drift check)</td>
+<td><code>676d756</code></td>
+<td><code>executionContract.test.ts</code> (157 cases + golden tests); mobile suite 405 passed; lint and <code>tsc</code> clean</td>
+</tr>
+</tbody>
+</table>
+<p>Each reader was also checked by deliberately breaking individual rules; the corpus failed every time.</p>
+<h3 id="decisions-made-while-implementing-the-schema">Decisions made while implementing the schema<a class="headerlink" href="#decisions-made-while-implementing-the-schema" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Explicit presence.</strong> Behavioral scalars whose zero value is legal (<code>momentum</code>, <code>dampening</code>, <code>weight_decay</code>, <code>nesterov</code>, <code>amsgrad</code>, <code>centered</code>, <code>reset_optimizer_each_round</code>, <code>drop_last</code>, <code>max_transient_retries</code>) are proto3 <code>optional</code>, so a publisher that omits one produces a refusal instead of a silent default.</li>
+<li><strong>Batching.</strong> <code>LocalTraining</code> gained <code>batch_size</code>, <code>drop_last</code> and <code>batch_order</code>. Without them the step budget cannot be stated: the laptop TinyNet path trains <code>DataLoader(batch_size=8, shuffle=True)</code> for <code>local_epochs</code> passes, while Android runs <code>local_epochs</code> full-batch steps. They agree today only because the fixture is exactly one 8-row batch.</li>
+<li><strong>Refusal vocabulary.</strong> <code>ContractIssueCode</code> is part of the schema, so every language uses the same generated names.</li>
+<li><strong>Approved matrix.</strong> Only TinyNet / FedAvg / FULL / vector classification / cross-entropy / trainable-state F32 is publishable. FedOpt and Robust, validated live in Stage 1, are added only with their own conformance tests.</li>
+<li><strong>Parsing.</strong> ProtoJSON readers ignore unknown fields (a compatible addition must not break older readers), and an unknown enum name therefore reads as 0 and is refused. Java's <code>JsonFormat</code> and Python's <code>json_format</code> were each more permissive than the specification (a bare <code>NaN</code> literal, and a top-level array, respectively); both readers pre-check the document, and the corpus pins the behavior.</li>
+<li><strong>C++.</strong> The design routes only a validated, typed projection to C++, and the host C++ build links no protobuf runtime. There is therefore no C++ generated reader; the design's C++ round-trip gate is met instead by projection conformance in slice 2H.</li>
+</ul>
+<h2 id="stages-2b2h-what-landed">Stages 2B–2H — what landed<a class="headerlink" href="#stages-2b2h-what-landed" title="Permanent link">&para;</a></h2>
+<p>Each slice was committed only after its own tests passed. The stage sections below are the plan as
+written and are kept for the detail; this table is what actually shipped.</p>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Commits</th>
+<th>Verified by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2B — immutable run intent</td>
+<td><code>89d68dd</code>, <code>a07d5d3</code></td>
+<td><code>V27</code>/<code>V29</code> migration tests in the <code>V*MigrationTest</code> shape; a project edit after start changes neither the snapshot nor the spawned server</td>
+</tr>
+<tr>
+<td>2C — publication lifecycle and storage</td>
+<td><code>b7543a6</code>, <code>5a3689f</code></td>
+<td><code>V28</code> migration test; concurrent publication yields one <code>READY</code> row (<code>INSERT … ON CONFLICT DO NOTHING</code>); a PostgreSQL trigger forbids <code>UPDATE</code>, so a <code>READY</code> contract cannot change</td>
+</tr>
+<tr>
+<td>2D — Python resolved training plan</td>
+<td><code>b344a7d</code>, <code>c5794d3</code></td>
+<td><code>fl-runtime/tests/test_execution_plan.py</code>: the resolved plan equals what <code>client.py</code> constructs; canonical state digests; unsupported recipes raise <code>NotRepresentable</code></td>
+</tr>
+<tr>
+<td>2E — publisher</td>
+<td><code>5e2f180</code>, <code>c450eb9</code>, <code>8c4baad</code>, <code>6708f5a</code></td>
+<td>staging-outcome and publisher tests for <code>PENDING</code>, <code>READY</code> and each <code>UNAVAILABLE</code> reason</td>
+</tr>
+<tr>
+<td>2F — dual-emitted manifest and equivalence</td>
+<td><code>c9cb0c1</code></td>
+<td>legacy-vs-contract equivalence blocks publication on disagreement; no partial contract is ever returned</td>
+</tr>
+<tr>
+<td>2G — laptop client</td>
+<td><code>5d8a6f0</code>, <code>030e46e</code>, <code>99885c3</code></td>
+<td><code>client.py --execution-contract</code> refuses any difference from its own plan before data loading; desktop launcher and <code>client-docker</code> entrypoint tests</td>
+</tr>
+<tr>
+<td>2H — Android decision, refusal and projection</td>
+<td><code>a3e1618</code>, <code>6597e65</code>, <code>c1697cb</code>, <code>f2446a4</code></td>
+<td>Jest refusal tests before any provisioning call; one shared projection fixture consumed by the TypeScript projection test <strong>and</strong> the native C++ round test; C++ suite 63 passed</td>
+</tr>
+</tbody>
+</table>
+<p>The backend pipeline was also exercised once end to end against a throwaway PostgreSQL and a real
+backend: the contract published <code>READY</code>, was served on the manifest, validated by the Python reader with
+zero issues, and carried digests matching the phone's golden state.</p>
+<h3 id="android-is-v1-dependent">Android is v1-dependent<a class="headerlink" href="#android-is-v1-dependent" title="Permanent link">&para;</a></h3>
+<p>The design left open what Android should do for a run v1 does not cover. Decision (2026-09-22, Anurag):
+<strong>strict.</strong> The phone refuses every run without a <code>READY</code> v1 contract it can execute exactly, and never
+approximates. Each refusal names its reason (<code>CONTRACT_MISSING</code>, <code>CONTRACT_LEGACY_ONLY</code>,
+<code>CONTRACT_UNAVAILABLE</code>, <code>CONTRACT_INVALID</code>, <code>UNSUPPORTED_STRATEGY</code>, <code>UNSUPPORTED_UPDATE_PROTOCOL</code>,
+<code>UNSUPPORTED_SECURITY</code>, <code>UNSUPPORTED_OPTIMIZER</code>, <code>UNSUPPORTED_BATCHING</code>, <code>MISSING_CPU_ARTIFACT</code>).</p>
+<p><strong>This was a deliberate capability regression and must not be described as anything else.</strong> At first the approved v1
+matrix was TinyNet / FedAvg / FULL only, so DeComFL, FedOpt and Robust stopped running on the phone even though
+Stage 1 validated them live. <strong>FedOpt and Robust are restored</strong> (2026-09-24,
+<a href="07-fedopt-robust-contract-plan.html">07</a>): they are in the matrix and completed live on the phone. <strong>DeComFL is restored
+too</strong> (2026-09-25, <a href="08-decomfl-contract-design.html">08</a>), after a schema extension for zeroth-order training. <strong>FedProx
+is in the matrix too</strong> (2026-09-26, <a href="09-fedprox-contract-plan.html">09</a>): the native round applies the proximal term,
+proven against a multi-step framework golden, and it completed live with the vivo and three laptops. At the server's
+one-step TinyNet settings the proximal term is exactly zero, so the live run proves the contract path, not the term.
+<strong>Every v1 strategy now runs on the phone.</strong></p>
+<h3 id="findings-from-2h">Findings from 2H<a class="headerlink" href="#findings-from-2h" title="Permanent link">&para;</a></h3>
+<p>Recorded in the contract endpoint replay qualification record.</p>
+<ul>
+<li><strong>A tolerance inherited across configurations can exceed the signal.</strong> The existing FedAvg endpoint
+  golden (lr 0.1, 5 epochs) carries <code>endpoint_atol = 2e-3</code>. The contract states lr 1e-3 for one epoch,
+  which moves the parameters by at most 1.44e-4 — 13.9x <em>smaller</em> than that tolerance. Reusing it would
+  have produced a test that passes whether or not the trainer trains. The contract endpoint therefore has
+  its own golden at 1e-6, the generator refuses to write a golden whose movement is within its own
+  tolerance, and the test also asserts the parameters moved at all.</li>
+<li><strong>A fixture that tests complete before asserting cannot detect drift.</strong> The golden contract was found to
+  state training <code>fl-runtime</code> never resolves, so <code>check_contract</code> refused it — the published fixture was a
+  contract no client would train under. It survived because every test overwrote its plan fields with the
+  resolved plan before asserting. <code>test_the_golden_contract_is_one_this_client_accepts_unmodified</code> now
+  asserts the production predicate on the fixture as published (<code>c1697cb</code>).</li>
+</ul>
+<h3 id="outstanding-within-2h">Outstanding within 2H<a class="headerlink" href="#outstanding-within-2h" title="Permanent link">&para;</a></h3>
+<ul>
+<li>~~The on-device Hermes check~~ — done in Stage 2I (2026-09-24): the phone's activity log shows the contract accepted.</li>
+<li>The native launcher passes <code>--dataset-path</code>, which <code>client.py</code>'s parser does not define. Unrelated to the
+  contract work, noticed while testing, left untouched.</li>
+</ul>
+<h2 id="stage-2b-immutable-run-intent">Stage 2B — immutable run intent<a class="headerlink" href="#stage-2b-immutable-run-intent" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Add a Flyway migration and entity for a run-intent snapshot captured at <code>POST /api/projects/{id}/start</code>: recipe, arm, task, optimizer and hyperparameters, local epochs, central-DP settings, and effective TLS/client-auth deployment settings.</li>
+<li>The FL-server spawn and every later contract step read the snapshot, not the mutable <code>Project</code>.</li>
+<li>Tests: a project edit after start changes neither the snapshot nor the spawned server's configuration; a migration test in the <code>V*MigrationTest</code> shape (Flyway on, per-test Testcontainers database); runs predating the migration read as having no intent.</li>
+</ul>
+<h2 id="stage-2c-publication-lifecycle-and-storage">Stage 2C — publication lifecycle and storage<a class="headerlink" href="#stage-2c-publication-lifecycle-and-storage" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Store <code>contract_state</code> (<code>PENDING</code>, <code>READY</code>, <code>UNAVAILABLE</code>, <code>LEGACY_ONLY</code>), canonical contract bytes, <code>contract_id</code> (SHA-256 of the stored bytes) and a machine-readable unavailability reason per run.</li>
+<li><code>PENDING → READY | UNAVAILABLE</code> is a single guarded update, and a <code>READY</code> contract never changes. Runs without an intent snapshot are <code>LEGACY_ONLY</code>.</li>
+<li>Tests: concurrent publication attempts produce one <code>READY</code> row; repeated reads return identical bytes and ID; a failed attempt cannot replace <code>READY</code>; state survives a backend restart; publication is refused when Java validation reports any issue.</li>
+</ul>
+<h2 id="stage-2d-python-resolved-training-plan">Stage 2D — Python resolved training plan<a class="headerlink" href="#stage-2d-python-resolved-training-plan" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Add a torch-free <code>fl-runtime</code> entry point that resolves, for a run intent, the plan the laptop client actually executes: optimizer and every hyperparameter, local epochs, batch size, drop-last, batch order, the ordered trainable layout from the recipe, and the objective.</li>
+<li>Tests: for TinyNet the resolved plan equals what <code>client.train()</code> constructs (SGD, learning rate, momentum and weight decay zero, batch 8, shuffled); the layout equals <code>named_parameters()</code> filtered to <code>requires_grad</code>; unsupported recipes resolve to "not representable" instead of a guess.</li>
+</ul>
+<h2 id="stage-2e-publisher">Stage 2E — publisher<a class="headerlink" href="#stage-2e-publisher" title="Permanent link">&para;</a></h2>
+<ul>
+<li>After bundle staging, build the contract from the run intent, the resolved plan and the staged bundle (file paths, sizes, digests, required operators, frozen- and initial-state digests), validate it with <code>ExecutionContractValidator</code>, and publish <code>READY</code> or <code>UNAVAILABLE</code> with a reason.</li>
+<li>Tests: delayed staging stays <code>PENDING</code>; staging failure, a corrupt file, a missing CPU artifact, or a validation issue yields <code>UNAVAILABLE</code>; a file that disappears after <code>READY</code> surfaces an integrity error on provisioning without changing the contract.</li>
+</ul>
+<h2 id="stage-2f-dual-emitted-manifest-and-equivalence">Stage 2F — dual-emitted manifest and equivalence<a class="headerlink" href="#stage-2f-dual-emitted-manifest-and-equivalence" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>RunManifestDto</code> and the enrollment manifest gain <code>contractState</code>, and, only when <code>READY</code>, <code>contractId</code> and <code>executionContract</code> (ProtoJSON via <code>JsonFormat</code>). Legacy fields stay.</li>
+<li>Before <code>READY</code>, a server-side check compares the legacy decisions (strategy, recipe, first-order capability, secure aggregation) with the contract. Disagreement prevents publication and is reported.</li>
+<li>Tests: controller and service tests for each state, including that no partial contract is ever returned; an old-client-shaped read still works.</li>
+</ul>
+<h2 id="stage-2g-laptop-client">Stage 2G — laptop client<a class="headerlink" href="#stage-2g-laptop-client" title="Permanent link">&para;</a></h2>
+<ul>
+<li>The desktop launcher passes the <code>READY</code> contract to <code>fl-runtime/client.py</code>. The client validates it with <code>fedlearn.contract</code>, compares it with its own resolved plan, and refuses on any difference.</li>
+<li>Tests: TinyNet agreement passes; a changed learning rate, optimizer, batch size or trainable layout is refused before data loading; a legacy-only run still works on the legacy path.</li>
+</ul>
+<h2 id="stage-2h-android-parsing-refusal-and-projection">Stage 2H — Android parsing, refusal and projection<a class="headerlink" href="#stage-2h-android-parsing-refusal-and-projection" title="Permanent link">&para;</a></h2>
+<ul>
+<li>During enrollment, before provisioning, parse <code>executionContract</code> with the generated reader, validate it with <code>executionContract.ts</code> against the enrolled run and project, and refuse with a distinct, user-facing code for <code>PENDING</code>, <code>UNAVAILABLE</code>, <code>LEGACY_ONLY</code>, each <code>ContractIssueCode</code>, an unsupported strategy or optimizer, and a missing CPU artifact.</li>
+<li>Project the validated contract into the native round configuration (learning rate, local steps, batch semantics, strategy) and remove the hard-coded TinyNet fallbacks. Cross-check provisioned bundle files against the contract's digests.</li>
+<li>Tests: Jest refusal tests before any provisioning call; a golden projection fixture consumed by both the TypeScript projection test and a C++ round test; the protobuf-es runtime exercised on the device, because Hermes behavior is not proven by Jest.</li>
+</ul>
+<h2 id="stage-2i-mixed-device-conformance">Stage 2I — mixed-device conformance<a class="headerlink" href="#stage-2i-mixed-device-conformance" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Build and install a fresh APK, then run three TinyNet FedAvg rounds with the vivo and three desktop clients on one published contract.</li>
+<li>Record the run ID, contract ID, client and partition assignments, accepted contributions, byte counts and terminal state in the multiplatform qualification records, and update the mobile status documentation.</li>
+<li>Acceptance: one accepted update per participant per round; both client types report the same contract ID; the laptop and Android local plans match the contract. This does not certify other recipes, DeComFL security or GPU training.</li>
+</ul>
+<h3 id="stage-2i-result-2026-09-24">Stage 2I — result (2026-09-24)<a class="headerlink" href="#stage-2i-result-2026-09-24" title="Permanent link">&para;</a></h3>
+<p>Run <code>50d14f0a…</code> on contract <code>de3d4610f0f8…</code>, from a fresh debug APK built at <code>5452658</code> (vivo 1805, Android 10,
+arm64-v8a) plus three laptop CLI clients, reached <strong>COMPLETED</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One accepted update per participant per round</td>
+<td>Pass. <code>All 4 clients reported</code> in rounds 1–3; 12 accepted updates (9 laptop, 3 phone); no duplicates. The coordinator counts distinct client IDs.</td>
+</tr>
+<tr>
+<td>Both client types report the same contract ID</td>
+<td>Pass. The phone's activity log shows <code>Execution contract de3d4610f0f8… accepted.</code>; the contract served to the laptops hashes to the full contract ID.</td>
+</tr>
+<tr>
+<td>Laptop and Android local plans match the contract</td>
+<td>Pass. Laptops: <code>check_contract</code> accepts the contract as served. Phone: a replay under "every client runs lr 1e-3 × 1" matches all six of the phone's reported losses, the digest the backend recorded for the aggregated model, and the saved final model (max abs diff 0.0). The retired lr 0.1 × 5 fails all three.</td>
+</tr>
+<tr>
+<td>Hermes runtime check (carried over from 2H)</td>
+<td>Pass. The accepted line can only appear after protobuf-es parsing, validation and projection have run under Hermes on the device.</td>
+</tr>
+</tbody>
+</table>
+<p>The first attempt (run <code>6e43e025…</code>) trained all three rounds but was marked FAILED. The FL server's callback URL
+defaults to <code>http://localhost:8081</code> whatever port the backend really uses. The test backend ran on :8084, so the
+callbacks, carrying the run's internal token, went to an unrelated backend on :8081 and were rejected. Setting
+<code>app.backend.internal-url</code> fixed it for the second run. The platform default itself is <strong>not fixed</strong>: it should
+derive from the backend's own <code>server.port</code>.</p>
+<p><strong>Four platforms (2026-09-26).</strong> A later DeComFL run put the phone, an Apple M4 Max client (MPS), an x86 Linux client
+(CPU) and a Jetson AGX Orin client (CUDA, torch 2.11) on one contract, the last three on separate hardware and
+two of them over Tailscale. It completed with four distinct clients in each of three rounds. A replay predicts the
+phone's losses exactly and the saved model to 7.45e-8, the same ~2.5 ULP residual as the all-on-one-Mac run. The
+setup is in the <a href="10-live-run-runbook.html">runbook</a>.</p>
+<p>Not shown by the Stage 2I run: laptop clients on separate hardware, the phone on a real network rather than USB port
+forwarding, the Electron launcher path, any learning signal (TinyNet has no evaluation set), and anything outside
+TinyNet / FedAvg / FULL.</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

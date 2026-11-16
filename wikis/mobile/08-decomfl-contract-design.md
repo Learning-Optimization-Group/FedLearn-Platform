@@ -132,7 +132,7 @@ LightSecAgg on the phone, recipes other than TinyNet, and the rebuild-history pr
 
 Live, after the fix (run `b3162471…`, contract `1c3fa059…`): COMPLETED, with 4 of 4 clients reporting in each of
 3 rounds and no errors. The phone's losses were 1.0973 → 1.0972 → 1.0970. A replay through the real server strategy
-matches all three and the saved final model to 7×10⁻⁸. Records are in `research/results/multiplatform/decomfl_*`.
+matches all three and the saved final model to 7×10⁻⁸. Records are preserved in the multiplatform qualification records.
 
 Not exercised live: a server config that disagrees with the contract (unit-tested on both clients), a phone
 joining after round 1 (refused), and LightSecAgg (refused on the phone).

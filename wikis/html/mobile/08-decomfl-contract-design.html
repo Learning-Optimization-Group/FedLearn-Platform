@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DeComFL in Execution Contract v1 — Focused Design · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Mobile</summary><ul>
+<li><a href="README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a href="03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a href="04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a href="06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a href="07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a class="active" href="08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a href="10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a href="11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a href="12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a href="14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a href="16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Mobile</b> &nbsp;·&nbsp; DeComFL in Execution Contract v1 — Focused Design</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="decomfl-in-execution-contract-v1-focused-design">DeComFL in Execution Contract v1 — Focused Design<a class="headerlink" href="#decomfl-in-execution-contract-v1-focused-design" title="Permanent link">&para;</a></h1>
+<p><strong>Status:</strong> Done (2026-09-25). All slices landed, and a vivo 1805 and three laptop clients completed a live DeComFL run on a published contract. See <a href="#result">Result</a>.</p>
+<p><strong>Goal:</strong> Put DeComFL back on the phone. It is the last strategy the strict v1 gate refuses (see
+<a href="06-execution-contract-v1-implementation-plan.html">06</a>, "Android is v1-dependent"). Unlike FedOpt and Robust
+(<a href="07-fedopt-robust-contract-plan.html">07</a>), DeComFL is not first-order training, so a matrix row alone cannot
+describe it: v1 has no way to state a zeroth-order update.</p>
+<h2 id="what-a-decomfl-client-executes-today-measured-in-code">What a DeComFL client executes today (measured in code)<a class="headerlink" href="#what-a-decomfl-client-executes-today-measured-in-code" title="Permanent link">&para;</a></h2>
+<p>Each round the server's <code>GetDeComFLConfig</code> sends the round's seeds (a K × P matrix) and a config map. Both client
+types then run the same loop. For each of K local steps, on the next batch of the local loader (cycling), for each
+of P seeds:</p>
+<ul>
+<li>draw z from the seed;</li>
+<li>estimate g = (L(x + μz) − L(x)) / μ (forward difference);</li>
+<li>after the P draws, apply x ← x − (η/P) Σ g·z.</li>
+</ul>
+<p>They upload only the K × P scalars g.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Source today</th>
+<th>Laptop (<code>decomfl_client.py</code>)</th>
+<th>Phone (<code>FederatedLoop::deComFLRound</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>K (local steps), P (perturbations)</td>
+<td>shape of the server's seed matrix</td>
+<td>from the seeds</td>
+<td>from the seeds</td>
+</tr>
+<tr>
+<td>η (learning rate)</td>
+<td>server config; <code>config.py</code> default 0.001</td>
+<td>applied locally, <code>x -= (η/P)Σgz</code></td>
+<td>applied by the native loop</td>
+</tr>
+<tr>
+<td>μ (smoothing)</td>
+<td>server config; default 0.001</td>
+<td>server value wins ("FR-10: μ is server-authoritative")</td>
+<td>server value</td>
+</tr>
+<tr>
+<td>Estimator</td>
+<td>server <code>grad_estimate_method</code>, "forward"</td>
+<td>forward</td>
+<td>forward, via <code>etGScalarForward</code> (parses "central" but runs forward)</td>
+</tr>
+<tr>
+<td>z generator</td>
+<td>seeded CPU <code>torch.randn</code>, float32</td>
+<td><code>torch.randn</code></td>
+<td><code>RandnEngine</code>, byte-identical to <code>torch.randn</code> (golden vectors in <code>randn_parity_test</code>)</td>
+</tr>
+<tr>
+<td>Batching</td>
+<td>the recipe's loader</td>
+<td>batch 8, shuffled, cycled across steps</td>
+<td>the staged batch</td>
+</tr>
+</tbody>
+</table>
+<p>So DeComFL clients are entirely <strong>server-driven</strong>. Nothing a client executes is pinned before the run: the
+server's config decides it, round by round. That is exactly what the contract exists to prevent (the same
+override finding as FedOpt in 07, only here nothing else is involved).</p>
+<h2 id="proposed-schema-extension-additive-buf-breaking-must-pass">Proposed schema extension (additive; <code>buf breaking</code> must pass)<a class="headerlink" href="#proposed-schema-extension-additive-buf-breaking-must-pass" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="kd">message</span><span class="w"> </span><span class="nc">LocalTraining</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="o">...</span>
+<span class="w">  </span><span class="k">oneof</span><span class="w"> </span><span class="n">optimizer</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">Sgd</span><span class="w"> </span><span class="na">sgd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span><span class="w"> </span><span class="n">Adam</span><span class="w"> </span><span class="na">adam</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span><span class="w"> </span><span class="n">AdamW</span><span class="w"> </span><span class="na">adamw</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span><span class="w"> </span><span class="n">Rmsprop</span><span class="w"> </span><span class="na">rmsprop</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span><span class="p">;</span>
+<span class="w">    </span><span class="n">ZerothOrderSgd</span><span class="w"> </span><span class="na">zeroth_order_sgd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">12</span><span class="p">;</span><span class="w">   </span><span class="c1">// new</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// DeComFL&#39;s client update. The server issues each round&#39;s seeds (num_local_steps x num_perturbations);</span>
+<span class="c1">// every other number is stated here, and a round whose config disagrees is refused.</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">ZerothOrderSgd</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">double</span><span class="w"> </span><span class="na">learning_rate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">              </span><span class="c1">// eta, applied per local step as x -= (eta / P) * sum_p g_p z_p</span>
+<span class="w">  </span><span class="kt">double</span><span class="w"> </span><span class="na">smoothing</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">                  </span><span class="c1">// mu, the finite-difference step</span>
+<span class="w">  </span><span class="kt">uint32</span><span class="w"> </span><span class="na">num_local_steps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w">            </span><span class="c1">// K: one batch of the (cycled) local loader per step</span>
+<span class="w">  </span><span class="kt">uint32</span><span class="w"> </span><span class="na">num_perturbations</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span><span class="w">          </span><span class="c1">// P</span>
+<span class="w">  </span><span class="n">GradientEstimator</span><span class="w"> </span><span class="na">estimator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+<span class="w">  </span><span class="n">PerturbationRng</span><span class="w"> </span><span class="na">rng</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kd">enum</span><span class="w"> </span><span class="n">GradientEstimator</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="na">ESTIMATOR_UNSPECIFIED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="na">ESTIMATOR_FORWARD</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="na">ESTIMATOR_CENTRAL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="c1">// How z is drawn from a seed. A client whose generator is not byte-identical must refuse.</span>
+<span class="kd">enum</span><span class="w"> </span><span class="n">PerturbationRng</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="na">RNG_UNSPECIFIED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="na">RNG_TORCH_CPU_RANDN_F32</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+
+<h2 id="decisions-each-with-a-recommendation">Decisions (each with a recommendation)<a class="headerlink" href="#decisions-each-with-a-recommendation" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Zeroth-order as an optimizer in the existing oneof, not a separate block.</strong> It is the update rule. It is also
+   mutually exclusive with SGD/Adam, which the oneof enforces in every generated reader. <em>Recommended.</em></li>
+<li><strong>K lives in <code>ZerothOrderSgd</code>, not <code>local_epochs</code>.</strong> DeComFL counts steps, cycling the loader, not epochs. With
+   <code>zeroth_order_sgd</code>, <code>local_epochs</code> must be 0 and <code>max_local_steps</code> absent. Today 0 epochs is always refused, so
+   the rule widens only for this optimizer. The alternative, reusing <code>local_epochs</code> as K, would give one field two
+   meanings. <em>Recommended.</em></li>
+<li><strong>The RNG is part of the contract.</strong> A client whose generator differs computes scalars for different directions,
+   and the aggregate is silently wrong. The server's advisory <code>torch_version</code> / <code>golden_vector_sha256</code> fields
+   (unset today) become unnecessary for contracted runs. <em>Recommended.</em></li>
+<li><strong>Seeds stay per round, from the server.</strong> They are data, not training settings; the contract fixes their shape
+   (K × P). <em>Recommended.</em></li>
+<li><strong>Server config is a cross-check, not an override.</strong> η, μ, the estimator and the seed-matrix shape must equal the
+   contract's, or the round is refused before upload. That is the rule 07 established for FedOpt, applied to both
+   clients. <em>Recommended.</em></li>
+</ol>
+<h2 id="validation-rules-added-to-the-fixtures-readme-one-corpus-case-per-rule-all-three-readers">Validation rules (added to the fixtures README; one corpus case per rule, all three readers)<a class="headerlink" href="#validation-rules-added-to-the-fixtures-readme-one-corpus-case-per-rule-all-three-readers" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>zeroth_order_sgd</code> present: <code>learningRate</code> or <code>smoothing</code> not finite and positive (a zero is absent) →
+  <code>OUT_OF_RANGE</code>; plain doubles, like <code>Sgd.learning_rate</code>, because zero is never legal. <code>numLocalSteps</code> or <code>numPerturbations</code> 0 or above the v1 limit → <code>OUT_OF_RANGE</code>. <code>estimator</code> or
+  <code>rng</code> not known → <code>UNKNOWN_ENUM</code>. <code>localEpochs</code> non-zero or <code>maxLocalSteps</code> present → <code>INVALID_STRATEGY_SETTINGS</code>.</li>
+<li><code>updateProtocol</code> is <code>UPDATE_DECOMFL_SCALAR</code> exactly when the optimizer is <code>zeroth_order_sgd</code>, and the strategy is
+  <code>STRATEGY_DECOMFL</code> exactly then; otherwise <code>INVALID_STRATEGY_SETTINGS</code>.</li>
+<li>Approved matrix: add TinyNet / DeComFL / FULL / vector classification / cross-entropy / <code>UPDATE_DECOMFL_SCALAR</code>.</li>
+<li>LightSecAgg stays valid only for DeComFL. The phone refuses it (<code>UNSUPPORTED_SECURITY</code>), as it does today.</li>
+</ul>
+<h2 id="plan-each-slice-test-first-its-own-commit">Plan (each slice test-first, its own commit)<a class="headerlink" href="#plan-each-slice-test-first-its-own-commit" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Schema + mirrors + generated code in all languages. <code>buf lint</code>, <code>buf breaking</code> against <code>main</code>, and the mirror
+   check must pass.</li>
+<li>Rules + corpus + the three readers; each reader must fail the new cases with its change reverted.</li>
+<li>Resolver plan for TinyNet / DeComFL / FULL, stated from the values <code>fl_server.py</code> hands <code>DeComFL(...)</code>, from one
+   source both import (as <code>strategy_client_settings</code> does for FedOpt).</li>
+<li>Laptop: <code>check_contract</code> and a per-round guard in the DeComFL client.</li>
+<li>Phone: the gate projects <code>zeroth_order_sgd</code>, and the native DeComFL round cross-checks the server's config (μ, η,
+   K, P, estimator) against the contract.</li>
+<li>Live: a fresh APK; the vivo and three laptops on one published DeComFL contract, checked numerically. Without
+   secure aggregation.</li>
+</ol>
+<h2 id="not-in-scope">Not in scope<a class="headerlink" href="#not-in-scope" title="Permanent link">&para;</a></h2>
+<p>The central estimator on the phone (it runs forward only, so a contract stating central is refused there),
+LightSecAgg on the phone, recipes other than TinyNet, and the rebuild-history protocol for clients that miss rounds
+(unchanged).</p>
+<h2 id="result">Result<a class="headerlink" href="#result" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Slice</th>
+<th>Commits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Schema</td>
+<td><code>2084e7c</code></td>
+</tr>
+<tr>
+<td>2. Rules, corpus, three readers</td>
+<td><code>4ab4c6c</code>: 175 cases; each reader fails exactly the 19 new or changed ones with its change reverted</td>
+</tr>
+<tr>
+<td>3. Resolver plan</td>
+<td><code>db5f24f</code>, backend publication pinned in <code>f84df71</code></td>
+</tr>
+<tr>
+<td>4. Laptop guard</td>
+<td><code>d17015b</code> (framework round check, estimator passthrough), <code>c2eefd3</code></td>
+</tr>
+<tr>
+<td>5. Phone</td>
+<td><code>6af4264</code>, <code>f0b98d6</code>, <code>bb065c8</code></td>
+</tr>
+<tr>
+<td>Found by the live run</td>
+<td><code>426b8e8</code>: phone DeComFL started from an all-zero model</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Two phone bugs the live run exposed</strong>, both fixed:</p>
+<ol>
+<li><strong>Wrong config keys.</strong> The native client read the server's DeComFL rate and smoothing under <code>lr</code> / <code>mu</code>, which
+   the server never sends (<code>learning_rate</code> / <code>smoothing_param</code>), so it always trained on its 0.001 defaults
+   (<code>6af4264</code>).</li>
+<li><strong>The phone computed every DeComFL scalar at an all-zero model.</strong> The DeComFL path never downloaded the global
+   model, and the ModelManager zero-initialises its parameters. The first live run showed a constant phone loss
+   of 1.1221, exactly TinyNet's loss with its trainable parameters zeroed. The phone now downloads the round-1
+   model, proves it is the contract's <code>initialStateSha256</code>, refuses to join after round 1, and reports loss on the
+   model it trains from (<code>426b8e8</code>).</li>
+</ol>
+<p>A replay attributes 1.6×10⁻⁴ of error in the buggy run's final model to it, about 18% of the run's total
+   parameter movement. This affected every phone DeComFL run before the fix.</p>
+<p>Live, after the fix (run <code>b3162471…</code>, contract <code>1c3fa059…</code>): COMPLETED, with 4 of 4 clients reporting in each of
+3 rounds and no errors. The phone's losses were 1.0973 → 1.0972 → 1.0970. A replay through the real server strategy
+matches all three and the saved final model to 7×10⁻⁸. Records are preserved in the multiplatform qualification records.</p>
+<p>Not exercised live: a server config that disagrees with the contract (unit-tested on both clients), a phone
+joining after round 1 (refused), and LightSecAgg (refused on the phone).</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

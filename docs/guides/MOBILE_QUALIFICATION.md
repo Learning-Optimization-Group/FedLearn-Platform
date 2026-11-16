@@ -50,7 +50,7 @@ the mixed-device adaptive continuation below now verifies this behavior live.
 
 The catalog now allows ResNet on Android. Each device must still pass its own
 program self-test and resource checks. This decision does not qualify iOS.
-See the [ResNet receipt](../../research/results/on-device/resnet-mixed-2026-10-09.json).
+See the ResNet receipt (`results/on-device/resnet-mixed-2026-10-09.json`).
 
 ## Adaptive strategies
 
@@ -78,7 +78,7 @@ of 1.0 produced severe loss growth and 58.40% accuracy. These small execution
 runs do not compare algorithm quality: they have different initial weights and
 seeds. Server settings are now configurable as described below; appropriate rates still
 need qualification for each workload.
-See the [strategy receipts](../../research/results/on-device/ecg-adaptive-strategies-2026-10-09.json).
+See the strategy receipts (`results/on-device/ecg-adaptive-strategies-2026-10-09.json`).
 
 ## Adaptive CNN continuation
 
@@ -97,7 +97,7 @@ The original g14 clients pin OpenMP/MKL to one CPU thread; exact desktop replay
 requires that setting. A default-thread comparison differed by 1.32e-6 and was
 retained as a numerical reproducibility check.
 
-See the [adaptive CNN receipts](../../research/results/on-device/cnn-adaptive-2026-10-09.json).
+See the adaptive CNN receipts (`results/on-device/cnn-adaptive-2026-10-09.json`).
 
 ## Adaptive ResNet continuation
 
@@ -126,7 +126,7 @@ numerical equality. All 27 existing dataset files retain their hashes; only
 three files were added for the 64-image snapshot. An unused prematurely staged
 FedProx run was stopped and excluded from completed-run evidence.
 
-See the [adaptive ResNet receipt](../../research/results/on-device/resnet-adaptive-2026-10-09.json).
+See the adaptive ResNet receipt (`results/on-device/resnet-adaptive-2026-10-09.json`).
 
 ## ResNet client-rate controls
 
@@ -149,8 +149,8 @@ native-runtime stability. Official test images were unused for rate selection.
 The retained driver checks the contracted initial state and refuses a different
 recipe, round/batch budget or snapshot size.
 
-See the [matched client-rate controls](../../research/results/on-device/resnet-client-rate-controls-2026-10-09.json)
-and [benchmark driver](../../research/benchmarks/resnet_client_rates.py).
+See the matched client-rate controls (`results/on-device/resnet-client-rate-controls-2026-10-09.json`)
+and benchmark driver (`benchmarks/resnet_client_rates.py`).
 
 ## ResNet FedProx at the corrected client rate
 
@@ -173,7 +173,7 @@ This short run does not establish convergence or FedProx superiority. Its initia
 state matches the earlier FedProx run, but the round seed differs; the earlier
 10% result is historical context, not a matched mixed-runtime rate comparison.
 
-See the [corrected-rate FedProx receipt](../../research/results/on-device/resnet-fedprox-client-rate-2026-10-10.json).
+See the corrected-rate FedProx receipt (`results/on-device/resnet-fedprox-client-rate-2026-10-10.json`).
 
 ## ResNet FedOpt at the corrected client rate
 
@@ -208,8 +208,8 @@ it has no final checkpoint and is excluded from completed-run evidence. Keeping
 the host awake enabled the fresh run; mobile suspension and interruption recovery
 remain unqualified.
 
-See the [corrected-rate FedOpt receipt](../../research/results/on-device/resnet-fedopt-client-rate-2026-10-10.json)
-and [interrupted-attempt receipt](../../research/results/on-device/resnet-fedopt-host-sleep-interruption-2026-10-10.json).
+See the corrected-rate FedOpt receipt (`results/on-device/resnet-fedopt-client-rate-2026-10-10.json`)
+and interrupted-attempt receipt (`results/on-device/resnet-fedopt-host-sleep-interruption-2026-10-10.json`).
 
 ## Remaining work
 
@@ -254,7 +254,7 @@ round, and the resumed run reached checkpoint 3. Each successful run accepted
 six unique contributions. Removing an ADB reverse mapping did not break an
 existing socket and is retained as an ineffective outage probe.
 
-[Lifecycle receipt](../../research/results/on-device/android-lifecycle-2026-10-10.json)
+Lifecycle receipt (`results/on-device/android-lifecycle-2026-10-10.json`)
 retains the failed attempt and successful cases. These USB-powered fixture
 checks do not qualify forced Doze, long suspension, unplugged battery operation,
 mid-upload acknowledgement loss, or image-duration interruptions.
@@ -262,5 +262,5 @@ mid-upload acknowledgement loss, or image-duration interruptions.
 The actual mounted provider also completed ECG/CNN Robust runs and cleared
 obsolete server telemetry. Both original devices replayed their contributions
 bitwise, changed labels/rates failed the controls, and the aggregate matched
-the registered model. [Robust receipt](../../research/results/on-device/mobile-robust-real-models-2026-10-10.json).
+the registered model. Robust receipt (`results/on-device/mobile-robust-real-models-2026-10-10.json`).
 Two clients using median aggregation establish execution support only.

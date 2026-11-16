@@ -67,7 +67,7 @@ contract.
 | 5. Phone | `f1a78c6`: native endpoint 2.98e-8 from the framework golden; fails with the anchor removed |
 | 6. Live run | run `c0cfb18c…` on contract `a5a15cac7a79…`, fresh APK from `f1a78c6`: COMPLETED |
 
-Measured while doing it (`research/notes/on-device/2026-09-26-fedprox-proximal-term-is-invisible-at-production-settings.md`):
+Measured during on-device qualification:
 
 - **At one local step FedProx is byte-identical to FedAvg** at every rate and coefficient swept. At the production
   lr 0.01 / μ 0.1, even ten steps separate the endpoints by only 6.4e-5. Raising FedProx's epochs would not make a

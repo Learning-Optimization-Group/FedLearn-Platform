@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stage 4 — Vector and Image Recipes on Android: Focused Design · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Mobile</summary><ul>
+<li><a href="README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a href="03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a href="04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a href="06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a href="07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a href="08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a href="10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a href="11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a class="active" href="12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a href="14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a href="16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Mobile</b> &nbsp;·&nbsp; Stage 4 — Vector and Image Recipes on Android: Focused Design</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="stage-4-vector-and-image-recipes-on-android-focused-design">Stage 4 — Vector and Image Recipes on Android: Focused Design<a class="headerlink" href="#stage-4-vector-and-image-recipes-on-android-focused-design" title="Permanent link">&para;</a></h1>
+<p>Stage 3 finished the foundation: streamed, content-addressed artifacts; imported dataset snapshots; seeded
+minibatching; dynamic-batch programs; qualification; and the capability report. Every piece was proven on the vivo
+with TinyNet and a bit-exact replay of the saved model. Stage 4 (<a href="02-android-federated-learning-parity-design.html">02</a>)
+brings the platform's real recipes to the phone with the same guarantee: <strong>a phone update that the contract states
+and a replay reproduces</strong>.</p>
+<h2 id="current-state-measured-2026-09-29">Current state (measured, 2026-09-29)<a class="headerlink" href="#current-state-measured-2026-09-29" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Recipe</th>
+<th>Input</th>
+<th>Classes</th>
+<th>Parameters</th>
+<th>Laptop training</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MLP</code> (ECG)</td>
+<td>vector, 140</td>
+<td>2</td>
+<td>13,314</td>
+<td>Adam lr 1e-3, batch 8, 3 epochs (<code>config.py</code> "ecg")</td>
+<td><strong>two <code>Dropout(0.3)</code></strong></td>
+</tr>
+<tr>
+<td><code>CNN</code> (CIFAR-10)</td>
+<td>image 3×32×32</td>
+<td>10</td>
+<td>62,006</td>
+<td>Adam lr 1e-3, batch 32</td>
+<td>LeNet: Conv→MaxPool, no BatchNorm</td>
+</tr>
+<tr>
+<td><code>PNEUMONIA_CNN</code></td>
+<td>image 1×224×224</td>
+<td>2</td>
+<td>25,783,554</td>
+<td>Adam</td>
+<td>~103 MB per float32 upload</td>
+</tr>
+<tr>
+<td><code>CIFAR_RESNET18</code></td>
+<td>image 3×32×32</td>
+<td>10</td>
+<td>11,181,642</td>
+<td>Adam</td>
+<td>catalog marks it <code>mobile_safe: false</code>; 44.8 s/step measured on the vivo</td>
+</tr>
+</tbody>
+</table>
+<p>What the phone can execute today: SGD (optionally with FedProx's proximal term), zeroth-order DeComFL, cross-entropy,
+<code>IdentityVector</code> inputs, and seeded minibatches. Everything below is what stands between that and the table.</p>
+<ul>
+<li><strong>Optimizer.</strong> Every non-TinyNet laptop client trains with <strong>Adam</strong>, created fresh each round. The contract schema
+  already has <code>Adam</code>, but the phone gate refuses anything but SGD.</li>
+<li><strong>Dropout.</strong> MLP drops activations at random during training. ExecuTorch's dropout RNG is not torch's, so a phone
+  update would stop being reproducible. That is the property every Stage 2–3 verification relied on.</li>
+<li><strong>Images.</strong> <code>Transform</code> has only <code>IdentityVector</code>, and the importer reads only numbers. There is no image decoding,
+  resizing or normalisation on the device.</li>
+<li><strong>Plans.</strong> <code>execution_plan.py</code> has plans for TinyNet only. The exporter (<code>export_model.py</code>) writes no contract
+  fields (<code>modelFiles</code>, <code>requiredOperators</code>, envelope, <code>maxBatch</code>, probe), so a non-fixture recipe can never get a
+  contract.</li>
+</ul>
+<h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
+<p>In: <code>MLP</code> and <code>CNN</code>, first-order (FedAvg, FedOpt, Robust, FedProx) and DeComFL, on own-data snapshots, mixed with
+laptops where the data allows.
+Deferred: <code>PNEUMONIA_CNN</code>, until qualification measures a real resource budget (upload size and step time on
+a phone). <code>CIFAR_RESNET18</code> stays off phones for first-order training (catalog <code>mobile_safe: false</code>) and is revisited
+with accelerators in Stage 7. Text is Stage 5.</p>
+<h2 id="a-contracts-for-every-recipe-not-just-tinynet">A. Contracts for every recipe, not just TinyNet<a class="headerlink" href="#a-contracts-for-every-recipe-not-just-tinynet" title="Permanent link">&para;</a></h2>
+<p><code>execution_plan.py</code> becomes recipe-driven:
+- the trainable layout and frozen-state digest come from the recipe's model;
+- the data requirement comes from a new recipe <code>input_spec</code> (shape, dtype, transforms);
+- local training comes from the same settings the laptop client uses (<code>config.py</code> / client constants). Those settings
+  move into one place both read, so a laptop and a phone are held to the same numbers.</p>
+<p>The exporter gains the contract fields the TinyNet stager writes: program digests and sizes, the operator set (read
+from the programs with ExecuTorch, as <code>test_stage_model_bundle</code> does), a declared envelope, <code>maxBatch</code> and the probe.
+It records them per recipe at export time. The backend host still needs the ExecuTorch toolchain to export, which is
+unchanged.</p>
+<h2 id="b-adam-on-the-device">B. Adam on the device<a class="headerlink" href="#b-adam-on-the-device" title="Permanent link">&para;</a></h2>
+<p>A native Adam for the trainable program: per-parameter first and second moments, bias correction, and
+<code>reset_optimizer_each_round</code> (the laptop creates a fresh Adam every round, so no state crosses rounds and none needs
+checkpointing). Pinned like SGD was: a torch golden over several steps, a tolerance derived from the smallest
+deviation it must catch, and a mutation test per term (bias correction, epsilon placement, β₂).</p>
+<h2 id="c-dropout">C. Dropout<a class="headerlink" href="#c-dropout" title="Permanent link">&para;</a></h2>
+<p>Options (decision 1):</p>
+<ul>
+<li><strong>Seeded dropout masks, as inputs.</strong> Mobile programs are exported with dropout replaced by multiplication with a mask
+  input. The mask for each step comes from a specified stream, SplitMix64 seeded by (run seed, round, epoch, step,
+  layer), the same construction as the batch order. A replay regenerates it exactly. Laptop clients stay free to use
+  torch dropout, because their updates are replayed by their own hypothesis. <em>The phone's update stays bit-exact.</em></li>
+<li><strong>Dropout off in contracted training.</strong> Both laptop and phone train without dropout. Simple, but it changes the
+  laptops' training, and so the model the recipe produces.</li>
+<li><strong>Accept it.</strong> The phone uses ExecuTorch's dropout; verification becomes statistical. Gives up the bit-exact
+  replay for MLP.</li>
+</ul>
+<p><em>Recommendation: seeded masks.</em> Its cost is one export wrapper and one mask generator in C++ and Python, both
+pinnable by a golden, and it keeps the verification that caught every Stage 2–3 bug.</p>
+<h2 id="d-images">D. Images<a class="headerlink" href="#d-images" title="Permanent link">&para;</a></h2>
+<p>Options (decision 2):</p>
+<ul>
+<li><strong>Raw pixels in the package.</strong> <code>records.jsonl</code> carries each image as its uint8 values (HWC) with its height, width
+  and channels. Transforms are exact arithmetic declared in the contract: <code>ScaleToUnit</code> (/255), <code>Normalize(mean, std)</code>
+  and a layout change to CHW. No decoder is involved, so Python and Kotlin produce bit-identical tensors.</li>
+<li><strong>Image files (PNG/JPEG) decoded on the device.</strong> More convenient for a user, but decoders differ (JPEG especially,
+  and resizing filters), so the contract would need a tolerance and the replay would no longer be exact.</li>
+</ul>
+<p><em>Recommendation: raw pixels first</em>, with PNG decoding (lossless, so exact at a fixed size) as a follow-up and JPEG
+only with a declared tolerance. CIFAR-10's 32×32×3 is 3 KB per example as uint8 and 12 KB as a float snapshot; a
+thousand examples is 12 MB, well inside the importer's limits.</p>
+<h2 id="e-order-and-proof">E. Order and proof<a class="headerlink" href="#e-order-and-proof" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>MLP</strong> first: no image pipeline, the smallest real recipe. It exercises A, B and C.</li>
+<li><strong>CNN</strong> next: exercises D. It is the first real Conv/MaxPool training on a phone under a contract; the Conv→MaxPool
+   backward defect was fixed in the ExecuTorch build on 2026-08-06.</li>
+</ol>
+<p>Each recipe gets:
+- the per-strategy plans;
+- host parity against LocalTrainer (Adam, minibatches, and for MLP, masks);
+- qualification;
+- a live phone-only run with a bit-exact replay and wrong-hypothesis controls;
+- then a mixed phone + laptop run.</p>
+<h2 id="decisions-taken-2026-09-29">Decisions (taken 2026-09-29)<a class="headerlink" href="#decisions-taken-2026-09-29" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Dropout:</strong> seeded masks (section C).</li>
+<li><strong>Image input:</strong> raw pixels first (section D).</li>
+<li><strong>Scope: all four recipes.</strong> This overrides the deferral in <em>Scope</em> above. Order: MLP, then CNN, then
+   <code>CIFAR_RESNET18</code> (same 32×32 image path as CNN), then <code>PNEUMONIA_CNN</code> (224×224 grayscale).
+   - The two large recipes still go through qualification: its time budget must be measured on the device, and a
+     phone that cannot meet the round deadline refuses (<code>QUALIFICATION_FAILED</code>, <code>TOO_SLOW</code>) rather than stalling a
+     round.
+   - <code>CIFAR_RESNET18</code>'s catalog <code>mobile_safe: false</code> is revisited with that measurement, not flipped by hand.
+   - Each large recipe's upload size (ResNet-18 ~45 MB, pneumonia CNN ~103 MB per float32 update) is recorded with
+     its live run.</li>
+</ol>
+<h2 id="slices-each-test-first-each-its-own-commit">Slices (each test-first, each its own commit)<a class="headerlink" href="#slices-each-test-first-each-its-own-commit" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>S0</strong> Recipe <code>input_spec</code> and recipe-driven plans; the laptop and the phone read one settings source.</li>
+<li><strong>S1</strong> Exporter writes the contract fields for any recipe (digests, operators, envelope, <code>maxBatch</code>, probe).</li>
+<li><strong>S2</strong> Native Adam, with a torch golden and per-term mutation tests; the phone gate accepts Adam.</li>
+<li><strong>S3</strong> Seeded dropout masks (if decision 1 picks it): a mask-input export, generators in C++ and Python, and a golden.</li>
+<li><strong>S4</strong> MLP end to end, live on the vivo with a replay.</li>
+<li><strong>S5</strong> Image package, <code>ScaleToUnit</code>/<code>Normalize</code>/<code>ToChw</code> transforms, and a Kotlin importer with a cross-language golden.</li>
+<li><strong>S6</strong> CNN end to end, live on the vivo with a replay; then a mixed run.</li>
+<li><strong>S7</strong> <code>CIFAR_RESNET18</code>: export, qualification budget measured on the vivo, a live run with a replay, and the upload
+  size recorded.</li>
+<li><strong>S8</strong> <code>PNEUMONIA_CNN</code>: 224×224 grayscale packages, then the same as S7.</li>
+</ul>
+<h2 id="risks">Risks<a class="headerlink" href="#risks" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>ExecuTorch operator coverage.</strong> Adam is done natively, not in the graph, so the risk is the backward operators of
+  Conv/MaxPool/Dropout-as-mask. The qualification probe catches a device where one misbehaves.</li>
+<li><strong>Laptop drift.</strong> Moving the laptop's training settings into a shared source must not change a laptop run. A test
+  pins the resolved numbers before and after.</li>
+<li><strong>Snapshot size for images.</strong> Float snapshots are 4× the uint8 source. Snapshots could store uint8 and transform
+  per batch; that is deferred until a dataset needs it.</li>
+</ul>
+<h2 id="progress">Progress<a class="headerlink" href="#progress" title="Permanent link">&para;</a></h2>
+<p><strong>MLP (S0–S4): done and verified live, 2026-09-30.</strong></p>
+<p>The vivo trained the ECG MLP on 300 of its own examples under a FedAvg contract:
+- Adam, seeded minibatches of 128, two seeded Dropout(0.3) layers;
+- three rounds of 129–207 ms, 52 KB uploaded per round;
+- qualification passed in 52 ms.</p>
+<p>A replay of the contract reproduces the phone's saved model within 1.4e-6. It also predicts every displayed loss to
+4 dp. Seven wrong-hypothesis controls land 8.5e-3 or further away.</p>
+<p>Getting there fixed three defects the design did not anticipate:
+- <strong>The strategy.</strong> Both the FL server and the CLI client forced every MLP run onto DeComFL whatever its strategy,
+  and the client's first-order path could not load ECG data (<code>f77f41b</code>).
+- <strong>The exporter's interpreter.</strong> The bundle stager runs the exporter under its own interpreter setting
+  (<code>app.model-bundle.autostage.python</code>), now in the runbook.
+- <strong>Continued runs.</strong> A run continuing from a project's registry model got no contract, because the registry blob's
+  first materialization tripped the publisher's modification-time check (<code>5d8df8d</code>).</p>
+<p>Not done yet:
+- a mixed phone + laptop MLP run (laptops refuse own-data runs);
+- MLP under FedOpt, FedProx and DeComFL (refused with reasons, see <code>execution_plan._REFUSALS</code>).</p>
+<p><strong>Image data (S5): done, 2026-09-30. Not yet exercised end to end.</strong></p>
+<p>The contract gains two transforms:
+- <strong><code>ImageToUnitTensor{height, width, channels}</code></strong>: 8-bit HWC to float32 CHW, <code>p / 255</code>.
+- <strong><code>NormalizeChannels{mean[], std[]}</code></strong>: <code>(v - mean) / std</code> in float32.</p>
+<p>Design change from section D: scaling and the HWC-to-CHW layout change are one operation, torchvision's <code>ToTensor</code>,
+because separate steps would only admit invalid orderings.</p>
+<ul>
+<li><strong>Readers.</strong> Python, Java and TypeScript share 15 corpus cases for the new rules.</li>
+<li><strong>Reference.</strong> <code>fedlearn.contract.image_transforms</code> is bit-identical to torchvision's <code>to_tensor</code> and <code>normalize</code>,
+  and writes <code>image_transforms_v1.golden</code>.</li>
+<li><strong>Importer.</strong> The Kotlin importer takes zipped image packages (a <code>dataset.json</code>, and one record per image with its
+  raw pixels in base64). It reproduces the golden bit for bit.</li>
+<li><strong>Preparation is recorded.</strong> Image snapshots record how their values were prepared, so a snapshot normalised
+  differently from a run is refused although its shape and classes agree.</li>
+<li><strong>Not yet exercised.</strong> The gate refuses every image contract until S6 approves a CNN plan.</li>
+</ul>
+<p><strong>CNN (S6): done, live on the vivo, 2026-10-01.</strong></p>
+<ul>
+<li><strong>The run.</strong> 320 CIFAR-10 training-split images, imported as a raw-pixel package. Three rounds of Adam over seeded
+  minibatches of 32, about 3.4 s and 242 KB per round. The image-shaped qualification probe passed in 240 ms.</li>
+<li><strong>Learning.</strong> Server accuracy on the 10,000-image CIFAR-10 test split rose 14.9 → 19.4% over the first run and
+  21.95 → 22.73% over the second.</li>
+<li><strong>Verification.</strong></li>
+<li>The phone's snapshot bytes equal the laptop's reference transform.</li>
+<li>A host-native ExecuTorch replay reproduces the phone's model to 6e-7.</li>
+<li>A torch replay predicts every phone loss and rejects seven wrong hypotheses by at least 32x. It lands 4.3e-4 from
+    the phone, above the tolerance fixed in advance: ExecuTorch-trained Adam is about 1000x further from a float64
+    reference than torch's on this run. With SGD the two agree.</li>
+</ul>
+<p>Fixes the live run forced:
+- <code>libexecutorch</code> force-linked, so the prim ops (<code>et_view</code>, <code>sym_size</code>) that the CNN's flatten and dynamic batch need
+  reach the APK;
+- evaluation chunked within each program's real bound (ExecuTorch planned the CNN's loss and infer programs for 15
+  examples, though they were exported for 32);
+- a model failure arriving as a plain object is no longer retried.</p>
+<p>Not done:
+- the cause of the torch-vs-ExecuTorch Adam gap (a ReLU-threshold flip is supported, not proven);
+- a mixed phone + laptop CNN run;
+- strategies other than FedAvg and Robust.</p>
+<h3 id="s7-cifar_resnet18-trained-on-the-vivo-2026-10-01">S7 <code>CIFAR_RESNET18</code> — trained on the vivo (2026-10-01)<a class="headerlink" href="#s7-cifar_resnet18-trained-on-the-vivo-2026-10-01" title="Permanent link">&para;</a></h3>
+<p>ResNet-18 (11.2M parameters, 112×112 inputs) trained on the phone with training-mode BatchNorm, its running statistics
+federated. 64 CIFAR-10 training images, FedAvg, Adam, 2 rounds:
+- <strong>Learning.</strong> Server accuracy on the 10,000-image test split: 7.95% at the start (untrained head), 26.53% after
+  round 1, 28.32% after round 2.
+- <strong>Cost on the vivo.</strong> About 7.2 min per round (two 32-image steps plus the phone's own evaluation); 42.7 MB down and
+  42.7 MB up per round; peak memory 1.53 GB (1.63 GB during qualification). Single-threaded portable kernels.
+- <strong>Verification.</strong> Weaker than the CNN's. Four Adam steps are mostly sign descent, so torch disagrees with itself
+  (float32 vs float64) by 25% in the update; element-wise replay is not possible. The phone is 11.8% from a host-native
+  replay and rejects every wrong hypothesis, the nearest by 2.2×.</p>
+<p>Fixes the live run forced:
+- the qualification probe's batch made training-mode BatchNorm's gradient a cancellation: rows now come from a hash,
+  and the exporter refuses a probe rounding can move;
+- the rebuilt BatchNorm computes in float64 (ExecuTorch's portable sums lost ~1e-3 of the gradient in float32);
+- downloads are chunked at 4 MB (one 42.7 MB message exceeded the phone's 32 MB cap);
+- a qualification result is keyed by its probe too;
+- a run that ends while the phone is busy ends cleanly instead of as an error;
+- development builds may join a model not yet cleared for phones, with a warning.</p>
+<p>Not done:
+- <code>mobile_safe</code> for CIFAR_RESNET18 is still false: the measurement above is the input to that decision;
+- an exactly verifiable ResNet run (SGD, or more steps per round);
+- the phone's per-round losses are not persisted anywhere readable.</p>
+<h3 id="s8-pneumonia_cnn-reproducible-execution-degenerate-classification-2026-10-01">S8 <code>PNEUMONIA_CNN</code> — reproducible execution, degenerate classification (2026-10-01)<a class="headerlink" href="#s8-pneumonia_cnn-reproducible-execution-degenerate-classification-2026-10-01" title="Permanent link">&para;</a></h3>
+<p>The vivo completed a phone-only FedAvg run with the 25.8M-parameter pneumonia CNN,
+on 64 imported training-split X-rays (13 NORMAL, 51 PNEUMONIA). The programs take
+224×224 grayscale images. Training used Adam at 1e-3, seeded minibatches of 16,
+one local epoch per round, seeded Dropout(0.4), and two server rounds.</p>
+<ul>
+<li><strong>Execution.</strong> Both rounds trained and uploaded approximately 98 MB each. The
+  server recorded round durations of 1,207 s and 679 s. Records were saved at
+  2026-10-02 01:08 UTC, corresponding to October 1 evening locally.</li>
+<li><strong>Verification.</strong> A host-native replay matches the phone exactly (relative
+  parameter-update distance 0.0). The torch replay differs by 5.2%; the nearest
+  wrong-hypothesis control, carrying Adam across rounds, differs by 43%.</li>
+<li><strong>Classification failed.</strong> On 582 test images (171 NORMAL, 411 PNEUMONIA), the
+  initial model and both trained models predict PNEUMONIA for every image. The
+  confusion matrix remains <code>[[0,171],[0,411]]</code>: accuracy 70.6%, balanced accuracy
+  0.50 and MCC 0. The accuracy is the majority-class rate, not evidence of useful
+  discrimination. ROC-AUC improves from 0.705 to 0.881, showing a ranking signal
+  without a change in the predicted classes.</li>
+</ul>
+<p>This closes the live execution check, not the model-quality check. Class imbalance
+and the small training budget are candidate explanations, not established causes.
+Controlled follow-ups should vary the training budget and sample balance before
+claiming the recipe learns useful classification. Any class-weighted objective
+needs an explicit contract and matching implementations.</p>
+<p>Raw qualification records preserve the contract, package sidecar, server metrics/log,
+replay distances and phone memory samples.</p>
+<p>Stage 4 remains open: mixed phone+laptop own-data runs, additional strategies and
+training arms, stronger ResNet conformance, and an explanation of the CNN's
+cross-runtime Adam discrepancy still need validation.</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

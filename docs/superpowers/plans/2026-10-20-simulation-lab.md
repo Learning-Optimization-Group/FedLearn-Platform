@@ -139,7 +139,7 @@ user IDs(Long), role security and ProcessTrees. Existing Spring/DataSource is re
 - `GET /runs/{uuid}/record` attachment diagnostic JSON, otherwise409notready;
   foreign/unknown404, anonymous401, ordinaryUSER403 for all endpoints.
 - Status vocabulary ACCEPTED, STARTING, RUNNING, STOPPING, COMPLETED, STOPPED, FAILED,
-  TIMED_OUT, INTERRUPTED; every DTO includes explicit research/simulated-cost scope.
+  TIMED_OUT, INTERRUPTED; every DTO includes explicit research–simulated-cost scope.
 
 - [ ] Write RED controller/schema/migration/repository tests for every role/ownership
   operation, safe filename/attachment, pagination and persisted metadata; fields named

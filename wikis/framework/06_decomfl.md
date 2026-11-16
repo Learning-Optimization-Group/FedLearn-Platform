@@ -592,7 +592,7 @@ of pretending to know:
 | `1.435 < S < 1.758` | **warn** — unmeasured band; may diverge. Logs `suggested_eta(d)` |
 | `S >= 1.758` | **raise `ValueError`**, unless `allow_unstable_lr=True` (then warn: "expect the run to learn and then explode") |
 
-**Why an error and not a warning.** The measured record (`research/results/decomfl/`) shows the same
+**Why an error and not a warning.** The measured record shows the same
 divergence hit twice, and shows *why* an accuracy curve cannot catch it:
 
 - `mu_eta_dimension_scaling.json` — at `d = 103,002` the reference eta diverges to loss ~1e19.

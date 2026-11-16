@@ -416,7 +416,6 @@ FedLearn-Platform/
 
 # Local working areas, gitignored — present on a developer's machine, NOT in a clone:
 #   docs/       long-form design notes, guides, audits, generated report pages
-#   research/   paper working area: benchmark harnesses, raw result JSON, experiment notes
 ```
 
 ---

@@ -62,7 +62,7 @@ algorithm superiority. Cached qualification timings are not fresh probe timings.
 
 - Independent original g14 round1 replay is bitwise exact (64 examples); changed
   label control differs. Latest final artifact returns404 after stopping. Public
-  incomplete-run receipt prepared at research/results/on-device/resnet-fedopt-host-sleep-interruption-2026-10-10.json.
+  incomplete-run receipt prepared at results/on-device/resnet-fedopt-host-sleep-interruption-2026-10-10.json.
 - Mac/private and g14 attempt folders renamed to resnet-rate-fedopt-interrupted-sleep;
   fresh resnet_rate_awake_setup.py uses a distinct awake-host project name.
   Existing forwarding works after wake. Runtime sources unchanged; focused54 pass.

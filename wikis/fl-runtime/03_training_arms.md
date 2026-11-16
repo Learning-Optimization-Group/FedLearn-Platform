@@ -210,8 +210,6 @@ Three recipes currently carry a measurement, and the three headlines say very di
 
 Every entry records its `source` result file, that file's `source_sha256`, the protocol (rounds, clients, α, seed, resolution) and its own caveats. `tests/test_arm_tradeoff.py` guards two distinct risks: **drift** (the committed numbers are regenerated from the record and compared where the record is present) and **unsupported claims** (a number shown without its caveat is a claim the record does not make — the comm ratio in particular is round-budget dependent).
 
-> The `research/` tree those source files live in is **gitignored**, so the committed JSON is the only copy of these numbers inside the repository.
-
 ---
 
 ## Provenance: the Arm Rides on Every Result
@@ -263,7 +261,7 @@ Measured on CIFAR-10 (linear probe on frozen features), 2026-08-13:
 | Pretrained backbone, **BN adapting** | 72.85 % federated |
 | Random backbone, BN fixed (offline probe, same arch/resolution/data) | 26.25 % |
 
-> The two probe figures are the **committed** harness's (`research/benchmarks/frozen_feature_linear_probe.py`, seed 1234 / head seed 0). They supersede an earlier inline-script pair — 80.35 % / 25.10 % — which `recipes.py`'s `freeze_untrained_modules` docstring still quotes; the record keeps both (`research/results/pretrained-backbone/pretrained_frozen_arm_2026-08-13.json`) and notes that probe and federation agree to within about a point, not the 0.02 once claimed.
+> The two probe figures are from the linear probe benchmark (seed 1234 / head seed 0). They supersede an earlier inline-script pair — 80.35 % / 25.10 % — which `recipes.py`'s `freeze_untrained_modules` docstring still quotes; the benchmark record keeps both and notes that probe and federation agree to within about a point, not the 0.02 once claimed.
 
 So BN adaptation **degrades** good features by roughly 7.5 points — it re-estimates, from one client's shard, statistics that ImageNet training had already fitted well.
 

@@ -77,6 +77,22 @@
 <details class="nav-group">
 <summary>Mobile</summary><ul>
 <li><a href="mobile/README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="mobile/02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a href="mobile/03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a href="mobile/04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="mobile/05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a href="mobile/06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a href="mobile/07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a href="mobile/08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="mobile/09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a href="mobile/10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a href="mobile/11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a href="mobile/12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="mobile/13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a href="mobile/14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="mobile/15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a href="mobile/16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="mobile/17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Client (Docker)</summary><ul>
@@ -292,22 +308,15 @@ channel, no TCP port, no subprocess.</p>
 <li><strong>Memory scales with <code>clients_per_round</code>, not <code>num_clients</code></strong> — clients are built per round and
   released. The corollary is that <code>client_factory</code> is called once per participation, so it must
   close over pre-partitioned indices rather than re-reading a dataset.</li>
-<li><strong>Measured to 5,000 clients.</strong> <code>research/results/simulation/scale_m4max.json</code> records the grid
+<li><strong>Measured to 5,000 clients.</strong> The simulation scaling benchmark records the grid
   10 / 50 / 100 / 500 / 1,000 / 2,000 / 5,000 clients × seeds 0, 1, 2 — 21 cells, all run, none
   skipped — at 20 rounds, 10% participation, on macOS arm64 (14 CPUs, torch 2.9.1, CPU device).
   The run's own recorded caveat is the honest reading: it measures <strong>simulator</strong> scaling on a
   deliberately tiny model (linear 8 → 4, synthetic data), so a cell's wall-clock is a <strong>floor</strong>
   on what a real architecture would cost, never an estimate of it.</li>
 </ul>
-<p>This is an experiment/research path. It does not replace the deployed gRPC server, and no backend
+<p>This is an experimental path. It does not replace the deployed gRPC server, and no backend
 orchestration path uses it.</p>
-<blockquote>
-<p><strong>A note on the <code>research/</code> paths cited in this wiki.</strong> <code>research/</code> is <strong>gitignored and
-untracked</strong> (<code>.gitignore:166</code>), so it exists only in a working copy where those runs were
-executed — a fresh clone will not have it. The citations are kept because they name the exact
-file that backs a number and the harness that regenerates it; treat them as provenance, not as
-paths you can expect to <code>ls</code> after cloning.</p>
-</blockquote>
 <hr />
 <h2 id="component-wikis">Component Wikis<a class="headerlink" href="#component-wikis" title="Permanent link">&para;</a></h2>
 <h3 id="backend">Backend<a class="headerlink" href="#backend" title="Permanent link">&para;</a></h3>
@@ -413,7 +422,7 @@ paths you can expect to <code>ls</code> after cloning.</p>
     <span class="k">return</span> <span class="n">train</span><span class="o">.</span><span class="n">shard</span><span class="p">(</span><span class="n">num_shards</span><span class="o">=</span><span class="n">num_shards</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">partition_id</span><span class="p">,</span> <span class="n">contiguous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </code></pre></div>
 
-<p>That is not a re-implementation by guesswork: <code>FederatedDataset</code> defaults to <code>shuffle=True, seed=42</code> and shuffles each split <em>before</em> partitioning, and <code>IidPartitioner.load_partition(i)</code> is precisely <code>shard(num_shards=N, index=i, contiguous=True)</code> — both read off the installed <code>flwr-datasets</code> 0.5.0 source, then verified empirically. The equivalence check ran the two partitioners side by side and compared <strong>per partition</strong>, verdict <code>EQUIVALENT</code>, recorded at <code>research/results/reproducibility/flwr_shard_equivalence.json</code> from the committed harness <code>research/benchmarks/verify_flwr_shard_equivalence.py</code>. Honest scope: the recorded run covers the <em>mechanism</em> level (synthetic 1,000-row dataset, 10 partitions, seed 42, all identical); the end-to-end CIFAR-10 level is marked <strong>not run</strong> in that file (<code>--full</code> was not requested; it needs the ~170MB download). So the shard logic is proven identical and the full-dataset instantiation of it is argued, not measured.</p>
+<p>That is not a re-implementation by guesswork: <code>FederatedDataset</code> defaults to <code>shuffle=True, seed=42</code> and shuffles each split <em>before</em> partitioning, and <code>IidPartitioner.load_partition(i)</code> is precisely <code>shard(num_shards=N, index=i, contiguous=True)</code> — both read off the installed <code>flwr-datasets</code> 0.5.0 source, then verified empirically. The equivalence check ran the two partitioners side by side and compared <strong>per partition</strong>, verdict <code>EQUIVALENT</code>, recorded in the shard equivalence verification harness. Honest scope: the recorded run covers the <em>mechanism</em> level (synthetic 1,000-row dataset, 10 partitions, seed 42, all identical); the end-to-end CIFAR-10 level is marked <strong>not run</strong> (<code>--full</code> was not requested; it needs the ~170MB download). So the shard logic is proven identical and the full-dataset instantiation of it is argued, not measured.</p>
 <p><strong>Registered aggregation strategies</strong> (<code>framework/src/fedlearn/server/strategy_factory.py</code>; names matched case-insensitively with hyphens/underscores ignored, so <code>"fed_avg" == "FedAvg"</code>):</p>
 <table>
 <thead>

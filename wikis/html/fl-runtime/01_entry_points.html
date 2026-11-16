@@ -77,6 +77,22 @@
 <details class="nav-group">
 <summary>Mobile</summary><ul>
 <li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="../mobile/02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a href="../mobile/03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a href="../mobile/04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="../mobile/05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a href="../mobile/06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a href="../mobile/07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a href="../mobile/08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="../mobile/09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a href="../mobile/10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a href="../mobile/11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a href="../mobile/12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="../mobile/13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a href="../mobile/14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="../mobile/15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a href="../mobile/16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="../mobile/17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Client (Docker)</summary><ul>
@@ -618,7 +634,7 @@ bash<span class="w"> </span>run_recipes.sh<span class="w">                </span
 <p>The backend emits only <code>--project-id</code>, <code>--port</code> and <code>--num-rounds</code> on the FoT branch — no model-type, no model-path, no DP flags (SE-11 refuses to spawn FoT for a DP-enabled project outright).</p>
 <p>The file is a thin shim: it walks up to eight directory levels looking for <code>framework/src/fedlearn</code>, puts it on <code>sys.path</code> if <code>import fedlearn</code> fails, then calls <code>fedlearn.fot.fot_server.start_fot_server</code>. FoT is <strong>additive and orthogonal to the gradient path</strong> and torch-free by design.</p>
 <blockquote>
-<p><strong>Do not present FoT as a validated capability.</strong> <code>--backend</code> defaults to <code>stub</code>, and <code>fedlearn.fot.backend.get_backend</code> wires only <code>DeterministicStubBackend</code> — <code>local-http</code>, <code>vllm</code> and <code>ollama</code> all raise <code>BackendError</code>. No LLM has ever run through this path, and there is no FoT result in <code>research/results/</code>.</p>
+<p><strong>Do not present FoT as a validated capability.</strong> <code>--backend</code> defaults to <code>stub</code>, and <code>fedlearn.fot.backend.get_backend</code> wires only <code>DeterministicStubBackend</code> — <code>local-http</code>, <code>vllm</code> and <code>ollama</code> all raise <code>BackendError</code>. No LLM has ever run through this path.</p>
 </blockquote>
 <hr />
 <h2 id="benchmarkspy-the-metric-core"><code>benchmarks.py</code> — the metric core<a class="headerlink" href="#benchmarkspy-the-metric-core" title="Permanent link">&para;</a></h2>

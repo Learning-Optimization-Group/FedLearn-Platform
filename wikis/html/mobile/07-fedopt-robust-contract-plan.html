@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FedOpt and Robust in Execution Contract v1 — Plan · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Mobile</summary><ul>
+<li><a href="README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a href="03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a href="04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a href="06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a class="active" href="07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a href="08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a href="10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a href="11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a href="12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a href="14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a href="16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Mobile</b> &nbsp;·&nbsp; FedOpt and Robust in Execution Contract v1 — Plan</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="fedopt-and-robust-in-execution-contract-v1-plan">FedOpt and Robust in Execution Contract v1 — Plan<a class="headerlink" href="#fedopt-and-robust-in-execution-contract-v1-plan" title="Permanent link">&para;</a></h1>
+<p><strong>Goal:</strong> Put FedOpt and Robust back on the phone by adding them to the approved v1 matrix, so a TinyNet FedOpt
+or Robust run publishes a contract that the laptop and Android clients both execute exactly.</p>
+<p><strong>Status:</strong> Done (2026-09-24). All seven slices landed, and a vivo 1805 and three laptop clients completed one live
+FedOpt run and one live Robust run on published contracts. See <a href="#result">Result</a>.</p>
+<p><strong>Why now:</strong> Android refuses every run without a READY v1 contract (the strict decision recorded in
+<a href="06-execution-contract-v1-implementation-plan.html">06</a>). Stage 1 validated FedOpt and Robust live on the phone,
+and the strict gate took them away. This restores them without weakening the gate.</p>
+<h2 id="what-the-clients-actually-execute">What the clients actually execute<a class="headerlink" href="#what-the-clients-actually-execute" title="Permanent link">&para;</a></h2>
+<p>The <a href="02-android-federated-learning-parity-design.html">parity design</a> already says both are ordinary first-order
+client training. Server-side adaptation and robust aggregation stay on the server. Measured in the code:</p>
+<table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>What the FL server sends each round</th>
+<th>What both clients train</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FedAvg</td>
+<td>nothing</td>
+<td>the client default: SGD lr 1e-3, 1 epoch</td>
+</tr>
+<tr>
+<td>Robust</td>
+<td>nothing (<code>RobustAggregator</code> supplies no client config)</td>
+<td>the same as FedAvg</td>
+</tr>
+<tr>
+<td>FedOpt</td>
+<td><code>learning_rate=0.01</code>, <code>local_epochs=1</code> (the <code>FedOpt</code> strategy's defaults, which <code>fl_server.py</code> does not override)</td>
+<td>SGD lr 0.01, 1 epoch: the laptop via <code>learning_rate_override</code>, the phone via the native server settings</td>
+</tr>
+</tbody>
+</table>
+<p>So the contract needs <strong>no new schema fields.</strong> The strategy enum plus <code>localTraining</code> fully state what a
+client does, and server-only settings (FedAdam betas, the robust method) are not client behaviour. The
+FedOpt contract must state lr 0.01, and it must come from the same value the server sends.</p>
+<h2 id="a-behaviour-this-slice-changes">A behaviour this slice changes<a class="headerlink" href="#a-behaviour-this-slice-changes" title="Permanent link">&para;</a></h2>
+<p>The native first-order round lets server-sent <code>learning_rate</code> / <code>local_epochs</code> <strong>override</strong> the values it was
+given (<a href="05-first-order-round-config-plan.html">05</a>). Under a contract, that means the server rather than the
+contract decides what the phone trains. It is invisible today only because a FedAvg server sends nothing.
+From this slice on, the contract is authoritative: a server value must <strong>equal</strong> the contract's, or the round
+is refused before any upload. The laptop client gets the same guard, since it also lets the server config
+override. FedOpt still requires the server to send both values, as a cross-check that the server really runs
+the configured FedOpt.</p>
+<h2 id="slices-each-test-first-each-its-own-commit">Slices (each test-first, each its own commit)<a class="headerlink" href="#slices-each-test-first-each-its-own-commit" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>One source for FedOpt's client training.</strong> A torch-free constant module in <code>fl-runtime/</code> that
+   <code>fl_server.py</code> passes to <code>FedOpt(...)</code> explicitly and the resolver reads. Test: the config the server's
+   FedOpt sends equals the resolved plan.</li>
+<li><strong>Resolver plans.</strong> <code>TINYNET_GOLDEN</code> / <code>FedOpt</code> / <code>FULL</code> and <code>Robust</code> / <code>FULL</code>. Tests: each plan equals the
+   optimizer, step budget and batching <code>client.py</code> really builds under that strategy's server config; DeComFL
+   and FedProx stay not representable.</li>
+<li><strong>Matrix, in all three readers.</strong> Add the two rows to the approved matrix (README), the generator's corpus,
+   and the Python, Java and TypeScript validators in one commit, with corpus cases for each new row and
+   the combinations that must stay refused.</li>
+<li><strong>Backend publication.</strong> A FedOpt or Robust TinyNet run publishes READY. The legacy/v1 equivalence
+   check maps both strategies.</li>
+<li><strong>Laptop guard.</strong> Under a contract, a server-sent learning rate or epoch count that differs from the
+   contract refuses the round.</li>
+<li><strong>Phone.</strong> <code>projectContract</code> accepts both strategies and projects the real strategy. The native round
+   refuses a server value that disagrees with the contract instead of adopting it. FedOpt still requires
+   the server values. Jest and C++ tests; the C++ endpoint test for a server-chosen rate becomes "the
+   contract's rate, confirmed by the server".</li>
+<li><strong>Live runs.</strong> Fresh APK; one FedOpt run and one Robust run with the vivo and three laptop clients,
+   checked numerically the way Stage 2I was.</li>
+</ol>
+<h2 id="not-in-scope">Not in scope<a class="headerlink" href="#not-in-scope" title="Permanent link">&para;</a></h2>
+<p>DeComFL (needs a schema extension for the zeroth-order path), FedProx (needs a native proximal term), any
+recipe other than TinyNet, and describing server-side aggregation settings in the contract.</p>
+<h2 id="result">Result<a class="headerlink" href="#result" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Slice</th>
+<th>Commit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1–2. One source for FedOpt's client training; resolver plans</td>
+<td><code>4663382</code> (+ <code>176f0a1</code>: the frozen client now bundles the resolver)</td>
+</tr>
+<tr>
+<td>3. Matrix in all three readers</td>
+<td><code>705c875</code>: 160-case corpus; each reader fails the 4 new cases with its matrix reverted</td>
+</tr>
+<tr>
+<td>4. Backend publication</td>
+<td><code>e538c88</code>: no backend code change was needed; the publisher test pins it</td>
+</tr>
+<tr>
+<td>5. Laptop guard</td>
+<td><code>1cd3070</code></td>
+</tr>
+<tr>
+<td>6. Phone</td>
+<td><code>164e764</code></td>
+</tr>
+</tbody>
+</table>
+<p>Live, from a fresh APK built at <code>164e764</code>:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>FedOpt run <code>f59ecffc…</code></th>
+<th>Robust run <code>3b96d6d7…</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Contract</td>
+<td><code>bdb02f7979c6…</code> — lr 0.01 × 1</td>
+<td><code>aaa928a47075…</code> — lr 0.001 × 1</td>
+</tr>
+<tr>
+<td>Terminal state</td>
+<td>COMPLETED</td>
+<td>COMPLETED</td>
+</tr>
+<tr>
+<td>One accepted update per participant, rounds 1–3</td>
+<td>yes</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Phone shows the contract accepted</td>
+<td>yes</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Replay of the phone's training against the contract</td>
+<td>its losses and the final model match exactly</td>
+<td>its losses match; the final model cannot discriminate (below)</td>
+</tr>
+</tbody>
+</table>
+<p>Both completed with <code>app.backend.internal-url</code> unset, confirming the callback fix (<code>ca18c08</code>) live.</p>
+<p>Worth knowing:</p>
+<ul>
+<li><strong>Under Robust, the aggregate says nothing about one client's training.</strong> With three identical laptops, the
+  coordinate-wise median out-votes a deviant phone: a replayed phone at lr 0.1 × 5 leaves the final model
+  bit-identical. Only the phone's own losses show what it trained.</li>
+<li><strong>A laptop trained a round that does not exist.</strong> After Robust's round 3 aggregated, one laptop fetched the
+  model, trained "round 4" and submitted it. The servicer logged it as accepted, but it was never aggregated and
+  the final model is unaffected. <strong>Fixed afterwards</strong> (<code>3ab3321</code>, <code>20cd3e4</code>): once the last round aggregates, the
+  coordinator hands out no further round, reports the run complete, and refuses late updates, on both the
+  first-order and DeComFL paths. The servicer logs "accepted" only for counted updates. A related masking bug
+  is fixed too (<code>e385791</code>): clients at the end of a run were told INTERNAL instead of "Training complete". Runs
+  now end with no error lines, confirmed live with the phone.</li>
+<li>The server-disagrees-with-contract refusal is covered by unit tests on both clients. It was not provoked live.</li>
+</ul></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

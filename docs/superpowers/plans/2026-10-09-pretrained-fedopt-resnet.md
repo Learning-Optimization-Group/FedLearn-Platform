@@ -42,5 +42,5 @@ Base: 22dadcf. Work stays on the existing isolated feature branch; no push or me
 
 - Original vivo FedOpt runtime verification completed with exit 0: both round states bitwise exact, label/rate controls differ, finite arrays. Complete log retained locally. Prox zero-mu/final round checks remain.
 
-- Completion: original vivo Prox replay exited 0; both round states bitwise exact and changed labels/rates/zero-mu controls differ. All eight original contributions and both registered aggregates now proved; public checked receipt retained at research/results/on-device/resnet-adaptive-2026-10-09.json. Same initial model, different round seeds. All 27 previous phone files unchanged plus three expected imported files.
+- Completion: original vivo Prox replay exited 0; both round states bitwise exact and changed labels/rates/zero-mu controls differ. All eight original contributions and both registered aggregates now proved; public checked receipt retained at results/on-device/resnet-adaptive-2026-10-09.json. Same initial model, different round seeds. All 27 previous phone files unchanged plus three expected imported files.
 - All three tasks complete. Code review had no correctness blockers; both deferred minors remain recorded. Curated reports and guide updates checked against retained artifacts. No push or merge.

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Execution Contract v1 — Focused Design · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Mobile</summary><ul>
+<li><a href="README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a class="active" href="03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a href="04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a href="06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a href="07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a href="08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a href="10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a href="11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a href="12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a href="14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a href="16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Mobile</b> &nbsp;·&nbsp; Execution Contract v1 — Focused Design</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="execution-contract-v1-focused-design">Execution Contract v1 — Focused Design<a class="headerlink" href="#execution-contract-v1-focused-design" title="Permanent link">&para;</a></h1>
+<p><strong>Date:</strong> 2026-09-19
+<strong>Status:</strong> Implementation authorized 2026-09-21. The schema, generated Python/Java/TypeScript readers and shared validation rules are implemented and verified (Stage 2A); publication, client consumption and live conformance are pending. Progress: <a href="06-execution-contract-v1-implementation-plan.html">implementation plan</a>.</p>
+<p>This is the Stage 2 subdesign for the <a href="02-android-federated-learning-parity-design.html">Android parity architecture</a>. It defines what a participant must execute, not whether a particular phone can execute it. A device still needs an artifact, local dataset, and successful qualification before joining a training round.</p>
+<h2 id="scope-and-authority">Scope and authority<a class="headerlink" href="#scope-and-authority" title="Permanent link">&para;</a></h2>
+<p>Version 1 is first emitted for <code>TINYNET_GOLDEN</code> vector training on the mixed-device FedAvg path. Its purpose is to establish the schema, publication lifecycle, generated readers, and laptop/Android conformance gate. It does <strong>not</strong> claim support for every recipe merely because an enum names that recipe. Other strategies and modalities receive contracts only after their runtime behavior and artifacts can be represented and tested without inference. There is no fallback from a rejected v1 contract to legacy behavior in an updated client.</p>
+<p>The canonical schema will live at <code>proto/fedlearn/contract/v1/execution_contract.proto</code>. It is independent of the existing <code>fedlearn.v2</code> gRPC protocol; adding this file does not change a round RPC. Buf generates Java, Python, TypeScript, and C++ bindings. Java constructs and stores the contract, Python validates laptop behavior against it, TypeScript handles enrollment and user-facing refusal, and C++ receives only a validated, typed projection needed for native execution. No independent handwritten contract interface or recipe-name switch may become another source of truth.</p>
+<p>The existing <code>/api/runs/{runId}/manifest</code> and enrollment response remain available during the compatibility window. <code>RunManifestDto</code> gains a <code>contractState</code> and, only when ready, an <code>executionContract</code> ProtoJSON object and opaque <code>contractId</code>. Generated ProtoJSON serializers/parsers are used at this boundary. <code>EnrollmentDto.manifest</code> remains the enclosing location; tokens and partition assignments stay outside the run-level contract.</p>
+<h2 id="normative-v1-schema">Normative v1 schema<a class="headerlink" href="#normative-v1-schema" title="Permanent link">&para;</a></h2>
+<p>The canonical schema is now <code>proto/fedlearn/contract/v1/execution_contract.proto</code>, and it supersedes the listing below. It differs in four ways: behavioral scalars whose zero is legal carry explicit presence; <code>LocalTraining</code> adds <code>batch_size</code>, <code>drop_last</code> and <code>batch_order</code>; a <code>ContractIssueCode</code> enum names refusals; and the exact rules and limits are specified with the shared conformance fixtures (<code>framework/tests/fixtures/execution_contract_v1/</code>). The listing is kept as the reviewed proposal.</p>
+<p>The following is the proposed proto surface, with field numbers fixed when the schema is implemented. All enums reserve zero for <code>UNSPECIFIED</code>. The contract has no protobuf <code>map</code> and no arbitrary JSON/<code>Any</code> field: order-sensitive data stays in repeated fields. ProtoJSON's lowerCamelCase names are the REST names. Int64 values in ProtoJSON use the protobuf JSON string representation; clients must use generated parsing rather than JavaScript <code>number</code> coercion.</p>
+<div class="codehilite"><pre><span></span><code><span class="k">syntax</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;proto3&quot;</span><span class="p">;</span>
+<span class="kn">package</span><span class="w"> </span><span class="nn">fedlearn</span><span class="o">.</span><span class="n">contract.v1</span><span class="p">;</span>
+
+<span class="kd">message</span><span class="w"> </span><span class="nc">ExecutionContract</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">uint32</span><span class="w"> </span><span class="na">contract_version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">             </span><span class="c1">// exactly 1</span>
+<span class="w">  </span><span class="kt">uint32</span><span class="w"> </span><span class="na">min_client_protocol_version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">  </span><span class="c1">// minimum understood control/round protocol</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">run_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w">                      </span><span class="c1">// UUID</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">project_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span><span class="w">                  </span><span class="c1">// UUID</span>
+<span class="w">  </span><span class="n">Recipe</span><span class="w"> </span><span class="na">recipe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Strategy</span><span class="w"> </span><span class="na">strategy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">uint32</span><span class="w"> </span><span class="na">num_rounds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">uint32</span><span class="w"> </span><span class="na">clients_per_round</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Partitioning</span><span class="w"> </span><span class="na">partitioning</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">9</span><span class="p">;</span>
+<span class="w">  </span><span class="k">optional</span><span class="w"> </span><span class="kt">uint64</span><span class="w"> </span><span class="na">seed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span>
+<span class="w">  </span><span class="n">RoundPolicy</span><span class="w"> </span><span class="na">round</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">11</span><span class="p">;</span>
+<span class="w">  </span><span class="n">SecurityPolicy</span><span class="w"> </span><span class="na">security</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">12</span><span class="p">;</span>
+<span class="w">  </span><span class="k">oneof</span><span class="w"> </span><span class="n">workload</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">ModelTraining</span><span class="w"> </span><span class="na">model_training</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">13</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">// Reserved for a separately specified FoT contract, not emitted in v1.</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">enum</span><span class="w"> </span><span class="n">Recipe</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="na">RECIPE_UNSPECIFIED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="na">RECIPE_TINYNET_GOLDEN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="na">RECIPE_MLP</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">  </span><span class="na">RECIPE_CNN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="na">RECIPE_PNEUMONIA_CNN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
+<span class="w">  </span><span class="na">RECIPE_CIFAR_RESNET18</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+<span class="w">  </span><span class="na">RECIPE_TRANSFORMER</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span>
+<span class="w">  </span><span class="na">RECIPE_LLM_LORA</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="kd">enum</span><span class="w"> </span><span class="n">Strategy</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="na">STRATEGY_UNSPECIFIED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="na">STRATEGY_DECOMFL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="na">STRATEGY_FEDAVG</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">  </span><span class="na">STRATEGY_FEDPROX</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="na">STRATEGY_FEDOPT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
+<span class="w">  </span><span class="na">STRATEGY_ROBUST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="kd">enum</span><span class="w"> </span><span class="n">Partitioning</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="na">PARTITIONING_UNSPECIFIED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="na">PARTITIONING_SHARDED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="na">PARTITIONING_LOCAL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">enum</span><span class="w"> </span><span class="n">Arm</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="na">ARM_UNSPECIFIED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="na">ARM_FULL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="na">ARM_FROZEN_HEAD</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="na">ARM_OVA_LP</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">enum</span><span class="w"> </span><span class="n">Task</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="na">TASK_UNSPECIFIED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="na">TASK_VECTOR_CLASSIFICATION</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="na">TASK_IMAGE_CLASSIFICATION</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="na">TASK_SEQUENCE_CLASSIFICATION</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w"> </span><span class="na">TASK_CAUSAL_LM</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">enum</span><span class="w"> </span><span class="n">Objective</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="na">OBJECTIVE_UNSPECIFIED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="na">OBJECTIVE_CROSS_ENTROPY</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="na">OBJECTIVE_ONE_VS_ALL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="na">OBJECTIVE_CAUSAL_LM</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">enum</span><span class="w"> </span><span class="n">UpdateProtocol</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="na">UPDATE_UNSPECIFIED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="na">UPDATE_DECOMFL_SCALAR</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="na">UPDATE_TRAINABLE_STATE_F32</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">enum</span><span class="w"> </span><span class="n">Transport</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="na">TRANSPORT_UNSPECIFIED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="na">TRANSPORT_TLS_REQUIRED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="na">TRANSPORT_PLAINTEXT_DEV</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">enum</span><span class="w"> </span><span class="n">ClientAuth</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="na">CLIENT_AUTH_UNSPECIFIED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="na">CLIENT_AUTH_CONNECTION_TOKEN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="na">CLIENT_AUTH_DISABLED_DEV</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">enum</span><span class="w"> </span><span class="n">SecureAggregation</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="na">SECAGG_UNSPECIFIED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="na">SECAGG_NONE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="na">SECAGG_LIGHTSECAGG_SCALAR</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">enum</span><span class="w"> </span><span class="n">ArtifactBackend</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="na">BACKEND_UNSPECIFIED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="na">BACKEND_EXECUTORCH_CPU</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="na">BACKEND_EXECUTORCH_GPU</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="na">BACKEND_EXECUTORCH_VENDOR</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">enum</span><span class="w"> </span><span class="n">DType</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="na">DTYPE_UNSPECIFIED</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="na">DTYPE_F32</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+
+<span class="kd">message</span><span class="w"> </span><span class="nc">RoundPolicy</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">uint64</span><span class="w"> </span><span class="na">timeout_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">                 </span><span class="c1">// duration; live absolute deadline is server status</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w"> </span><span class="na">one_accepted_update_per_round</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">uint32</span><span class="w"> </span><span class="na">max_transient_retries</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">uint64</span><span class="w"> </span><span class="na">retry_backoff_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">SecurityPolicy</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">Transport</span><span class="w"> </span><span class="na">transport</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="n">ClientAuth</span><span class="w"> </span><span class="na">client_auth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">  </span><span class="n">SecureAggregation</span><span class="w"> </span><span class="na">secure_aggregation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="k">optional</span><span class="w"> </span><span class="kt">uint32</span><span class="w"> </span><span class="na">secure_agg_threshold</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
+<span class="w">  </span><span class="n">CentralDp</span><span class="w"> </span><span class="na">central_dp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span><span class="w">             </span><span class="c1">// message presence; absent means no central DP</span>
+<span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">CentralDp</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">double</span><span class="w"> </span><span class="na">target_epsilon</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">double</span><span class="w"> </span><span class="na">delta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">double</span><span class="w"> </span><span class="na">clip_norm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="c1">// Server-side aggregation only; never implies local DP or secrecy from server.</span>
+<span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">ModelTraining</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">model_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">                   </span><span class="c1">// stable model identifier</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">model_revision</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">             </span><span class="c1">// immutable revision, not mutable project name</span>
+<span class="w">  </span><span class="n">Arm</span><span class="w"> </span><span class="na">arm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Task</span><span class="w"> </span><span class="na">task</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
+<span class="w">  </span><span class="n">Objective</span><span class="w"> </span><span class="na">objective</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+<span class="w">  </span><span class="n">UpdateProtocol</span><span class="w"> </span><span class="na">update_protocol</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span>
+<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="n">TensorSpec</span><span class="w"> </span><span class="na">trainable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span><span class="p">;</span><span class="w">     </span><span class="c1">// canonical ordered named_parameters(requires_grad)</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">frozen_state_sha256</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span><span class="w">        </span><span class="c1">// digest of canonical frozen-state artifact</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">initial_state_sha256</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">9</span><span class="p">;</span><span class="w">       </span><span class="c1">// digest of initial federated-state artifact</span>
+<span class="w">  </span><span class="n">LocalTraining</span><span class="w"> </span><span class="na">local_training</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span>
+<span class="w">  </span><span class="n">DataRequirement</span><span class="w"> </span><span class="na">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">11</span><span class="p">;</span>
+<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="n">ArtifactVariant</span><span class="w"> </span><span class="na">artifacts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">12</span><span class="p">;</span>
+<span class="w">  </span><span class="k">optional</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">fedprox_mu</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">13</span><span class="p">;</span><span class="w">       </span><span class="c1">// required iff strategy is FEDPROX</span>
+<span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">TensorSpec</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="na">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="k">repeated</span><span class="w"> </span><span class="kt">uint64</span><span class="w"> </span><span class="na">shape</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="n">DType</span><span class="w"> </span><span class="na">dtype</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">LocalTraining</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">uint32</span><span class="w"> </span><span class="na">local_epochs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="k">optional</span><span class="w"> </span><span class="kt">uint32</span><span class="w"> </span><span class="na">max_local_steps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">  </span><span class="c1">// absent means every eligible batch per epoch</span>
+<span class="w">  </span><span class="k">optional</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">gradient_clip_norm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="k">oneof</span><span class="w"> </span><span class="n">optimizer</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">Sgd</span><span class="w"> </span><span class="na">sgd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Adam</span><span class="w"> </span><span class="na">adam</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+<span class="w">    </span><span class="n">AdamW</span><span class="w"> </span><span class="na">adamw</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span>
+<span class="w">    </span><span class="n">Rmsprop</span><span class="w"> </span><span class="na">rmsprop</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w"> </span><span class="na">reset_optimizer_each_round</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">Sgd</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">learning_rate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">momentum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">dampening</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">double</span><span class="w"> </span><span class="na">weight_decay</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="na">nesterov</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">Adam</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">learning_rate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">beta1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">beta2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">double</span><span class="w"> </span><span class="na">epsilon</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">weight_decay</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="na">amsgrad</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">AdamW</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">learning_rate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">beta1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">beta2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">double</span><span class="w"> </span><span class="na">epsilon</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">weight_decay</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="na">amsgrad</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">Rmsprop</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">learning_rate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">alpha</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">epsilon</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">double</span><span class="w"> </span><span class="na">weight_decay</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">momentum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="na">centered</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">DataRequirement</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">Task</span><span class="w"> </span><span class="na">task</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="kt">uint64</span><span class="w"> </span><span class="na">input_shape</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">      </span><span class="c1">// shape of one sample; no batch dimension</span>
+<span class="w">  </span><span class="n">DType</span><span class="w"> </span><span class="na">input_dtype</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">uint32</span><span class="w"> </span><span class="na">class_count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span><span class="w">               </span><span class="c1">// classification tasks only</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">label_schema_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span><span class="w">           </span><span class="c1">// immutable, hash-bound schema identifier</span>
+<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="n">Transform</span><span class="w"> </span><span class="na">transforms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span><span class="w">   </span><span class="c1">// in execution order; no executable payload</span>
+<span class="w">  </span><span class="n">ArtifactRef</span><span class="w"> </span><span class="na">tokenizer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span><span class="p">;</span><span class="w">           </span><span class="c1">// message presence; absent for TinyNet</span>
+<span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">Transform</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">oneof</span><span class="w"> </span><span class="n">operation</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">IdentityVector</span><span class="w"> </span><span class="na">identity_vector</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">// Further typed operations require their own semantic specification and</span>
+<span class="w">    </span><span class="c1">// contract-version review before any non-TinyNet recipe is published.</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">IdentityVector</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="kt">uint32</span><span class="w"> </span><span class="na">width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">ArtifactRef</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="na">relative_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="na">sha256</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="kt">uint64</span><span class="w"> </span><span class="na">byte_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">ArtifactVariant</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">variant_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="n">ArtifactBackend</span><span class="w"> </span><span class="na">backend</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">abi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="n">ArtifactRef</span><span class="w"> </span><span class="na">files</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
+<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="na">required_operators</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span><span class="w"> </span><span class="c1">// exact runtime operator IDs, not a wildcard</span>
+<span class="w">  </span><span class="kt">uint64</span><span class="w"> </span><span class="na">declared_peak_memory_bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">uint64</span><span class="w"> </span><span class="na">declared_storage_bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">uint64</span><span class="w"> </span><span class="na">declared_probe_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">uint64</span><span class="w"> </span><span class="na">declared_train_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">9</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>This is an intentionally closed v1 transform vocabulary. New recipes must not repurpose <code>IdentityVector</code> or reinterpret an existing field. Image operations, tokenization parameters, FoT traces, and LoRA adapter semantics require their focused designs and a contract-version decision before emission. Their enum values are registry identifiers, <strong>not</strong> a claim that v1 can execute them. The artifact and dataset subdesigns may add typed descriptors by a reviewed v2 (or compatible optional v1 addition with no change to existing semantics).</p>
+<h2 id="required-values-and-validation">Required values and validation<a class="headerlink" href="#required-values-and-validation" title="Permanent link">&para;</a></h2>
+<p>There are no implicit defaults for behavioral fields. Java must reject a candidate before publication; Python and Android must reject it before downloading a model or opening local data. A valid protobuf parse alone is insufficient. All finite floating-point values are checked explicitly (including NaN and infinity); all hashes are lowercase 64-character SHA-256 hex; all artifact paths are relative, normalized, traversal-free, and unique within a variant.</p>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Required v1 rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Identity and version</td>
+<td><code>contract_version == 1</code>; minimum client protocol is positive and supported; UUIDs parse; run/project IDs match enrollment; <code>num_rounds</code>, <code>clients_per_round</code>, timeout, and retry backoff are positive; retry count is bounded by a server policy.</td>
+</tr>
+<tr>
+<td>Registry</td>
+<td>No <code>UNSPECIFIED</code> or unknown numeric enum value. Recipe/arm/task/objective/update/strategy combination must exist in the approved compatibility matrix. Unknown fields may be ignored only if they are non-behavioral; any new mandatory behavior requires a version bump.</td>
+</tr>
+<tr>
+<td>TinyNet emission</td>
+<td><code>TINYNET_GOLDEN</code>, <code>FULL</code>, vector classification, cross-entropy, <code>FEDAVG</code>, trainable-state F32, exactly the ordered 25 trainable scalars, one typed <code>IdentityVector</code> with the exact input width, explicit class count and label schema. A staged, verified CPU trainable artifact is mandatory.</td>
+</tr>
+<tr>
+<td>Parameters</td>
+<td>Names are nonempty and unique; shapes have positive extents; their product and total count fit configured limits; wire dtype is F32. Layout, initial state, frozen state, artifact metadata, and Python recipe inventory agree. Ordered names are the canonical Python <code>named_parameters()</code> trainable order, even if a transport map arrives in another order.</td>
+</tr>
+<tr>
+<td>Training</td>
+<td>Epochs positive; optional max steps positive; learning rate positive; momentum/weight decay nonnegative; beta and alpha values strictly between 0 and 1; epsilon positive; optional clip norm positive. All optimizer values, including defaults resolved from the actual Python client, are explicit. Optimizer state reset/restore rule is explicit. FedProx coefficient is present and nonnegative only for FedProx; absent otherwise.</td>
+</tr>
+<tr>
+<td>Security</td>
+<td>Effective TLS/auth deployment settings, not desired project settings, determine enums. Central DP parameters are present exactly when server-side central DP is active; epsilon, delta, and clip norm are validated against backend policy. LightSecAgg requires DeComFL scalar updates and a valid threshold; weight updates cannot claim LightSecAgg. A dev plaintext run is never labelled TLS-protected.</td>
+</tr>
+<tr>
+<td>Artifacts and data</td>
+<td>At least one compatible variant; unique variant IDs; every referenced file has hash and nonzero size; artifact backends/ABIs/operators are explicit. Dataset shape, dtype, class count, labels, and transforms are complete. No script, URL to arbitrary code, unknown transform, or server-supplied executable expression is accepted.</td>
+</tr>
+</tbody>
+</table>
+<p>The schema is declarative, not a replacement for an optimizer or training specification. In particular, <code>fl-runtime/client.py</code> currently selects Adam or AdamW in its training path even though <code>fl-runtime/recipes.py</code> advertises several permissible optimizers. For TinyNet specifically, the recipe advertises SGD and Android's first-order path runs SGD, while the present Python training path selects Adam. A completed mixed-device round is therefore <strong>not</strong> optimizer parity. Stage 2 must make the actual TinyNet laptop and Android optimizer/step budgets agree (with test-first changes to the execution paths), then publish only the resolved values. The publisher reads those values from the same run configuration both clients consume; it must not copy a catalog default or encode the present mismatch as a valid contract. If that resolution cannot be established, v1 stays <code>UNAVAILABLE</code>. Likewise, a staged bundle's <code>trainablePtePath</code> alone is insufficient proof of trainability: its names, sizes, graph capability, and hashes must pass validation.</p>
+<h2 id="run-lifecycle-and-immutability">Run lifecycle and immutability<a class="headerlink" href="#run-lifecycle-and-immutability" title="Permanent link">&para;</a></h2>
+<p><code>Run</code> currently snapshots strategy and some scheduling/security settings, while <code>Project</code> retains mutable model, optimizer, task, arm, and DP fields. Stage 2 adds an immutable run-intent snapshot at start, including all project-derived training/security values and effective deployment settings. The server process and contract publisher consume that snapshot. Updating the project must not change an active run's contract or its actual training configuration.</p>
+<p>Contract publication has four explicit states:</p>
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>Meaning</th>
+<th>API behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PENDING</code></td>
+<td>Run intent is captured; asynchronous artifact staging/validation is not complete.</td>
+<td>Manifest/enrollment retain legacy fields and report <code>contractState=PENDING</code>; <code>executionContract</code> and <code>contractId</code> absent. New v1 clients wait with bounded polling; no training on an inferred contract.</td>
+</tr>
+<tr>
+<td><code>READY</code></td>
+<td>One complete contract and its referenced artifact manifest were validated and committed atomically.</td>
+<td>Same immutable contract is returned on every read and in enrollment. <code>contractId</code> is SHA-256 of the stored canonical protobuf bytes, used as an opaque identity; clients do not reserialize ProtoJSON to check it. Individual artifacts are independently hash-verified on download.</td>
+</tr>
+<tr>
+<td><code>UNAVAILABLE</code></td>
+<td>Staging failed, timed out, or some required fact cannot be represented.</td>
+<td>No partial contract is returned. A machine-readable reason explains refusal. Existing legacy desktop clients may proceed during the compatibility window if their path is safe; v1-dependent Android does not.</td>
+</tr>
+<tr>
+<td><code>LEGACY_ONLY</code></td>
+<td>Historical run predating the intent snapshot, or a run deliberately left on the old protocol during rollout.</td>
+<td>No v1 contract is fabricated. Updated clients that require v1 refuse with a migration-specific reason.</td>
+</tr>
+</tbody>
+</table>
+<p>A failed attempt cannot change a published <code>READY</code> contract; artifact deletion or corruption after publication makes provisioning fail and surfaces an integrity error, rather than silently replacing the contract. Run terminal state remains the existing run-status API, orthogonal to contract readiness.</p>
+<p>Absolute round deadlines, assigned round, enrollment token, per-user partition ID, and gRPC endpoint are mutable or participant-specific and therefore stay in status/enrollment/round messages, not this run-level immutable object. <code>RoundPolicy.timeout_ms</code> is a duration; it does not authorize a client to train past the live server deadline. Contribution identity is <code>(runId, enrolled partitionId, server round, update protocol)</code>. Reconnection preserves that identity, and the client records one accepted upload for it. The server remains authoritative for duplicate rejection. Retry policy applies only to transient failures and never means re-train/re-upload after acceptance.</p>
+<h2 id="migration-and-ownership">Migration and ownership<a class="headerlink" href="#migration-and-ownership" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Add the canonical proto and generated bindings; CI checks generator versions, schema compatibility, and generated-file drift. The existing <code>fedlearn.v2</code> mirrors are unaffected unless a later RPC explicitly imports the new package.</li>
+<li>Capture run intent and make Python's resolved training plan observable to the publisher. Validate TinyNet fixtures, effective optimizer, parameter order, frozen and initial state digests, CPU artifact, and effective security settings. Fail as <code>UNAVAILABLE</code> if any are missing.</li>
+<li>Atomically publish the contract and <code>contractId</code>. <code>RunManifestDto</code> dual-emits legacy fields. A server-side equivalence check compares overlapping legacy/v1 decisions before <code>READY</code>; disagreement prevents publication and is reported.</li>
+<li>Laptop clients prefer v1 when <code>READY</code>, validate it, and compare their resolved execution plan against it. Old clients continue on legacy fields in the compatibility window. Android first adds generated parsing/refusal and uses v1 only for a ready, qualified TinyNet run; later stages add recipes one by one.</li>
+<li>Remove legacy interpretation only after production-style mixed-client conformance runs, a measured absence of old clients, and an explicit minimum-protocol increase. No automatic date-based removal.</li>
+</ol>
+<p>The backend owns creation, validation, atomic storage, and authorization. Python owns canonical recipe/parameter/optimizer truth and parity fixtures. Android owns pre-download validation, precise refusal codes, and passing a validated projection to C++. Unknown contract version, unknown enum, unsupported strategy/optimizer/security mode, missing artifact, malformed layout, and unavailable publication receive distinct refusal codes. Logs may include run ID, contract ID, recipe, and refusal code, but never enrollment tokens, raw examples, source filenames, or model weights.</p>
+<h2 id="acceptance-gates">Acceptance gates<a class="headerlink" href="#acceptance-gates" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Schema tests cover presence, numeric bounds, unknown enums, unknown version, malformed IDs/hashes/paths, duplicate names, overflow, invalid combinations, and absent-versus-zero semantics in all generated-reader environments.</li>
+<li>Golden ProtoJSON and protobuf fixtures round-trip through Java, Python, TypeScript, and C++ without losing semantic fields. The stored protobuf digest remains stable on repeated server reads; clients treat it as an identity, not a recomputed integrity proof.</li>
+<li>A TinyNet run publishes only after staging and resolution; tests force delayed staging, failure, corrupt files, concurrent publication, project edits after start, backend restart, and artifact disappearance after <code>READY</code>.</li>
+<li>Legacy and v1 interpretations select the same TinyNet strategy, trainable order, objective, actual optimizer/hyperparameters and step budget, security disclosures, and update protocol. Tests demonstrate the previously mismatched Python Adam/Android SGD execution is aligned before <code>READY</code>; they fail if either path disagrees with the resolved run plan.</li>
+<li>Updated clients reject <code>PENDING</code>, <code>UNAVAILABLE</code>, unknown versions/enums, and mismatched security before model/data access. Old desktop clients continue to operate on a dual-emitting run.</li>
+<li>Mixed-device three-round TinyNet FedAvg still completes with one accepted update per participant per round. This does not certify other recipes, text, DeComFL security, or GPU training.</li>
+</ul>
+<h2 id="explicit-later-design-seams">Explicit later design seams<a class="headerlink" href="#explicit-later-design-seams" title="Permanent link">&para;</a></h2>
+<p>The artifact/delivery design defines promotion, authenticated streaming, resource-envelope measurement, and tokenizer package bytes. The dataset design defines <code>label_schema_id</code>, import normalization, and local snapshot binding. The generic-training design defines optimizer math/state and how native tensor ordering is enforced. The text/LoRA design adds typed transforms and adapter/task semantics. The qualification design decides whether an advertised artifact variant is actually executable on a device. The LightSecAgg design defines scalar masking; no weight-update secure aggregation is implied. FoT has a separate trace/insight protocol and requires its own workload schema; it must not masquerade as a model-weight update.</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

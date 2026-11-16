@@ -253,8 +253,8 @@ Controlled follow-ups should vary the training budget and sample balance before
 claiming the recipe learns useful classification. Any class-weighted objective
 needs an explicit contract and matching implementations.
 
-Raw records are in `research/results/on-device/pneumonia_live/`: the contract,
-package sidecar, server metrics/log, replay distances and phone memory samples.
+Raw qualification records preserve the contract, package sidecar, server metrics/log,
+replay distances and phone memory samples.
 
 Stage 4 remains open: mixed phone+laptop own-data runs, additional strategies and
 training arms, stronger ResNet conformance, and an explanation of the CNN's

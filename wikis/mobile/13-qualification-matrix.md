@@ -2,7 +2,7 @@
 
 Android portable CPU training is implemented for the 24 FULL-arm plans below.
 Declared plans and live qualification are separate facts. The
-[machine-readable matrix](../../research/results/on-device/mobile-qualification-matrix-2026-10-15.json)
+machine-readable matrix
 enumerates all 90 combinations of six recipes, five strategies and three arms.
 Every unavailable plan is checked against the actual resolver and retains its
 refusal and required work, with an explicit data source. Twenty-one plans have retained live receipts; three
@@ -31,17 +31,17 @@ that first local step, so that case does not measure a proximal effect.
 
 ## Reliability and packaged clients
 
-The [interruption receipt](../../research/results/on-device/android-lifecycle-2026-10-10.json)
+The interruption receipt
 retains the original background failure and successful short screen-off,
 actual socket-outage recovery and Stop/rejoin checks. The implementation uses
 native scheduling because Android pauses JavaScript timers in the background.
 Terminal status retires polling, and submitted-round state prevents duplicate
 contributions after rejoin. The
-[picker recreation receipt](../../research/results/on-device/android-picker-recreation-2026-10-10.json)
+picker recreation receipt
 binds the native activity fix and preserved datasets. Automatic recovery of a
 JavaScript import promise after process death is not claimed.
 
-The [longer image interruption receipt](../../research/results/on-device/android-image-lifecycle-2026-10-10.json)
+The longer image interruption receipt
 adds a three-round,16-image-per-client run: forced idle/screen off through the
 first phone round, cooperative Stop/rejoin, and recovery from a20second active
 socket outage while waiting for the peer. All six original contributions replay
@@ -52,11 +52,11 @@ suspension and sustained thermal behavior remain unqualified.
 
 Final review found that this retained run's recovered status RPCs did not prove
 renewed heartbeat after failed registration. The subsequent
-[lifecycle corrections](../../research/results/on-device/android-lifecycle-review-fixes-2026-10-11.json)
+lifecycle corrections
 require accepted re-registration before further rounds and serialize native
 client replacement/heartbeat lifecycle against Stop. Regression tests and a
 real native cancellation/re-registration fixture verify those corrections;
-the [fresh final-source image run](../../research/results/on-device/android-image-reconnect-final-2026-10-11.json)
+the fresh final-source image run
 now separately observes accepted re-registration and an acknowledged upstream
 heartbeat after a failed rejoin, before releasing the held peer. Another heartbeat
 is acknowledged while resumed native work is pending. The new run also repeats
@@ -65,7 +65,7 @@ round/step fields fixed at registration, establishing liveness rather than
 accurate per-round telemetry. Pending native work does not distinguish graph
 computation from a model RPC.
 
-A separate [partial-upload qualification](../../research/results/on-device/android-image-upload-interruption-2026-10-11.json)
+A separate partial-upload qualification
 cuts an original-pneumonia phone update after two complete chunks, before its
 final chunk. No contribution or submitted checkpoint is accepted for that partial
 stream. After an eight-second refusal window, the real provider re-registers and
@@ -77,7 +77,7 @@ long suspension and production Release/TLS training unqualified; complete-upload
 acknowledgement loss is tested separately below. The new observer tests terminal-response CONTINUATION;
 the earlier hash-bound observer and receipt remain unchanged.
 
-The [accepted-upload/lost-completion qualification](../../research/results/on-device/android-image-acknowledgement-loss-2026-10-11.json)
+The accepted-upload/lost-completion qualification
 then exercises the other boundary: the server accepts the complete phone update,
 but its successful response is withheld while the peer remains held. The phone
 has no checkpoint, reconnects and submits again. Both full attempts complete at
@@ -96,13 +96,13 @@ remain open.
 
 The fresh Mac package qualified its normal login, native CSV file picker,
 enrollment, selected model preset and Start flow in the
-[breast-cancer XGBoost run](../../research/results/xgboost/breast-cancer-mixed-cpu-2026-10-10.json).
+breast-cancer XGBoost run.
 This exercises the embedded native client, not a Python-source substitute.
 Directory and CSV/ZIP handoff, preset forwarding and Docker file mounts also
 have regression coverage. Linux/Windows packaging and actual Docker training
 are not qualified by this Mac run. The local Mac package is unsigned.
 
-The [tree deadline check](../../research/results/xgboost/tree-deadline-cleanup-2026-10-10.json)
+The tree deadline check
 confirms failed-run reconciliation, server exit and absent final artifact. A
 separate deterministic regression covers a client RPC detecting the deadline
 before the server polling loop, which previously left a failed run waiting.
@@ -129,15 +129,15 @@ before the server polling loop, which previously left a failed run waiting.
 Debug APK execution over authenticated development plaintext is the measured
 scope. Each device still has to pass the published program's probe. Model
 quality is evaluated separately in the
-[bounded learning controls](../../research/notes/on-device/2026-10-10-learning-controls.md),
+bounded learning controls,
 which show that successful training does not yet yield useful NIH classification
 or reliable longer ResNet convergence.
-The [learning follow-up](../../research/notes/on-device/2026-10-11-learning-followup.md)
+The learning follow-up
 records an improved offline ResNet server-step candidate and a failed NIH
 threshold adjustment, without changing platform defaults or claiming deployment.
 
 
-The [native heartbeat progress qualification](../../research/results/on-device/android-heartbeat-progress-2026-10-11.json)
+The native heartbeat progress qualification
 uses updated native source `c331e59`. Two real foreground USB vivo/Linux
 pneumonia rounds acknowledge actual round advancement and `TRAINING 0/1` to
 `WAITING 1/1` after upload completion, with fresh counts in round two. Four
@@ -149,7 +149,7 @@ the new APK. Multiple steps/DeComFL are host-verified; fresh physical numerical
 replay and Release/TLS qualification remain open. The separate background run
 below qualifies a longer USB screen-off case.
 
-The [ten-round screen-off qualification](../../research/results/on-device/android-screenoff-longrun-2026-10-11.json)
+The ten-round screen-off qualification
 uses the unchanged progress APK and real vivo/Linux clients. The screen stays
 asleep for 32.8 minutes, with no further debugger calls from the harness until
 completion. Every round has acknowledged `TRAINING 0/1`, successful upload and
@@ -161,7 +161,7 @@ and temperature peaks. This strengthens USB-powered Debug background evidence;
 natural wireless Doze, long suspension, thermal endurance, physical Release
 training and deployed TLS remain unqualified.
 
-The [local-training Stop qualification](../../research/results/on-device/android-training-stop-2026-10-12.json)
+The local-training Stop qualification
 requests Stop after two acknowledged `TRAINING round1 0/1` heartbeats. The app
 retains its stopping flag and dataset pin and rejects another Start or Join.
 Stop completes cooperatively after **106.993 seconds**; it is not immediate
@@ -173,7 +173,7 @@ in the reported local-training phase, without identifying exact kernel entry,
 proving mid-operator preemption or establishing a worst-case latency bound.
 
 
-The [battery-powered Wi-Fi attempt](../../research/results/on-device/android-wireless-background-2026-10-13.json)
+The battery-powered Wi-Fi attempt
 **failed before the first completed round**. Android records the active FedLearn
 process being killed by `com.vivo.abe` at 20:05:43 UTC, before the harness stopped
 the project. Across the 8.2-minute interval before failure detection, all retained samples
@@ -188,7 +188,7 @@ repeat the same contract with any changed setting explicitly recorded. A wake
 lock or allowlist fix has not been validated; earlier successful USB receipts
 retain their narrower scope.
 
-The [charger-powered Wi-Fi attempts](../../research/notes/on-device/2026-10-14-wireless-powered-attempts.md)
+The charger-powered Wi-Fi attempts
 did not complete the planned ten rounds after a FedLearn-only OEM background
 opt-in. The first completed one round with two accepted updates and checkpoint
 one before an ADB monitoring timeout; the fresh retry lost training heartbeat
@@ -204,7 +204,7 @@ A fresh SSH comparison completed the same 10 MiB operation in 1.75 seconds.
 The owned development tunnel was refreshed and API/Metro responses verified;
 training over the refreshed connection still needs a separate qualification.
 
-The [seven-round timeout follow-up](../../research/notes/on-device/2026-10-14-wireless-powered-refreshed-failure.md)
+The seven-round timeout follow-up
 also failed the ten-round target after reopening the persistent connection.
 Fourteen updates and checkpoint seven are retained. Round eight's upload was
 partial: 62 chunks were observed, the server logged 61 of 99, and none was
@@ -223,7 +223,7 @@ old port were refused. Saved files and APK matched before shutdown. Physical USB
 identity, TCP-property and route postchecks remain pending. This cleanup does
 not change the failed training verdict.
 
-The [heartbeat recovery correction](../../research/notes/on-device/2026-10-14-heartbeat-recovery.md) separates transient heartbeat loss
+The heartbeat recovery correction separates transient heartbeat loss
 from terminal Stop and routes it through bounded re-registration. Local mobile,
 native transport/core and server-boundary checks plus the Android Debug build
 pass. The candidate is not installed; powered physical requalification remains
@@ -231,7 +231,7 @@ pending. Review also found that the pre-existing DeComFL rejoin path discards it
 trajectory state, so native continuation after round one remains OPEN. This does
 not turn any failed physical qualification into a pass.
 
-The [physical heartbeat recovery test](../../research/notes/on-device/2026-10-15-heartbeat-recovery-physical.md)
+The physical heartbeat recovery test
 now qualifies the installed correction on vivo: three deliberately failed
 heartbeat calls are followed by actual server re-registration and continuation
 to round two, preserving checkpoint one without a duplicate contribution. Four
@@ -239,7 +239,7 @@ accepted states reconstruct the registered final model exactly. All 33 saved
 files survive the app update and test. This is a controlled, USB-powered recovery
 case; the internal native flag was not directly sampled.
 
-The subsequent [powered Wi-Fi screen-off test](../../research/notes/on-device/2026-10-15-heartbeat-recovery-longrun.md)
+The subsequent powered Wi-Fi screen-off test
 completes ten rounds with twenty unique accepted updates, checkpoint ten and an
 exact reconstructed final aggregate. Over 36.6 minutes, retained samples show
 the same app process, asleep display, USB charging and battery temperature of
@@ -251,7 +251,7 @@ production Release/TLS and DeComFL native continuation after round one remain
 open. Earlier failed cases retain their verdicts; this is not a controlled
 causal comparison of the fix alone.
 
-The [DeComFL reconnection correction and physical qualification](../../research/notes/on-device/2026-10-15-decomfl-recovery.md)
+The DeComFL reconnection correction and physical qualification
 now closes the previously open continuation defect for an app process that stays
 alive. The bridge retains the trajectory across network-client replacement, and
 the loop applies each completed aggregate once, rejecting incomplete history
@@ -268,8 +268,8 @@ receipts retain their original APK bindings.
 
 ## CIFAR CNN DeComFL — 15 October
 
-The [CNN DeComFL receipt](../../research/results/on-device/android-cnn-decomfl-2026-10-15.json)
-and [qualification note](../../research/notes/on-device/2026-10-15-cnn-decomfl.md)
+The CNN DeComFL receipt
+and qualification note
 add one bounded image plan: FULL arm, LOCAL_SNAPSHOT, one sequential batch of
 1–32 images per participant. Fixture runs and larger snapshots are refused.
 Fresh functional exports correct the old loss-program bound of 15 despite a
@@ -287,7 +287,7 @@ files. The original empty ADB routes and stopped helpers/guards were verified.
 
 ## Standalone internal Android package — 16 October
 
-The [standalone qualification](../../research/notes/on-device/2026-10-16-standalone-debug.md)
+The standalone qualification
 adds packaging evidence for two existing cells, CNN/FULL/LOCAL_SNAPSHOT with
 FedAvg and DeComFL. Both completed ten real vivo/Linux rounds with Metro stopped,
 normal UI enrollment/import/Start, and exact final aggregate reconstruction.
@@ -296,7 +296,7 @@ No support-matrix cells or production Release/TLS qualifications are added.
 
 ## Authentication lifecycle — 16 October
 
-The [sign-out qualification](../../research/notes/on-device/2026-10-16-signout-lifecycle.md)
+The sign-out qualification
 fixes local participation outliving its authenticated provider. Unmount now
 cancels native work and the foreground service, with a shared guard preventing
 new-provider overlap until old enrollment/training and final abort have drained.
@@ -307,7 +307,7 @@ manual rejoin, not active process-death recovery; no support cells are added.
 
 ## Manual recovery after process death — 16 October
 
-The [process-death qualification](../../research/notes/on-device/2026-10-16-process-death.md)
+The process-death qualification
 covers a forced VM crash after an accepted round in CNN/FULL/LOCAL_SNAPSHOT/FedAvg.
 The corrected standalone app leaves no orphan foreground service; explicit cold
 launch, rejoin, dataset selection and Start complete the same three-round run.
@@ -317,7 +317,7 @@ resume, low-memory/in-flight-compute qualification or DeComFL process recovery.
 
 ## Lost completion before process death — 16 October
 
-The [lost-completion qualification](../../research/notes/on-device/2026-10-16-acknowledgement-crash.md)
+The lost-completion qualification
 holds the successful upload response after the server accepts the phone's complete
 round-one update, then crashes the app before the native call returns. Explicit
 cold launch and same-round rejoin produce an identical second upload; only the
@@ -330,7 +330,7 @@ upload, DeComFL process recovery or new support cells are qualified.
 
 ## Incomplete transport upload before process death — 16 October
 
-The [partial-upload qualification](../../research/notes/on-device/2026-10-16-partial-upload-crash.md)
+The partial-upload qualification
 forwards only the start of the first HTTP/2 upload frame, then crashes the phone
 with zero server-counted updates. Manual cold launch, same-run rejoin and dataset
 selection complete three CNN FedAvg rounds with six unique updates and an exact
@@ -342,7 +342,7 @@ Product source and APK are unchanged; no support cells or automatic recovery are
 
 ## Forced exit during native backward computation — 16 October
 
-The [native-computation qualification](../../research/notes/on-device/2026-10-16-native-compute-exit.md)
+The native-computation qualification
 verifies a round-one federated backward stack, then exits the unchanged app through
 its mapped libc while the debugger holds it stopped. Android confirms actual
 process disappearance and no orphan training service. Manual cold launch and rejoin
@@ -353,7 +353,7 @@ automatic resume, natural low-memory/SIGKILL qualification or DeComFL process re
 
 ## DeComFL cold process restart — test 16 October, verified 18 October
 
-The [DeComFL process-death test](../../research/notes/on-device/2026-10-18-decomfl-process-death.md)
+The DeComFL process-death test
 confirms a recovery gap: after round one and actual process death, explicit cold
 rejoin at round two refuses initialization. The mobile trajectory is held only in
 memory and its initial bootstrap requires round one. No round-two scalar request
@@ -365,7 +365,7 @@ DeComFL cold recovery; checkpoint storage alone is not established as the soluti
 
 ## DeComFL current-snapshot cold recovery — 18 October
 
-The [corrected cold-recovery qualification](../../research/notes/on-device/2026-10-18-decomfl-cold-restart-recovery.md)
+The corrected cold-recovery qualification
 closes the preceding first-round-only gap for CNN/FULL/LOCAL_SNAPSHOT. After a
 powered-phone app crash and server advancement while the phone is absent, manual
 launch/rejoin at round two downloads the current validated snapshot and completes
@@ -379,7 +379,7 @@ checkpoint durability or production release qualification.
 
 ## DeComFL lost completion before process death — 18 October
 
-The [scalar-acknowledgement crash qualification](../../research/notes/on-device/2026-10-18-decomfl-acknowledgement-crash.md)
+The scalar-acknowledgement crash qualification
 holds a real successful round-one response after the server counts the phone's
 update, then crashes the verified app process while the RPC remains pending.
 Manual same-round rejoin produces an identical protobuf request; the server counts
@@ -391,7 +391,7 @@ coverage, computation/request-interruption coverage or checkpoint durability.
 
 ## DeComFL native forward-computation exit — 18 October
 
-The [native computation-exit qualification](../../research/notes/on-device/2026-10-18-decomfl-native-compute-exit.md)
+The native computation-exit qualification
 verifies a forward-convolution stop in the actual round-one DeComFL base-loss stack,
 then exits the unchanged app through verified mapped libc instructions. Zero scalar
 requests or updates are accepted through death. Manual cold rejoin recomputes round

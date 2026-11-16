@@ -8,7 +8,7 @@ Execution: inline; one fresh whole-branch correctness review at the end.
   create project and retain initial checkpoint; two-round mixed run; exact
   original-runtime/BatchNorm and aggregate replay; record evidence and support
   flag. Existing qualification helpers in .temp/live-mobile provide the pattern.
-- [x] NIH: add research/benchmarks/nih_learning.py and runtime tests for safe
+- [x] NIH: add benchmarks/nih_learning.py and runtime tests for safe
   snapshot/provenance binding, finite binary metrics and reproducible training.
   Prepare128+128 train/512 validation samples via verified NIH manifests; run
   centralized three-epoch1e-3/1e-4 baselines on g14; compare actual three-round

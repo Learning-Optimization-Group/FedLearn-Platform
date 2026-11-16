@@ -68,10 +68,9 @@ proven against a multi-step framework golden, and it completed live with the viv
 one-step TinyNet settings the proximal term is exactly zero, so the live run proves the contract path, not the term.
 **Every v1 strategy now runs on the phone.**
 
-### Findings from 2H worth carrying into the paper
+### Findings from 2H
 
-Recorded in `research/notes/on-device/2026-09-22-contract-endpoint-replay-and-tolerance-trap.md`, measured
-in `research/results/on-device/contract_endpoint_replay.json`.
+Recorded in the contract endpoint replay qualification record.
 
 - **A tolerance inherited across configurations can exceed the signal.** The existing FedAvg endpoint
   golden (lr 0.1, 5 epochs) carries `endpoint_atol = 2e-3`. The contract states lr 1e-3 for one epoch,
@@ -133,7 +132,7 @@ in `research/results/on-device/contract_endpoint_replay.json`.
 ## Stage 2I — mixed-device conformance
 
 - Build and install a fresh APK, then run three TinyNet FedAvg rounds with the vivo and three desktop clients on one published contract.
-- Record the run ID, contract ID, client and partition assignments, accepted contributions, byte counts and terminal state under `research/results/multiplatform/`, and update the mobile status documentation.
+- Record the run ID, contract ID, client and partition assignments, accepted contributions, byte counts and terminal state in the multiplatform qualification records, and update the mobile status documentation.
 - Acceptance: one accepted update per participant per round; both client types report the same contract ID; the laptop and Android local plans match the contract. This does not certify other recipes, DeComFL security or GPU training.
 
 ### Stage 2I — result (2026-09-24)

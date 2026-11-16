@@ -87,7 +87,7 @@ This page used to state that `--runtime nvidia` must never be passed on Jetson b
 | `docker run --runtime nvidia` | **works** — `torch.cuda.is_available()` is `True`, device reports as `Orin`. No hang. |
 | `/dev/nvhost-*` device mounts, no `--runtime nvidia` | **fails** — `cuInit → 801 (CUDA_ERROR_NOT_SUPPORTED)` then a segfault; the in-container `libcuda.so.1` is a stub |
 
-Recorded in `research/results/decomfl/device_ab_cpu_vs_gpu.json` (`orin_cuda_added_2026_07_28`) and used for the Orin CUDA rows of `research/results/benchmark/pytorch_crossdevice_matrix.json`. Two further JetPack 6 details:
+Recorded in the device A/B benchmark record (`orin_cuda_added_2026_07_28`) and used for the Orin CUDA rows of the PyTorch cross-device benchmark matrix. Two further JetPack 6 details:
 
 - The device-node list itself is JetPack-5-era. Both `run-client.sh` (its `jetson` branch, line 133) and the desktop's `DockerService` (`JETSON_DEVICE_MOUNTS`) pass `/dev/nvhost-ctrl`, which is **reported absent on L4T R36.5** — Docker hard-errors with `no such file or directory` when a device node does not exist. That specific node's absence was not re-verified while writing this page; the measured fact is that the whole device-mount path failed on the JetPack 6.2 box above.
 - The device-mount path stays the documented fallback and is still what the desktop app uses for its Jetson profile.

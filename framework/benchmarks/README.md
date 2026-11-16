@@ -254,4 +254,4 @@ is shared across peers; only the head is federated). Communication + byte number
 
 Together with `dp_epsilon_accuracy.py` (FR-13 collapse) and `dp_on_head.py`, these map the full DP-FL
 privacy–utility space around `SNR = N/(z·√d)` and its three knobs (shrink d / grow N / subsample) —
-synthesized in `research/notes/2026-07-17-dp-fl-privacy-utility-story.md`.
+synthesized in `notes/2026-07-17-dp-fl-privacy-utility-story.md`.

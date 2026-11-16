@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Android Release and TLS qualification procedure · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Mobile</summary><ul>
+<li><a href="README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a href="03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a href="04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a href="06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a href="07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a href="08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a href="10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a href="11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a href="12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a href="14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a class="active" href="16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Mobile</b> &nbsp;·&nbsp; Android Release and TLS qualification procedure</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="android-release-and-tls-qualification-procedure">Android Release and TLS qualification procedure<a class="headerlink" href="#android-release-and-tls-qualification-procedure" title="Permanent link">&para;</a></h1>
+<p>This is the next qualification procedure, not a completed release claim. Existing
+evidence is in <a href="14-release-readiness.html">release readiness</a>. The first target is
+CNN/FULL/LOCAL_SNAPSHOT/FedAvg with one powered phone and one Linux client, three
+rounds and 32 disjoint CIFAR images per participant. Exercise DeComFL only after
+this first path works.</p>
+<p>The 6 November physical qualification completed this CNN path using two disjoint
+32-example synthetic image datasets, the signed qualification package and a
+Linux client. Three rounds produced six unique contributions; independent
+averaging reproduced the registered final model exactly. The same-key version-2
+update retained the account, settings, dataset and receipts, then completed a new
+two-client round. A controlled app interruption required an explicit rejoin.
+One coefficient failed the original float32 reference tolerance; its failure is
+retained, alongside a separate passing higher-precision diagnostic comparison.</p>
+<p>The signed app also refused wrong gRPC hostname, untrusted gRPC certificate and
+plaintext training controls, each against a reachable listener with token
+authentication enabled and zero accepted updates/results. The baseline transport
+configuration was restored; all 36 original-app dataset hashes still matched.
+These results use a retained qualification-only signer and an isolated development
+API profile. Production signing/backup, production-profile deployment, physical
+untrusted-HTTPS and device network/screen-off faults remain separate checks.</p>
+<h2 id="trust-and-identity-prerequisites">Trust and identity prerequisites<a class="headerlink" href="#trust-and-identity-prerequisites" title="Permanent link">&para;</a></h2>
+<p>There are three different identities:</p>
+<table>
+<thead>
+<tr>
+<th>Identity</th>
+<th>Provisioning</th>
+<th>Acceptance condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HTTPS API</td>
+<td>Server certificate and full chain for the exact API hostname</td>
+<td>The unchanged Release app trusts the chain through Android system roots</td>
+</tr>
+<tr>
+<td>gRPC server</td>
+<td>Certificate/key served by the real training process</td>
+<td>Enrollment supplies the trust certificate; the advertised hostname matches its SAN</td>
+</tr>
+<tr>
+<td>Android signer</td>
+<td>Private release keystore with a retained, backed-up key</td>
+<td>Release validation passes and two successive APKs share the same signer</td>
+</tr>
+</tbody>
+</table>
+<p>A self-signed local HTTPS certificate is useful for host-side preparation, but
+the current Release network policy trusts system roots only. Host-side <code>--cacert</code>
+success does not prove the phone will trust it. Do not weaken that policy, disable
+hostname verification, install a system root, or use Debug to claim Release TLS.
+Use an operator-controlled endpoint with an Android-trusted chain for the real
+phone test. No public deployment or DNS change is required for local preparation.</p>
+<p>Use server TLS plus the platform's connection-token authentication first. Leave
+<code>FEATURE_FL_CLIENT_CERT=false</code> and gRPC client-certificate enforcement off: mobile
+client-certificate provisioning is not implemented. This does not qualify mTLS.</p>
+<h2 id="isolate-the-staging-stack">Isolate the staging stack<a class="headerlink" href="#isolate-the-staging-stack" title="Permanent link">&para;</a></h2>
+<p>Use a fresh private output directory inside the checkout, an isolated PostgreSQL
+database/container, unused API/gRPC ports and separate bundle/artifact directories.
+Do not reuse or reconcile the historical experiment database. Bind the API/proxy
+to loopback; use only explicitly owned routes for remote participants. The neural
+FL server defaults to <code>[::]</code>. Set <code>FEDLEARN_GRPC_BIND_ADDRESS</code> to the intended
+numeric interface IP to restrict its listener; <code>FL_SERVER_GRPC_HOST</code> separately
+sets the advertised hostname, which must match the certificate SAN. The local
+preparation helper selects <code>127.0.0.1</code>. For a remote participant, explicitly choose
+its reachable private interface and matching certificate. Before training, verify
+the actual listening sockets and reachability; generated settings alone do not
+qualify network isolation.</p>
+<p>The existing deployment layout terminates HTTPS at nginx and sends requests to
+the API over host loopback; callbacks also use loopback. See
+<a href="../../deploy/TLS.md">deploy/TLS.md</a>. Retain that layout to avoid introducing a
+second HTTPS callback trust mechanism. Set these in the isolated backend's
+private environment, using actual paths/ports:</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">APP_FL_REQUIRE_TLS</span><span class="o">=</span><span class="nb">true</span>
+<span class="nv">APP_FL_REQUIRE_CLIENT_AUTH</span><span class="o">=</span><span class="nb">true</span>
+<span class="nv">FEATURE_FL_CLIENT_CERT</span><span class="o">=</span><span class="nb">false</span>
+<span class="nv">FEDLEARN_GRPC_REQUIRE_CLIENT_AUTH</span><span class="o">=</span><span class="m">0</span>
+<span class="nv">FEDLEARN_GRPC_SERVER_CERT</span><span class="o">=</span>/path/to/staging/grpc-server.crt
+<span class="nv">FEDLEARN_GRPC_SERVER_KEY</span><span class="o">=</span>/path/to/staging/grpc-server.key
+<span class="nv">FL_SERVER_GRPC_HOST</span><span class="o">=</span>hostname-covered-by-grpc-certificate
+<span class="nv">APP_BACKEND_INTERNAL_URL</span><span class="o">=</span>http://127.0.0.1:isolated-api-port
+<span class="nv">APP_AUTH_COOKIE_SECURE</span><span class="o">=</span><span class="nb">true</span>
+</code></pre></div>
+
+<p>Supply distinct generated JWT, FL-token and internal-API secrets, isolated
+datasource credentials, explicit CORS origins, Python paths and writable storage
+paths. Keep the environment and private keys out of Git and logs. Certificate
+fingerprints and public configuration may be retained in a sanitized report.
+The backend reads the gRPC certificate at startup and publishes its trust material
+at enrollment. It also passes fail-closed TLS/token enforcement to its child.</p>
+<p>From the repository root, generate local preparation material in a fresh directory:</p>
+<div class="codehilite"><pre><span></span><code>mkdir<span class="w"> </span>-p<span class="w"> </span>.temp
+python<span class="w"> </span>mobile_client/scripts/prepare_tls_staging.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--out<span class="w"> </span>.temp/release-tls-staging<span class="w"> </span>--python<span class="w"> </span>/path/to/pinned-python/bin/python
+python<span class="w"> </span>-m<span class="w"> </span>unittest<span class="w"> </span>discover<span class="w"> </span>-s<span class="w"> </span>mobile_client/scripts/tests<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-p<span class="w"> </span>test_prepare_tls_staging.py<span class="w"> </span>-v
+</code></pre></div>
+
+<p>The helper starts no services and changes no phone settings. It writes separate
+seven-day API/gRPC test certificates, private keys, a private backend environment,
+a PostgreSQL environment, a loopback nginx configuration and an honest preparation
+manifest. It refuses existing directories and outputs outside the checkout's
+ignored <code>.temp</code> directory. The
+tests perform actual loopback TLS handshakes and check hostname/root refusals,
+private-file permissions and overwrite protection.</p>
+<p>The generated ports are API8086, HTTPS8443, PostgreSQL5546 and gRPC55100–55103.
+Check they are unused before starting any services. For a fresh local PostgreSQL:</p>
+<div class="codehilite"><pre><span></span><code>docker<span class="w"> </span>run<span class="w"> </span>--name<span class="w"> </span>fedlearn-release-tls-pg<span class="w"> </span>--detach<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--env-file<span class="w"> </span>.temp/release-tls-staging/postgres.env<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--publish<span class="w"> </span><span class="m">127</span>.0.0.1:5546:5432<span class="w"> </span>postgres:16.6-alpine
+</code></pre></div>
+
+<p>Load <code>backend.env</code> in a private shell, use Java21, and start the API's existing
+<code>./gradlew bootRun</code> from <code>backend/fl-platform-api</code>. The generated environment uses
+the local dev profile with explicit fresh secrets, required TLS/token authentication
+and separate storage/ports. Production bootstrap correctly rejects a loopback
+advertised gRPC hostname. A production-profile run therefore needs a real reachable
+hostname and matching certificate SAN; do not bypass that validator.
+Start a host nginx with the absolute generated <code>nginx.conf</code> after <code>nginx -t</code>
+passes. Its listener is loopback-only, forwarding HTTPS8443 to API8086 and leaving
+internal callbacks on host loopback. For example:</p>
+<div class="codehilite"><pre><span></span><code>nginx<span class="w"> </span>-t<span class="w"> </span>-c<span class="w"> </span>/absolute/path/to/.temp/release-tls-staging/nginx.conf
+nginx<span class="w"> </span>-c<span class="w"> </span>/absolute/path/to/.temp/release-tls-staging/nginx.conf
+curl<span class="w"> </span>--cacert<span class="w"> </span>.temp/release-tls-staging/api.crt<span class="w"> </span>https://localhost:8443/actuator/health
+</code></pre></div>
+
+<p>Use an available host nginx installation; the preparation helper does not install
+one or publish the endpoint. The container image can syntax-check the configuration
+with its generated directory mounted at the same absolute path, but that alone
+does not start a working host proxy. The image version above is the repository's
+existing local PostgreSQL fixture, not a production deployment recommendation.</p>
+<p>Stop only the nginx/database/API instances started for this case; retain their
+logs and private outputs for verification. Keep self-signed local results labelled
+as preparation. The phone Release test still needs the trusted HTTPS endpoint above.</p>
+<h2 id="build-and-update-without-losing-the-installed-app">Build and update without losing the installed app<a class="headerlink" href="#build-and-update-without-losing-the-installed-app" title="Permanent link">&para;</a></h2>
+<p>Configure the existing signing gate with <code>FEDLEARN_RELEASE_STORE_FILE</code>,
+<code>FEDLEARN_RELEASE_STORE_PASSWORD</code>, <code>FEDLEARN_RELEASE_KEY_ALIAS</code>,
+<code>FEDLEARN_RELEASE_KEY_PASSWORD</code> and optionally <code>FEDLEARN_RELEASE_STORE_TYPE</code>.
+Build <code>:app:assembleRelease</code> with the native arguments in the
+<a href="15-current-android-runbook.html#build-the-internal-standalone-apk">current run guide</a>.
+Do not add <code>fedlearnStandalone</code> to a Release build; Release already bundles
+production JavaScript and enforces TLS in both the JS and native paths.</p>
+<p>The current phone installation is Debug-signed. A differently signed Release
+cannot replace it in place. Preserve it and all saved datasets. Select a separate
+test installation/device before installing Release; record package identity and
+any qualification-only packaging difference. Never uninstall or clear the current
+app to work around the signature mismatch. A separate staging package cannot
+qualify migration of the original Debug app's data.</p>
+<p>Build an isolated test installation with <code>-PfedlearnQualification=true</code>. This
+selects package <code>com.fedlearn.mobile.qualification</code>, the label <strong>FedLearn
+Qualification</strong>, and a qualification version-name suffix. The Kotlin/JNI namespace,
+Release signing gate and transport policy remain the same. Omit this property for
+the original production package. Use <code>-PfedlearnVersionCode=1</code> for the first test
+APK and <code>-PfedlearnVersionCode=2</code> for its same-key update. Version codes must be
+positive integers within the <a href="https://developer.android.com/studio/publish/versioning">Android publishing range</a>.</p>
+<p>Run <code>python mobile_client/scripts/check_android_packaging.py</code> after installing the
+Android and React Native build dependencies. It checks real Gradle configuration
+for both identities and invalid inputs. It builds and installs no APK; inspect
+the merged manifest, signer and packaged artifacts before installation.</p>
+<p>Keep the signing key between the first install and the update test. A disposable
+test signer can qualify the update mechanism, but is not the future production
+identity. Establish and back up the production signer before distributing an APK.</p>
+<h2 id="release-workflow-configuration">Release workflow configuration<a class="headerlink" href="#release-workflow-configuration" title="Permanent link">&para;</a></h2>
+<p>The Android workflow reads these repository secrets:</p>
+<ul>
+<li><code>FEDLEARN_RELEASE_KEYSTORE_BASE64</code>: the base64-encoded retained keystore.</li>
+<li><code>FEDLEARN_RELEASE_STORE_PASSWORD</code> and <code>FEDLEARN_RELEASE_KEY_PASSWORD</code>.</li>
+<li><code>FEDLEARN_RELEASE_KEY_ALIAS</code>.</li>
+</ul>
+<p><code>FEDLEARN_RELEASE_STORE_TYPE</code> is an optional repository variable (default PKCS12).
+The workflow refuses absent secrets before native compilation, imports the store
+into a private temporary directory, passes credentials only to the signing/build
+steps, and removes the temporary store even after a failure. Its host preparation
+tests run before native compilation. Configure secrets through the repository's
+normal secret-management UI; never put a key/password in an issue, commit or log.
+Base64 is encoding, not encryption. The configured identity and its backup remain
+operator responsibilities. A local test of the workflow's shell steps is not a
+successful GitHub Actions run or release publication.</p>
+<h2 id="acceptance-sequence">Acceptance sequence<a class="headerlink" href="#acceptance-sequence" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Confirm the signed APK's identity, embedded production bundle, native library,
+   disabled Metro/developer support and unchanged TLS restrictions. Record hashes.</li>
+<li>Cold-launch Release with Metro stopped. Through normal UI, set the trusted
+   HTTPS origin, log in, join the project, import/select local data and Start.</li>
+<li>Confirm the real backend enrolls both clients, advertises TLS and issues
+   distinct scoped connection tokens. Confirm the real training server accepts
+   registration/heartbeats and all model/update traffic uses TLS.</li>
+<li>Complete three rounds with six unique contributions. Verify the registered
+   final artifact against the actual accepted updates; record time/bytes and
+   held-out metrics separately from execution correctness.</li>
+<li>Exercise one bounded connection interruption and explicit rejoin. Verify no
+   duplicate counted contribution. Repeating the whole crash matrix is unnecessary.</li>
+<li>Refuse wrong gRPC root, wrong hostname, plaintext and missing/invalid connection
+   tokens without counting a contribution. Refuse untrusted HTTPS without sending
+   login credentials. Use disposable accounts/tokens; do not retain secrets.</li>
+<li>Install a second Release APK with a higher version code and the same signing
+   key. Verify a cold launch, saved account/settings/datasets and a short run.</li>
+<li>Restore the original phone setup and remove only owned staging processes,
+   routes and helpers. Recheck the preserved Debug app and historical bindings.</li>
+</ol>
+<p>Report host preparation, physical Release execution, update preservation and
+production deployment as separate outcomes. Passing a fixture or building an APK
+must not turn an unperformed step into a pass.</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

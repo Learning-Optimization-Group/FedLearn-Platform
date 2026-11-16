@@ -48,7 +48,7 @@ BoringSSL's normal `free` path. The
 verifies the isolated weak reference in `libappmodules.so`; pass the NDK's
 `llvm-readelf` with `--readelf`.
 
-The [qualification receipt](../../research/results/on-device/android-release-tls-2026-10-11.json)
+The qualification receipt
 binds the signed APK, Debug APK, certificate fingerprints and native cases.
 A temporary local release key was used and discarded. The installed Debug app
 rejected the differently signed release update, then accepted a same-key Debug
@@ -62,7 +62,7 @@ the server. This used a fixed-response local server over USB/SSH routes, with a
 server key held only in memory. It qualifies native transport behavior, not
 HTTPS login/enrollment or a complete federated run over deployed TLS.
 
-The final [native lifecycle check](../../research/results/on-device/android-lifecycle-review-fixes-2026-10-11.json)
+The final native lifecycle check
 also cancels a deliberately blocked registration through the real phone's Stop
 method. Stop completion was observed after371ms; the cancelled registration
 started no heartbeat. A fresh accepted registration then produced a heartbeat
@@ -74,7 +74,7 @@ HTTPS API endpoint and reachable TLS gRPC service, followed by full authenticate
 training and a same-release-key install/update check. The local qualification
 certificate cannot serve as the future update identity.
 
-The [bounded CNN DeComFL qualification](../../research/notes/on-device/2026-10-15-cnn-decomfl.md)
+The bounded CNN DeComFL qualification
 adds local-image training and short powered screen-off recovery with the existing
 Debug native APK and updated Metro JavaScript. It changes neither release signing
 nor the production TLS status above. CNN DeComFL requires fresh functional model
@@ -101,7 +101,7 @@ an invalid value, and Release's production JavaScript mode. It does not prove a
 physical training run. Qualification also needs a cold launch with Metro stopped,
 normal UI login/import/Start, and completed training with the packaged bundle.
 
-The [16 October standalone qualification](../../research/notes/on-device/2026-10-16-standalone-debug.md)
+The 16 October standalone qualification
 completed two Metro-off, normal-UI runs on vivo and Linux: CNN FedAvg and CNN
 DeComFL, ten rounds each, with 32 local images per client. Each run's twenty
 accepted updates reconstructed its registered final model bit-for-bit. All 36
@@ -109,7 +109,7 @@ saved dataset files remained unchanged. This qualifies the internal package and
 short foreground execution over development Wi-Fi routes; production signing,
 deployed TLS and process-death recovery remain open.
 
-The [sign-out lifecycle correction](../../research/notes/on-device/2026-10-16-signout-lifecycle.md)
+The sign-out lifecycle correction
 is packaged in a new standalone internal Debug APK. It stops participation when
 authentication unmounts the training provider and prevents a new provider from
 racing unfinished cleanup. The powered-phone qualification covers sign-out and
@@ -118,7 +118,7 @@ requirements remain open.
 
 ## Process-death recovery boundary — 16 October
 
-The [forced-crash qualification](../../research/notes/on-device/2026-10-16-process-death.md)
+The forced-crash qualification
 adds bounded manual recovery evidence for CNN FedAvg after an accepted upload.
 The training service no longer restarts without its training loop; null and
 retry/redelivery requests stop safely. The corrected standalone Debug app completes
@@ -127,7 +127,7 @@ fix is covered by seven JVM regressions and a powered-vivo crash test. Automatic
 resume, low-memory termination, interruption during compute/upload, DeComFL durable
 state, production signing and deployed TLS remain separate requirements.
 
-The [lost-completion crash test](../../research/notes/on-device/2026-10-16-acknowledgement-crash.md)
+The lost-completion crash test
 also qualifies manual same-round CNN FedAvg rejoin when the server accepts an update
 but the app dies before receiving its completion. Existing server deduplication
 counts the repeated upload once; all three rounds finish with an exact reconstructed
@@ -137,7 +137,7 @@ during computation/partial upload, automatic resume or DeComFL process recovery.
 The same internal Debug package and development USB/loopback transport are used;
 production signing and deployed TLS requirements remain unchanged.
 
-The [incomplete-transport crash qualification](../../research/notes/on-device/2026-10-16-partial-upload-crash.md)
+The incomplete-transport crash qualification
 adds manual CNN FedAvg recovery before the first complete application upload chunk
 reaches the server. Zero updates are counted before death; explicit rejoin completes
 the run with six unique updates and an exact final aggregate. The old connection's
@@ -146,7 +146,7 @@ buffer containing chunks, interrupted computation, checkpoint-write durability,
 automatic resume or DeComFL process recovery. The unchanged internal Debug package
 and development routes add no production signing or deployed TLS evidence.
 
-The [native backward forced-exit test](../../research/notes/on-device/2026-10-16-native-compute-exit.md)
+The native backward forced-exit test
 adds bounded manual CNN FedAvg recovery after actual process disappearance during
 a debugger-paused first-round backward kernel, before any upload. Explicit rejoin
 completes all three rounds with six unique accepted updates and an exact final
@@ -155,7 +155,7 @@ qualify natural Android low-memory kills, SIGKILL, arbitrary instruction interru
 automatic resume, storage durability or DeComFL recovery. The internal Debug package
 and development transport add no production signing or deployed TLS evidence.
 
-The [DeComFL cold-restart qualification](../../research/notes/on-device/2026-10-18-decomfl-process-death.md)
+The DeComFL cold-restart qualification
 is negative: an app crash loses the in-memory trajectory, and rejoin after round one
 refuses to train despite an available current server model and rebuild history.
 No stale round-two scalars are observed in the bounded test. The UI retries this
@@ -165,7 +165,7 @@ only a submitted-round number. No successful cold recovery, automatic resume or
 checkpoint durability is qualified. Final cleanup was verified on 18 October after
 an interrupted continuation; product source and the installed APK remain unchanged.
 
-The [current-snapshot recovery fix and qualification](../../research/notes/on-device/2026-10-18-decomfl-cold-restart-recovery.md)
+The current-snapshot recovery fix and qualification
 supersede the preceding DeComFL first-round-only gap for the tested manual rejoin
 path. A rebuilt standalone internal Debug app completes all three rounds after
 verified process death and explicit round-two rejoin. Snapshot integrity, exact
@@ -177,7 +177,7 @@ natural Android eviction, interrupted DeComFL compute/upload, durable local stat
 other model contracts, production signing or deployed TLS. No checkpoint storage
 was needed for this bounded recovery case.
 
-The [DeComFL lost-acknowledgement test](../../research/notes/on-device/2026-10-18-decomfl-acknowledgement-crash.md)
+The DeComFL lost-acknowledgement test
 qualifies manual same-round rejoin when the server counts a scalar update but the
 app dies before receiving success. A fresh deadline-margin check and shared-host
 cancellation timing establish the pending-RPC crash boundary. Two identical round-one
@@ -187,7 +187,7 @@ settings and data are preserved and temporary test resources removed. This adds 
 automatic resume, natural Android kill, interrupted computation/request transport,
 checkpoint durability, production signing or deployed TLS qualification.
 
-The [DeComFL native-computation test](../../research/notes/on-device/2026-10-18-decomfl-native-compute-exit.md)
+The DeComFL native-computation test
 adds manual cold recovery after a controlled exit inside the initial base-loss
 forward path, before any scalar request is accepted. Verified native stack/round,
 exit registers and independent Android disappearance bind the boundary. Rejoin

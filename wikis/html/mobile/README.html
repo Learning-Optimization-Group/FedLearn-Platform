@@ -77,6 +77,22 @@
 <details class="nav-group" open>
 <summary>Mobile</summary><ul>
 <li><a class="active" href="README.html">FedLearn Mobile — Wiki</a></li>
+<li><a href="02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a></li>
+<li><a href="03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a></li>
+<li><a href="04-tinynet-optimizer-parity-plan.html">TinyNet First-Order Optimizer Parity Implementation Plan</a></li>
+<li><a href="05-first-order-round-config-plan.html">Android First-Order Round Settings Plan</a></li>
+<li><a href="06-execution-contract-v1-implementation-plan.html">Execution Contract v1 — Implementation Plan</a></li>
+<li><a href="07-fedopt-robust-contract-plan.html">FedOpt and Robust in Execution Contract v1 — Plan</a></li>
+<li><a href="08-decomfl-contract-design.html">DeComFL in Execution Contract v1 — Focused Design</a></li>
+<li><a href="09-fedprox-contract-plan.html">FedProx in Execution Contract v1 — Plan</a></li>
+<li><a href="10-live-run-runbook.html">Live Mixed-Device Run — Runbook</a></li>
+<li><a href="11-stage3-artifact-dataset-qualification-design.html">Stage 3 — Artifact Delivery, On-Device Datasets and Portable-CPU Qualification: Focused Design</a></li>
+<li><a href="12-stage4-vector-and-image-recipes-design.html">Stage 4 — Vector and Image Recipes on Android: Focused Design</a></li>
+<li><a href="13-qualification-matrix.html">Android qualification matrix — 15 October 2026</a></li>
+<li><a href="14-release-readiness.html">Android signing and TLS qualification</a></li>
+<li><a href="15-current-android-runbook.html">Android research client — current run guide</a></li>
+<li><a href="16-release-tls-qualification.html">Android Release and TLS qualification procedure</a></li>
+<li><a href="17-credential-origin-isolation.html">Mobile credentials follow their issuing server</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Client (Docker)</summary><ul>
@@ -92,6 +108,18 @@
   </header>
   <div class="content-wrap">
     <article class="article"><h1 id="fedlearn-mobile-wiki">FedLearn Mobile — Wiki<a class="headerlink" href="#fedlearn-mobile-wiki" title="Permanent link">&para;</a></h1>
+<h2 id="current-status-18-october-2026">Current status — 18 October 2026<a class="headerlink" href="#current-status-18-october-2026" title="Permanent link">&para;</a></h2>
+<p>Start with the <a href="15-current-android-runbook.html">current Android run guide</a>,
+<a href="13-qualification-matrix.html">qualification matrix</a> and
+<a href="16-release-tls-qualification.html">Release/TLS procedure</a>. Android arm64 portable
+CPU/FULL training has 24 declared plans across TinyNet, ECG, CIFAR CNN/ResNet18,
+original pneumonia and NIH. Own-data import, contract-bound real model exports,
+standalone internal Debug and bounded CNN FedAvg/DeComFL manual recovery have
+retained device evidence. The matrix states the limits of every older runtime.</p>
+<p>Production Release training, a retained signing identity and same-key Release
+updates remain open. Android XGBoost, iOS training, secure aggregation and the
+other unsupported plans remain outside this scope. Model execution and useful
+learning are separate claims.</p>
 <blockquote>
 <p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a><br />
 <strong>Stack:</strong> React Native 0.80, TypeScript, native C++ (ExecuTorch on the shared core + Android; the iOS native wiring is still a <strong>libtorch</strong> scaffold and its ExecuTorch migration is pending — MO-14) via a TurboModule (JSI) bridge, Android + iOS<br />
@@ -99,6 +127,19 @@
 </blockquote>
 <p>The mobile client (<code>mobile_client/</code>) is an <strong>on-device</strong> federated-learning participant for phones and tablets. The React Native / TypeScript layer owns the UI, authentication, join/enrol flow and round orchestration; the heavy lifting — the <strong>DeComFL zeroth-order (ZO) training path</strong> and, where the backend provisions a trainable graph, a <strong>first-order (backprop) path</strong> — runs <strong>natively in C++ on the ExecuTorch runtime</strong>, reached through a TurboModule bridge. Training data never leaves the device.</p>
 <p>The single product name is <strong>FedLearn</strong> (the v1 <code>FedMob</code> / <code>com.mobileclientnew</code> names are retired).</p>
+<p>The approved path from the current TinyNet-focused Android implementation to capability-negotiated
+algorithm and modality parity with laptop clients is documented in
+<a href="02-android-federated-learning-parity-design.html">Android Federated-Learning Parity Design</a>.
+The Stage 2 wire and publication rules are specified in
+<a href="03-android-execution-contract-v1-design.html">Execution Contract v1 — Focused Design</a>, and its
+progress is tracked in the <a href="06-execution-contract-v1-implementation-plan.html">implementation plan</a>.
+Bringing FedOpt and Robust into the contract is planned in <a href="07-fedopt-robust-contract-plan.html">07</a>.
+DeComFL's zeroth-order training is designed and recorded in <a href="08-decomfl-contract-design.html">08</a>.
+FedProx, the last strategy the phone refused, is planned and tracked in <a href="09-fedprox-contract-plan.html">09</a>.
+The procedure for a live phone + laptop run on one contract is the <a href="10-live-run-runbook.html">live-run runbook</a>.
+Stage 3 (artifact delivery, on-device datasets, portable-CPU qualification) is designed and delivered, slice by slice,
+in <a href="11-stage3-artifact-dataset-qualification-design.html">11</a>. Stage 4 (the MLP, CNN, ResNet-18 and
+pneumonia CNN recipes on phones) is designed, with its decisions taken, in <a href="12-stage4-vector-and-image-recipes-design.html">12</a>.</p>
 <blockquote>
 <p><strong>Design system: Ledger, not Ember.</strong> <code>src/theme/tokens.generated.ts</code> and <code>src/theme/global.css</code> are <strong>generated</strong> by <code>design/build-tokens.mjs</code> from <code>design/tokens.json</code> and both carry the Ledger palette (canvas <code>#F6F3EE</code>, surface <code>#FFFFFF</code>, ink <code>#191A1C</code>, muted <code>#6B6760</code>, navy accent <code>#1C314D</code> / hover <code>#14243A</code>; dark family <code>#0B1622</code> / <code>#4F8AC9</code>). Ledger landed in <code>2c50672</code> and rolled onto mobile in <code>3d54484</code>, superseding <strong>Ember</strong>, which had superseded <em>Instrument</em>. <code>src/theme/tokens.ts</code> is now a thin re-export kept only so older import paths resolve — do not hand-edit either generated file; CI's "Design tokens in sync with source of truth" step (<code>scripts/check_design_tokens.sh</code>, unconditional in <code>ci.yml</code>) fails on drift. The shipped brand fonts are <strong>Hanken Grotesk</strong> (sans <em>and</em> display) + <strong>JetBrains Mono</strong> (<code>src/assets/fonts/</code>); Bricolage Grotesque was Ember-era and is gone.</p>
 </blockquote>
@@ -265,9 +306,18 @@
 </tbody>
 </table>
 <p>Both paths write the identical served shape, staging is idempotent, and failure is best-effort: the phone treats a missing bundle as a graceful 404 rather than an error.</p>
-<p><strong>What that means in practice today.</strong> The demo path a phone actually completes is still the fixture one: <code>TINYNET_GOLDEN</code> — <code>Linear(4,5) → ReLU → Linear(5,3)</code> with <code>fc2</code> frozen, <strong>43 total parameters, 25 trainable</strong> (<code>flat_dim = 25</code>), the same fixture that backs the C++ parity gate (<code>framework/tests/fixtures/decomfl_golden/zo_manifest.json</code>, <code>golden_loss ≈ 1.0973</code>). The fixture's <code>zo_inputs.f32</code> / <code>zo_targets.i64</code> are staged <em>as the device's local partition</em>, so they stand in for genuine per-device data. That is a deliberate MVP shortcut and <strong>not representative federation</strong>; real per-device data remains an explicit post-MVP step. The fixture now also ships <code>tinynet_trainable.pte</code>, which is what lets the first-order path be exercised at all.</p>
-<p>The real-export path is the documented seam for every other recipe, but <strong>it does not currently run</strong>: <code>scripts/export_model.py</code> resolves <code>recipes.py</code> from <code>backend/fl-platform-api/src/main/resources/scripts/</code>, a directory that no longer exists (the catalog lives in <code>fl-runtime/recipes.py</code>), so the import fails and the stager logs a non-zero exit. Until that path is fixed, a non-fixture recipe produces no bundle and the phone 404s.</p>
-<p>The full plumbing, phases, and manual acceptance runbook are in <a href="../../mobile_client/ON_DEVICE_TRAINING_E2E.md"><code>mobile_client/ON_DEVICE_TRAINING_E2E.md</code></a>.</p>
+<p><strong>Current data and export path.</strong> TinyNet fixtures remain available for explicitly
+fixture-backed contracts. LOCAL_SNAPSHOT runs instead use vector/image data
+imported on the phone, with recipe/class/preprocessing checks before Start.
+Repository-root <code>scripts/export_model.py</code> constructs real recipe models from
+<code>fl-runtime/recipes.py</code> and exports the contract-bound programs; it no longer
+uses the removed backend resources directory. These exports require the matching
+torch/ExecuTorch host toolchain. Check the run's READY contract and program hashes;
+a staging error must not be mistaken for device support.</p>
+<p>The <a href="10-live-run-runbook.html">September TinyNet runbook</a> and the original
+<a href="../../mobile_client/ON_DEVICE_TRAINING_E2E.md"><code>ON_DEVICE_TRAINING_E2E.md</code></a> remain
+historical implementation/topology references. Use the
+<a href="15-current-android-runbook.html">current run guide</a> for new experiments.</p>
 <hr />
 <h2 id="project-layout">Project layout<a class="headerlink" href="#project-layout" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code>mobile_client/
@@ -292,10 +342,18 @@
 <h2 id="build-status">Build status<a class="headerlink" href="#build-status" title="Permanent link">&para;</a></h2>
 <p>Both app projects are <strong>buildable</strong>: the two prior template-scaffolding blockers were resolved and committed — the Android <strong>Gradle wrapper</strong> (<code>./gradlew</code> bootstraps Gradle 8.14.1) and the iOS <strong><code>FedLearn.xcodeproj</code></strong> (regenerate with <code>ios/generate_xcodeproj.sh</code>).</p>
 <ul>
-<li><strong>Android is the real native target.</strong> <code>app/build.gradle</code>'s <code>externalNativeBuild</code> builds <code>libfedlearn_jni.so</code> from <code>bridge/android/jni/CMakeLists.txt</code>, which forces <code>FEDLEARN_BUILD_GRPC=ON</code> and <code>FEDLEARN_BUILD_TRAINING=ON</code> and links <code>fedlearn_core</code> + <code>fedlearn_grpc</code> + the React Native <code>jsi</code>/<code>reactnative</code> prefab. <code>arm64-v8a</code> is the only shipped ABI. It needs <code>-PET_SRC</code>, <code>-PET_BUILD</code>, <code>-PTORCH_INCLUDE</code>, <code>-PGRPC_DIR</code>, <code>-PGENERATED_PROTO_DIR</code> — the cross-compiled artefacts plus <code>buf generate</code> output.</li>
+<li><strong>Android is the native training target.</strong> <code>app/build.gradle</code> points at
+  <code>android/app/src/main/jni/CMakeLists.txt</code>, which links the training core and
+  gRPC into <code>libappmodules.so</code>. <code>arm64-v8a</code> is the only shipped ABI. Supply
+  <code>-PET_SRC</code>, <code>-PET_BUILD</code>, <code>-PTORCH_INCLUDE</code>, <code>-PGRPC_DIR</code> and
+  <code>-PGENERATED_PROTO_DIR</code> for matching cross-compiled artifacts and generated stubs.</li>
 <li><strong>iOS native is a scaffold, and the podspec says so.</strong> <code>ios/FedLearnCore.podspec</code> vendors a cross-compiled <strong>libtorch</strong> xcframework while <code>shared/</code> targets the <strong>ExecuTorch</strong> runtime. Those are different, incompatible runtimes, so the iOS native wiring will not link/run as-is; the podspec's own build guard says do <strong>not</strong> enable <code>FEDLEARN_NATIVE_IOS</code> in CI or default builds. Swapping the vendored framework for an ExecuTorch iOS runtime and reconciling the bridge is tracked as MO-14. Until then iOS builds the JS shell, <code>canImport(FedLearnCore)</code> is false, and <code>isNativeCoreAvailable()</code> returns false so the training entry point is disabled rather than crashing. <code>scripts/build_libtorch_arm64.sh</code> is retained solely for that pending path.</li>
 </ul>
-<p>What still gates a shippable release: the cross-compiled <strong>ARM64 ExecuTorch + gRPC</strong> artefacts and buf-generated stubs, the iOS ExecuTorch migration above, real <strong>signing configs</strong> for both platforms (the release APK is debug-signed today — the release workflow says so in the release notes), and real on-device training data.</p>
+<p>Android Release signing validation is implemented and refuses the Debug signer.
+A persistent backed-up signing identity, actual authenticated Release training
+through HTTPS/gRPC TLS, and a same-key Release update preserving data still gate
+distribution. Standalone Debug and local native TLS fixtures do not qualify those
+steps. The iOS native migration is a separate unimplemented target.</p>
 <h3 id="host-parity-gate-run-the-c-core-tests-in-isolation">Host parity gate (run the C++ core tests in isolation)<a class="headerlink" href="#host-parity-gate-run-the-c-core-tests-in-isolation" title="Permanent link">&para;</a></h3>
 <p>The C++ core links the <strong>ExecuTorch runtime</strong> (no libtorch/ATen), so build ExecuTorch v1.3.1
 from source first, then point the build at it (must match the pinned torch 2.12.0):</p>
@@ -316,7 +374,7 @@ ctest<span class="w"> </span>--test-dir<span class="w"> </span>mobile_client/bui
 </blockquote>
 <hr />
 <h2 id="measured-on-device-facts-kernels-inference-vs-training">Measured on-device facts (kernels: inference vs training)<a class="headerlink" href="#measured-on-device-facts-kernels-inference-vs-training" title="Permanent link">&para;</a></h2>
-<p>Two results from this repo's research record bear directly on what the APK ships. They point in opposite directions and are <strong>not</strong> in conflict — one is about inference, the other about training.</p>
+<p>Two measured benchmark results bear directly on what the APK ships. They point in opposite directions and are <strong>not</strong> in conflict — one is about inference, the other about training.</p>
 <p><strong>(a) The shipped APK links the slowest available kernels.</strong> <code>shared/CMakeLists.txt:32</code> lists <code>portable_kernels</code> and force-loads <code>portable_ops_lib</code>; nothing in <code>mobile_client/</code> links XNNPACK or Vulkan. (<code>scripts/build_executorch_arm64.sh</code> does pass <code>EXECUTORCH_BUILD_KERNELS_OPTIMIZED=ON</code>, so the optimised kernel library is <em>built</em> — it is simply never linked.) Portable kernels are ExecuTorch's correctness-first <strong>reference</strong> implementations. Measured on a vivo 1805 (Snapdragon 845 / Adreno 630, Android 10, ExecuTorch 1.3.1) against a ResNet-18 feature extractor at 224×224 — the operation a frozen-backbone round spends essentially all its wall-clock in:</p>
 <table>
 <thead>
@@ -344,8 +402,8 @@ ctest<span class="w"> </span>--test-dir<span class="w"> </span>mobile_client/bui
 </tr>
 </tbody>
 </table>
-<p>All three agree with a PyTorch eager reference to ~1e-7 absolute, so the speed is not bought with a correctness trade. The GPU wins only at batch 1; at batch ≥ 8 the Vulkan partitioner fragments the graph and degrades to portable-CPU levels, while XNNPACK holds ~46 ms/image. Source: <code>research/results/benchmark/ondevice_vivo_backbone_cpu_vs_gpu.json</code>. <strong>Caveat the record states plainly:</strong> one 2018-era mid-range handset, one ExecuTorch version, inference only — a flagship Adreno 7xx/8xx could plausibly reverse the XNNPACK-vs-Vulkan ordering.</p>
-<p><strong>(b) XNNPACK must NOT be linked for training.</strong> At ResNet-18 scale (11.2M trainable params, 84 delegate partitions) the XNNPACK-lowered graph is ~18% faster per step but <strong>never learns</strong>: its minimum loss over 30 steps equals its initial loss (0.69308), while the portable build converges to 0.0187. There is no NaN, no error and no warning — lowering succeeds silently. Follow-ups pinned down the mechanism more precisely than the first write-up did: the forward pass is correct (max abs deviation ~1.07e-6 vs eager) and the <strong>first</strong> backward is correct (step-0 <code>fc.weight</code> gradient L2 matches exactly); subsequent steps compute against <strong>stale, prepacked weights</strong> — supported circumstantially (step-1 <code>fc.weight</code> gradients differ 2.3× from identical parameters), but the record marks it <code>NOT_proven</code>: the delegate's internal weight buffer was never read, and a per-parameter probe <em>refuted</em> the simpler "delegated params are frozen" story (62/62 receive gradients and move). It also costs +51% peak RSS and +99.6% model size — a real per-round wire cost in a federation. Upstream documents delegate+training integration as a work in progress, so the defensible complaint is narrow: the partitioner lowers a trainable graph silently instead of refusing. Sources: <code>research/results/benchmark/ondevice_xnnpack_training_produces_wrong_gradients.json</code> (incl. its <code>CORRECTIONS_2026_08_09</code> block) and <code>ondevice_vivo_optimized_kernels.json</code>.</p>
+<p>All three agree with a PyTorch eager reference to ~1e-7 absolute, so the speed is not bought with a correctness trade. The GPU wins only at batch 1; at batch ≥ 8 the Vulkan partitioner fragments the graph and degrades to portable-CPU levels, while XNNPACK holds ~46 ms/image. Source: on-device backbone benchmark record. <strong>Caveat the record states plainly:</strong> one 2018-era mid-range handset, one ExecuTorch version, inference only — a flagship Adreno 7xx/8xx could plausibly reverse the XNNPACK-vs-Vulkan ordering.</p>
+<p><strong>(b) XNNPACK must NOT be linked for training.</strong> At ResNet-18 scale (11.2M trainable params, 84 delegate partitions) the XNNPACK-lowered graph is ~18% faster per step but <strong>never learns</strong>: its minimum loss over 30 steps equals its initial loss (0.69308), while the portable build converges to 0.0187. There is no NaN, no error and no warning — lowering succeeds silently. Follow-ups pinned down the mechanism more precisely than the first write-up did: the forward pass is correct (max abs deviation ~1.07e-6 vs eager) and the <strong>first</strong> backward is correct (step-0 <code>fc.weight</code> gradient L2 matches exactly); subsequent steps compute against <strong>stale, prepacked weights</strong> — supported circumstantially (step-1 <code>fc.weight</code> gradients differ 2.3× from identical parameters), but the record marks it <code>NOT_proven</code>: the delegate's internal weight buffer was never read, and a per-parameter probe <em>refuted</em> the simpler "delegated params are frozen" story (62/62 receive gradients and move). It also costs +51% peak RSS and +99.6% model size — a real per-round wire cost in a federation. Upstream documents delegate+training integration as a work in progress, so the defensible complaint is narrow: the partitioner lowers a trainable graph silently instead of refusing. Sources: on-device training benchmark records (including corrections) and optimized kernels benchmark.</p>
 <p><strong>Reading:</strong> linking XNNPACK is worth roughly 80× on the dominant on-device operation and is a pure build-configuration change — but it must be scoped to the <strong>inference / feature-extraction</strong> graphs, never the trainable one.</p>
 <hr />
 <h2 id="ci-and-release">CI and release<a class="headerlink" href="#ci-and-release" title="Permanent link">&para;</a></h2>

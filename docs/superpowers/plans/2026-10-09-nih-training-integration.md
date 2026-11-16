@@ -78,4 +78,4 @@ retained native build. Original-phone replay temporary files were removed.
 NIH Android catalog support is cleared after actual program/device qualification.
 Final accuracy 1.17%, balanced accuracy 50%, AUROC 0.4384: model quality is poor.
 This is engineering qualification, not full NIH training. Detailed receipts
-and limits are recorded in research/notes/on-device/2026-10-09-nih-pneumonia-mixed.md.
+and limits are recorded in notes/on-device/2026-10-09-nih-pneumonia-mixed.md.

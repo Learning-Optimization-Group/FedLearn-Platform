@@ -6,7 +6,7 @@ Collaborative platform training is implemented for the pinned CPU binary presets
 `xgboost_binary` (four features) and `xgboost_breast_cancer` (30 ordered features).
 The packaged Mac client and Linux client completed ten real breast-cancer rounds
 with exact contribution/aggregate replay, API inference and fixed pooled controls.
-See the [qualification report](../research/notes/2026-10-10-breast-cancer-xgboost.md).
+See the qualification report (`notes/2026-10-10-breast-cancer-xgboost.md`).
 Trees are grown from a shared parent and appended in canonical client order;
 this is parallel tree aggregation, not shared-histogram or cyclic training.
 
@@ -73,8 +73,8 @@ NaN missing values and incompatible numeric inputs are covered. This local
 checkpoint validation does not establish an untrusted model-ingestion boundary.
 
 The retained seed-42 run is in
-`research/results/xgboost_cpu/2026-10-07-seed42/`, with interpretation in
-`research/notes/2026-10-07-xgboost-cpu-probe.md`. Its synthetic accuracy is
+`results/xgboost_cpu/2026-10-07-seed42/`, with interpretation in
+`notes/2026-10-07-xgboost-cpu-probe.md`. Its synthetic accuracy is
 execution evidence only. It does not establish platform or Android support.
 
 ## Integration map grounded in the current code
