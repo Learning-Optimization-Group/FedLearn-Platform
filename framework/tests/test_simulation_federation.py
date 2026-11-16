@@ -367,7 +367,7 @@ class TestResultRecord:
     def test_result_is_json_serializable_with_full_provenance(self):
         result = _federation(seed=5).run(num_rounds=3)
         blob = result.to_json()
-        json.dumps(blob)  # must land in research/results/ unmodified
+        json.dumps(blob)  # must land in experiment results unmodified
 
         meta = blob["meta"]
         for key in (
@@ -543,8 +543,7 @@ class TestPoissonSampling:
 def test_thousand_clients_completes():
     """The headline acceptance criterion: 1000 clients is expressible at all.
 
-    Deselected by default (`-m "not slow"`); the full scale sweep lives in
-    ``research/benchmarks/simulation_scale.py``.
+    Deselected by default (`-m "not slow"`); full scale sweeps are in benchmark records.
     """
     fed = _federation(num_clients=1000, clients_per_round=50, seed=0)
     result = fed.run(num_rounds=5)

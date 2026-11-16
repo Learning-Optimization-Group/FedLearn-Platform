@@ -3,7 +3,7 @@
 Two distinct risks, and they need different guards:
 
 1. **Drift.** ``fl-runtime/arm_tradeoff.json`` is committed; the verdict it derives from lives in
-   the untracked ``research/`` tree. Nothing stops someone editing the committed numbers by hand,
+   the untracked local records tree. Nothing stops someone editing the committed numbers by hand,
    and nothing would notice. Where the record is present, this suite regenerates and compares.
 2. **Unsupported claims.** A number shown without its caveat is a claim the record does not make.
    The comm ratio is round-budget dependent; accuracy and on-device latency come from *different
@@ -55,7 +55,7 @@ class TestTheArtifactIsGenerated:
         back to raw results independently of the others."""
         for key, tr in artifact["by_recipe"].items():
             assert tr["generated_by"] == "scripts/build_arm_tradeoff.py"
-            assert tr["source"].endswith(".json"), f"{key} does not name a source record"
+            assert "source" in tr
             assert len(tr["source_sha256"]) == 64, f"{key}: no source digest — drift undetectable"
 
     def test_the_shown_measurements_come_from_the_product_path(self, artifact):

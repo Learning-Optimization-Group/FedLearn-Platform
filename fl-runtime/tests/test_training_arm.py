@@ -8,7 +8,7 @@ declares a module-global ``USE_DERIVED = False`` which line 945 sets via
 
 1. **Every recipe has exactly one hard-coded arm.** PNEUMONIA_CNN cannot be run frozen and full
    as two arms of one comparison through the product path — which is precisely the comparison
-   `research/results/frozen-backbone/` (177 result files) is built on. The science is far ahead
+   the project's frozen-backbone experiment records are built on. The science is far ahead
    of the product.
 2. **The choice is not persisted**, so it cannot be queried, audited, or attached to a result.
 3. **`FROZEN_DEMO` lives in `_NONCATALOG_METADATA`**, so it never reaches ``--describe`` or the

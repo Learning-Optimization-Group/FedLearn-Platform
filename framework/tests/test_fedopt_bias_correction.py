@@ -23,7 +23,7 @@ for the whole of any realistic federated run.** Anyone comparing a FedLearn FedA
 against a published Flower FedAdam baseline is comparing different algorithms at
 roughly-2x-different server learning rates.
 
-This is directly relevant to a result already in this repo: `research/benchmarks/algo_sweep.py`
+This is directly relevant to earlier benchmark records: an algorithm sweep
 records FedOpt at eta=0.01 diverging on ResNet-18/ImageNet-100 (loss 845 by round 11, top-1
 stalled at 3.15% against FedAvg's 40.3%). Halving the effective step is exactly the kind of
 change that separates divergence from convergence, so that result should be re-run with the

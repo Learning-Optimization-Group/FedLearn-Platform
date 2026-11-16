@@ -1,7 +1,7 @@
 """Loading a backbone from timm, so a GroupNorm-PRETRAINED model can be federated.
 
 Why this is needed. The centralized screen
-(`research/notes/frozen-backbone/2026-08-08-gn-penalty-EXPLAINED-it-is-the-conversion.md`) showed the
+(measured; see the project's experiment records) showed the
 ~0.008 AUC "GroupNorm penalty" is the cost of CONVERTING a BatchNorm-pretrained network, not a property
 of GroupNorm: given weights actually trained for it, GroupNorm beat BatchNorm by +0.0077 (sign-consistent
 3/3). That was measured centrally. Confirming it federated needs the harness to load

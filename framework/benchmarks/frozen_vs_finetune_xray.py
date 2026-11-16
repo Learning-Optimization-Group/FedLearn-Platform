@@ -6,7 +6,7 @@ Four arms over the same real chest-X-ray data and the same federation:
     pretrained init  | B  (the proposal)                | C  (accuracy ceiling)
     random init      | A  (control)                     | D  (true from-scratch)
 
-Phase 1 (`research/results/frozen-backbone/phase1_pretraining_data_efficiency.json`) established the
+Phase 1 (see the project's Phase 1 experiment records) established the
 two constraints this harness is built around:
 
 * The pretrained-vs-random gap is a **data-efficiency** effect — +0.164 AUC at n=20 decaying to

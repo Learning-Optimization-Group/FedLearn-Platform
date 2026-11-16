@@ -91,7 +91,7 @@ PyYAML>=6.0,<7.0
 # which made the FoT path uninstallable THERE — a second flwr-induced residual alongside SE-22
 # (cryptography). Both are now CLEARED: flwr-datasets was only ever used for one CIFAR-10 IID shard
 # (fl-runtime/recipes.py), which is now taken directly from `datasets` and is byte-identical to what
-# flwr produced (verified per-partition: research/benchmarks/verify_flwr_shard_equivalence.py).
+# flwr produced (verified per-partition; see the project's equivalence verification records).
 protobuf>=5.29.0,<6.0.0
 googleapis-common-protos==1.70.0
 msgpack>=1.0,<2.0

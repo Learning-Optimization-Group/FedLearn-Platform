@@ -40,7 +40,7 @@ on exactly the server's parameters — so a broken run cannot be reported as DeC
 Usage:
   PYTHONPATH=framework/src python framework/benchmarks/decomfl_vs_fedavg_dim.py \
       --hidden 0,20,200 --rounds 300 --seeds 0,1,2 --device cpu \
-      --out research/results/decomfl/dim_sweep.json
+      --out results/decomfl/dim_sweep.json
 """
 from __future__ import annotations
 

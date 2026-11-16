@@ -40,8 +40,8 @@ import sys
 # Before this, the arm was inferred from the recipe KEY: client.py held a module-global
 # `USE_DERIVED = False` set by `USE_DERIVED = (mt == "FROZEN_DEMO")`. That gave every recipe
 # exactly one hard-coded arm, so PNEUMONIA_CNN could not be run frozen and full as two arms of
-# one comparison through the product path — which is the comparison research/results/
-# frozen-backbone/ (177 result files) is built on. It also meant a result could not say which
+# one comparison through the product path — which is the comparison the project's frozen-backbone
+# experiment records are built on. It also meant a result could not say which
 # arm produced it, which is the bug class behind commit 21699bc ("frozen arm silently
 # mislabelled its backbone, risking cell overwrites").
 #
@@ -1053,9 +1053,8 @@ def load_ecg_server_test_data(num_clients, dataset_path=None, **kw):
 # floor unreachable (the SE-22 residual) — a competitor's package governing this platform's
 # security posture, for one function call. The shard is now taken directly and is
 # BYTE-IDENTICAL to what flwr produced, so every CIFAR-10 result recorded before the swap
-# stays comparable to everything after it. That equivalence is verified, not assumed:
-# research/benchmarks/verify_flwr_shard_equivalence.py, recorded under
-# research/results/reproducibility/flwr_shard_equivalence.json.
+# stays comparable to everything after it. That equivalence is verified, not assumed;
+# see the project's equivalence verification records.
 # ---------------------------------------------------------------------------
 CNN_NUM_PARTITIONS = 10       # == client.py NUM_PARTITIONS; fixed, NOT num_clients
 CNN_BATCH_SIZE = 32           # == client.py BATCH_SIZE

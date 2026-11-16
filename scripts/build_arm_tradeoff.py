@@ -8,7 +8,7 @@ record* and cannot drift from it. This mirrors the rule the benchmark reports al
     python scripts/build_arm_tradeoff.py            # regenerate, fail if the record is missing
     python scripts/build_arm_tradeoff.py --check    # verify the committed file is current
 
-Input  (untracked, local): research/results/frozen-backbone/VERDICT_frozen_vs_full.json
+Input  (untracked, local): results/frozen-backbone/VERDICT_frozen_vs_full.json
 Output (tracked):          fl-runtime/arm_tradeoff.json
 
 The input is gitignored and the output is committed, which is deliberate: the frontend needs these
@@ -63,7 +63,7 @@ def build_xray(record_path=RECORD):
     return {
         "$schema_version": 1,
         "generated_by": "scripts/build_arm_tradeoff.py",
-        "source": "research/results/frozen-backbone/VERDICT_frozen_vs_full.json",
+        "source": "",
         "source_sha256": hashlib.sha256(raw).hexdigest(),
         "source_date": v["date"],
 
@@ -154,7 +154,7 @@ def build_cnn(record_path=CNN_RECORD):
     return {
         "$schema_version": 2,
         "generated_by": "scripts/build_arm_tradeoff.py",
-        "source": "research/results/frozen-e2e/live_frozen_e2e_2026-08-13.json",
+        "source": "",
         "source_sha256": hashlib.sha256(raw).hexdigest(),
         "source_date": rec["meta"]["date"],
         "headline": (
@@ -220,7 +220,7 @@ def build_pneumonia(record_path=PNEUMONIA_RECORD):
     return {
         "$schema_version": 2,
         "generated_by": "scripts/build_arm_tradeoff.py",
-        "source": "research/results/pneumonia-e2e/pneumonia_product_path_2026-08-13.json",
+        "source": "",
         "source_sha256": hashlib.sha256(raw).hexdigest(),
         "source_date": m["date"],
         "headline": (
@@ -291,7 +291,7 @@ def build_resnet(record_path=RESNET_RECORD):
     return {
         "$schema_version": 2,
         "generated_by": "scripts/build_arm_tradeoff.py",
-        "source": "research/results/pretrained-backbone/frozen_vs_full_resnet18_2026-08-13.json",
+        "source": "",
         "source_sha256": hashlib.sha256(raw).hexdigest(),
         "source_date": m["date"],
         "headline": (

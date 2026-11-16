@@ -57,7 +57,7 @@ def _reference_shard(base, pid, num_shards=10, seed=42):
     Byte-identical to what flwr_datasets produced: FederatedDataset shuffles each split with
     seed 42 *before* partitioning, and IidPartitioner.load_partition(i) is exactly
     shard(num_shards=N, index=i, contiguous=True). Verified per-partition against the real
-    flwr by research/benchmarks/verify_flwr_shard_equivalence.py.
+    flwr (see the project's equivalence verification records).
     """
     return base.shuffle(seed=seed).shard(num_shards=num_shards, index=pid, contiguous=True)
 

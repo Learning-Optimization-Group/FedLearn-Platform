@@ -10,7 +10,7 @@ conformance claim the single-step goldens did not make.
 
 Tolerance-based by design: forward-backend + float32-vs-double g division + z
 arch-ULP drift are absorbed by the manifest's *_atol (never bit-exact cross-arch).
-See research/notes/2026-07-15-cross-language-conformance-contract.md.
+See the cross-language conformance contract documentation.
 """
 from __future__ import annotations
 

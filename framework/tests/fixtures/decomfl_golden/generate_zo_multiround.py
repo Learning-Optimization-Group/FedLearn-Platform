@@ -9,7 +9,7 @@ trajectory and assert a tolerance-bounded endpoint match.
 Why this exists: the single-step goldens prove every DeComFL *kernel* agrees across
 Python and C++ (perturbation, g-scalar, forward, safetensors). This freezes their
 *composition over rounds* — the one conformance claim the harness did not yet make.
-See research/notes/2026-07-15-cross-language-conformance-contract.md.
+See the cross-language conformance contract documentation.
 
 Contract mirrored from the running code (all citations verified 2026-07-15):
   * update (single client, N=1 so eta/(N*P) = eta/P):

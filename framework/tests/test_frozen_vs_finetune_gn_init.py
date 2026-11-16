@@ -2,7 +2,7 @@
 
 The 400-round matrix measured a BatchNorm->GroupNorm penalty of **0.0082 ± 0.0011 AUC**, sign-consistent
 6/6 across both shard sizes — the only effect in the whole experiment that is robust everywhere
-(`research/notes/frozen-backbone/2026-08-07-400round-shard10-norm-swap-verdict.md`). Its mechanism was
+(measured; see the project's experiment records). Its mechanism was
 never tested. This is the test.
 
 The hypothesis: the penalty is not GroupNorm, it is the *init*. ``convert_bn_to_gn`` keeps the pretrained

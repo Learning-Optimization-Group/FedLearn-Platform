@@ -67,7 +67,7 @@ from benchmarks.dp_on_head import (  # noqa: E402
 )
 
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "results")
-DEFAULT_DATA_DIR = os.environ.get("FEDLEARN_PNEUMONIA_DIR", "/Users/anurag/fedlearn-demo/chest_xray")
+DEFAULT_DATA_DIR = os.environ.get("FEDLEARN_PNEUMONIA_DIR", os.path.expanduser("~/fedlearn-demo/chest_xray"))
 _FEAT_DIMS = {"resnet18": 512, "resnet34": 512, "resnet50": 2048}
 _IMAGENET_MEAN = (0.485, 0.456, 0.406)
 _IMAGENET_STD = (0.229, 0.224, 0.225)

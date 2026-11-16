@@ -79,7 +79,7 @@ ClientFactory = Callable[[int, ClientRng], object]
 
 @dataclass
 class RoundRecord:
-    """One federated round, in the form it lands in ``research/results/``.
+    """One federated round, in the form it lands in experiment results.
 
     ``forced`` distinguishes a round that completed normally from one force-aggregated with a
     partial cohort. Silently merging the two would let a dropout study read as a clean run.

@@ -77,8 +77,8 @@ def test_flwr_stays_out_of_the_lockfiles():
     never does.
 
     flwr was only ever used for one CIFAR-10 IID shard. That shard now comes straight from
-    `datasets` and is byte-identical to what flwr produced, verified per-partition by
-    research/benchmarks/verify_flwr_shard_equivalence.py.
+    `datasets` and is byte-identical to what flwr produced, verified per-partition
+    (see the project's equivalence verification records).
     """
     root = _repo_root()
     offenders = []

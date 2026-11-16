@@ -14,7 +14,7 @@
 //
 // Tolerance-based (never bit-exact): forward-backend + float32-vs-double g + z arch-ULP
 // drift accumulate over N*K*P evals; absorbed by *Atol below (see the conformance note in
-// research/notes/2026-07-15-cross-language-conformance-contract.md).
+// project documentation).
 #include "fedlearn/EtZeroOrder.h"
 #include "fedlearn/ExecutorchModel.h"
 #include "fedlearn/RandnEngine.h"

@@ -1,6 +1,6 @@
 """DeComFL's learning rate is not dimension-transferable — the server should say so.
 
-Measured in `research/results/decomfl/`:
+Measured; see the project's DeComFL experiment records:
 
   * `mu_eta_dimension_scaling.json` — at d=103,002 the reference eta=0.01 diverges to loss ~1e19.
     Scaling eta by sqrt(d0/d) ALONE restores clean convergence (0.9815 AUC, replay check back to

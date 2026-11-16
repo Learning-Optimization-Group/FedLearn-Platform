@@ -6,7 +6,7 @@ package com.federated.fl_platform_api.model;
  * <ul>
  *   <li>{@code FULL}        — every parameter is trainable; the whole model rides the wire.</li>
  *   <li>{@code FROZEN_HEAD} — the backbone is frozen and only the head trains, so the wire carries
- *       the head alone. Dramatically cheaper per round; see {@code research/results/frozen-backbone/}.</li>
+ *       the head alone. Dramatically cheaper per round; measured (see the project's experiment records).</li>
  * </ul>
  *
  * <p>Before P1 this was not a stored property at all. The Python client inferred it from the recipe

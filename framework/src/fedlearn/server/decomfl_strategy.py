@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 # ||g_hat|| ~ sqrt(d/P) * ||grad f||, so it is systematically LONGER than the true gradient as d
 # grows — an eta tuned at one dimension overshoots at a larger one and the run diverges.
 #
-# Measured in research/results/decomfl/:
+# Measured; see the project's DeComFL experiment records:
 #   mu_eta_dimension_scaling.json — at d=103,002 the reference eta diverges to loss ~1e19;
 #       scaling eta by sqrt(d0/d) ALONE restores it (0.9815 AUC). Scaling mu alone does not.
 #   stability_ladder.json — at the reference eta: stable through d=20,602, diverged from
