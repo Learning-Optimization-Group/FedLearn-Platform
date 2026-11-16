@@ -65,7 +65,7 @@
 
 ## Task4 — Preparation, frozen runner and remote qualification
 
-**Files:** Create `docs/artifacts/capstone/repro/run_multihost_benchmark.py`, its tests, and `fl-runtime/effusion_server.py` as a research entry using the existing server/coordinator; no alternative server protocol. Private launch helpers live in the ignored study directory.
+**Files:** Create `run_multihost_benchmark.py`, its tests, and `fl-runtime/effusion_server.py` as a research entry using the existing server/coordinator; no alternative server protocol. Private launch helpers live in the ignored study directory.
 
 **Interfaces:** Runner modes `preflight`, `execute`, `analyze`; fresh outputs only. Exact source/runtime hashes, logical/physical assignments, settings and all declared outcomes bound in private/public manifests. Only Mac loads the verified canonical train/selection bundle. Remote host packs contain assigned training rows/labels and immutable projection metadata only.
 
@@ -78,7 +78,7 @@
 
 ## Task5 — Execution, analysis, report and review
 
-**Files:** New aggregate result/verification notes under `docs/artifacts/capstone/`; contribution-first reportv4 and reading copies; no changes to old measurements.
+**Files:** New aggregate result/verification notes under capstone artifacts; contribution-first reportv4 and reading copies; no changes to old measurements.
 
 - [x] Execute all52 declared nonprivate cells with owned process handles, progress journals and immutable source. Record all outcomes.
 - [x] Independently rescore all returned heads on selection, compare transport/placement/reference heads and execution cohorts, and report measured numerical differences without retroactive tolerance changes.

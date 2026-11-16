@@ -16,7 +16,7 @@ never reruns or selects models from performance.
 **Tech stack:** Python3.12, existing PyTorch/NumPy/simulation/codec/pytest stack;
 no additional training infrastructure or dependency installation.
 
-**Spec:** [Frozen study protocol](../../artifacts/capstone/nih-phase2-study-v1-protocol.md).
+**Spec:** Frozen study protocol.
 
 ## Global constraints
 

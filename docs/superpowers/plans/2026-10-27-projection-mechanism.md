@@ -26,11 +26,11 @@
 - A changed source/manifest or reused output must be refused before fitting; tamper tests must cover both.
 - Attack search sees only coalition inputs and previous releases; test budget counters and fixed-state prefixes, not trajectory monotonicity.
 
-All test commands use `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONDONTWRITEBYTECODE=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONPATH=framework/src:docs/artifacts/capstone/repro .temp/capstone-clean-reproduction-20261026/mac-env/bin/python -m pytest -q -o addopts=''` followed by named files.
+All test commands use `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONDONTWRITEBYTECODE=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONPATH=framework/src:repro .temp/capstone-clean-reproduction-20261026/mac-env/bin/python -m pytest -q -o addopts=''` followed by named files.
 
 ### Task 1: Resolved design and public generated workload
 
-**Files:** Create `docs/artifacts/capstone/repro/projection_study_design.py`, `projection_study_workload.py`, `test_projection_study_workload.py`.
+**Files:** Create `projection_study_design.py`, `projection_study_workload.py`, `test_projection_study_workload.py`.
 
 **Interfaces:** `Cell` frozen dataclass; `cells()->list[Cell]`; `qualification_cells()->list[Cell]`; `seed_for(seed:int,*parts:object)->int`; `dataset(seed=20261027)->dict[str,Tensor]`; `basis(cell:Cell)->Tensor`; `features(data,cell)->dict`; `partitions(seed)->list[Tensor]`; `coalition(seed)->tuple[int,...]`.
 
@@ -64,7 +64,7 @@ All test commands use `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONDONTWRITEBYTECODE=
 
 ### Task 4: Measurement, independent analysis and report
 
-**Files:** Create `analyze_projection_study.py`, `test_analyze_projection_study.py`, `plot_projection_study.py`; public aggregate/verification/report files under `docs/artifacts/capstone/`.
+**Files:** Create `analyze_projection_study.py`, `test_analyze_projection_study.py`, `plot_projection_study.py`; public aggregate/verification/report files under capstone artifacts.
 
 **Interfaces:** `analyze(run_dir)->dict` reconciles exact manifest, raw journals, saved arrays, metrics and separate seed/basis summaries; plot CLI consumes only public aggregate JSON.
 

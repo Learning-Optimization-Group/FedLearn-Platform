@@ -4,7 +4,7 @@ Date: 19 October 2026. Status: selected under the continuous capstone mandate, b
 
 ## Reason for the extension
 
-The [complete image audit](../../artifacts/capstone/nih-data-audit-2026-10-19.md) found three exact RGB groups crossing independent splits, eight cross-patient groups and six contradictory-label groups. These are overlapping categories. The original manifests remain valid metadata evidence but fail the image-content gate. Do not weaken that gate or overwrite the original cohort to fit the intended schedule.
+The complete image audit found three exact RGB groups crossing independent splits, eight cross-patient groups and six contradictory-label groups. These are overlapping categories. The original manifests remain valid metadata evidence but fail the image-content gate. Do not weaken that gate or overwrite the original cohort to fit the intended schedule.
 
 ## Choice and tradeoff
 

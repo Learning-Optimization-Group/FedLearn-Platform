@@ -12,7 +12,7 @@ record/proof helpers; preserve earlier pilots and generic engine behavior.
 
 **Tech stack:** Python 3.12, PyTorch, pytest, existing simulation engine.
 
-**Spec:** [Prospective validation protocol](../../artifacts/capstone/nih-mechanism-qualification-v1-protocol.md).
+**Spec:** Prospective validation protocol.
 
 ## Global constraints
 

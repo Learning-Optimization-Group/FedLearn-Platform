@@ -4,7 +4,7 @@
 
 ## Purpose and contribution boundary
 
-Explain which parts of the observed projection result survive controlled checks of predictive signal, noise geometry, projection choice and attacker optimization. The existing NIH findings remain frozen historical evidence. This extension uses generated data only and cannot establish external medical validity. No new algorithm, first discovery or state-of-the-art result is promised. The [literature gate](../../artifacts/capstone/projection-literature-gate-2026-10-27.md) identifies substantial prior overlap.
+Explain which parts of the observed projection result survive controlled checks of predictive signal, noise geometry, projection choice and attacker optimization. The existing NIH findings remain frozen historical evidence. This extension uses generated data only and cannot establish external medical validity. No new algorithm, first discovery or state-of-the-art result is promised. The literature gate identifies substantial prior overlap.
 
 The central questions are: (1) can the same prediction function have different total parameter-noise energy, (2) where does loss of informative signal outweigh any private-utility advantage, (3) how variable is a fixed-width result across public projection choices, and (4) does its attacked ranking change when the permitted attacker gets more optimization effort?
 
@@ -76,7 +76,7 @@ No discovery p-values or clinical technical margin. Four training seeds and five
 
 ## Software shape, qualification and evidence
 
-Proposed focused files under `docs/artifacts/capstone/repro/`:
+Proposed focused files under `repro/`:
 
 - `projection_study_design.py`: typed resolved cells, separate RNG namespaces, exact counts and budget validation.
 - `projection_study_workload.py`: generated splits/teacher, controlled/random/padded transforms and client packs.

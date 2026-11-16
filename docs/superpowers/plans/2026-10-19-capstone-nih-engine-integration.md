@@ -8,8 +8,7 @@ All11pilot cells/102rounds and
 the separate three-replay score diagnostic independently verified. The pilot
 exposed poor calibration and a real probability-saturation AUROC defect. Scoring
 is corrected prospectively; optimization remains a study-readiness blocker,
-not a reason to discard or edit v1 results. See the
-[report](../../artifacts/capstone/nih-validation-pilot-v1-report.md). The preceding
+not a reason to discard or edit v1 results. See the report. The preceding
 frozen-feature slice passed complete qualification and review.
 
 **Goal:** Run the existing simulation engine on the verified NIH cache while

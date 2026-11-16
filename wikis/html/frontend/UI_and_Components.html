@@ -444,9 +444,9 @@ choice at all: the modal renders a read-only "FedLoRA (automatic for LoRA fine-t
 deliberate at every hop:</p>
 <div class="codehilite"><pre><span></span><code>results/…/&lt;run&gt;.json                   the raw measured record
    └─ fl-runtime/arm_tradeoff.json     keyed BY RECIPE under &quot;by_recipe&quot; (records source + source_sha256 + date)
-             └─ recipes.py describe()       attaches arm_tradeoff only when len(supported_arms) &gt; 1
-                  └─ GET /api/model-recipes (ModelRecipeDto.ArmTradeoff)
-                       └─ CreateProjectModal  headline · per-arm summary · measuredOn · caveats
+        └─ recipes.py describe()       attaches arm_tradeoff only when len(supported_arms) &gt; 1
+             └─ GET /api/model-recipes (ModelRecipeDto.ArmTradeoff)
+                  └─ CreateProjectModal  headline · per-arm summary · measuredOn · caveats
 </code></pre></div>
 
 <p><code>arm_tradeoff.json</code> currently carries entries for <code>PNEUMONIA_CNN</code>, <code>CNN</code> and <code>CIFAR_RESNET18</code>. The

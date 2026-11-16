@@ -202,7 +202,7 @@ form→resolve→start→actualprogress→terminal/reopen/export and 2–4run co
 
 **Files:** create `~/code/fedlearn/tests/simulation-lab.spec.ts`; update its
 README for configured NIH source/pin; curated screenshots/demo instructions under
-`docs/artifacts/capstone/`, integration instructions in current capstone plan/TODO.
+capstone artifacts, integration instructions in current capstone plan/TODO.
 
 **Consumes:** actual Task1–3 stack and prepared pretrained NIH cache, retained
 independently checked study aggregates. No intercepted canned API/training results.

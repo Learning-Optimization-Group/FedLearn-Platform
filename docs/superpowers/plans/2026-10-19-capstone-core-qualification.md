@@ -11,8 +11,8 @@ The generic engine, historical runners and attack algorithms remain unchanged.
 
 **Tech stack:** Python 3.12, existing simulation config/engine and pytest.
 
-**Specification:** [Attack-information boundary](../../artifacts/capstone/attack-knowledge-privacy-boundary-audit.md)
-and [participation schema](../../artifacts/capstone/participation-accounting-contract.md).
+**Specification:** Attack-information boundary
+and participation schema.
 
 ## Constraints and decisions
 

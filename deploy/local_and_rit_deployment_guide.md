@@ -5,7 +5,7 @@
 > dropped (`65048b6`) and `fl-runtime/recipes.py` reproduces the CIFAR-10 shard natively. The
 > local/VPN topology and the client launch flow still apply.
 
-> Every step to go from zero to a fully distributed FL training session, including deploying clients to RIT Lab machines (e.g., glados).
+> Every step to go from zero to a fully distributed FL training session, including deploying clients to RIT Lab machines (e.g., <lab-host>).
 
 ---
 
@@ -14,7 +14,7 @@
 **Why this setup is optimal:**
 
 * **MacBook (Central Server):** Hosts the Spring Boot API, PostgreSQL database, and React Dashboard. The server needs very little compute power—it only aggregates incoming weights. It connects to the RIT VPN to be perfectly reachable by the lab clients.
-* **RIT Lab Machines (Workers/Clients):** Machines like `glados`, `weasley`, and `granger` will execute the actual machine learning tasks. They do the computational heavy-lifting utilizing their powerful hardware.
+* **RIT Lab Machines (Workers/Clients):** Lab machines (`<lab-host>`) will execute the actual machine learning tasks. They do the computational heavy-lifting utilizing their powerful hardware.
 
 ---
 
@@ -99,20 +99,20 @@ cp -r framework/src/fedlearn client-docker/
 
 ---
 
-## 6. Client Setup on Glados (RIT Lab Machine)
+## 6. Client Setup on <lab-host> (RIT Lab Machine)
 
 Because you do not have `root` access on RIT servers, you cannot use Docker. Fortunately, the `client-docker/` codebase works perfectly as standard Python scripts!
 
 ### 6.1 Transfer the Code
 From your Mac terminal, securely copy the framework to the RIT machine:
 ```bash
-scp -r client-docker/ al5150@glados.cs.rit.edu:~/client-docker/
+scp -r client-docker/ <your-username>@<lab-host>:~/client-docker/
 ```
 
 ### 6.2 Setup the Python Environment (Bypass Docker)
 Log into your SSH machine and navigate to the folder:
 ```bash
-ssh al5150@glados.cs.rit.edu
+ssh <your-username>@<lab-host>
 cd ~/client-docker
 ```
 
@@ -130,7 +130,7 @@ pip install -r requirements.txt
 
 ### 6.3 Create & Start a Project (React Dashboard)
 1. Open `http://localhost:5173` in browser
-2. Sign up / Log in (`al5150`)
+2. Sign up / Log in (`<your-username>`)
 3. Create a new project:
    - Project Name: `Demo2`
    - Model Architecture: `CNN`
@@ -147,7 +147,7 @@ pip install -r requirements.txt
 ### 6.4 Run the Federated Client
 Ensure your MacBook is connected to the **RIT VPN(vpn.rit.edu)** to get an internal address (e.g., `129.21.x.x` or `10.117.x.x`).
 
-Start a Federated Learning project from your React Dashboard on your Mac. When the API spawns the Python aggregation server, run this command on `glados` to assign it to the network:
+Start a Federated Learning project from your React Dashboard on your Mac. When the API spawns the Python aggregation server, run this command on `<lab-host>` to assign it to the network:
 
 ```bash
 cd scripts
@@ -173,8 +173,8 @@ PYTHONPATH=.. python3 client.py \
 | `model_path = null` in database | `run_init_model.sh` crashed on `deactivate` | Comment out `deactivate` |
 | `protobuf gencode 6.x runtime 5.x` | System Python had old protobuf | `pip3 install protobuf==6.32.1` |
 | `No module 'flwr_datasets'` | Not installed on Mac system Python | `pip3 install flwr-datasets` |
-| `No module 'fedlearn'` on glados | Python couldn't find parent package | Prefix with `PYTHONPATH=..` |
-| `No module 'torchvision'` on glados | PyTorch commented out in requirements.txt | `pip install torch torchvision torchaudio` |
+| `No module 'fedlearn'` on `<lab-host>` | Python couldn't find parent package | Prefix with `PYTHONPATH=..` |
+| `No module 'torchvision'` on `<lab-host>` | PyTorch commented out in requirements.txt | `pip install torch torchvision torchaudio` |
 | VPN IP refused connections | RIT VPN blocks inbound traffic | Use Wi-Fi IP (`10.117.x.x`) instead |
 | `.bat` scripts on Mac | Windows scripts configured by default | Switch to `.sh` in `application.properties` |
 | AWS venv path on Mac | Scripts hardcoded to `/home/ec2-user/...` | Comment out `source` and `deactivate` |

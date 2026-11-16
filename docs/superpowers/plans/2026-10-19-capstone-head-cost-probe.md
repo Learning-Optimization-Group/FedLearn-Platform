@@ -13,7 +13,7 @@ checks bind recipes, proofs, model size and resource readiness.
 
 **Tech stack:** Python 3.12, subprocesses, existing simulation engine, pytest.
 
-**Specification:** [Committed prospective protocol](../../artifacts/capstone/nih-head-cost-probe-protocol.md).
+**Specification:** Committed prospective protocol.
 
 ## Constraints
 
@@ -63,7 +63,7 @@ exits2 if any cell is not qualified.
 ### Task 2: Real cost evidence and practical budget
 
 **Files:** ignored private `head-cost-probe-v1/` run/config/log/proof records;
-new report and cost figure under `docs/artifacts/capstone/`; update current plan
+new report and cost figure under capstone artifacts; update current plan
 and final-report claim register.
 
 **Consumes:** committed Task1 CLI and the already qualified cache.
