@@ -663,3 +663,51 @@ class TestTimingsCensorship:
         st = s.last_round_stats
         assert st.get("timings") is None, \
             f"Under DP, empty cohort timings must be None, got: {st.get('timings')}"
+
+
+class TestLedgerHardening:
+    """Security-review follow-ups: a refused rule's message and a zero noise scale under DP."""
+
+    def test_rule_refusal_message_carries_no_count_under_dp(self):
+        """Robust-rule preconditions interpolate the reporting count into their ValueError; under DP
+        with the strict ledger that text must not reach the released message."""
+        s = ComposedStrategy(
+            _global(), rule="mean", clip_norm=0.5,
+            central_noise_multiplier=1.0, noise_seed=1, strict_dp_ledger=True,
+        )
+
+        def failing_reduce(*args, **kwargs):
+            raise ValueError("Krum requires n >= 2f + 3 for its guarantee; got n=7, f=3 (needs 9).")
+
+        s._reduce_deltas = failing_reduce
+        assert s.aggregate_fit(0, _results(1, n=7)) is None
+        st = s.last_round_stats
+        assert st["failed"] is True
+        assert not any(ch.isdigit() for ch in st["message"].split(":", 1)[1]), st["message"]
+
+    def test_rule_refusal_message_keeps_detail_without_dp(self):
+        s = ComposedStrategy(_global(), rule="mean", clip_norm=0.5)
+
+        def failing_reduce(*args, **kwargs):
+            raise ValueError("got n=7")
+
+        s._reduce_deltas = failing_reduce
+        assert s.aggregate_fit(0, _results(1, n=7)) is None
+        assert "got n=7" in s.last_round_stats["message"]
+
+    def test_zero_noise_scale_under_dp_fails_closed(self):
+        """If z > 0 but the noise scale evaluates to zero, the round must not release an un-noised
+        aggregate or raw statistics."""
+        s = ComposedStrategy(
+            _global(), rule="mean", clip_norm=0.5,
+            central_noise_multiplier=1.0, noise_seed=1, strict_dp_ledger=True,
+        )
+        s._sensitivity = lambda n: 0.0
+        assert s.aggregate_fit(0, _results(1, n=4)) is None
+        st = s.last_round_stats
+        assert st["failed"] is True
+        assert not any(ch.isdigit() for ch in st["message"].split(":", 1)[1]), st["message"]
+        assert st["aggregated"] is None and st["dropped"] == [] and st["filtered"] == []
+        assert st["timings"] is None
+        for key in ("aggregate_delta_norm", "clip_rate", "mean_shrink", "orig_norms", "kept_share"):
+            assert st.get(key) is None, key

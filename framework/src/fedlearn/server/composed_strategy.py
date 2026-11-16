@@ -394,14 +394,24 @@ class ComposedStrategy(Strategy):
                 reduced, kept = self._reduce_deltas(deltas, [n for _, _, n in ok], keys)
             stats.update(self._reduction_diagnostics(deltas, keys))
         except ValueError as exc:  # the rule's own precondition, e.g. Krum's n >= 2f + 3
-            stats.update(failed=True, message=f"round {server_round}: rule {self.rule!r} refused: {exc}")
             if apply_noise and self.z > 0.0 and self.strict_dp_ledger:
-                stats.update(aggregated=None, dropped=[], filtered=[], timings=None)
+                # Rule preconditions interpolate the reporting count into their message; withhold it.
+                stats.update(failed=True, message=f"round {server_round}: rule {self.rule!r} refused: precondition not met",
+                             aggregated=None, dropped=[], filtered=[], timings=None)
+            else:
+                stats.update(failed=True, message=f"round {server_round}: rule {self.rule!r} refused: {exc}")
             return None, stats
         stats["timings"]["rule"] = time.perf_counter() - t
         raw_reduced_norm = math.sqrt(sum(float((reduced[k] ** 2).sum()) for k in keys))
         sens = self._sensitivity(len(ok))
         std = self.z * sens if (sens is not None and self.z > 0) else 0.0
+        if apply_noise and self.z > 0.0 and not std > 0.0:
+            # DP was requested but no positive noise scale could be sized: fail closed rather than
+            # release an un-noised aggregate.
+            stats.update(failed=True, message=f"round {server_round}: central DP noise scale is not positive; round refused")
+            if self.strict_dp_ledger:
+                stats.update(aggregated=None, dropped=[], filtered=[], timings=None)
+            return None, stats
         t = time.perf_counter()
         d_ambient = sum(reduced[k].numel() for k in keys)
         if self.subspace_dim is not None and self.subspace_dim < d_ambient:
